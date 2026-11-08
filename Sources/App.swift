@@ -15,11 +15,11 @@ struct CoveApp: App {
         Self.applyIcon()
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
-    /// Dock icon for the chosen theme, shown exactly as drawn (newer macOS redraws .icns icons in its own
-    /// style). Loaded from the SwiftPM resource bundle; Bundle.module crashes if that bundle is missing.
-    /// The .icns from Info.plist still serves Finder.
+    /// Dock icon, shown exactly as drawn (newer macOS redraws .icns icons in its own style). The same icon
+    /// for both themes (Classic used to switch to AppIconClassic). Loaded from the SwiftPM resource bundle;
+    /// Bundle.module crashes if that bundle is missing. The .icns from Info.plist still serves Finder.
     static func applyIcon() {
-        let name = (UserDefaults.standard.string(forKey: "theme") ?? "apple") == "apple" ? "AppIcon" : "AppIconClassic"
+        let name = "AppIcon"
         if let res = Bundle.main.url(forResource: "Cove_Cove", withExtension: "bundle"),
            let url = Bundle(url: res)?.url(forResource: name, withExtension: "png"),
            let img = NSImage(contentsOf: url) {

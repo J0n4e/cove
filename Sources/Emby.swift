@@ -1,4 +1,8 @@
 import Foundation
+import os
+
+/// Problems that are otherwise silent (failed server calls, unreadable saved data). See them in Console.app, filter "eu.jonae.cove".
+let coveLog = Logger(subsystem: "eu.jonae.cove", category: "emby")
 
 struct Item: Identifiable, Decodable, Hashable {
     let Id: String
@@ -185,7 +189,42 @@ struct LibPref: Identifiable, Codable, Hashable {
     var kind: String?
 }
 
+/// Where Favorites and Now Playing sit in the sidebar / top bar, set by moving them in Settings → Libraries.
+/// Saved as one comma-separated order of library ids and the two section ids. Sections above the first
+/// library stay in their usual place after Home; the others follow the library just above them.
+enum NavOrder {
+    static let key = "navOrder"
+    static let favorites = "__favorites", nowPlaying = "__nowplaying"
+    static let sections = [favorites, nowPlaying]
+
+    /// The full order for these libraries (in their own order): sections keep the slot they were saved in.
+    static func rows(_ saved: String, libIds: [String]) -> [String] {
+        let list = saved.split(separator: ",").map(String.init)
+        var top: [String] = [], after: [String: [String]] = [:], lastLib: String?
+        for id in list {
+            if sections.contains(id) {
+                if let l = lastLib, libIds.contains(l) { after[l, default: []].append(id) } else { top.append(id) }
+            } else if libIds.contains(id) { lastLib = id }
+        }
+        // Sections never saved (first run) go to their usual place
+        for s in sections where !list.contains(s) { top.append(s) }
+        var r = top
+        for l in libIds { r.append(l); r += after[l] ?? [] }
+        return r
+    }
+
+    /// Sections in their usual place (above every library).
+    static func top(_ rows: [String]) -> [String] { Array(rows.prefix { sections.contains($0) }) }
+
+    /// Sections placed right after this library.
+    static func after(_ lib: String, _ rows: [String]) -> [String] {
+        guard let i = rows.firstIndex(of: lib) else { return [] }
+        return Array(rows[(i + 1)...].prefix { sections.contains($0) })
+    }
+}
+
 /// A server the user has signed in to; the token is kept so switching back needs no password.
+
 struct SavedServer: Codable, Identifiable, Hashable {
     var url: String
     var name: String
@@ -372,7 +411,11 @@ final class Emby: ObservableObject {
         server = d.string(forKey: "server") ?? ""
         userId = d.string(forKey: "uid") ?? ""
         let legacyToken = d.string(forKey: "token") ?? ""      // versions before 1.15 kept it in preferences
-        var list = (try? JSONDecoder().decode([SavedServer].self, from: d.data(forKey: "servers") ?? Data())) ?? []
+        var list: [SavedServer] = []
+        if let data = d.data(forKey: "servers") {
+            do { list = try JSONDecoder().decode([SavedServer].self, from: data) }
+            catch { coveLog.error("Saved servers could not be read: \(String(describing: error), privacy: .public)") }
+        }
         // Remember the server from before saved servers existed.
         if list.isEmpty, !server.isEmpty, !legacyToken.isEmpty {
             list = [SavedServer(url: server, name: server, user: "", token: legacyToken, userId: userId)]
@@ -452,8 +495,16 @@ final class Emby: ObservableObject {
         guard let u = c.url else { throw URLError(.badURL) }
         var r = URLRequest(url: u)
         authorize(&r)
-        let (data, _) = try await Net.session.data(for: r)
-        let v = try JSONDecoder().decode(T.self, from: data)
+        let v: T
+        do {
+            let (data, _) = try await Net.session.data(for: r)
+            v = try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            if !(error is CancellationError) && (error as? URLError)?.code != .cancelled {
+                coveLog.error("GET \(path, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            }
+            throw error
+        }
         if let l = v as? ItemList { Self.remember(l.Items) }
         else if let l = v as? [Item] { Self.remember(l) }
         else if let i = v as? Item { Self.remember([i]) }
@@ -553,7 +604,11 @@ final class Emby: ObservableObject {
 
     func loadLibs() async {
         guard let v: ItemList = try? await get("/Users/\(userId)/Views") else { return }
-        let saved = (try? JSONDecoder().decode([LibPref].self, from: d.data(forKey: "libs-\(userId)") ?? Data())) ?? []
+        var saved: [LibPref] = []
+        if let data = d.data(forKey: "libs-\(userId)") {
+            do { saved = try JSONDecoder().decode([LibPref].self, from: data) }
+            catch { coveLog.error("Saved library order could not be read: \(String(describing: error), privacy: .public)") }
+        }
         var out = saved.filter { s in v.Items.contains { $0.Id == s.id } }
         for l in v.Items where !out.contains(where: { $0.id == l.Id }) {
             out.append(LibPref(id: l.Id, name: l.Name, title: l.Name, kind: l.CollectionType))
@@ -800,6 +855,18 @@ final class Emby: ObservableObject {
 
     func full(_ id: String) async -> Full? {
         try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,People,Genres,Studios,MediaSources,MediaStreams,Taglines,DateCreated,ExternalUrls,RemoteTrailers,Chapters"])
+    }
+
+    /// Collections (box sets) this movie or show belongs to, for "Included In". Jellyfin has its own call for
+    /// it (newer servers; older ones answer with an error, so nothing shows) and ignores Emby's ListItemIds,
+    /// which would return every collection. A long answer means the filter wasn't applied, so show nothing.
+    func collections(containing id: String) async -> [Item] {
+        let r: ItemList? = isJellyfin
+            ? try? await get("/Items/\(id)/Collections", ["userId": userId])
+            : try? await get("/Users/\(userId)/Items", ["Recursive": "true", "IncludeItemTypes": "BoxSet",
+                                                        "ListItemIds": id, "Fields": "Overview"])
+        let list = r?.Items ?? []
+        return list.count > 10 ? [] : list
     }
 
     func similar(_ id: String) async -> [Item] {
