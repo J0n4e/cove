@@ -798,7 +798,8 @@ final class Emby: ObservableObject {
     /// Sessions stopped recently, whose transcode may still (or again) be running on the server.
     private var recentStopped: [PlaySession] = []
 
-    func reportStopped(_ s: PlaySession, _ sec: Double, duration: Double) async {
+    /// `quick`: the app is quitting, so skip the delayed second and third kill (they would never run).
+    func reportStopped(_ s: PlaySession, _ sec: Double, duration: Double, quick: Bool = false) async {
         let finished = duration > 0 && sec / duration > 0.9
         positions[s.itemId] = finished ? 0 : sec
         if finished { played[s.itemId] = true }
@@ -806,6 +807,7 @@ final class Emby: ObservableObject {
         if recentStopped.count > 6 { recentStopped.removeFirst() }
         await postJSON("/Sessions/Playing/Stopped", progressBody(s, sec))
         await stopEncoding(s)
+        if quick { return }
         // A segment request that was still in flight when playback stopped can make the server start a NEW
         // transcode right after we killed the old one. That leftover job has a shifted timeline and gets
         // reused the next time the same title is played, which puts the subtitles out of sync (this only
