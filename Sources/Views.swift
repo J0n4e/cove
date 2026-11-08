@@ -2143,6 +2143,7 @@ struct DetailView: View {
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
+    @AppStorage("similarLayout") private var similarLayout = "row"   // "row", "grid" or "list"; also in Settings → Libraries
     @State private var srcIdx = 0
     @State private var audioIdx = -1
     @State private var subIdx = -1
@@ -2782,10 +2783,36 @@ struct DetailView: View {
     @ViewBuilder var similarSection: some View {
         if !similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("More Like This").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
-                ArrowScrollRow(ids: Array(similar.indices), itemWidth: 170, spacing: 14, inset: 52) { PosterCard(item: similar[$0]) }
+                HStack {
+                    Text("More Like This").font(.system(size: 22, weight: .bold))
+                    Spacer()
+                    similarLayoutToggle
+                }.padding(.horizontal, 52)
+                if similarLayout == "grid" {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], alignment: .leading, spacing: 18) {
+                        ForEach(similar) { PosterCard(item: $0) }
+                    }.padding(.horizontal, 52)
+                } else if similarLayout == "list" {
+                    LazyVStack(spacing: 6) { ForEach(similar) { ListRow(item: $0) } }.padding(.horizontal, 52)
+                } else {
+                    ArrowScrollRow(ids: Array(similar.indices), itemWidth: 170, spacing: 14, inset: 52) { PosterCard(item: similar[$0]) }
+                }
             }
         }
+    }
+
+    var similarLayoutToggle: some View {
+        HStack(spacing: 0) {
+            ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
+                Button { similarLayout = m.0 } label: {
+                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                        .frame(width: 36, height: 28)
+                        .background(Capsule().fill(similarLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
+                        .foregroundColor(similarLayout == m.0 ? .white : .secondary)
+                        .contentShape(Capsule())
+                }.buttonStyle(.plain).help(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+            }
+        }.padding(4).frame(height: 36).glassCapsule()
     }
 }
 

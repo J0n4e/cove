@@ -1956,6 +1956,7 @@ struct ClassicDetailView: View {
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
+    @AppStorage("similarLayout") private var similarLayout = "row"   // "row", "grid" or "list"; also in Settings → Libraries
     @State private var srcIdx = 0
     @State private var audioIdx = -1
     @State private var subIdx = -1
@@ -2497,10 +2498,37 @@ struct ClassicDetailView: View {
     @ViewBuilder var similarSection: some View {
         if !similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("More Like This").font(.title3.bold()).padding(.horizontal, 40)
-                ClassicArrowScrollRow(ids: Array(similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: similar[$0]) }
+                HStack {
+                    Text("More Like This").font(.title3.bold())
+                    Spacer()
+                    similarLayoutToggle
+                }.padding(.horizontal, 40)
+                if similarLayout == "grid" {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], alignment: .leading, spacing: 18) {
+                        ForEach(similar) { ClassicPosterCard(item: $0) }
+                    }.padding(.horizontal, 40)
+                } else if similarLayout == "list" {
+                    LazyVStack(spacing: 6) { ForEach(similar) { ClassicListRow(item: $0) } }.padding(.horizontal, 40)
+                } else {
+                    ClassicArrowScrollRow(ids: Array(similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: similar[$0]) }
+                }
             }
         }
+    }
+
+    var similarLayoutToggle: some View {
+        HStack(spacing: 0) {
+            ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
+                Button { similarLayout = m.0 } label: {
+                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                        .frame(width: 30, height: 26)
+                        .background(similarLayout == m.0 ? Color.white.opacity(0.28) : Color.clear)
+                        .foregroundColor(similarLayout == m.0 ? .white : .secondary)
+                        .clipShape(Capsule())
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain).help(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+            }
+        }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
     }
 }
 

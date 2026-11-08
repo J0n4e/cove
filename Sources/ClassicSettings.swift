@@ -308,6 +308,7 @@ struct ClassicLibraryDefaults {
 struct ClassicLibrariesSettings: View {
     @EnvironmentObject var emby: Emby
     @AppStorage("favoritesLayout") private var favLayout = "row"
+    @AppStorage("similarLayout") private var similarLayout = "row"
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("defaultLibraryLayout") private var defaultLayout = "grid"
     @AppStorage("posterShowTitle") private var showTitle = true
@@ -330,6 +331,10 @@ struct ClassicLibrariesSettings: View {
     var body: some View {
         ClassicSettingsGroup(title: "Default view for new libraries") {
             ClassicSettingRow(label: "Layout") { classicSegmented($defaultLayout, [("grid", "Grid"), ("list", "List")]) }
+        }
+        ClassicSettingsGroup(title: "More Like This") {
+            ClassicSettingRow(label: "View") { classicSegmented($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            Text("At the bottom of a movie or show page. You can also switch it there.").font(.caption).foregroundColor(.secondary)
         }
         ClassicSettingsGroup(title: "Poster labels") {
             Toggle("Show title under posters", isOn: $showTitle)
