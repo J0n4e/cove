@@ -523,7 +523,7 @@ struct TopNavButtons: View {
     @AppStorage(FavoritesPlace.key) private var favPos = 0
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
-    @AppStorage("topBarIcons") private var showIcons = true   // Settings → General → Navigation
+    @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
     func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
@@ -532,8 +532,9 @@ struct TopNavButtons: View {
         } label: {
             // Small icon before each name, as in the sidebar
             HStack(spacing: 6) {
-                if showIcons { Image(systemName: icon).font(.system(size: 12)) }
-                Text(badge > 0 ? "\(title) \(badge)" : title)
+                if labels != "names" { Image(systemName: icon).font(.system(size: labels == "icons" ? 14 : 12)) }
+                if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
+                else if badge > 0 { Text("\(badge)") }
             }
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
@@ -542,6 +543,7 @@ struct TopNavButtons: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .help(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
     func icon(_ lib: LibPref) -> String {
