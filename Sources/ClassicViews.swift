@@ -241,6 +241,7 @@ struct ClassicHomeView: View {
     @State private var titleBarH: CGFloat = 0
     @State private var reloadToken = 0
     @AppStorage("navStyle") private var navStyle = "sidebar"   // Settings → General → Appearance: "sidebar" or "topbar"
+    @AppStorage(FavoritesPlace.key) private var favPos = 0
 
     func icon(_ lib: LibPref) -> String {
         switch lib.kind {
@@ -271,15 +272,23 @@ struct ClassicHomeView: View {
         NavigationSplitView {
             List(selection: selB) {
                 Label("Home", systemImage: "house.fill").foregroundStyle(.tint).modifier(ClassicRootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
-                Label("Favorites", systemImage: "heart.fill").foregroundStyle(.tint).modifier(ClassicRootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
+                let favAfter = FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count)
+                if favAfter == nil {
+                    Label("Favorites", systemImage: "heart.fill").foregroundStyle(.tint).modifier(ClassicRootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
+                }
                 Label("Now Playing", systemImage: "dot.radiowaves.left.and.right")
                     .foregroundStyle(.tint)
                     .modifier(ClassicRootTap(id: "nowplaying", sel: sel, action: popToRoot))
                     .badge(activeCount)
                     .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
                 Section("My Media") {
-                    ForEach(emby.libs.filter { $0.visible }) { lib in
-                        Label(lib.title, systemImage: icon(lib)).foregroundStyle(.tint).modifier(ClassicRootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
+                    ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
+                        if lib.visible {
+                            Label(lib.title, systemImage: icon(lib)).foregroundStyle(.tint).modifier(ClassicRootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
+                        }
+                        if favAfter == i {
+                            Label("Favorites", systemImage: "heart.fill").foregroundStyle(.tint).modifier(ClassicRootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
+                        }
                     }
                 }
             }
@@ -451,6 +460,7 @@ struct ClassicTopNavBar: View {
 
 struct ClassicTopNavButtons: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage(FavoritesPlace.key) private var favPos = 0
     @ObservedObject private var nav = ClassicNavState.shared
     func item(_ title: String, _ id: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
@@ -471,9 +481,13 @@ struct ClassicTopNavButtons: View {
     var body: some View {
         HStack(spacing: 4) {
             item("Home", "home")
-            item("Favorites", "favorites")
+            let favAfter = FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count)
+            if favAfter == nil { item("Favorites", "favorites") }
             item("Now Playing", "nowplaying", badge: nav.activeCount)
-            ForEach(emby.libs.filter { $0.visible }) { lib in item(lib.title, lib.id) }
+            ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
+                if lib.visible { item(lib.title, lib.id) }
+                if favAfter == i { item("Favorites", "favorites") }
+            }
         }
         .padding(4)
         .background(Capsule().fill(Color.white.opacity(0.1)))

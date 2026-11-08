@@ -190,6 +190,14 @@ struct LibPref: Identifiable, Codable, Hashable {
 }
 
 /// A server the user has signed in to; the token is kept so switching back needs no password.
+/// Where Favorites sits in the sidebar / top bar: 0 = its usual place after Home, n = after the n-th library
+/// (counting hidden ones too). Set by dragging it in Settings → Libraries.
+enum FavoritesPlace {
+    static let key = "favoritesPosition"
+    /// Favorites goes right after the library at this index, or nil when it stays in its usual place.
+    static func afterIndex(_ pos: Int, libCount: Int) -> Int? { pos <= 0 || libCount == 0 ? nil : min(pos, libCount) - 1 }
+}
+
 struct SavedServer: Codable, Identifiable, Hashable {
     var url: String
     var name: String

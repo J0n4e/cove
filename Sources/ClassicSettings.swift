@@ -303,6 +303,7 @@ struct ClassicLibraryDefaults {
 struct ClassicLibrariesSettings: View {
     @EnvironmentObject var emby: Emby
     @AppStorage("favoritesLayout") private var favLayout = "row"
+    @AppStorage(FavoritesPlace.key) private var favPos = 0
     @AppStorage("defaultLibraryLayout") private var defaultLayout = "grid"
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -357,16 +358,12 @@ struct ClassicLibrariesSettings: View {
         }
         ClassicSettingsGroup(title: "Libraries",
                       note: "Show puts a library in the sidebar; Home row adds it to the home screen. Use the arrows to reorder.") {
-            // Favorites first: not a server library, so only its view can change
-            HStack(spacing: 10) {
-                Label("Favorites", systemImage: "heart").frame(width: 200, alignment: .leading)
-                labeled("View") { classicSegmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
-            }.font(.callout)
-            Divider()
             if emby.libs.isEmpty { Text("No libraries loaded yet.").foregroundColor(.secondary) }
-            ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
-                libraryCard(i, lib)
-                if i < emby.libs.count - 1 { Divider() }
+            let rows = tableRows
+            ForEach(Array(rows.enumerated()), id: \.element) { n, id in
+                if id == Self.favoritesId { favoritesCard(n, rows.count) }
+                else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryCard(i, emby.libs[i], n, rows.count) }
+                if n < rows.count - 1 { Divider() }
             }
         }
         Button("Apply grid/list default to all libraries") {
@@ -375,17 +372,52 @@ struct ClassicLibrariesSettings: View {
         }
     }
 
-    func libraryCard(_ i: Int, _ lib: LibPref) -> some View {
+    static let favoritesId = "__favorites"
+
+    /// List order: the libraries, with Favorites at its saved place (0 = top).
+    var tableRows: [String] {
+        var r = emby.libs.map(\.id)
+        r.insert(Self.favoritesId, at: min(max(favPos, 0), r.count))
+        return r
+    }
+
+    /// Moves a line (library or Favorites) one place up or down, then splits the order back up.
+    func move(_ n: Int, by d: Int) {
+        var r = tableRows
+        guard r.indices.contains(n), r.indices.contains(n + d) else { return }
+        r.swapAt(n, n + d)
+        favPos = r.firstIndex(of: Self.favoritesId) ?? 0
+        let byId = Dictionary(emby.libs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        emby.libs = r.compactMap { byId[$0] }
+    }
+
+    func arrows(_ n: Int, _ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Button { move(n, by: -1) } label: { Image(systemName: "arrow.up") }
+                .disabled(n == 0).buttonStyle(.borderless)
+            Button { move(n, by: 1) } label: { Image(systemName: "arrow.down") }
+                .disabled(n == count - 1).buttonStyle(.borderless)
+        }
+    }
+
+    /// Favorites: not a server library, so only its place and view can change.
+    func favoritesCard(_ n: Int, _ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Label("Favorites", systemImage: "heart").frame(width: 200, alignment: .leading)
+            labeled("View") { classicSegmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            Spacer()
+            arrows(n, count)
+        }.font(.callout)
+    }
+
+    func libraryCard(_ i: Int, _ lib: LibPref, _ n: Int, _ count: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 TextField(lib.name, text: $emby.libs[i].title).textFieldStyle(.roundedBorder).frame(width: 200)
                 Toggle("Show", isOn: $emby.libs[i].visible)
                 Toggle("Home row", isOn: $emby.libs[i].onHome).disabled(!lib.visible)
                 Spacer()
-                Button { emby.libs.swapAt(i, i - 1) } label: { Image(systemName: "arrow.up") }
-                    .disabled(i == 0).buttonStyle(.borderless)
-                Button { emby.libs.swapAt(i, i + 1) } label: { Image(systemName: "arrow.down") }
-                    .disabled(i == emby.libs.count - 1).buttonStyle(.borderless)
+                arrows(n, count)
             }
             ClassicFlowLayout(hSpacing: 18, vSpacing: 8) {
                 labeled("View") { classicSegmented(bind(lib, "layout", defaultLayout), [("grid", "Grid"), ("list", "List")]) }

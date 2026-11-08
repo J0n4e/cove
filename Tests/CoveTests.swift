@@ -38,4 +38,11 @@ final class CoveTests: XCTestCase {
         let b = try JSONDecoder().decode([SavedServer].self, from: old)
         XCTAssertNil(b[0].token)
     }
+
+    func testFavoritesPlace() {
+        XCTAssertNil(FavoritesPlace.afterIndex(0, libCount: 5))       // usual place after Home
+        XCTAssertEqual(FavoritesPlace.afterIndex(2, libCount: 5), 1)  // after the 2nd library
+        XCTAssertEqual(FavoritesPlace.afterIndex(9, libCount: 3), 2)  // libraries removed since: stays last
+        XCTAssertNil(FavoritesPlace.afterIndex(3, libCount: 0))       // not signed in yet
+    }
 }

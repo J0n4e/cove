@@ -290,6 +290,7 @@ struct HomeView: View {
     @AppStorage("navStyle") private var navStyle = "sidebar"   // Settings → General → Appearance: "sidebar" or "topbar"
     // Settings → Libraries → Sections: which fixed sections the sidebar / top bar show (Home always shows)
     @AppStorage("showFavorites") private var showFavorites = true
+    @AppStorage(FavoritesPlace.key) private var favPos = 0
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
 
@@ -331,7 +332,7 @@ struct HomeView: View {
         NavigationSplitView {
             List(selection: selB) {
                 sideLabel("Home", "house").modifier(RootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
-                if showFavorites {
+                if showFavorites && FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count) == nil {
                     sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
                 }
                 if showNowPlaying {
@@ -344,8 +345,14 @@ struct HomeView: View {
                     if showRecent {
                         sideLabel("Recently Added", "clock").modifier(RootTap(id: "recent", sel: sel, action: popToRoot)).tag("recent")
                     }
-                    ForEach(emby.libs.filter { $0.visible }) { lib in
-                        sideLabel(lib.title, icon(lib)).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
+                    let favAfter = showFavorites ? FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count) : nil
+                    ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
+                        if lib.visible {
+                            sideLabel(lib.title, icon(lib)).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
+                        }
+                        if favAfter == i {
+                            sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
+                        }
                     }
                 }
             }
@@ -513,6 +520,7 @@ struct TopNavButtons: View {
     @EnvironmentObject var emby: Emby
     @ObservedObject private var nav = NavState.shared
     @AppStorage("showFavorites") private var showFavorites = true
+    @AppStorage(FavoritesPlace.key) private var favPos = 0
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
     func item(_ title: String, _ id: String, badge: Int = 0) -> some View {
@@ -534,10 +542,14 @@ struct TopNavButtons: View {
     var body: some View {
         HStack(spacing: 4) {
             item("Home", "home")
-            if showFavorites { item("Favorites", "favorites") }
+            let favAfter = showFavorites ? FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count) : nil
+            if showFavorites && favAfter == nil { item("Favorites", "favorites") }
             if showNowPlaying { item("Now Playing", "nowplaying", badge: nav.activeCount) }
             if showRecent { item("Recently Added", "recent") }
-            ForEach(emby.libs.filter { $0.visible }) { lib in item(lib.title, lib.id) }
+            ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
+                if lib.visible { item(lib.title, lib.id) }
+                if favAfter == i { item("Favorites", "favorites") }
+            }
         }
         .padding(4)
         .frame(height: 40)

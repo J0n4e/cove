@@ -366,6 +366,7 @@ struct LibrariesSettings: View {
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
     @AppStorage("favoritesLayout") private var favLayout = "row"
+    @AppStorage(FavoritesPlace.key) private var favPos = 0
     @AppStorage("showUpNextRow") private var showUpNextRow = true
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -464,22 +465,12 @@ struct LibrariesSettings: View {
             .font(.caption.weight(.semibold)).foregroundColor(.secondary)
             .padding(.horizontal, 12).padding(.vertical, 6)
             Divider()
-            favoritesLine(on: selectedLib == Self.favoritesId)
             List {
-                ForEach($emby.libs) { $lib in
-                    let on = lib.id == sel
-                    HStack {
-                        dragHandle(lib, on: on)
-                        Image(systemName: kindIcon(lib)).foregroundColor(on ? .white : blue).frame(width: 20)
-                        Text(lib.title).foregroundColor(lib.visible ? .primary : .secondary).lineLimit(1)
-                        Spacer()
-                        Toggle("", isOn: $lib.visible).labelsHidden().frame(width: 70)
-                        Toggle("", isOn: $lib.onHome).labelsHidden().disabled(!lib.visible).frame(width: 60)
+                ForEach(tableRows, id: \.self) { id in
+                    Group {
+                        if id == Self.favoritesId { favoritesLine(on: sel == id) }
+                        else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryLine(i, on: sel == id) }
                     }
-                    .padding(.horizontal, 6).frame(height: 30)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
-                    .contentShape(Rectangle())
-                    .onTapGesture { selectedLib = lib.id }
                     .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -487,48 +478,43 @@ struct LibrariesSettings: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            // Up to 6 rows show at once; more libraries scroll inside the table, with a scrollbar
-            .scrollDisabled(emby.libs.count <= 6)
-            .scrollIndicators(emby.libs.count > 6 ? .visible : .hidden)
-            .frame(height: CGFloat(min(max(emby.libs.count, 1), 6)) * 32 + 8)
+            // Up to 7 rows show at once; more scroll inside the table, with a scrollbar
+            .scrollDisabled(tableRows.count <= 7)
+            .scrollIndicators(tableRows.count > 7 ? .visible : .hidden)
+            .frame(height: CGFloat(min(tableRows.count, 7)) * 32 + 8)
         }
         .frame(width: 440)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
     }
 
-    @State private var dragId: String?
-    @State private var dragFrom = 0
-
-    /// ≡ handle: drag it up or down and the row moves one place for every row height passed.
-    /// (List's onMove and drag-and-drop never started a drag in this table on macOS.)
-    func dragHandle(_ lib: LibPref, on: Bool) -> some View {
-        Image(systemName: "line.3.horizontal")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(on || dragId == lib.id ? .white : .secondary)
-            .frame(width: 18, height: 28).contentShape(Rectangle())
-            .onHover { inside in if inside { NSCursor.openHand.push() } else { NSCursor.pop() } }
-            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
-                .onChanged { v in
-                    if dragId == nil {
-                        dragId = lib.id; selectedLib = lib.id
-                        dragFrom = emby.libs.firstIndex(where: { $0.id == lib.id }) ?? 0
-                    }
-                    let target = min(max(dragFrom + Int((v.translation.height / 32).rounded()), 0), emby.libs.count - 1)
-                    if let cur = emby.libs.firstIndex(where: { $0.id == dragId }), cur != target {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            emby.libs.move(fromOffsets: [cur], toOffset: target > cur ? target + 1 : target)
-                        }
-                    }
-                }
-                .onEnded { _ in dragId = nil })
-            .help("Drag to reorder")
+    /// Table order: the libraries, with Favorites at its saved place (0 = top).
+    var tableRows: [String] {
+        var r = emby.libs.map(\.id)
+        r.insert(Self.favoritesId, at: min(max(favPos, 0), r.count))
+        return r
     }
 
-    /// Favorites, always first and not draggable: its Sidebar box is the old "Favorites" section switch.
+    func libraryLine(_ i: Int, on: Bool) -> some View {
+        let lib = emby.libs[i]
+        return HStack {
+            dragHandle(lib.id, on: on)
+            Image(systemName: kindIcon(lib)).foregroundColor(on ? .white : blue).frame(width: 20)
+            Text(lib.title).foregroundColor(lib.visible ? .primary : .secondary).lineLimit(1)
+            Spacer()
+            Toggle("", isOn: $emby.libs[i].visible).labelsHidden().frame(width: 70)
+            Toggle("", isOn: $emby.libs[i].onHome).labelsHidden().disabled(!lib.visible).frame(width: 60)
+        }
+        .padding(.horizontal, 6).frame(height: 30)
+        .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture { selectedLib = lib.id }
+    }
+
+    /// Favorites: not a server library, so its Sidebar box is the "Favorites" section switch and it has no Home row.
     func favoritesLine(on: Bool) -> some View {
         HStack {
-            Color.clear.frame(width: 18, height: 28)
+            dragHandle(Self.favoritesId, on: on)
             Image(systemName: "heart").foregroundColor(on ? .white : blue).frame(width: 20)
             Text("Favorites").foregroundColor(showFavorites ? .primary : .secondary).lineLimit(1)
             Spacer()
@@ -539,7 +525,42 @@ struct LibrariesSettings: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectedLib = Self.favoritesId }
-        .padding(.horizontal, 12).padding(.top, 5).padding(.bottom, 1)   // same side inset as the List rows below
+    }
+
+    @State private var dragId: String?
+    @State private var dragFrom = 0
+
+    /// ≡ handle: drag it up or down and the row moves one place for every row height passed.
+    /// (List's onMove and drag-and-drop never started a drag in this table on macOS.)
+    func dragHandle(_ id: String, on: Bool) -> some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(on || dragId == id ? .white : .secondary)
+            .frame(width: 18, height: 28).contentShape(Rectangle())
+            .onHover { inside in if inside { NSCursor.openHand.push() } else { NSCursor.pop() } }
+            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                .onChanged { v in
+                    let rows = tableRows
+                    if dragId == nil {
+                        dragId = id; selectedLib = id
+                        dragFrom = rows.firstIndex(of: id) ?? 0
+                    }
+                    let target = min(max(dragFrom + Int((v.translation.height / 32).rounded()), 0), rows.count - 1)
+                    if let d = dragId, let cur = rows.firstIndex(of: d), cur != target {
+                        var r = rows
+                        r.move(fromOffsets: [cur], toOffset: target > cur ? target + 1 : target)
+                        withAnimation(.easeOut(duration: 0.15)) { applyOrder(r) }
+                    }
+                }
+                .onEnded { _ in dragId = nil })
+            .help("Drag to reorder")
+    }
+
+    /// Splits a table order back into the library order and Favorites' place.
+    func applyOrder(_ rows: [String]) {
+        favPos = rows.firstIndex(of: Self.favoritesId) ?? 0
+        let byId = Dictionary(emby.libs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        emby.libs = rows.compactMap { byId[$0] }
     }
 
     /// Options for the library picked in the table.
