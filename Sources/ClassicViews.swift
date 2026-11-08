@@ -2503,6 +2503,9 @@ struct ClassicDetailView: View {
                     Spacer()
                     similarLayoutToggle
                 }.padding(.horizontal, 40)
+                // Extra space below, and the header kept in front: a hovered poster grows a little (hover lift)
+                // and could otherwise cover the view buttons and swallow their clicks
+                .padding(.bottom, 14).zIndex(1)
                 if similarLayout == "grid" {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], alignment: .leading, spacing: 18) {
                         ForEach(similar) { ClassicPosterCard(item: $0) }
