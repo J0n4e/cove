@@ -512,7 +512,7 @@ struct LibrariesSettings: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectedLib = Self.favoritesId }
-        .padding(.horizontal, 4).padding(.top, 5).padding(.bottom, 1)
+        .padding(.horizontal, 12).padding(.top, 5).padding(.bottom, 1)   // same side inset as the List rows below
     }
 
     /// Options for the library picked in the table.
