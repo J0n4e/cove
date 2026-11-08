@@ -73,6 +73,8 @@ struct ClassicSettingsView: View {
         }
         .frame(width: 860, height: 580)
         .background(bg)
+        // Esc closes Settings and keeps the changes, like OK / Done
+        .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
     }
 }
 
@@ -125,6 +127,7 @@ struct ClassicGeneralSettings: View {
     @AppStorage("accent") private var accent = "red"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
+    @AppStorage("topBarLabels") private var topBarLabels = "both"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -179,6 +182,10 @@ struct ClassicGeneralSettings: View {
             }.padding(.top, 4)
             Text("Top bar replaces the sidebar with a bar across the top (Home, Favorites, libraries, search and Settings).")
                 .font(.caption).foregroundColor(.secondary)
+            // One choice, not two switches: the bar can never end up with neither icons nor names
+            ClassicSettingRow(label: "Top bar shows") {
+                classicSegmented($topBarLabels, [("both", "Icons and Names"), ("names", "Names"), ("icons", "Icons")])
+            }.disabled(navStyle != "topbar")
         }
     }
 }
@@ -300,6 +307,10 @@ struct ClassicLibraryDefaults {
 
 struct ClassicLibrariesSettings: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("favoritesLayout") private var favLayout = "row"
+    @AppStorage("similarLayout") private var similarLayout = "row"
+    @AppStorage("showIncludedIn") private var showIncludedIn = true
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("defaultLibraryLayout") private var defaultLayout = "grid"
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -321,6 +332,11 @@ struct ClassicLibrariesSettings: View {
     var body: some View {
         ClassicSettingsGroup(title: "Default view for new libraries") {
             ClassicSettingRow(label: "Layout") { classicSegmented($defaultLayout, [("grid", "Grid"), ("list", "List")]) }
+        }
+        ClassicSettingsGroup(title: "More Like This") {
+            ClassicSettingRow(label: "View") { classicSegmented($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            Text("At the bottom of a movie or show page. You can also switch it there.").font(.caption).foregroundColor(.secondary)
+            Toggle("Show \"Included In\" (the collections a title belongs to) above it", isOn: $showIncludedIn)
         }
         ClassicSettingsGroup(title: "Poster labels") {
             Toggle("Show title under posters", isOn: $showTitle)
@@ -352,16 +368,15 @@ struct ClassicLibrariesSettings: View {
                 }
             }.disabled(!hoverOn || !hoverZoom)
         }
-        ClassicSettingsGroup(title: "Series") {
-            ClassicSettingRow(label: "Episode layout") { classicSegmented($epLayout, [("grid", "Grid"), ("list", "List")]) }
-            Toggle("Show episode description", isOn: $showEpDesc)
-        }
         ClassicSettingsGroup(title: "Libraries",
                       note: "Show puts a library in the sidebar; Home row adds it to the home screen. Use the arrows to reorder.") {
             if emby.libs.isEmpty { Text("No libraries loaded yet.").foregroundColor(.secondary) }
-            ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
-                libraryCard(i, lib)
-                if i < emby.libs.count - 1 { Divider() }
+            let rows = tableRows
+            ForEach(Array(rows.enumerated()), id: \.element) { n, id in
+                if id == NavOrder.favorites { favoritesCard(n, rows.count) }
+                else if id == NavOrder.nowPlaying { nowPlayingCard(n, rows.count) }
+                else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryCard(i, emby.libs[i], n, rows.count) }
+                if n < rows.count - 1 { Divider() }
             }
         }
         Button("Apply grid/list default to all libraries") {
@@ -370,17 +385,54 @@ struct ClassicLibrariesSettings: View {
         }
     }
 
-    func libraryCard(_ i: Int, _ lib: LibPref) -> some View {
+    /// List order: the libraries, with Favorites and Now Playing at their saved places.
+    var tableRows: [String] { NavOrder.rows(navOrder, libIds: emby.libs.map(\.id)) }
+
+    /// Moves a line (library or Favorites) one place up or down, then splits the order back up.
+    func move(_ n: Int, by d: Int) {
+        var r = tableRows
+        guard r.indices.contains(n), r.indices.contains(n + d) else { return }
+        r.swapAt(n, n + d)
+        navOrder = r.joined(separator: ",")
+        let byId = Dictionary(emby.libs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        emby.libs = r.compactMap { byId[$0] }
+    }
+
+    func arrows(_ n: Int, _ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Button { move(n, by: -1) } label: { Image(systemName: "arrow.up") }
+                .disabled(n == 0).buttonStyle(.borderless)
+            Button { move(n, by: 1) } label: { Image(systemName: "arrow.down") }
+                .disabled(n == count - 1).buttonStyle(.borderless)
+        }
+    }
+
+    /// Favorites: not a server library, so only its place and view can change.
+    func favoritesCard(_ n: Int, _ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Label("Favorites", systemImage: "heart").frame(width: 200, alignment: .leading)
+            labeled("View") { classicSegmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            Spacer()
+            arrows(n, count)
+        }.font(.callout)
+    }
+
+    func nowPlayingCard(_ n: Int, _ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Label("Now Playing", systemImage: "dot.radiowaves.left.and.right").frame(width: 200, alignment: .leading)
+            Spacer()
+            arrows(n, count)
+        }.font(.callout)
+    }
+
+    func libraryCard(_ i: Int, _ lib: LibPref, _ n: Int, _ count: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 TextField(lib.name, text: $emby.libs[i].title).textFieldStyle(.roundedBorder).frame(width: 200)
                 Toggle("Show", isOn: $emby.libs[i].visible)
                 Toggle("Home row", isOn: $emby.libs[i].onHome).disabled(!lib.visible)
                 Spacer()
-                Button { emby.libs.swapAt(i, i - 1) } label: { Image(systemName: "arrow.up") }
-                    .disabled(i == 0).buttonStyle(.borderless)
-                Button { emby.libs.swapAt(i, i + 1) } label: { Image(systemName: "arrow.down") }
-                    .disabled(i == emby.libs.count - 1).buttonStyle(.borderless)
+                arrows(n, count)
             }
             ClassicFlowLayout(hSpacing: 18, vSpacing: 8) {
                 labeled("View") { classicSegmented(bind(lib, "layout", defaultLayout), [("grid", "Grid"), ("list", "List")]) }
@@ -394,6 +446,11 @@ struct ClassicLibrariesSettings: View {
                 labeled("Home row") {
                     classicMenuPicker($emby.libs[i].style, [("latest", "Latest"), ("top", "Top Rated"), ("random", "Random"), ("az", "A–Z")])
                 }.disabled(!lib.onHome || !lib.visible)
+                // Episode options apply to every TV library, so they show with any of them
+                if lib.kind == "tvshows" {
+                    labeled("Episodes") { classicSegmented($epLayout, [("grid", "Grid"), ("list", "List")]) }
+                    Toggle("Episode descriptions", isOn: $showEpDesc)
+                }
             }
             .font(.callout)
             .frame(maxWidth: .infinity, alignment: .leading)

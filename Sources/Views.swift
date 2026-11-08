@@ -45,6 +45,29 @@ struct GlassCapsule: ViewModifier {
 }
 extension View { func glassCapsule() -> some View { modifier(GlassCapsule()) } }
 
+/// One letter of the library A–Z bar.
+struct AlphaLetter: View {
+    let l: String
+    let on: Bool
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            Text(l).font(.system(size: 11, weight: .bold))
+                .frame(width: 22, height: 17)
+                .foregroundColor(on ? .white : hover ? .primary : .secondary)
+                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(hover ? 0.18 : 0))))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            hover = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .help(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+    }
+}
+
 /// Toolbar button in Apple TV glass; `active` (a filter in use) gets a lighter fill.
 struct PillStyle: ViewModifier {
     let active: Bool
@@ -290,6 +313,7 @@ struct HomeView: View {
     @AppStorage("navStyle") private var navStyle = "sidebar"   // Settings → General → Appearance: "sidebar" or "topbar"
     // Settings → Libraries → Sections: which fixed sections the sidebar / top bar show (Home always shows)
     @AppStorage("showFavorites") private var showFavorites = true
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
 
@@ -327,25 +351,33 @@ struct HomeView: View {
         if abs(h - titleBarH) > 0.5 { titleBarH = h }
     }
 
+    /// Favorites or Now Playing in the sidebar, wherever Settings → Libraries placed it.
+    @ViewBuilder func sideSection(_ id: String) -> some View {
+        if id == NavOrder.favorites && showFavorites {
+            sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
+        } else if id == NavOrder.nowPlaying && showNowPlaying {
+            sideLabel("Now Playing", "dot.radiowaves.left.and.right")
+                .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
+                .badge(activeCount)
+                .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
+        }
+    }
+
     var splitLayout: some View {
         NavigationSplitView {
             List(selection: selB) {
                 sideLabel("Home", "house").modifier(RootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
-                if showFavorites {
-                    sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
-                }
-                if showNowPlaying {
-                    sideLabel("Now Playing", "dot.radiowaves.left.and.right")
-                        .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
-                        .badge(activeCount)
-                        .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
-                }
+                let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
+                ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
                 Section("Library") {
                     if showRecent {
                         sideLabel("Recently Added", "clock").modifier(RootTap(id: "recent", sel: sel, action: popToRoot)).tag("recent")
                     }
-                    ForEach(emby.libs.filter { $0.visible }) { lib in
-                        sideLabel(lib.title, icon(lib)).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
+                    ForEach(emby.libs) { lib in
+                        if lib.visible {
+                            sideLabel(lib.title, icon(lib)).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
+                        }
+                        ForEach(NavOrder.after(lib.id, rows), id: \.self) { sideSection($0) }
                     }
                 }
             }
@@ -513,31 +545,59 @@ struct TopNavButtons: View {
     @EnvironmentObject var emby: Emby
     @ObservedObject private var nav = NavState.shared
     @AppStorage("showFavorites") private var showFavorites = true
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
-    func item(_ title: String, _ id: String, badge: Int = 0) -> some View {
+    @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
+    func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
             nav.query = ""; nav.searchOpen = false
             nav.sel = id; nav.popToRoot()
         } label: {
-            Text(badge > 0 ? "\(title) \(badge)" : title)
+            // Small icon before each name, as in the sidebar
+            HStack(spacing: 6) {
+                if labels != "names" { Image(systemName: icon).font(.system(size: labels == "icons" ? 14 : 12)) }
+                if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
+                else if badge > 0 { Text("\(badge)") }
+            }
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
-                .padding(.horizontal, 18).frame(height: 32)
+                .padding(.horizontal, 14).frame(height: 32)
                 .background(Capsule().fill(on ? Color.white.opacity(0.22) : Color.clear))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .help(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
+    }
+    func icon(_ lib: LibPref) -> String {
+        switch lib.kind {
+        case "movies": return "film"
+        case "tvshows": return "tv"
+        case "boxsets": return "square.stack"
+        case "music": return "music.note"
+        case "homevideos": return "video"
+        default: return "folder"
+        }
+    }
+    /// Favorites or Now Playing, wherever Settings → Libraries placed it.
+    @ViewBuilder func section(_ id: String) -> some View {
+        if id == NavOrder.favorites && showFavorites { item("Favorites", "favorites", "heart") }
+        else if id == NavOrder.nowPlaying && showNowPlaying {
+            item("Now Playing", "nowplaying", "dot.radiowaves.left.and.right", badge: nav.activeCount)
+        }
     }
     var body: some View {
         HStack(spacing: 4) {
-            item("Home", "home")
-            if showFavorites { item("Favorites", "favorites") }
-            if showNowPlaying { item("Now Playing", "nowplaying", badge: nav.activeCount) }
-            if showRecent { item("Recently Added", "recent") }
-            ForEach(emby.libs.filter { $0.visible }) { lib in item(lib.title, lib.id) }
+            item("Home", "home", "house")
+            let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
+            ForEach(NavOrder.top(rows), id: \.self) { section($0) }
+            if showRecent { item("Recently Added", "recent", "clock") }
+            ForEach(emby.libs) { lib in
+                if lib.visible { item(lib.title, lib.id, icon(lib)) }
+                ForEach(NavOrder.after(lib.id, rows), id: \.self) { section($0) }
+            }
         }
         .padding(4)
         .frame(height: 40)
@@ -695,6 +755,8 @@ struct SearchView: View {
 /// and hides anything un-favorited from the detail page right away.
 struct FavoritesView: View {
     @EnvironmentObject var emby: Emby
+    /// "row" (scrolling row per section), "grid" or "list"; set in Settings → Libraries.
+    @AppStorage("favoritesLayout") private var layout = "row"
     @Environment(\.appBG) var bg
     @State private var items: [Item] = []
     @State private var loading = true
@@ -739,8 +801,16 @@ struct FavoritesView: View {
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plain).help("Show all")
-            ArrowScrollRow(ids: list.map(\.Id), itemWidth: 170, spacing: 16, inset: 0) { id in
-                if let it = byId[id] { PosterCard(item: it) }
+            if layout == "grid" {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
+                    ForEach(list) { PosterCard(item: $0) }
+                }
+            } else if layout == "list" {
+                LazyVStack(spacing: 6) { ForEach(list) { ListRow(item: $0) } }
+            } else {
+                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 170, spacing: 16, inset: 0) { id in
+                    if let it = byId[id] { PosterCard(item: it) }
+                }
             }
         }
     }
@@ -1890,7 +1960,7 @@ struct LibraryView: View {
             VStack(spacing: 18) {
                 header
                 if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 64).padding(.vertical, 24)
+            }.padding(.leading, 40).padding(.trailing, 76).padding(.vertical, 24)   // room for the A–Z bar
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -1900,18 +1970,17 @@ struct LibraryView: View {
         .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
     }
 
+    /// A–Z jump bar in a glass capsule. Each letter shows a pointing hand and lights up under the mouse;
+    /// the chosen letter is filled with the accent color (click it again to show everything).
     var alphaBar: some View {
         VStack(spacing: 1) {
-            ForEach(alphaLetters, id: \.self) { l in
-                Button { letter = (letter == l) ? "" : l } label: {
-                    Text(l).font(.system(size: 11, weight: .bold))
-                        .frame(width: 22, height: 16)
-                        .foregroundStyle(letter == l ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.secondary))
-                        .background(letter == l ? Color.white.opacity(0.15) : Color.clear)
-                        .clipShape(Circle())
-                }.buttonStyle(.plain)
-            }
-        }.padding(.trailing, 14)
+            ForEach(alphaLetters, id: \.self) { l in AlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l } }
+        }
+        .padding(.vertical, 8).padding(.horizontal, 4)
+        .background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.4)))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15))
+        .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.white.opacity(0.15), lineWidth: 1))
+        .padding(.trailing, 22)   // clear of the window's scroll bar
     }
 
     var header: some View {
@@ -2096,6 +2165,9 @@ struct DetailView: View {
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
+    @State private var includedIn: [Item] = []
+    @AppStorage("showIncludedIn") private var showIncludedIn = true   // Settings → Libraries
+    @AppStorage("similarLayout") private var similarLayout = "row"   // "row", "grid" or "list"; also in Settings → Libraries
     @State private var srcIdx = 0
     @State private var audioIdx = -1
     @State private var subIdx = -1
@@ -2154,6 +2226,7 @@ struct DetailView: View {
                     if item.isBox { boxGrid }
                     castSection
                     aboutSection
+                    includedInSection
                     similarSection
                 }.padding(.bottom, 50)
             }
@@ -2180,6 +2253,7 @@ struct DetailView: View {
                 if let first = kids.first { epLangs = Self.subLangs(await emby.full(first.id)) }
             }
             else if item.isBox { kids = await emby.children(item.id) }
+            if !item.isEpisode && !item.isBox && showIncludedIn { includedIn = await emby.collections(containing: item.id) }
             if !item.isEpisode { similar = await emby.similar(item.id) }
         }
         .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
@@ -2732,13 +2806,52 @@ struct DetailView: View {
         }
     }
 
+    /// "Included In": the collections this title belongs to; a click opens the collection's page.
+    @ViewBuilder var includedInSection: some View {
+        if showIncludedIn && !includedIn.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Included In").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
+                ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 170, spacing: 14, inset: 52) { PosterCard(item: includedIn[$0]) }
+            }
+        }
+    }
+
     @ViewBuilder var similarSection: some View {
         if !similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("More Like This").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
-                ArrowScrollRow(ids: Array(similar.indices), itemWidth: 170, spacing: 14, inset: 52) { PosterCard(item: similar[$0]) }
+                HStack {
+                    Text("More Like This").font(.system(size: 22, weight: .bold))
+                    Spacer()
+                    similarLayoutToggle
+                }.padding(.horizontal, 52)
+                // Extra space below, and the header kept in front: a hovered poster grows a little (hover lift)
+                // and could otherwise cover the view buttons and swallow their clicks
+                .padding(.bottom, 14).zIndex(1)
+                if similarLayout == "grid" {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], alignment: .leading, spacing: 18) {
+                        ForEach(similar) { PosterCard(item: $0) }
+                    }.padding(.horizontal, 52)
+                } else if similarLayout == "list" {
+                    LazyVStack(spacing: 6) { ForEach(similar) { ListRow(item: $0) } }.padding(.horizontal, 52)
+                } else {
+                    ArrowScrollRow(ids: Array(similar.indices), itemWidth: 170, spacing: 14, inset: 52) { PosterCard(item: similar[$0]) }
+                }
             }
         }
+    }
+
+    var similarLayoutToggle: some View {
+        HStack(spacing: 0) {
+            ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
+                Button { similarLayout = m.0 } label: {
+                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                        .frame(width: 36, height: 28)
+                        .background(Capsule().fill(similarLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
+                        .foregroundColor(similarLayout == m.0 ? .white : .secondary)
+                        .contentShape(Capsule())
+                }.buttonStyle(.plain).help(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+            }
+        }.padding(4).frame(height: 36).glassCapsule()
     }
 }
 

@@ -66,7 +66,7 @@ struct SettingsView: View {
             Divider()
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).controlSize(.large)
+                Button("Cancel") { dismiss() }.controlSize(.large)
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent).tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
@@ -74,6 +74,8 @@ struct SettingsView: View {
         }
         .frame(width: 760, height: 640)
         .background(Color(white: 0.13))
+        // Esc closes Settings and keeps the changes, like OK / Done
+        .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
     }
 }
 
@@ -160,6 +162,7 @@ struct GeneralSettings: View {
     @AppStorage("accent") private var accent = "red"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
+    @AppStorage("topBarLabels") private var topBarLabels = "both"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -218,6 +221,10 @@ struct GeneralSettings: View {
                 }.pickerStyle(.radioGroup).labelsHidden()
             }
             PrefNote("Top bar replaces the sidebar with a bar across the top. Settings are in the Cove menu (⌘,).")
+            // One choice, not two switches: the bar can never end up with neither icons nor names
+            PrefRow(label: "Top bar shows") {
+                segmented($topBarLabels, [("both", "Icons and Names"), ("names", "Names"), ("icons", "Icons")])
+            }.disabled(navStyle != "topbar")
         }
     }
 }
@@ -363,6 +370,10 @@ struct LibrariesSettings: View {
     @AppStorage("showFavorites") private var showFavorites = true
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
+    @AppStorage("favoritesLayout") private var favLayout = "row"
+    @AppStorage("similarLayout") private var similarLayout = "row"
+    @AppStorage("showIncludedIn") private var showIncludedIn = true
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showUpNextRow") private var showUpNextRow = true
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -391,20 +402,28 @@ struct LibrariesSettings: View {
                 }
             }
         }
-        if let i = emby.libs.firstIndex(where: { $0.id == selectedLib }) ?? (emby.libs.isEmpty ? nil : 0) {
+        if selectedLib == Self.favoritesId {
+            PrefSection {
+                PrefRow(label: "View") { segmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            }
+        } else if selectedLib == NavOrder.nowPlaying {
+            PrefSection { PrefNote("Now Playing shows what is playing on your server right now. Move it with its ≡ handle.") }
+        } else if let i = emby.libs.firstIndex(where: { $0.id == selectedLib }) ?? (emby.libs.isEmpty ? nil : 0) {
             libraryOptions(i, emby.libs[i])
         }
         PrefSection {
             PrefRow(label: "Sections") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Favorites", isOn: $showFavorites)
-                    Toggle("Now Playing", isOn: $showNowPlaying)
                     Toggle("Recently Added", isOn: $showRecent)
                 }
             }
             PrefNote("Shown in the sidebar and the top bar. Home is always there.")
             PrefRow(label: "Home") { Toggle("Up Next row", isOn: $showUpNextRow) }
             PrefNote("The next episode of each show you're watching, under Continue Watching.")
+            PrefRow(label: "More Like This") { segmented($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            PrefNote("At the bottom of a movie or show page. You can also switch it there.")
+            PrefRow(label: "Included In") { Toggle("Show the collections a movie or show belongs to", isOn: $showIncludedIn) }
+            PrefNote("Above More Like This. Click a collection to open it.")
         }
         PrefSection {
             PrefRow(label: "Poster labels") {
@@ -415,10 +434,6 @@ struct LibrariesSettings: View {
             }
             PrefRow(label: "Label alignment") { segmented($labelAlign, [("center", "Centered"), ("left", "Left")]) }
                 .disabled(!showTitle && !showYear)
-        }
-        PrefSection {
-            PrefRow(label: "Episode layout") { segmented($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
-            PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
         }
         PrefSection(last: true) {
             PrefRow(label: "New libraries") {
@@ -436,6 +451,8 @@ struct LibrariesSettings: View {
     // MARK: Library table
 
     @State private var selectedLib: String?
+    /// Table selection for the Favorites line (not a server library).
+    static let favoritesId = NavOrder.favorites
     let blue = Color(red: 0.24, green: 0.56, blue: 1)
 
     func kindIcon(_ lib: LibPref) -> String {
@@ -461,36 +478,100 @@ struct LibrariesSettings: View {
             .padding(.horizontal, 12).padding(.vertical, 6)
             Divider()
             List {
-                ForEach($emby.libs) { $lib in
-                    let on = lib.id == sel
-                    HStack {
-                        Image(systemName: "line.3.horizontal").foregroundColor(.secondary.opacity(0.6)).font(.caption)
-                        Image(systemName: kindIcon(lib)).foregroundColor(on ? .white : blue).frame(width: 20)
-                        Text(lib.title).foregroundColor(lib.visible ? .primary : .secondary).lineLimit(1)
-                        Spacer()
-                        Toggle("", isOn: $lib.visible).labelsHidden().frame(width: 70)
-                        Toggle("", isOn: $lib.onHome).labelsHidden().disabled(!lib.visible).frame(width: 60)
+                ForEach(tableRows, id: \.self) { id in
+                    Group {
+                        if NavOrder.sections.contains(id) { sectionLine(id, on: sel == id) }
+                        else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryLine(i, on: sel == id) }
                     }
-                    .padding(.horizontal, 6).frame(height: 30)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
-                    .contentShape(Rectangle())
-                    .onTapGesture { selectedLib = lib.id }
                     .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 }
-                .onMove { emby.libs.move(fromOffsets: $0, toOffset: $1) }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            // Up to 6 rows show at once; more libraries scroll inside the table, with a scrollbar
-            .scrollDisabled(emby.libs.count <= 6)
-            .scrollIndicators(emby.libs.count > 6 ? .visible : .hidden)
-            .frame(height: CGFloat(min(max(emby.libs.count, 1), 6)) * 32 + 8)
+            // Up to 7 rows show at once; more scroll inside the table, with a scrollbar
+            .scrollDisabled(tableRows.count <= 7)
+            .scrollIndicators(tableRows.count > 7 ? .visible : .hidden)
+            .frame(height: CGFloat(min(tableRows.count, 7)) * 32 + 8)
         }
         .frame(width: 440)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
+    }
+
+    /// Table order: the libraries, with Favorites and Now Playing at their saved places.
+    var tableRows: [String] { NavOrder.rows(navOrder, libIds: emby.libs.map(\.id)) }
+
+    func libraryLine(_ i: Int, on: Bool) -> some View {
+        let lib = emby.libs[i]
+        return HStack {
+            dragHandle(lib.id, on: on)
+            Image(systemName: kindIcon(lib)).foregroundColor(on ? .white : blue).frame(width: 20)
+            Text(lib.title).foregroundColor(lib.visible ? .primary : .secondary).lineLimit(1)
+            Spacer()
+            Toggle("", isOn: $emby.libs[i].visible).labelsHidden().frame(width: 70)
+            Toggle("", isOn: $emby.libs[i].onHome).labelsHidden().disabled(!lib.visible).frame(width: 60)
+        }
+        .padding(.horizontal, 6).frame(height: 30)
+        .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture { selectedLib = lib.id }
+    }
+
+    /// Favorites or Now Playing: not server libraries, so the Sidebar box is the section's show switch
+    /// and there is no Home row.
+    func sectionLine(_ id: String, on: Bool) -> some View {
+        let fav = id == NavOrder.favorites
+        let shown = fav ? $showFavorites : $showNowPlaying
+        return HStack {
+            dragHandle(id, on: on)
+            Image(systemName: fav ? "heart" : "dot.radiowaves.left.and.right").foregroundColor(on ? .white : blue).frame(width: 20)
+            Text(fav ? "Favorites" : "Now Playing").foregroundColor(shown.wrappedValue ? .primary : .secondary).lineLimit(1)
+            Spacer()
+            Toggle("", isOn: shown).labelsHidden().frame(width: 70)
+            Color.clear.frame(width: 60, height: 1)
+        }
+        .padding(.horizontal, 6).frame(height: 30)
+        .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture { selectedLib = id }
+    }
+
+    @State private var dragId: String?
+    @State private var dragFrom = 0
+
+    /// ≡ handle: drag it up or down and the row moves one place for every row height passed.
+    /// (List's onMove and drag-and-drop never started a drag in this table on macOS.)
+    func dragHandle(_ id: String, on: Bool) -> some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(on || dragId == id ? .white : .secondary)
+            .frame(width: 18, height: 28).contentShape(Rectangle())
+            .onHover { inside in if inside { NSCursor.openHand.push() } else { NSCursor.pop() } }
+            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                .onChanged { v in
+                    let rows = tableRows
+                    if dragId == nil {
+                        dragId = id; selectedLib = id
+                        dragFrom = rows.firstIndex(of: id) ?? 0
+                    }
+                    let target = min(max(dragFrom + Int((v.translation.height / 32).rounded()), 0), rows.count - 1)
+                    if let d = dragId, let cur = rows.firstIndex(of: d), cur != target {
+                        var r = rows
+                        r.move(fromOffsets: [cur], toOffset: target > cur ? target + 1 : target)
+                        withAnimation(.easeOut(duration: 0.15)) { applyOrder(r) }
+                    }
+                }
+                .onEnded { _ in dragId = nil })
+            .help("Drag to reorder")
+    }
+
+    /// Splits a table order back into the library order and the sections' places.
+    func applyOrder(_ rows: [String]) {
+        navOrder = rows.joined(separator: ",")
+        let byId = Dictionary(emby.libs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        emby.libs = rows.compactMap { byId[$0] }
     }
 
     /// Options for the library picked in the table.
@@ -510,6 +591,11 @@ struct LibrariesSettings: View {
             PrefRow(label: "Home row shows") {
                 menuPicker($emby.libs[i].style, [("latest", "Latest"), ("top", "Top Rated"), ("random", "Random"), ("az", "A–Z")])
             }.disabled(!lib.onHome || !lib.visible)
+            // Episode options apply to every TV library, so they show with any of them
+            if lib.kind == "tvshows" {
+                PrefRow(label: "Episode layout") { segmented($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+                PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
+            }
         }
     }
 
