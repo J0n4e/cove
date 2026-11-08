@@ -202,7 +202,7 @@ struct ClassicLoginView: View {
             let address = await Emby.resolveAddress(server)
             if ConnectionSecurity.kind(address) == .remotePlain, !ConnectionSecurity.confirmPlainHTTP(address) { busy = false; return }
             do { try await emby.login(server: address, user: user, pw: pw, name: serverLabel); pw = ""; adding = false }
-            catch { self.error = "Couldn't sign in. Check server address and credentials." }
+            catch { self.error = (error as? LoginError)?.errorDescription ?? Emby.describe(error) }
             busy = false
         }
     }
@@ -957,6 +957,7 @@ struct ClassicHomeContent: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let reloadToken: Int
+    @State private var retry = 0
     @State private var rows: [Row] = []
     @State private var loading = true
 
@@ -991,10 +992,15 @@ struct ClassicHomeContent: View {
                     }
                 }
                 if loading { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
+                else if rows.isEmpty, let m = emby.lastFailure {
+                    // The server couldn't be reached: say so, instead of an empty page
+                    ErrorStateView(message: m, retry: { loading = true; retry += 1 },
+                                   switchServer: { emby.switchServer() }).padding(.top, 80)
+                }
             }.padding(.bottom, 40)
         }
         .background(bg)
-        .task(id: reloadToken) { rows = await emby.loadHome(); loading = false }
+        .task(id: "\(reloadToken)-\(retry)") { rows = await emby.loadHome(); loading = false }
     }
 }
 
@@ -1701,6 +1707,7 @@ struct ClassicLibraryView: View {
     @State private var items: [Item] = []
     @State private var total = 0
     @State private var loading = false
+    @State private var loadFailed = false
     @State private var gen = 0
     @State private var sort: String
     @State private var desc: Bool
@@ -1859,6 +1866,10 @@ struct ClassicLibraryView: View {
                 }
             }
             if loading { ClassicSpinner() }
+            else if loadFailed {
+                if items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { Task { await load(reset: true) } } }
+                else { LoadMoreFailedView { Task { await load(reset: false) } } }
+            }
             else if items.isEmpty { Text("Nothing here.").foregroundColor(.secondary).padding(40) }
         }
     }
@@ -1889,27 +1900,29 @@ struct ClassicLibraryView: View {
         }
     }
 
-    func fetch(start: Int, limit: Int, sort s: String) async -> ItemList {
+    func fetch(start: Int, limit: Int, sort s: String) async -> ItemList? {
         await emby.libraryItems(lib, limit: limit, start: start, sort: s, desc: s == sort ? desc : nil,
                                 watch: watch, genre: genre, letter: letter, favorites: tab == 3, types: types,
                                 groupCollections: grouping)
     }
 
     func load(reset: Bool) async {
-        if !reset && (loading || items.count >= total) { return }
+        if !reset && (loading || loadFailed || items.count >= total) { return }
         gen += 1
         let my = gen
-        loading = true
+        loading = true; loadFailed = false
         let r = await fetch(start: reset ? 0 : items.count, limit: 100, sort: sort)
         guard my == gen else { return }
+        loading = false
+        // A failed page keeps what's already shown and offers to try again (it used to end paging for good)
+        guard let r else { loadFailed = true; return }
         if reset { items = r.Items } else { items += r.Items }
         total = r.TotalRecordCount ?? items.count
-        loading = false
     }
 
     func shuffle() async {
         let r = await fetch(start: 0, limit: 1, sort: "random")
-        if let f = r.Items.first { await emby.play(f) }
+        if let f = r?.Items.first { await emby.play(f) }
     }
 }
 
