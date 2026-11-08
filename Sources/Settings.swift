@@ -480,11 +480,23 @@ struct LibrariesSettings: View {
                     .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
                     .contentShape(Rectangle())
                     .onTapGesture { selectedLib = lib.id }
+                    // Drag a row onto another to move it there. List's own onMove never started a drag on
+                    // macOS here (the tap gesture that selects a row takes the mouse first).
+                    .draggable(lib.id) {
+                        Label(lib.title, systemImage: kindIcon(lib)).padding(6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(blue.opacity(0.85)))
+                    }
+                    .dropDestination(for: String.self) { ids, _ in
+                        guard let id = ids.first, id != lib.id,
+                              let from = emby.libs.firstIndex(where: { $0.id == id }),
+                              let to = emby.libs.firstIndex(where: { $0.id == lib.id }) else { return false }
+                        withAnimation { emby.libs.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to) }
+                        return true
+                    }
                     .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 }
-                .onMove { emby.libs.move(fromOffsets: $0, toOffset: $1) }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
