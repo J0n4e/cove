@@ -51,4 +51,36 @@ final class CoveTests: XCTestCase {
         // The library it followed is gone: back to the usual place
         XCTAssertEqual(NavOrder.rows("x,\(f),\(n)", libIds: ["a"]), [f, n, "a"])
     }
+
+    func testIsPrivate() {
+        for h in ["localhost", "nas", "nas.local", "192.168.1.10", "10.0.0.5", "172.20.1.1", "100.64.0.1", "fd00::1", "[::1]"] {
+            XCTAssertTrue(ConnectionSecurity.isPrivate(h), h)
+        }
+        // Look-alikes and disguised numbers are not the home network
+        for h in ["", "134744072", "0x7f000001", "010.0.0.1", "192.168.1.1.nip.io", "10.0.0.1.evil.com", "8.8.8.8", "example.com"] {
+            XCTAssertFalse(ConnectionSecurity.isPrivate(h), h)
+        }
+    }
+
+    func testSafeLink() {
+        XCTAssertNotNil(SafeLink.url("https://www.imdb.com/title/tt0111161"))
+        XCTAssertNotNil(SafeLink.url(" http://example.com "))
+        for s in ["file:///etc/passwd", "smb://server/share", "javascript:alert(1)", "vnc://host", "https://", ""] {
+            XCTAssertNil(SafeLink.url(s), s)
+        }
+    }
+
+    func testInternalPrefs() {
+        for k in ["servers", "token", "did", "jellyfin-http://nas:8096", "imageCacheNoHeaders"] { XCTAssertTrue(InternalPrefs.contains(k), k) }
+        for k in ["accent", "subLang", "playerVolume", "libs-abc"] { XCTAssertFalse(InternalPrefs.contains(k), k) }
+    }
+
+    func testParseSRT() {
+        let srt = "1\r\n00:00:01,000 --> 00:00:02,500\r\nHello\r\n\r\n2\n00:00:03,000 --> 00:00:04,000\nTwo\nlines\n"
+        let c = Cue.parseSRT(srt)
+        XCTAssertEqual(c.count, 2)
+        XCTAssertEqual(c.first?.start ?? -1, 1, accuracy: 0.001)
+        XCTAssertEqual(c.first?.end ?? -1, 2.5, accuracy: 0.001)
+        XCTAssertEqual(c.last?.text, "Two\nlines")
+    }
 }
