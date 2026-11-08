@@ -45,6 +45,29 @@ struct GlassCapsule: ViewModifier {
 }
 extension View { func glassCapsule() -> some View { modifier(GlassCapsule()) } }
 
+/// One letter of the library A–Z bar.
+struct AlphaLetter: View {
+    let l: String
+    let on: Bool
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            Text(l).font(.system(size: 11, weight: .bold))
+                .frame(width: 22, height: 17)
+                .foregroundColor(on ? .white : hover ? .primary : .secondary)
+                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(hover ? 0.18 : 0))))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            hover = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .help(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+    }
+}
+
 /// Toolbar button in Apple TV glass; `active` (a filter in use) gets a lighter fill.
 struct PillStyle: ViewModifier {
     let active: Bool
@@ -1947,18 +1970,17 @@ struct LibraryView: View {
         .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
     }
 
+    /// A–Z jump bar in a glass capsule. Each letter shows a pointing hand and lights up under the mouse;
+    /// the chosen letter is filled with the accent color (click it again to show everything).
     var alphaBar: some View {
         VStack(spacing: 1) {
-            ForEach(alphaLetters, id: \.self) { l in
-                Button { letter = (letter == l) ? "" : l } label: {
-                    Text(l).font(.system(size: 11, weight: .bold))
-                        .frame(width: 22, height: 16)
-                        .foregroundStyle(letter == l ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.secondary))
-                        .background(letter == l ? Color.white.opacity(0.15) : Color.clear)
-                        .clipShape(Circle())
-                }.buttonStyle(.plain)
-            }
-        }.padding(.trailing, 14)
+            ForEach(alphaLetters, id: \.self) { l in AlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l } }
+        }
+        .padding(.vertical, 8).padding(.horizontal, 4)
+        .background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.4)))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15))
+        .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.white.opacity(0.15), lineWidth: 1))
+        .padding(.trailing, 10)
     }
 
     var header: some View {
