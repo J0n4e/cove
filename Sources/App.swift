@@ -101,4 +101,29 @@ enum AppVersion {
 /// icon didn't bring a window back.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Going to sleep mid-video: pause, so the position is reported and the server keeps the session
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil,
+                                                          queue: .main) { _ in
+            MainActor.assumeIsolated { PlayerModel.active?.pauseForSleep() }
+        }
+    }
+
+    /// Quitting while a video plays (⌘Q, or closing the last window): tell the server where playback stopped
+    /// and end its conversion first. Otherwise the transcode kept running and the resume point lagged by up
+    /// to 10 s. Waits 3 s at most, so a server that doesn't answer can't keep Cove from quitting.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let m = MainActor.assumeIsolated({ PlayerModel.active }) else { return .terminateNow }
+        Task { @MainActor in
+            await withTaskGroup(of: Void.self) { g in
+                g.addTask { await m.stopForQuit() }
+                g.addTask { try? await Task.sleep(for: .seconds(3)) }
+                await g.next()          // whichever comes first
+                g.cancelAll()
+            }
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
 }

@@ -2864,16 +2864,17 @@ enum RemoteControls {
     static func attach(_ m: PlayerModel, skip: Double) {
         let c = MPRemoteCommandCenter.shared()
         detach()
-        c.togglePlayPauseCommand.addTarget { _ in m.togglePlay(); return .success }
-        c.playCommand.addTarget { _ in if !m.playing { m.togglePlay() }; return .success }
-        c.pauseCommand.addTarget { _ in if m.playing { m.togglePlay() }; return .success }
+        // Weak: a theme switch mid-video must not keep the old player alive through these handlers
+        c.togglePlayPauseCommand.addTarget { [weak m] _ in m?.togglePlay(); return .success }
+        c.playCommand.addTarget { [weak m] _ in if let m, !m.playing { m.togglePlay() }; return .success }
+        c.pauseCommand.addTarget { [weak m] _ in if let m, m.playing { m.togglePlay() }; return .success }
         c.skipForwardCommand.preferredIntervals = [NSNumber(value: skip)]
         c.skipBackwardCommand.preferredIntervals = [NSNumber(value: skip)]
-        c.skipForwardCommand.addTarget { _ in m.skip(skip); return .success }
-        c.skipBackwardCommand.addTarget { _ in m.skip(-skip); return .success }
-        c.changePlaybackPositionCommand.addTarget { e in
+        c.skipForwardCommand.addTarget { [weak m] _ in m?.skip(skip); return .success }
+        c.skipBackwardCommand.addTarget { [weak m] _ in m?.skip(-skip); return .success }
+        c.changePlaybackPositionCommand.addTarget { [weak m] e in
             guard let e = e as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            m.seek(to: e.positionTime); return .success
+            m?.seek(to: e.positionTime); return .success
         }
     }
 
@@ -3119,6 +3120,8 @@ struct PlayerView: View {
                     .padding(.top, titleBarHeight)
                     .transition(.opacity)
                 }
+
+                if model.player != nil, !model.isReady, model.error.isEmpty { Spinner() }
 
                 if !model.error.isEmpty {
                     VStack(spacing: 12) {
