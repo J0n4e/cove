@@ -1,4 +1,8 @@
 import Foundation
+import os
+
+/// Problems that are otherwise silent (failed server calls, unreadable saved data). See them in Console.app, filter "eu.jonae.cove".
+let coveLog = Logger(subsystem: "eu.jonae.cove", category: "emby")
 
 struct Item: Identifiable, Decodable, Hashable {
     let Id: String
@@ -372,7 +376,11 @@ final class Emby: ObservableObject {
         server = d.string(forKey: "server") ?? ""
         userId = d.string(forKey: "uid") ?? ""
         let legacyToken = d.string(forKey: "token") ?? ""      // versions before 1.15 kept it in preferences
-        var list = (try? JSONDecoder().decode([SavedServer].self, from: d.data(forKey: "servers") ?? Data())) ?? []
+        var list: [SavedServer] = []
+        if let data = d.data(forKey: "servers") {
+            do { list = try JSONDecoder().decode([SavedServer].self, from: data) }
+            catch { coveLog.error("Saved servers could not be read: \(String(describing: error), privacy: .public)") }
+        }
         // Remember the server from before saved servers existed.
         if list.isEmpty, !server.isEmpty, !legacyToken.isEmpty {
             list = [SavedServer(url: server, name: server, user: "", token: legacyToken, userId: userId)]
@@ -452,8 +460,16 @@ final class Emby: ObservableObject {
         guard let u = c.url else { throw URLError(.badURL) }
         var r = URLRequest(url: u)
         authorize(&r)
-        let (data, _) = try await Net.session.data(for: r)
-        let v = try JSONDecoder().decode(T.self, from: data)
+        let v: T
+        do {
+            let (data, _) = try await Net.session.data(for: r)
+            v = try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            if !(error is CancellationError) && (error as? URLError)?.code != .cancelled {
+                coveLog.error("GET \(path, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            }
+            throw error
+        }
         if let l = v as? ItemList { Self.remember(l.Items) }
         else if let l = v as? [Item] { Self.remember(l) }
         else if let i = v as? Item { Self.remember([i]) }
@@ -553,7 +569,11 @@ final class Emby: ObservableObject {
 
     func loadLibs() async {
         guard let v: ItemList = try? await get("/Users/\(userId)/Views") else { return }
-        let saved = (try? JSONDecoder().decode([LibPref].self, from: d.data(forKey: "libs-\(userId)") ?? Data())) ?? []
+        var saved: [LibPref] = []
+        if let data = d.data(forKey: "libs-\(userId)") {
+            do { saved = try JSONDecoder().decode([LibPref].self, from: data) }
+            catch { coveLog.error("Saved library order could not be read: \(String(describing: error), privacy: .public)") }
+        }
         var out = saved.filter { s in v.Items.contains { $0.Id == s.id } }
         for l in v.Items where !out.contains(where: { $0.id == l.Id }) {
             out.append(LibPref(id: l.Id, name: l.Name, title: l.Name, kind: l.CollectionType))

@@ -153,7 +153,7 @@ final class Updater: ObservableObject {
                d.dropFirst(7) != SHA256.hash(data: zipData).map({ String(format: "%02x", $0) }).joined() {
                 throw Err("The download is damaged (checksum mismatch).")
             }
-            let (sig, sresp) = try await URLSession.shared.data(from: sigURL)
+            let (sig, sresp) = try await URLSession.shared.data(for: URLRequest(url: sigURL, timeoutInterval: 20))
             guard (sresp as? HTTPURLResponse)?.statusCode == 200, key.isValidSignature(sig, for: zipData) else {
                 throw Err("The update's signature is not valid, so it was not installed.")
             }
