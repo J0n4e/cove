@@ -234,6 +234,11 @@ struct SavedServer: Codable, Identifiable, Hashable {
     var id: String { url.lowercased() }
 }
 
+enum LoginError: LocalizedError {
+    case wrongPassword
+    var errorDescription: String? { "Wrong username or password." }
+}
+
 @MainActor
 final class Emby: ObservableObject {
     private let d = UserDefaults.standard
@@ -258,6 +263,59 @@ final class Emby: ObservableObject {
     /// Resume positions (seconds) saved during this session; overrides what the server sent with the item.
     @Published var positions: [String: Double] = [:]
     var loggedIn: Bool { !token.isEmpty }
+
+    /// Why the last server request failed, shown on Home with Retry (nil again after one succeeds).
+    @Published var lastFailure: String?
+    /// The server no longer accepts our sign-in (confirmed with /Users/{id}): the app asks to sign in again.
+    @Published var sessionExpired = false
+    private var checkingSession = false
+
+    /// A short explanation of a failed request, for the screen.
+    static func describe(_ error: Error, server name: String = "the server") -> String {
+        if let e = error as? URLError {
+            switch e.code {
+            case .notConnectedToInternet: return "You're offline. Check your network connection."
+            case .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateNotYetValid,
+                 .serverCertificateHasUnknownRoot, .clientCertificateRejected, .secureConnectionFailed:
+                return "\(name) has a certificate Cove can't trust, so the connection was refused."
+            case .userAuthenticationRequired: return "\(name) didn't accept the sign-in."
+            case .badServerResponse: return "\(name) answered with an error. Try again in a moment."
+            case .cancelled: return ""
+            default: return "Can't reach \(name). Check that it's running and that you're on the right network."
+            }
+        }
+        if error is DecodingError { return "\(name) sent an answer Cove couldn't read." }
+        return "Something went wrong talking to \(name)."
+    }
+
+    private func noteFailure(_ error: Error) {
+        let m = Self.describe(error, server: currentServerName)
+        if !m.isEmpty, lastFailure != m { lastFailure = m }
+    }
+
+    /// A 401 can come from one endpoint the user isn't allowed to use, so check the sign-in itself before
+    /// telling the user it expired.
+    private func checkSession() {
+        guard !checkingSession, !sessionExpired, loggedIn, let u = URL(string: "\(server)/Users/\(userId)") else { return }
+        checkingSession = true
+        let t = token
+        var r = URLRequest(url: u, timeoutInterval: 10)
+        authorize(&r, token: t)
+        Task {
+            let status = ((try? await Net.session.data(for: r))?.1 as? HTTPURLResponse)?.statusCode
+            checkingSession = false
+            if status == 401, t == token { sessionExpired = true }
+        }
+    }
+
+    /// "Sign in again" after the session expired: forget the token for this server and go back to the list.
+    func expireSession() {
+        sessionExpired = false
+        if let i = servers.firstIndex(where: { $0.id == server.lowercased() }) {
+            servers[i].token = nil; servers[i].userId = nil; saveServers()
+        }
+        switchServer()
+    }
 
     /// The signed-in server is Jellyfin (not Emby). Jellyfin speaks the same API, but takes the token in the
     /// `Authorization` header and as `ApiKey=` in links, where Emby uses `X-Emby-Token` and `api_key=`.
@@ -287,9 +345,12 @@ final class Emby: ObservableObject {
     }
 
     func refreshServerKind() async {
-        let key = "jellyfin-" + server.lowercased()
+        let s = server
+        let key = "jellyfin-" + s.lowercased()
         isJellyfin = d.bool(forKey: key)
-        if let j = await Self.detectJellyfin(server) { isJellyfin = j; d.set(j, forKey: key) }
+        guard let j = await Self.detectJellyfin(s) else { return }
+        d.set(j, forKey: key)
+        if server == s { isJellyfin = j }       // the user may have switched server meanwhile
     }
 
     /// The list, sign-in tokens included, goes to the preferences file (as before 1.15). Keychain storage is
@@ -306,9 +367,11 @@ final class Emby: ObservableObject {
 
     /// Picks https when the user typed no scheme and the server answers on it; otherwise http, as before.
     static func resolveAddress(_ raw: String) async -> String {
-        let t = raw.trimmingCharacters(in: .whitespaces)
-        guard !t.lowercased().hasPrefix("http") else { return normalize(t) }
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !hasScheme(t) else { return normalize(t) }
         let secure = normalize("https://" + t)
+        // Ports that only speak https (Emby/Jellyfin's 8920, 443): never fall back to plain http there
+        if let p = URL(string: secure)?.port, p == 8920 || p == 443 { return secure }
         if let u = URL(string: secure + "/System/Info/Public"),
            let (_, r) = try? await Net.session.data(for: URLRequest(url: u, timeoutInterval: 5)),
            (r as? HTTPURLResponse)?.statusCode == 200 { return secure }
@@ -345,9 +408,18 @@ final class Emby: ObservableObject {
         Task.detached { _ = try? await Net.session.data(for: req) }
     }
 
+    static func hasScheme(_ s: String) -> Bool {
+        let l = s.lowercased()
+        return l.hasPrefix("http://") || l.hasPrefix("https://")
+    }
+
     static func normalize(_ raw: String) -> String {
-        var s = raw.trimmingCharacters(in: .whitespaces)
-        if !s.lowercased().hasPrefix("http") { s = "http://" + s }
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)   // pasted addresses often end in a newline
+        if !hasScheme(s) { s = "http://" + s }                          // (a host named "httpnas" is a host)
+        // An address copied from the browser: drop "#!/home", "?query" and the web app's path ("/web/index.html")
+        if let i = s.firstIndex(where: { $0 == "#" || $0 == "?" }) { s = String(s[..<i]) }
+        if let r = s.range(of: "/web/", options: .caseInsensitive) { s = String(s[..<r.lowerBound]) }
+        else if s.lowercased().hasSuffix("/web") { s.removeLast(4) }
         while s.hasSuffix("/") { s.removeLast() }
         return s
     }
@@ -457,7 +529,12 @@ final class Emby: ObservableObject {
         r.setValue(authHeader, forHTTPHeaderField: "Authorization")
         r.setValue(authHeader, forHTTPHeaderField: "X-Emby-Authorization")
         r.httpBody = try JSONSerialization.data(withJSONObject: ["Username": user, "Pw": pw])
-        let (data, _) = try await Net.session.data(for: r)
+        let (data, resp) = try await Net.session.data(for: r)
+        switch (resp as? HTTPURLResponse)?.statusCode ?? 200 {
+        case 200..<300: break
+        case 401, 403: throw LoginError.wrongPassword
+        default: throw URLError(.badServerResponse)
+        }
         guard let j = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let t = j["AccessToken"] as? String,
               let u = (j["User"] as? [String: Any])?["Id"] as? String
@@ -497,11 +574,19 @@ final class Emby: ObservableObject {
         authorize(&r)
         let v: T
         do {
-            let (data, _) = try await Net.session.data(for: r)
+            let (data, resp) = try await Net.session.data(for: r)
+            // Errors used to be decoded as if they were answers, so screens just stayed empty
+            switch (resp as? HTTPURLResponse)?.statusCode ?? 200 {
+            case 200..<300: break
+            case 401: checkSession(); throw URLError(.userAuthenticationRequired)
+            default: throw URLError(.badServerResponse)
+            }
             v = try JSONDecoder().decode(T.self, from: data)
+            if lastFailure != nil { lastFailure = nil }
         } catch {
             if !(error is CancellationError) && (error as? URLError)?.code != .cancelled {
                 coveLog.error("GET \(path, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+                if (error as? URLError)?.code != .userAuthenticationRequired { noteFailure(error) }
             }
             throw error
         }
@@ -603,7 +688,8 @@ final class Emby: ObservableObject {
     // MARK: Libraries
 
     func loadLibs() async {
-        guard let v: ItemList = try? await get("/Users/\(userId)/Views") else { return }
+        let s = server, u = userId
+        guard let v: ItemList = try? await get("/Users/\(u)/Views"), server == s, userId == u else { return }
         var saved: [LibPref] = []
         if let data = d.data(forKey: "libs-\(userId)") {
             do { saved = try JSONDecoder().decode([LibPref].self, from: data) }
@@ -623,7 +709,7 @@ final class Emby: ObservableObject {
 
     func libraryItems(_ lib: LibPref, limit: Int, start: Int = 0, sort: String? = nil, desc: Bool? = nil,
                       watch: String = "all", genre: String = "", letter: String = "", favorites: Bool = false,
-                      types: String = "Movie,Series,BoxSet,Video,MusicVideo", groupCollections: Bool = false) async -> ItemList {
+                      types: String = "Movie,Series,BoxSet,Video,MusicVideo", groupCollections: Bool = false) async -> ItemList? {
         var q = ["ParentId": lib.id, "Fields": "Overview,Genres,EndDate,Status", "Limit": String(limit), "StartIndex": String(start),
                  "Recursive": "true", "IncludeItemTypes": types]
         var by = "DateCreated", down = true
@@ -648,8 +734,8 @@ final class Emby: ObservableObject {
             q["GroupItemsIntoCollections"] = "true"
             if !types.contains("BoxSet") { q["IncludeItemTypes"] = types + ",BoxSet" }
         }
-        let r: ItemList? = try? await get("/Users/\(userId)/Items", q)
-        return r ?? ItemList(Items: [], TotalRecordCount: 0)
+        // nil when the request failed: the caller keeps what it has (an empty list would end paging for good)
+        return try? await get("/Users/\(userId)/Items", q)
     }
 
     /// Emby's "Latest" list for a library (what the Emby apps show in their Latest rows).
@@ -669,6 +755,7 @@ final class Emby: ObservableObject {
     }
 
     func loadHome() async -> [Row] {
+        lastFailure = nil
         if libs.isEmpty { await loadLibs() }
         var rows: [Row] = []
         if let r: ItemList = try? await get("/Users/\(userId)/Items/Resume",
@@ -683,7 +770,7 @@ final class Emby: ObservableObject {
         for lib in libs where lib.visible && lib.onHome {
             // "Latest" rows use Emby's own Latest list, like the Emby apps (newest titles, no collections,
             // new episodes grouped under their show)
-            let items = lib.style == "latest" ? await latest(lib, limit: 20) : await libraryItems(lib, limit: 20).Items
+            let items = lib.style == "latest" ? await latest(lib, limit: 20) : (await libraryItems(lib, limit: 20))?.Items ?? []
             if !items.isEmpty { rows.append(Row(title: lib.title, items: items, libId: lib.id)) }
         }
         return rows
