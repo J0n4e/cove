@@ -420,10 +420,6 @@ struct LibrariesSettings: View {
             PrefRow(label: "Label alignment") { segmented($labelAlign, [("center", "Centered"), ("left", "Left")]) }
                 .disabled(!showTitle && !showYear)
         }
-        PrefSection {
-            PrefRow(label: "Episode layout") { segmented($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
-            PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
-        }
         PrefSection(last: true) {
             PrefRow(label: "New libraries") {
                 HStack(spacing: 10) {
@@ -534,6 +530,11 @@ struct LibrariesSettings: View {
             PrefRow(label: "Home row shows") {
                 menuPicker($emby.libs[i].style, [("latest", "Latest"), ("top", "Top Rated"), ("random", "Random"), ("az", "A–Z")])
             }.disabled(!lib.onHome || !lib.visible)
+            // Episode options apply to every TV library, so they show with any of them
+            if lib.kind == "tvshows" {
+                PrefRow(label: "Episode layout") { segmented($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+                PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
+            }
         }
     }
 
