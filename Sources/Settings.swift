@@ -371,7 +371,7 @@ struct LibrariesSettings: View {
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
     @AppStorage("favoritesLayout") private var favLayout = "row"
-    @AppStorage(FavoritesPlace.key) private var favPos = 0
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showUpNextRow") private var showUpNextRow = true
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -404,13 +404,14 @@ struct LibrariesSettings: View {
             PrefSection {
                 PrefRow(label: "View") { segmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             }
+        } else if selectedLib == NavOrder.nowPlaying {
+            PrefSection { PrefNote("Now Playing shows what is playing on your server right now. Move it with its ≡ handle.") }
         } else if let i = emby.libs.firstIndex(where: { $0.id == selectedLib }) ?? (emby.libs.isEmpty ? nil : 0) {
             libraryOptions(i, emby.libs[i])
         }
         PrefSection {
             PrefRow(label: "Sections") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Now Playing", isOn: $showNowPlaying)
                     Toggle("Recently Added", isOn: $showRecent)
                 }
             }
@@ -445,7 +446,7 @@ struct LibrariesSettings: View {
 
     @State private var selectedLib: String?
     /// Table selection for the Favorites line (not a server library).
-    static let favoritesId = "__favorites"
+    static let favoritesId = NavOrder.favorites
     let blue = Color(red: 0.24, green: 0.56, blue: 1)
 
     func kindIcon(_ lib: LibPref) -> String {
@@ -473,7 +474,7 @@ struct LibrariesSettings: View {
             List {
                 ForEach(tableRows, id: \.self) { id in
                     Group {
-                        if id == Self.favoritesId { favoritesLine(on: sel == id) }
+                        if NavOrder.sections.contains(id) { sectionLine(id, on: sel == id) }
                         else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryLine(i, on: sel == id) }
                     }
                     .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
@@ -493,12 +494,8 @@ struct LibrariesSettings: View {
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
     }
 
-    /// Table order: the libraries, with Favorites at its saved place (0 = top).
-    var tableRows: [String] {
-        var r = emby.libs.map(\.id)
-        r.insert(Self.favoritesId, at: min(max(favPos, 0), r.count))
-        return r
-    }
+    /// Table order: the libraries, with Favorites and Now Playing at their saved places.
+    var tableRows: [String] { NavOrder.rows(navOrder, libIds: emby.libs.map(\.id)) }
 
     func libraryLine(_ i: Int, on: Bool) -> some View {
         let lib = emby.libs[i]
@@ -516,20 +513,23 @@ struct LibrariesSettings: View {
         .onTapGesture { selectedLib = lib.id }
     }
 
-    /// Favorites: not a server library, so its Sidebar box is the "Favorites" section switch and it has no Home row.
-    func favoritesLine(on: Bool) -> some View {
-        HStack {
-            dragHandle(Self.favoritesId, on: on)
-            Image(systemName: "heart").foregroundColor(on ? .white : blue).frame(width: 20)
-            Text("Favorites").foregroundColor(showFavorites ? .primary : .secondary).lineLimit(1)
+    /// Favorites or Now Playing: not server libraries, so the Sidebar box is the section's show switch
+    /// and there is no Home row.
+    func sectionLine(_ id: String, on: Bool) -> some View {
+        let fav = id == NavOrder.favorites
+        let shown = fav ? $showFavorites : $showNowPlaying
+        return HStack {
+            dragHandle(id, on: on)
+            Image(systemName: fav ? "heart" : "dot.radiowaves.left.and.right").foregroundColor(on ? .white : blue).frame(width: 20)
+            Text(fav ? "Favorites" : "Now Playing").foregroundColor(shown.wrappedValue ? .primary : .secondary).lineLimit(1)
             Spacer()
-            Toggle("", isOn: $showFavorites).labelsHidden().frame(width: 70)
+            Toggle("", isOn: shown).labelsHidden().frame(width: 70)
             Color.clear.frame(width: 60, height: 1)
         }
         .padding(.horizontal, 6).frame(height: 30)
         .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
-        .onTapGesture { selectedLib = Self.favoritesId }
+        .onTapGesture { selectedLib = id }
     }
 
     @State private var dragId: String?
@@ -561,9 +561,9 @@ struct LibrariesSettings: View {
             .help("Drag to reorder")
     }
 
-    /// Splits a table order back into the library order and Favorites' place.
+    /// Splits a table order back into the library order and the sections' places.
     func applyOrder(_ rows: [String]) {
-        favPos = rows.firstIndex(of: Self.favoritesId) ?? 0
+        navOrder = rows.joined(separator: ",")
         let byId = Dictionary(emby.libs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         emby.libs = rows.compactMap { byId[$0] }
     }

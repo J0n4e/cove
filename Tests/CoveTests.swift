@@ -39,10 +39,16 @@ final class CoveTests: XCTestCase {
         XCTAssertNil(b[0].token)
     }
 
-    func testFavoritesPlace() {
-        XCTAssertNil(FavoritesPlace.afterIndex(0, libCount: 5))       // usual place after Home
-        XCTAssertEqual(FavoritesPlace.afterIndex(2, libCount: 5), 1)  // after the 2nd library
-        XCTAssertEqual(FavoritesPlace.afterIndex(9, libCount: 3), 2)  // libraries removed since: stays last
-        XCTAssertNil(FavoritesPlace.afterIndex(3, libCount: 0))       // not signed in yet
+    func testNavOrder() {
+        let f = NavOrder.favorites, n = NavOrder.nowPlaying
+        // Nothing saved: both sections in their usual place
+        XCTAssertEqual(NavOrder.rows("", libIds: ["a", "b"]), [f, n, "a", "b"])
+        // Saved after a library, kept there even when the libraries are reordered
+        let r = NavOrder.rows("a,\(f),b,\(n)", libIds: ["b", "a"])
+        XCTAssertEqual(r, ["b", n, "a", f])
+        XCTAssertEqual(NavOrder.top(r), [])
+        XCTAssertEqual(NavOrder.after("a", r), [f])
+        // The library it followed is gone: back to the usual place
+        XCTAssertEqual(NavOrder.rows("x,\(f),\(n)", libIds: ["a"]), [f, n, "a"])
     }
 }

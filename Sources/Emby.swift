@@ -189,14 +189,41 @@ struct LibPref: Identifiable, Codable, Hashable {
     var kind: String?
 }
 
-/// A server the user has signed in to; the token is kept so switching back needs no password.
-/// Where Favorites sits in the sidebar / top bar: 0 = its usual place after Home, n = after the n-th library
-/// (counting hidden ones too). Set by dragging it in Settings → Libraries.
-enum FavoritesPlace {
-    static let key = "favoritesPosition"
-    /// Favorites goes right after the library at this index, or nil when it stays in its usual place.
-    static func afterIndex(_ pos: Int, libCount: Int) -> Int? { pos <= 0 || libCount == 0 ? nil : min(pos, libCount) - 1 }
+/// Where Favorites and Now Playing sit in the sidebar / top bar, set by moving them in Settings → Libraries.
+/// Saved as one comma-separated order of library ids and the two section ids. Sections above the first
+/// library stay in their usual place after Home; the others follow the library just above them.
+enum NavOrder {
+    static let key = "navOrder"
+    static let favorites = "__favorites", nowPlaying = "__nowplaying"
+    static let sections = [favorites, nowPlaying]
+
+    /// The full order for these libraries (in their own order): sections keep the slot they were saved in.
+    static func rows(_ saved: String, libIds: [String]) -> [String] {
+        let list = saved.split(separator: ",").map(String.init)
+        var top: [String] = [], after: [String: [String]] = [:], lastLib: String?
+        for id in list {
+            if sections.contains(id) {
+                if let l = lastLib, libIds.contains(l) { after[l, default: []].append(id) } else { top.append(id) }
+            } else if libIds.contains(id) { lastLib = id }
+        }
+        // Sections never saved (first run) go to their usual place
+        for s in sections where !list.contains(s) { top.append(s) }
+        var r = top
+        for l in libIds { r.append(l); r += after[l] ?? [] }
+        return r
+    }
+
+    /// Sections in their usual place (above every library).
+    static func top(_ rows: [String]) -> [String] { Array(rows.prefix { sections.contains($0) }) }
+
+    /// Sections placed right after this library.
+    static func after(_ lib: String, _ rows: [String]) -> [String] {
+        guard let i = rows.firstIndex(of: lib) else { return [] }
+        return Array(rows[(i + 1)...].prefix { sections.contains($0) })
+    }
 }
+
+/// A server the user has signed in to; the token is kept so switching back needs no password.
 
 struct SavedServer: Codable, Identifiable, Hashable {
     var url: String

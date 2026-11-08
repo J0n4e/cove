@@ -290,7 +290,7 @@ struct HomeView: View {
     @AppStorage("navStyle") private var navStyle = "sidebar"   // Settings → General → Appearance: "sidebar" or "topbar"
     // Settings → Libraries → Sections: which fixed sections the sidebar / top bar show (Home always shows)
     @AppStorage("showFavorites") private var showFavorites = true
-    @AppStorage(FavoritesPlace.key) private var favPos = 0
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
 
@@ -328,31 +328,33 @@ struct HomeView: View {
         if abs(h - titleBarH) > 0.5 { titleBarH = h }
     }
 
+    /// Favorites or Now Playing in the sidebar, wherever Settings → Libraries placed it.
+    @ViewBuilder func sideSection(_ id: String) -> some View {
+        if id == NavOrder.favorites && showFavorites {
+            sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
+        } else if id == NavOrder.nowPlaying && showNowPlaying {
+            sideLabel("Now Playing", "dot.radiowaves.left.and.right")
+                .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
+                .badge(activeCount)
+                .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
+        }
+    }
+
     var splitLayout: some View {
         NavigationSplitView {
             List(selection: selB) {
                 sideLabel("Home", "house").modifier(RootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
-                if showFavorites && FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count) == nil {
-                    sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
-                }
-                if showNowPlaying {
-                    sideLabel("Now Playing", "dot.radiowaves.left.and.right")
-                        .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
-                        .badge(activeCount)
-                        .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
-                }
+                let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
+                ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
                 Section("Library") {
                     if showRecent {
                         sideLabel("Recently Added", "clock").modifier(RootTap(id: "recent", sel: sel, action: popToRoot)).tag("recent")
                     }
-                    let favAfter = showFavorites ? FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count) : nil
-                    ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
+                    ForEach(emby.libs) { lib in
                         if lib.visible {
                             sideLabel(lib.title, icon(lib)).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
                         }
-                        if favAfter == i {
-                            sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
-                        }
+                        ForEach(NavOrder.after(lib.id, rows), id: \.self) { sideSection($0) }
                     }
                 }
             }
@@ -520,7 +522,7 @@ struct TopNavButtons: View {
     @EnvironmentObject var emby: Emby
     @ObservedObject private var nav = NavState.shared
     @AppStorage("showFavorites") private var showFavorites = true
-    @AppStorage(FavoritesPlace.key) private var favPos = 0
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
     @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
@@ -556,16 +558,22 @@ struct TopNavButtons: View {
         default: return "folder"
         }
     }
+    /// Favorites or Now Playing, wherever Settings → Libraries placed it.
+    @ViewBuilder func section(_ id: String) -> some View {
+        if id == NavOrder.favorites && showFavorites { item("Favorites", "favorites", "heart") }
+        else if id == NavOrder.nowPlaying && showNowPlaying {
+            item("Now Playing", "nowplaying", "dot.radiowaves.left.and.right", badge: nav.activeCount)
+        }
+    }
     var body: some View {
         HStack(spacing: 4) {
             item("Home", "home", "house")
-            let favAfter = showFavorites ? FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count) : nil
-            if showFavorites && favAfter == nil { item("Favorites", "favorites", "heart") }
-            if showNowPlaying { item("Now Playing", "nowplaying", "dot.radiowaves.left.and.right", badge: nav.activeCount) }
+            let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
+            ForEach(NavOrder.top(rows), id: \.self) { section($0) }
             if showRecent { item("Recently Added", "recent", "clock") }
-            ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
+            ForEach(emby.libs) { lib in
                 if lib.visible { item(lib.title, lib.id, icon(lib)) }
-                if favAfter == i { item("Favorites", "favorites", "heart") }
+                ForEach(NavOrder.after(lib.id, rows), id: \.self) { section($0) }
             }
         }
         .padding(4)

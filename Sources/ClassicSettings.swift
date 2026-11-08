@@ -303,7 +303,7 @@ struct ClassicLibraryDefaults {
 struct ClassicLibrariesSettings: View {
     @EnvironmentObject var emby: Emby
     @AppStorage("favoritesLayout") private var favLayout = "row"
-    @AppStorage(FavoritesPlace.key) private var favPos = 0
+    @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("defaultLibraryLayout") private var defaultLayout = "grid"
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -361,7 +361,8 @@ struct ClassicLibrariesSettings: View {
             if emby.libs.isEmpty { Text("No libraries loaded yet.").foregroundColor(.secondary) }
             let rows = tableRows
             ForEach(Array(rows.enumerated()), id: \.element) { n, id in
-                if id == Self.favoritesId { favoritesCard(n, rows.count) }
+                if id == NavOrder.favorites { favoritesCard(n, rows.count) }
+                else if id == NavOrder.nowPlaying { nowPlayingCard(n, rows.count) }
                 else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryCard(i, emby.libs[i], n, rows.count) }
                 if n < rows.count - 1 { Divider() }
             }
@@ -372,21 +373,15 @@ struct ClassicLibrariesSettings: View {
         }
     }
 
-    static let favoritesId = "__favorites"
-
-    /// List order: the libraries, with Favorites at its saved place (0 = top).
-    var tableRows: [String] {
-        var r = emby.libs.map(\.id)
-        r.insert(Self.favoritesId, at: min(max(favPos, 0), r.count))
-        return r
-    }
+    /// List order: the libraries, with Favorites and Now Playing at their saved places.
+    var tableRows: [String] { NavOrder.rows(navOrder, libIds: emby.libs.map(\.id)) }
 
     /// Moves a line (library or Favorites) one place up or down, then splits the order back up.
     func move(_ n: Int, by d: Int) {
         var r = tableRows
         guard r.indices.contains(n), r.indices.contains(n + d) else { return }
         r.swapAt(n, n + d)
-        favPos = r.firstIndex(of: Self.favoritesId) ?? 0
+        navOrder = r.joined(separator: ",")
         let byId = Dictionary(emby.libs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         emby.libs = r.compactMap { byId[$0] }
     }
@@ -405,6 +400,14 @@ struct ClassicLibrariesSettings: View {
         HStack(spacing: 10) {
             Label("Favorites", systemImage: "heart").frame(width: 200, alignment: .leading)
             labeled("View") { classicSegmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            Spacer()
+            arrows(n, count)
+        }.font(.callout)
+    }
+
+    func nowPlayingCard(_ n: Int, _ count: Int) -> some View {
+        HStack(spacing: 10) {
+            Label("Now Playing", systemImage: "dot.radiowaves.left.and.right").frame(width: 200, alignment: .leading)
             Spacer()
             arrows(n, count)
         }.font(.callout)
