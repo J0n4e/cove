@@ -469,7 +469,7 @@ struct LibrariesSettings: View {
                 ForEach($emby.libs) { $lib in
                     let on = lib.id == sel
                     HStack {
-                        Image(systemName: "line.3.horizontal").foregroundColor(.secondary.opacity(0.6)).font(.caption)
+                        dragHandle(lib, on: on)
                         Image(systemName: kindIcon(lib)).foregroundColor(on ? .white : blue).frame(width: 20)
                         Text(lib.title).foregroundColor(lib.visible ? .primary : .secondary).lineLimit(1)
                         Spacer()
@@ -480,19 +480,6 @@ struct LibrariesSettings: View {
                     .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
                     .contentShape(Rectangle())
                     .onTapGesture { selectedLib = lib.id }
-                    // Drag a row onto another to move it there. List's own onMove never started a drag on
-                    // macOS here (the tap gesture that selects a row takes the mouse first).
-                    .draggable(lib.id) {
-                        Label(lib.title, systemImage: kindIcon(lib)).padding(6)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(blue.opacity(0.85)))
-                    }
-                    .dropDestination(for: String.self) { ids, _ in
-                        guard let id = ids.first, id != lib.id,
-                              let from = emby.libs.firstIndex(where: { $0.id == id }),
-                              let to = emby.libs.firstIndex(where: { $0.id == lib.id }) else { return false }
-                        withAnimation { emby.libs.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to) }
-                        return true
-                    }
                     .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -510,10 +497,38 @@ struct LibrariesSettings: View {
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
     }
 
+    @State private var dragId: String?
+    @State private var dragFrom = 0
+
+    /// ≡ handle: drag it up or down and the row moves one place for every row height passed.
+    /// (List's onMove and drag-and-drop never started a drag in this table on macOS.)
+    func dragHandle(_ lib: LibPref, on: Bool) -> some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(on || dragId == lib.id ? .white : .secondary)
+            .frame(width: 18, height: 28).contentShape(Rectangle())
+            .onHover { inside in if inside { NSCursor.openHand.push() } else { NSCursor.pop() } }
+            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                .onChanged { v in
+                    if dragId == nil {
+                        dragId = lib.id; selectedLib = lib.id
+                        dragFrom = emby.libs.firstIndex(where: { $0.id == lib.id }) ?? 0
+                    }
+                    let target = min(max(dragFrom + Int((v.translation.height / 32).rounded()), 0), emby.libs.count - 1)
+                    if let cur = emby.libs.firstIndex(where: { $0.id == dragId }), cur != target {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            emby.libs.move(fromOffsets: [cur], toOffset: target > cur ? target + 1 : target)
+                        }
+                    }
+                }
+                .onEnded { _ in dragId = nil })
+            .help("Drag to reorder")
+    }
+
     /// Favorites, always first and not draggable: its Sidebar box is the old "Favorites" section switch.
     func favoritesLine(on: Bool) -> some View {
         HStack {
-            Image(systemName: "line.3.horizontal").foregroundColor(.clear).font(.caption)
+            Color.clear.frame(width: 18, height: 28)
             Image(systemName: "heart").foregroundColor(on ? .white : blue).frame(width: 20)
             Text("Favorites").foregroundColor(showFavorites ? .primary : .secondary).lineLimit(1)
             Spacer()
