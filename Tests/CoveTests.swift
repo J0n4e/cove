@@ -83,4 +83,14 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(c.first?.end ?? -1, 2.5, accuracy: 0.001)
         XCTAssertEqual(c.last?.text, "Two\nlines")
     }
+
+    func testTranscodingProfile() {
+        // HEVC must come in fMP4 (AVPlayer rejects HEVC in MPEG-TS); conversion stays H.264 (listed first)
+        let h = Emby.transcodingProfile(hevc: true)
+        XCTAssertEqual(h["Container"] as? String, "mp4")
+        XCTAssertEqual(h["VideoCodec"] as? String, "h264,hevc")
+        let t = Emby.transcodingProfile(hevc: false)
+        XCTAssertEqual(t["Container"] as? String, "ts")
+        XCTAssertEqual(t["VideoCodec"] as? String, "h264")
+    }
 }

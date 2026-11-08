@@ -1065,9 +1065,24 @@ final class Emby: ObservableObject {
         return cues.isEmpty ? nil : cues
     }
 
+    /// The HLS profile for the server. HEVC (4K, HDR) must come in fMP4 segments: AVPlayer rejects HEVC inside
+    /// MPEG-TS (CoreMedia -12927 on the first segment). With fMP4 the server can pass a 4K HDR video through
+    /// unchanged, and Apple Silicon decodes it in hardware. Everything else keeps the proven TS + H.264 profile.
+    /// The codec order matters: the server copies the video when its codec is listed, and when it has to convert
+    /// it uses the first one (H.264, which every server can encode quickly).
+    static func transcodingProfile(hevc: Bool) -> [String: Any] {
+        [
+            "Container": hevc ? "mp4" : "ts", "Type": "Video", "AudioCodec": "aac",
+            "VideoCodec": hevc ? "h264,hevc" : "h264",
+            "Context": "Streaming", "Protocol": "hls", "MaxAudioChannels": "2",
+            "MinSegments": "1", "BreakOnNonKeyFrames": true,
+        ]
+    }
+
     /// Asks the server how to play the item for AVPlayer: direct play for MP4/MOV, otherwise HLS transcode
     /// (also used whenever a subtitle, a different audio track or a lower quality is chosen).
-    func resolveStream(_ req: PlayRequest, direct: Bool = true, reencode: Bool = false) async -> URL? {
+    /// `hevc`: the source video is HEVC, so ask for fMP4 segments that may carry it unchanged.
+    func resolveStream(_ req: PlayRequest, direct: Bool = true, reencode: Bool = false, hevc: Bool = false) async -> URL? {
         let id = req.item.id
         let canDirect = direct && !req.transcode
         let profile: [String: Any] = [
@@ -1076,9 +1091,10 @@ final class Emby: ObservableObject {
             "DirectPlayProfiles": canDirect
                 ? [["Container": "mp4,m4v,mov", "Type": "Video", "VideoCodec": "h264,hevc", "AudioCodec": "aac,ac3,eac3,mp3"]]
                 : [[String: Any]](),
-            "TranscodingProfiles": [["Container": "ts", "Type": "Video", "AudioCodec": "aac", "VideoCodec": "h264",
-                                     "Context": "Streaming", "Protocol": "hls", "MaxAudioChannels": "2",
-                                     "MinSegments": "1", "BreakOnNonKeyFrames": true]],
+            "TranscodingProfiles": [Self.transcodingProfile(hevc: hevc)],
+            // macOS can't decode 10-bit H.264 (Hi10P): have the server convert it instead of passing it through
+            "CodecProfiles": [["Type": "Video", "Codec": "h264", "Conditions": [
+                ["Condition": "LessThanEqual", "Property": "VideoBitDepth", "Value": "8", "IsRequired": false]]]],
             "SubtitleProfiles": ["srt", "subrip", "ass", "ssa", "vtt", "pgs", "pgssub", "dvdsub"].map { ["Format": $0, "Method": "Encode"] }
         ]
         var qi = [URLQueryItem(name: "UserId", value: userId),
