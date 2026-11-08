@@ -162,6 +162,7 @@ struct GeneralSettings: View {
     @AppStorage("accent") private var accent = "red"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
+    @AppStorage("topBarIcons") private var topBarIcons = true
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -220,6 +221,7 @@ struct GeneralSettings: View {
                 }.pickerStyle(.radioGroup).labelsHidden()
             }
             PrefNote("Top bar replaces the sidebar with a bar across the top. Settings are in the Cove menu (⌘,).")
+            PrefRow { Toggle("Show icons in the top bar", isOn: $topBarIcons) }.disabled(navStyle != "topbar")
         }
     }
 }

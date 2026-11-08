@@ -523,6 +523,7 @@ struct TopNavButtons: View {
     @AppStorage(FavoritesPlace.key) private var favPos = 0
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
+    @AppStorage("topBarIcons") private var showIcons = true   // Settings → General → Navigation
     func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
@@ -530,8 +531,10 @@ struct TopNavButtons: View {
             nav.sel = id; nav.popToRoot()
         } label: {
             // Small icon before each name, as in the sidebar
-            Label { Text(badge > 0 ? "\(title) \(badge)" : title) } icon: { Image(systemName: icon).font(.system(size: 12)) }
-                .labelStyle(.titleAndIcon)
+            HStack(spacing: 6) {
+                if showIcons { Image(systemName: icon).font(.system(size: 12)) }
+                Text(badge > 0 ? "\(title) \(badge)" : title)
+            }
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
                 .padding(.horizontal, 14).frame(height: 32)
