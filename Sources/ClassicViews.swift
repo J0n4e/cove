@@ -2730,6 +2730,8 @@ struct ClassicPlayerView: View {
                     .transition(.opacity)
                 }
 
+                if model.player != nil, !model.isReady, model.error.isEmpty { ClassicSpinner() }
+
                 if !model.error.isEmpty {
                     VStack(spacing: 12) {
                         Text(model.error).multilineTextAlignment(.center).frame(maxWidth: 420)
@@ -2825,7 +2827,12 @@ struct ClassicPlayerView: View {
             if item.isEpisode, let sid = item.SeriesId { episodes = await emby.episodes(sid) }
         }
         .task { await model.start(emby, req) }
-        .onDisappear { model.stop() }
+        .onDisappear { model.stop(); if emby.playing == nil { RemoteControls.detach() } }   // keep keys when switching episodes
+        // Media keys / Control Center (shared with the Glass player)
+        .onAppear { RemoteControls.attach(model, skip: Double(skipSecs)) }
+        .onChange(of: model.playing) { RemoteControls.update(item, model) }
+        .onChange(of: model.duration) { RemoteControls.update(item, model) }
+        .onChange(of: Int(model.time / 10)) { RemoteControls.update(item, model) }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { _ in
             if autoNext, !upNextCancelled, let n = nextEp { play(n) } else { close() }
         }

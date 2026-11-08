@@ -40,6 +40,13 @@ final class PlayerModel: ObservableObject {
     private var lastReport: Double = 0
     private var reportedStart = false
     private var session: Emby.PlaySession?
+    /// Bumped by every start() and stop(): a start that was overtaken (another track chosen meanwhile, or the
+    /// player closed while it was still loading) sees the change after its next await and gives up.
+    private var startGen = 0
+    /// False until the stream is ready to play (the screen shows a spinner meanwhile).
+    @Published var isReady = false
+    /// The player that is playing now, so quitting and sleep can reach it.
+    static weak var active: PlayerModel?
 
     // Chapters, intro/credits markers, scrub thumbnails, picture-in-picture
     @Published var chapters: [Chapter] = []
@@ -74,12 +81,18 @@ final class PlayerModel: ObservableObject {
 
     func start(_ emby: Emby, _ req: PlayRequest, direct: Bool = true) async {
         stop()
-        error = ""; cues = []
+        startGen += 1
+        let gen = startGen
+        func current() -> Bool { gen == startGen && !Task.isCancelled }
+        error = ""; cues = []; isReady = false
         self.emby = emby
+        Self.active = self
         if pendingSeek == 0, let s = req.start, s > 0 { pendingSeek = s }
         self.req = req
         sub = req.sub; quality = req.maxBitrate ?? 0
-        if streams.isEmpty || metaFor != req.item.id, let f = await emby.full(req.item.id) {
+        let f = (streams.isEmpty || metaFor != req.item.id) ? await emby.full(req.item.id) : nil
+        guard current() else { return }
+        if let f {
             let src = f.MediaSources?.first { $0.Id == req.sourceId } ?? f.MediaSources?.first
             if streams.isEmpty { streams = src?.MediaStreams ?? [] }
             if metaFor != req.item.id {
@@ -117,13 +130,22 @@ final class PlayerModel: ObservableObject {
             loadCues(emby, req.item.id, req.sourceId, s)
         }
         await emby.killStaleEncodings()
+        guard current() else { return }
         // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
         let midFile = pendingSeek > 0
-        guard let u = await emby.resolveStream(req, direct: direct, reencode: midFile) else {
-            error = "Couldn't get a stream from the server."; return
+        let resolved = await emby.resolveStream(req, direct: direct, reencode: midFile)
+        guard let u = resolved else {
+            if current() { error = "Couldn't get a stream from the server." }
+            return
         }
         let method = u.absoluteString.contains("Static=true") ? "DirectPlay" : "Transcode"
-        session = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u)
+        let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u)
+        guard current() else {
+            // Overtaken while the server prepared this stream: make sure its conversion doesn't keep running
+            if method == "Transcode" { Task { await emby.stopEncoding(ps) } }
+            return
+        }
+        session = ps
         let it = AVPlayerItem(url: u)
         // Start at the resume point right away. Loading from 0 and seeking afterwards makes the server restart
         // its transcode part-way, which can shift the stream's timeline against the subtitles.
@@ -142,6 +164,7 @@ final class PlayerModel: ObservableObject {
             if i.status == .readyToPlay {
                 Task { @MainActor in
                     guard let self else { return }
+                    self.isReady = true
                     if self.resumeTarget > 0 {
                         let t = self.resumeTarget; self.resumeTarget = 0
                         // Safety net in case the early seek was not applied: exact seek now
@@ -171,13 +194,37 @@ final class PlayerModel: ObservableObject {
         player = p
         p.defaultRate = speed
         p.play()
+        // A conversion that never starts would otherwise leave a black screen with a spinner forever
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            guard let self, gen == self.startGen, !self.isReady, self.error.isEmpty else { return }
+            self.error = "The server didn't start the video. Try again, or choose a lower quality."
+        }
+    }
+
+    /// Cove is quitting: report where playback stopped and end the server's conversion before the app goes
+    /// away (AppDelegate waits for this, a few seconds at most).
+    func stopForQuit() async {
+        guard let p = player, let ps = session, let e = emby else { stop(); return }
+        let t = p.currentTime().seconds, d = p.currentItem?.duration.seconds ?? 0
+        let started = reportedStart
+        session = nil                               // stop() must not report a second time
+        stop()
+        if started { await e.reportStopped(ps, t.isFinite ? t : 0, duration: d.isFinite ? d : 0, quick: true) }
+        else { await e.stopEncoding(ps) }
+    }
+
+    /// The Mac is going to sleep: pause (which reports the position and keeps the session alive).
+    func pauseForSleep() {
+        if let p = player, p.rate > 0 { togglePlay() }
     }
 
     /// Restart the stream with new settings, keeping the playback position.
     private func restart(_ emby: Emby, _ change: (inout PlayRequest) -> Void) async {
         guard var r = req else { return }
         change(&r)
-        pendingSeek = now
+        // While an earlier restart is still loading there is no player yet (`now` reads 0): keep its position
+        pendingSeek = player != nil ? now : max(pendingSeek, time)
         await start(emby, r)
     }
 
@@ -467,11 +514,21 @@ final class PlayerModel: ObservableObject {
             let mid = (lo + hi) / 2
             if cues[mid].start <= t { found = mid; lo = mid + 1 } else { hi = mid - 1 }
         }
-        let text = found >= 0 && t <= cues[found].end ? cues[found].text : ""
+        // Cues can overlap (two speakers, a sign plus dialogue): show every cue that covers t, in order
+        var lines: [String] = []
+        var i = found
+        while i >= 0 && found - i < 8 {
+            if t <= cues[i].end { lines.insert(cues[i].text, at: 0) }
+            i -= 1
+        }
+        let text = lines.joined(separator: "\n")
         if text != caption { caption = text }
     }
 
     func stop() {
+        startGen += 1
+        subGen += 1; loadingSubs = false          // a subtitle still downloading must not restart playback later
+        if Self.active === self { Self.active = nil }
         if let p = player, let ps = session, reportedStart {
             let t = p.currentTime().seconds
             let d = p.currentItem?.duration.seconds ?? 0
