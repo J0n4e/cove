@@ -857,6 +857,16 @@ final class Emby: ObservableObject {
         try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,People,Genres,Studios,MediaSources,MediaStreams,Taglines,DateCreated,ExternalUrls,RemoteTrailers,Chapters"])
     }
 
+    /// Collections (box sets) this movie or show belongs to, for "Included In". Emby only: Jellyfin ignores
+    /// ListItemIds and would return every collection. A long answer means the filter wasn't applied either.
+    func collections(containing id: String) async -> [Item] {
+        guard !isJellyfin else { return [] }
+        let r: ItemList? = try? await get("/Users/\(userId)/Items", ["Recursive": "true", "IncludeItemTypes": "BoxSet",
+                                                                    "ListItemIds": id, "Fields": "Overview"])
+        let list = r?.Items ?? []
+        return list.count > 10 ? [] : list
+    }
+
     func similar(_ id: String) async -> [Item] {
         let r: ItemList? = try? await get("/Items/\(id)/Similar", ["UserId": userId, "Limit": "12", "Fields": "Overview"])
         return r?.Items ?? []

@@ -309,6 +309,7 @@ struct ClassicLibrariesSettings: View {
     @EnvironmentObject var emby: Emby
     @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("similarLayout") private var similarLayout = "row"
+    @AppStorage("showIncludedIn") private var showIncludedIn = true
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("defaultLibraryLayout") private var defaultLayout = "grid"
     @AppStorage("posterShowTitle") private var showTitle = true
@@ -335,6 +336,7 @@ struct ClassicLibrariesSettings: View {
         ClassicSettingsGroup(title: "More Like This") {
             ClassicSettingRow(label: "View") { classicSegmented($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             Text("At the bottom of a movie or show page. You can also switch it there.").font(.caption).foregroundColor(.secondary)
+            Toggle("Show \"Included In\" (the collections a title belongs to) above it", isOn: $showIncludedIn)
         }
         ClassicSettingsGroup(title: "Poster labels") {
             Toggle("Show title under posters", isOn: $showTitle)

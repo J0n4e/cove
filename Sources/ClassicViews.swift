@@ -1956,6 +1956,8 @@ struct ClassicDetailView: View {
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
+    @State private var includedIn: [Item] = []
+    @AppStorage("showIncludedIn") private var showIncludedIn = true   // Settings → Libraries
     @AppStorage("similarLayout") private var similarLayout = "row"   // "row", "grid" or "list"; also in Settings → Libraries
     @State private var srcIdx = 0
     @State private var audioIdx = -1
@@ -2013,6 +2015,7 @@ struct ClassicDetailView: View {
                 if item.isBox { boxGrid }
                 castSection
                 aboutSection
+                includedInSection
                 similarSection
             }.padding(.bottom, 50)
         }
@@ -2040,6 +2043,7 @@ struct ClassicDetailView: View {
                 if let first = kids.first { epLangs = Self.subLangs(await emby.full(first.id)) }
             }
             else if item.isBox { kids = await emby.children(item.id) }
+            if !item.isEpisode && !item.isBox && showIncludedIn { includedIn = await emby.collections(containing: item.id) }
             if !item.isEpisode { similar = await emby.similar(item.id) }
         }
         .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
@@ -2492,6 +2496,16 @@ struct ClassicDetailView: View {
                     }
                 }
             }.padding(.horizontal, 40).frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// "Included In": the collections this title belongs to; a click opens the collection's page.
+    @ViewBuilder var includedInSection: some View {
+        if showIncludedIn && !includedIn.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Included In").font(.title3.bold()).padding(.horizontal, 40)
+                ClassicArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }
+            }
         }
     }
 

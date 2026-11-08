@@ -372,6 +372,7 @@ struct LibrariesSettings: View {
     @AppStorage("showRecent") private var showRecent = true
     @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("similarLayout") private var similarLayout = "row"
+    @AppStorage("showIncludedIn") private var showIncludedIn = true
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showUpNextRow") private var showUpNextRow = true
     @AppStorage("posterShowTitle") private var showTitle = true
@@ -421,6 +422,8 @@ struct LibrariesSettings: View {
             PrefNote("The next episode of each show you're watching, under Continue Watching.")
             PrefRow(label: "More Like This") { segmented($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
+            PrefRow(label: "Included In") { Toggle("Show the collections a movie or show belongs to", isOn: $showIncludedIn) }
+            PrefNote("Above More Like This. Click a collection to open it. Emby servers only.")
         }
         PrefSection {
             PrefRow(label: "Poster labels") {
