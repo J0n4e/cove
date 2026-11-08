@@ -170,7 +170,10 @@ struct Full: Decodable {
 }
 
 struct Row: Identifiable {
-    let id = UUID(); let title: String; let items: [Item]
+    /// Stable between reloads (library, feed or title), so SwiftUI updates a row in place instead of
+    /// rebuilding it, which reset its scroll position every time Home refreshed.
+    var id: String { libId ?? feed?.rawValue ?? title }
+    let title: String; let items: [Item]
     /// What the row's "›" title opens: a feed page or a library.
     var feed: Feed? = nil
     var libId: String? = nil

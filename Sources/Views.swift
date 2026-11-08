@@ -64,7 +64,7 @@ struct AlphaLetter: View {
             hover = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .help(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+        .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
     }
 }
 
@@ -200,7 +200,7 @@ struct LoginView: View {
                         .background(Color.white.opacity(0.08)).cornerRadius(10)
                     if s.token != nil {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(6)
-                            .help("Signed in")
+                            .helpLabel("Signed in")
                     }
                 }
                 HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.caption); Text(s.name).font(.headline).lineLimit(1) }
@@ -221,7 +221,7 @@ struct LoginView: View {
             HStack {
                 if !emby.servers.isEmpty {
                     Button { adding = false; error = "" } label: { Image(systemName: "chevron.left") }
-                        .buttonStyle(.plain).help("Back to servers")
+                        .buttonStyle(.plain).helpLabel("Back to servers")
                 }
                 Spacer()
                 Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.title.bold())
@@ -470,7 +470,8 @@ struct HomeView: View {
         .task {
             // Keep the sidebar's Now Playing count fresh
             while !Task.isCancelled {
-                nav.activeCount = await emby.nowPlaying().count
+                let n = await emby.nowPlaying().count
+                if nav.activeCount != n { nav.activeCount = n }      // publish only real changes
                 try? await Task.sleep(for: .seconds(20))
             }
         }
@@ -629,7 +630,7 @@ struct TopNavTools: View {
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
                     .contentShape(Circle())
-            }.buttonStyle(.plain).help("Search")
+            }.buttonStyle(.plain).helpLabel("Search")
         }
     }
 }
@@ -660,7 +661,7 @@ struct TopBackButton: View {
         .buttonStyle(.plain)
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
-        .help("Back (⌘[)")
+        .helpLabel("Back (⌘[)")
         .disabled(emby.playing != nil)
     }
 }
@@ -741,7 +742,7 @@ struct SearchView: View {
                                 Text(p.Name).font(.caption.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 110)
                         }
-                        .buttonStyle(.plain).help("Show everything with \(p.Name)")
+                        .buttonStyle(.plain).helpLabel("Show everything with \(p.Name)")
                     }
                 }.padding(.vertical, 8)
             }
@@ -1046,7 +1047,8 @@ struct PersonView: View {
 
 struct HomeContent: View {
     @EnvironmentObject var emby: Emby
-    @ObservedObject private var nav = NavState.shared
+    // Not observed: Home only sets the selection, so it shouldn't re-render when the Now Playing count changes
+    private var nav: NavState { NavState.shared }
 
     /// "Title ›" like Apple TV: opens the full list (feed page) or the library.
     @ViewBuilder func rowTitle(_ row: Row) -> some View {
@@ -1143,6 +1145,8 @@ struct Hero: View {
     @State private var index = 0
     @State private var hover = false
     @State private var width: CGFloat = 1200
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var playback = PlaybackFlag.shared
     var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900) }
 
     /// "TV Show · Comedy · Sport", like Apple TV.
@@ -1153,7 +1157,7 @@ struct Hero: View {
     }
 
     func step(_ d: Int) {
-        withAnimation(.easeInOut(duration: 0.6)) { index = (index + d + items.count) % items.count }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { index = (index + d + items.count) % items.count }
     }
 
     var body: some View {
@@ -1200,11 +1204,11 @@ struct Hero: View {
                     Button { Task { await emby.setFav(item.id, !fav) } } label: {
                         Image(systemName: fav ? "checkmark" : "plus").font(.system(size: 18, weight: .semibold))
                             .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
-                    }.buttonStyle(.plain).help(fav ? "Remove from Favorites" : "Add to Favorites")
+                    }.buttonStyle(.plain).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
                     NavigationLink(value: item) {
                         Image(systemName: "info").font(.system(size: 18, weight: .semibold))
                             .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
-                    }.buttonStyle(.plain).help("More info")
+                    }.buttonStyle(.plain).helpLabel("More info")
                 }.padding(.top, 8)
             }
             .padding(.leading, 52).padding(.bottom, 64)
@@ -1213,9 +1217,13 @@ struct Hero: View {
             // Page dots, centered at the bottom
             HStack(spacing: 9) {
                 ForEach(items.indices, id: \.self) { i in
-                    Circle().fill(Color.white.opacity(i == index % items.count ? 1 : 0.4)).frame(width: 7, height: 7)
-                        .contentShape(Rectangle().inset(by: -5))
-                        .onTapGesture { withAnimation(.easeInOut(duration: 0.6)) { index = i } }
+                    Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { index = i } } label: {
+                        Circle().fill(Color.white.opacity(i == index % items.count ? 1 : 0.4)).frame(width: 7, height: 7)
+                            .contentShape(Rectangle().inset(by: -5))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
+                    .accessibilityAddTraits(i == index % items.count ? .isSelected : [])
                 }
             }
             .frame(maxWidth: .infinity).padding(.bottom, 26)
@@ -1223,9 +1231,9 @@ struct Hero: View {
         .overlay {
             if hover && items.count > 1 {
                 HStack {
-                    heroArrow("chevron.left") { step(-1) }
+                    heroArrow("chevron.left") { step(-1) }.helpLabel("Previous banner")
                     Spacer()
-                    heroArrow("chevron.right") { step(1) }
+                    heroArrow("chevron.right") { step(1) }.helpLabel("Next banner")
                 }.padding(.horizontal, 14)
             }
         }
@@ -1235,7 +1243,10 @@ struct Hero: View {
             Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
         })
         .foregroundColor(.white)
-        .task(id: index) {
+        // Turns to the next banner every 9 s, but not while the pointer is on it (you may be reading or about
+        // to click), not while a video plays (no point downloading big banners then) and not with Reduce Motion
+        .task(id: "\(index)-\(hover)-\(playback.active)") {
+            guard !playback.active else { return }
             // Look ahead: the next two banners (picture and title logo) download while this one shows
             let w = min(Int(width * 2), 2560)
             var next: [URL?] = []
@@ -1245,6 +1256,7 @@ struct Hero: View {
                 next.append(emby.image(it.SeriesId ?? it.Id, "Logo", width: 700))
             }
             ImageCache.shared.prefetch(next)
+            guard !hover, !reduceMotion else { return }
             try? await Task.sleep(nanoseconds: 9_000_000_000)
             if !Task.isCancelled { step(1) }
         }
@@ -1356,7 +1368,7 @@ struct ResumeCard: View {
                 Button { Task { await emby.play(item) } } label: {
                     Image(systemName: "play.fill").font(.system(size: 22)).foregroundColor(.white)
                         .frame(width: 54, height: 54).background(.ultraThinMaterial, in: Circle())
-                }.buttonStyle(.plain).help("Resume")
+                }.buttonStyle(.plain).helpLabel("Resume")
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -1366,7 +1378,16 @@ struct ResumeCard: View {
         .contentShape(Rectangle())
         .onHover { hover = $0 }
         .onTapGesture { openPage() }
-        .help(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)
+        // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
+        // Resume button itself only shows under the pointer
+        .focusable()
+        .onKeyPress(.return) { openPage(); return .handled }
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(timeLeft ?? "")
+        .accessibilityAction { openPage() }
+        .accessibilityAction(named: "Resume") { Task { await emby.play(item) } }
+        .helpLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)
     }
 }
 
@@ -1700,13 +1721,13 @@ struct CountBadge: View {
             if n == 0 {
                 Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
                     .frame(width: 24, height: 24).background(Circle().fill(WatchBadge.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.5), radius: 3).help("All watched")
+                    .shadow(color: .black.opacity(0.5), radius: 3).helpLabel("All watched")
             } else {
                 Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
                     .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
                     .background(Capsule().fill(WatchBadge.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.5), radius: 3)
-                    .help("\(n) unwatched episode\(n == 1 ? "" : "s")")
+                    .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
             }
         }
     }
@@ -1754,13 +1775,13 @@ struct WatchBadge: View {
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(Self.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.5), radius: 3)
-                .help("Watched")
+                .helpLabel("Watched")
         } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
             Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
                 .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
                 .background(Capsule().fill(Self.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.5), radius: 3)
-                .help("\(n) unwatched episode\(n == 1 ? "" : "s")")
+                .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
         }
     }
 }
@@ -1831,7 +1852,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain).help(help)
+        .buttonStyle(.plain).helpLabel(help)
         .transition(.opacity)
     }
 }
@@ -2099,7 +2120,7 @@ struct LibraryView: View {
                         .background(Capsule().fill(layout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .contentShape(Capsule())
-                }.buttonStyle(.plain).help(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plain).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 36).glassCapsule()
     }
@@ -2466,7 +2487,7 @@ struct DetailView: View {
             Image(systemName: name).font(.system(size: 17, weight: .semibold))
                 .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
                 .contentShape(Circle())
-        }.buttonStyle(.plain).help(help)
+        }.buttonStyle(.plain).helpLabel(help)
     }
 
     /// Language name from "English (SRT)" etc., so "eng" and "en" tracks group together.
@@ -2684,7 +2705,7 @@ struct DetailView: View {
                         .background(Capsule().fill(epLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .contentShape(Capsule())
-                }.buttonStyle(.plain).help(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plain).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 36).glassCapsule()
     }
@@ -2769,7 +2790,7 @@ struct DetailView: View {
                 Text("Cast & Crew").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: 104, inset: 52) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { CastTile(p: people[i]) }
-                        .buttonStyle(.plain).help("Show everything with \(people[i].Name)")
+                        .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
                 }
             }
         }
@@ -2862,7 +2883,7 @@ struct DetailView: View {
                         .background(Capsule().fill(similarLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .contentShape(Capsule())
-                }.buttonStyle(.plain).help(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plain).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 36).glassCapsule()
     }
@@ -3024,7 +3045,7 @@ struct PlayerView: View {
         let visible = h > 0 && (showUI || panel != nil)
         return VStack(spacing: 0) {
             HStack(spacing: 0) {
-                BackPill(compact: true) { back() }.help("Back (Esc)").padding(.leading, x)
+                BackPill(compact: true) { back() }.helpLabel("Back (Esc)").padding(.leading, x)
                 Spacer(minLength: 0)
             }.frame(height: h)
             Spacer(minLength: 0)
@@ -3294,17 +3315,17 @@ struct PlayerView: View {
 
     var topBar: some View {
         HStack(alignment: .top, spacing: 16) {
-            if Self.inPlayerBackPill { BackPill { back() }.help(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
+            if Self.inPlayerBackPill { BackPill { back() }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
             // Left glass group: picture in picture, full screen, info (Apple TV style)
             HStack(spacing: 6) {
                 if model.pipSupported {
                     glassIcon(model.pipActive ? "pip.exit" : "pip.enter", on: model.pipActive) { model.togglePiP() }
-                        .help("Picture in picture (P)")
+                        .helpLabel("Picture in picture (P)")
                 }
                 glassIcon(isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right") {
                     toggleFullScreen()
-                }.help(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
-                glassIcon("info.circle", on: showInfo) { showInfo.toggle() }.help("Playback info (I)")
+                }.helpLabel(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
+                glassIcon("info.circle", on: showInfo) { showInfo.toggle() }.helpLabel("Playback info (I)")
             }
             .padding(.horizontal, 8).frame(height: 50).background(.ultraThinMaterial, in: Capsule())
             Spacer()
@@ -3336,11 +3357,11 @@ struct PlayerView: View {
     var centerControls: some View {
         HStack(spacing: 44) {
             centerCircle("gobackward.\(skipSecs)", size: 30, box: 92) { model.skip(-Double(skipSecs)) }
-                .help("Back \(skipSecs) seconds")
+                .helpLabel("Back \(skipSecs) seconds")
             centerCircle(model.playing ? "pause.fill" : "play.fill", size: 50, box: 140) { model.togglePlay() }
-                .help(model.playing ? "Pause (Space)" : "Play (Space)")
+                .helpLabel(model.playing ? "Pause (Space)" : "Play (Space)")
             centerCircle("goforward.\(skipSecs)", size: 30, box: 92) { model.skip(Double(skipSecs)) }
-                .help("Forward \(skipSecs) seconds")
+                .helpLabel("Forward \(skipSecs) seconds")
         }
         .environment(\.colorScheme, .dark)
     }
@@ -3378,26 +3399,26 @@ struct PlayerView: View {
                 HStack(spacing: 6) {
                     if item.isEpisode && episodes.count > 1 {
                         glassIcon("backward.end.fill") { if let p = prevEp { play(p) } else { model.seek(to: 0) } }
-                            .help("Previous")
+                            .helpLabel("Previous")
                         glassIcon("forward.end.fill") { if let n = nextEp { play(n) } }
-                            .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).help("Next")
+                            .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).helpLabel("Next")
                         glassIcon("rectangle.stack", on: panel == .episodes) {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 if panel != .episodes { pickerSeason = item.ParentIndexNumber ?? 1 }
                                 panel = panel == .episodes ? nil : .episodes
                             }
-                        }.help("Episodes (E)")
+                        }.helpLabel("Episodes (E)")
                     }
                     if !model.subStreams.isEmpty { subtitleMenu.padding(.horizontal, 5) }
                     qualityMenu.padding(.horizontal, 5)
                     if !model.chapterList.isEmpty {
                         glassIcon("list.bullet.rectangle", on: panel == .chapters) {
                             withAnimation(.easeOut(duration: 0.2)) { panel = panel == .chapters ? nil : .chapters }
-                        }.help("Chapters (C)")
+                        }.helpLabel("Chapters (C)")
                     }
                     glassIcon("waveform", on: panel != nil && panel != .episodes && panel != .chapters) {
                         withAnimation(.easeOut(duration: 0.2)) { panel = panel == nil ? .subtitles : nil }
-                    }.help("Subtitles, audio, quality & speed")
+                    }.helpLabel("Subtitles, audio, quality & speed")
                 }
                 .padding(.horizontal, 8).frame(height: 50).background(.ultraThinMaterial, in: Capsule())
             }
@@ -3421,7 +3442,7 @@ struct PlayerView: View {
                 .overlay(alignment: .bottomLeading) { scrubPreview }
                 Text("-" + fmt(max(0, model.duration - (scrubbing ? scrub : model.time))))
                     .frame(minWidth: 60, alignment: .trailing)
-                    .help("Ends at \(endClock)")
+                    .helpLabel("Ends at \(endClock)")
             }
             .font(.system(size: 14, weight: .medium).monospacedDigit()).foregroundColor(.white.opacity(0.85))
             .padding(.horizontal, 22).frame(height: 50)
@@ -3506,11 +3527,11 @@ struct PlayerView: View {
                     }
                     Spacer()
                     Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plain)
-                        .help("Show subtitles 100 ms earlier")
+                        .helpLabel("Show subtitles 100 ms earlier")
                     Button { model.subOffset = 0 } label: { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plain)
-                        .opacity(model.subOffset == 0 ? 0.3 : 1).help("Reset offset")
+                        .opacity(model.subOffset == 0 ? 0.3 : 1).helpLabel("Reset offset")
                     Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plain)
-                        .help("Show subtitles 100 ms later")
+                        .helpLabel("Show subtitles 100 ms later")
                 }
                 .font(.system(size: 18))
                 .padding(.horizontal, 22).padding(.vertical, 9)
@@ -3543,7 +3564,7 @@ struct PlayerView: View {
                                 .foregroundColor(on ? .black : .white)
                                 .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
                                 .contentShape(Rectangle())
-                        }.buttonStyle(.plain).help(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
+                        }.buttonStyle(.plain).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
                     }
                 }
                 .padding(.horizontal, 22).padding(.bottom, 6)
@@ -3638,7 +3659,7 @@ extension PlayerView {
             menuIcon("captions.bubble", on: model.sub != nil)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("Subtitles")
+        .helpLabel("Subtitles")
     }
 
     /// Quick dropdown: video quality.
@@ -3653,7 +3674,7 @@ extension PlayerView {
             menuIcon("dial.medium", on: model.quality != 0)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("Video quality")
+        .helpLabel("Video quality")
     }
 
     func menuIcon(_ name: String, on: Bool) -> some View {
@@ -3671,19 +3692,19 @@ extension PlayerView {
                         if panel != .episodes { pickerSeason = item.ParentIndexNumber ?? 1 }
                         panel = panel == .episodes ? nil : .episodes
                     }
-                }.help("Episodes (E)")
+                }.helpLabel("Episodes (E)")
             }
             if !model.subStreams.isEmpty { subtitleMenu }
             qualityMenu
             if !model.chapterList.isEmpty {
                 iconButton("list.bullet.rectangle", size: 18, on: panel == .chapters) {
                     withAnimation(.easeOut(duration: 0.2)) { panel = panel == .chapters ? nil : .chapters }
-                }.help("Chapters (C)")
+                }.helpLabel("Chapters (C)")
             }
-            iconButton("info.circle", size: 18, on: showInfo) { showInfo.toggle() }.help("Playback info (I)")
+            iconButton("info.circle", size: 18, on: showInfo) { showInfo.toggle() }.helpLabel("Playback info (I)")
             if model.pipSupported {
                 iconButton(model.pipActive ? "pip.exit" : "pip.enter", size: 18, on: model.pipActive) { model.togglePiP() }
-                    .help("Picture in picture (P)")
+                    .helpLabel("Picture in picture (P)")
             }
         }
     }
@@ -4168,7 +4189,7 @@ struct HoverPreview: View {
                 .frame(width: 32, height: 32)
                 .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
                 .contentShape(Circle())
-        }.buttonStyle(.plain).help(help)
+        }.buttonStyle(.plain).helpLabel(help)
     }
 }
 

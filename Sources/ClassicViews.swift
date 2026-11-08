@@ -130,7 +130,7 @@ struct ClassicLoginView: View {
                         .background(Color.white.opacity(0.08)).cornerRadius(10)
                     if s.token != nil {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(6)
-                            .help("Signed in")
+                            .helpLabel("Signed in")
                     }
                 }
                 HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.caption); Text(s.name).font(.headline).lineLimit(1) }
@@ -151,7 +151,7 @@ struct ClassicLoginView: View {
             HStack {
                 if !emby.servers.isEmpty {
                     Button { adding = false; error = "" } label: { Image(systemName: "chevron.left") }
-                        .buttonStyle(.plain).help("Back to servers")
+                        .buttonStyle(.plain).helpLabel("Back to servers")
                 }
                 Spacer()
                 Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.title.bold())
@@ -315,7 +315,7 @@ struct ClassicHomeView: View {
                         .cornerRadius(8).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Connected to \(emby.server) — click to switch server")
+                    .helpLabel("Connected to \(emby.server) — click to switch server")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
             }
@@ -325,7 +325,7 @@ struct ClassicHomeView: View {
                         Label("Settings", systemImage: "gearshape").font(.callout)
                             .padding(.horizontal, 8).padding(.vertical, 8).contentShape(Rectangle())
                     }
-                    .help("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
+                    .helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
                     Spacer()
                 }.buttonStyle(.plain).padding(10)
             }
@@ -536,10 +536,10 @@ struct ClassicTopNavTools: View {
             }
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plain).help("Search")
+            }.buttonStyle(.plain).helpLabel("Search")
             Button { nav.showSettings = true } label: {
                 Image(systemName: "gearshape.fill").font(.system(size: 14)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plain).help("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
+            }.buttonStyle(.plain).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
         }
     }
 }
@@ -571,7 +571,7 @@ struct ClassicTopBackButton: View {
         .buttonStyle(.plain)
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
-        .help("Back (⌘[)")
+        .helpLabel("Back (⌘[)")
         .disabled(emby.playing != nil)
     }
 }
@@ -652,7 +652,7 @@ struct ClassicSearchView: View {
                                 Text(p.Name).font(.caption.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 110)
                         }
-                        .buttonStyle(.plain).help("Show everything with \(p.Name)")
+                        .buttonStyle(.plain).helpLabel("Show everything with \(p.Name)")
                     }
                 }.padding(.vertical, 8)
             }
@@ -1017,6 +1017,9 @@ struct ClassicHero: View {
     @EnvironmentObject var emby: Emby
     let items: [Item]
     @State private var index = 0
+    @State private var hover = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var playback = ClassicPlaybackFlag.shared
 
     func meta(_ item: Item) -> [String] {
         var m: [String] = []
@@ -1062,12 +1065,16 @@ struct ClassicHero: View {
                     HStack(spacing: 6) {
                         ForEach(items.indices, id: \.self) { i in
                             let on = i == index % items.count
-                            Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.4)))
-                                .frame(width: on ? 22 : 8, height: 4)
-                                .overlay(Capsule().stroke(Color.black, lineWidth: 1))
-                                .shadow(color: .black.opacity(0.7), radius: 3)
-                                .contentShape(Rectangle().inset(by: -6))
-                                .onTapGesture { withAnimation(.easeInOut(duration: 0.8)) { index = i } }
+                            Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { index = i } } label: {
+                                Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.4)))
+                                    .frame(width: on ? 22 : 8, height: 4)
+                                    .overlay(Capsule().stroke(Color.black, lineWidth: 1))
+                                    .shadow(color: .black.opacity(0.7), radius: 3)
+                                    .contentShape(Rectangle().inset(by: -6))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
+                            .accessibilityAddTraits(on ? .isSelected : [])
                         }
                     }
                 }
@@ -1080,7 +1087,10 @@ struct ClassicHero: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .padding(.horizontal, 32)
         .foregroundColor(.white)
-        .task {
+        .onHover { hover = $0 }
+        // Next banner every 8 s, but not under the pointer, not during playback and not with Reduce Motion
+        .task(id: "\(hover)-\(playback.active)") {
+            guard !hover, !playback.active, !reduceMotion else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 8_000_000_000)
                 if Task.isCancelled { break }
@@ -1159,7 +1169,7 @@ struct ClassicResumeCard: View {
                         Button { Task { await emby.play(item) } } label: {
                             Image(systemName: "play.circle.fill").font(.system(size: 40)).foregroundColor(.white)
                                 .shadow(radius: 6)
-                        }.buttonStyle(.plain).help("Resume")
+                        }.buttonStyle(.plain).helpLabel("Resume")
                     }
                 }
                 .cornerRadius(8)
@@ -1170,7 +1180,16 @@ struct ClassicResumeCard: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .onTapGesture { openPage() }
-            .help(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)
+            // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
+            // Resume button itself only shows under the pointer
+            .focusable()
+            .onKeyPress(.return) { openPage(); return .handled }
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(timeLeft ?? "")
+            .accessibilityAction { openPage() }
+            .accessibilityAction(named: "Resume") { Task { await emby.play(item) } }
+            .helpLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)
         }
     }
 }
@@ -1489,13 +1508,13 @@ struct ClassicCountBadge: View {
             if n == 0 {
                 Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
                     .frame(width: 24, height: 24).background(Circle().fill(ClassicWatchBadge.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.5), radius: 3).help("All watched")
+                    .shadow(color: .black.opacity(0.5), radius: 3).helpLabel("All watched")
             } else {
                 Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
                     .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
                     .background(Capsule().fill(ClassicWatchBadge.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.5), radius: 3)
-                    .help("\(n) unwatched episode\(n == 1 ? "" : "s")")
+                    .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
             }
         }
     }
@@ -1543,13 +1562,13 @@ struct ClassicWatchBadge: View {
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(Self.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.5), radius: 3)
-                .help("Watched")
+                .helpLabel("Watched")
         } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
             Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
                 .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
                 .background(Capsule().fill(Self.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.5), radius: 3)
-                .help("\(n) unwatched episode\(n == 1 ? "" : "s")")
+                .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
         }
     }
 }
@@ -1620,7 +1639,7 @@ struct ClassicArrowScrollRow<ID: Hashable, Content: View>: View {
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain).help(help)
+        .buttonStyle(.plain).helpLabel(help)
         .transition(.opacity)
     }
 }
@@ -1884,7 +1903,7 @@ struct ClassicLibraryView: View {
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plain).help(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plain).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
     }
@@ -2168,11 +2187,11 @@ struct ClassicDetailView: View {
             Button { Task { await emby.setPlayed(item.id, !played) } } label: {
                 if played { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "checkmark.circle").classicCircleButton() }
-            }.buttonStyle(.plain).help(played ? "Mark as unwatched" : "Mark as watched")
+            }.buttonStyle(.plain).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !emby.isFav(item)) } } label: {
                 if emby.isFav(item) { Image(systemName: "heart.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "heart").classicCircleButton() }
-            }.buttonStyle(.plain).help("Favorite")
+            }.buttonStyle(.plain).helpLabel("Favorite")
         }
     }
 
@@ -2374,7 +2393,7 @@ struct ClassicDetailView: View {
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plain).help(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plain).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
     }
@@ -2456,7 +2475,7 @@ struct ClassicDetailView: View {
                 Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
                 ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: 104) { i in
                     NavigationLink(value: ClassicPersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
-                        .buttonStyle(.plain).help("Show everything with \(people[i].Name)")
+                        .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
                 }
             }
         }
@@ -2550,7 +2569,7 @@ struct ClassicDetailView: View {
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plain).help(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plain).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
     }
@@ -2636,7 +2655,7 @@ struct ClassicPlayerView: View {
         let visible = h > 0 && (showUI || panel != nil)
         return VStack(spacing: 0) {
             HStack(spacing: 0) {
-                ClassicBackPill(compact: true) { back() }.help("Back (Esc)").padding(.leading, x)
+                ClassicBackPill(compact: true) { back() }.helpLabel("Back (Esc)").padding(.leading, x)
                 Spacer(minLength: 0)
             }.frame(height: h)
             Spacer(minLength: 0)
@@ -2900,7 +2919,7 @@ struct ClassicPlayerView: View {
         HStack(spacing: 16) {
             // The classicPill that used to sit here is hidden (kept, not deleted): in full screen Esc does the job, and in a
             // window it moved to the title bar (titleBarBack, now off too). Set inPlayerBackPill to true to bring it back.
-            if Self.inPlayerBackPill { ClassicBackPill { back() }.help(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
+            if Self.inPlayerBackPill { ClassicBackPill { back() }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
             CachedImage(url: emby.image(item.SeriesId ?? item.Id, "Logo", width: 400)) { img in
                 img.resizable().aspectRatio(contentMode: .fit)
             } placeholder: { EmptyView() }
@@ -2932,7 +2951,7 @@ struct ClassicPlayerView: View {
                 HStack(spacing: 26) {
                     iconButton("captions.bubble", on: panel != nil) {
                         withAnimation(.easeOut(duration: 0.2)) { panel = panel == nil ? .subtitles : nil }
-                    }.help("Subtitles, audio, quality & speed")
+                    }.helpLabel("Subtitles, audio, quality & speed")
                 }
             }
 
@@ -2960,23 +2979,23 @@ struct ClassicPlayerView: View {
 
             HStack(spacing: 30) {
                 iconButton("backward.end.fill", size: 18) { if let p = prevEp { play(p) } else { model.seek(to: 0) } }
-                    .help("Previous")
-                iconButton("gobackward.\(skipSecs)", size: 22) { model.skip(-Double(skipSecs)) }.help("Back \(skipSecs) seconds")
+                    .helpLabel("Previous")
+                iconButton("gobackward.\(skipSecs)", size: 22) { model.skip(-Double(skipSecs)) }.helpLabel("Back \(skipSecs) seconds")
                 Button { model.togglePlay(); poke() } label: {
                     Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.system(size: 22, weight: .bold))
                         .foregroundColor(.black)
                         .frame(width: 56, height: 56)
                         .background(Circle().fill(Color.white))
                         .contentShape(Circle())
-                }.buttonStyle(.plain).help(model.playing ? "Pause (Space)" : "Play (Space)")
-                iconButton("goforward.\(skipSecs)", size: 22) { model.skip(Double(skipSecs)) }.help("Forward \(skipSecs) seconds")
+                }.buttonStyle(.plain).helpLabel(model.playing ? "Pause (Space)" : "Play (Space)")
+                iconButton("goforward.\(skipSecs)", size: 22) { model.skip(Double(skipSecs)) }.helpLabel("Forward \(skipSecs) seconds")
                 iconButton("forward.end.fill", size: 18) { if let n = nextEp { play(n) } }
-                    .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).help("Next")
+                    .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).helpLabel("Next")
                 Spacer()
                 classicExtraButtons
                 iconButton(isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 18) {
                     toggleFullScreen()
-                }.help(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
+                }.helpLabel(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
             }
             .padding(.top, 4)
         }
@@ -3058,11 +3077,11 @@ struct ClassicPlayerView: View {
                     }
                     Spacer()
                     Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plain)
-                        .help("Show subtitles 100 ms earlier")
+                        .helpLabel("Show subtitles 100 ms earlier")
                     Button { model.subOffset = 0 } label: { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plain)
-                        .opacity(model.subOffset == 0 ? 0.3 : 1).help("Reset offset")
+                        .opacity(model.subOffset == 0 ? 0.3 : 1).helpLabel("Reset offset")
                     Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plain)
-                        .help("Show subtitles 100 ms later")
+                        .helpLabel("Show subtitles 100 ms later")
                 }
                 .font(.system(size: 18))
                 .padding(.horizontal, 22).padding(.vertical, 9)
@@ -3095,7 +3114,7 @@ struct ClassicPlayerView: View {
                                 .foregroundColor(on ? .black : .white)
                                 .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
                                 .contentShape(Rectangle())
-                        }.buttonStyle(.plain).help(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
+                        }.buttonStyle(.plain).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
                     }
                 }
                 .padding(.horizontal, 22).padding(.bottom, 6)
@@ -3190,7 +3209,7 @@ extension ClassicPlayerView {
             classicMenuIcon("captions.bubble", on: model.sub != nil)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("Subtitles")
+        .helpLabel("Subtitles")
     }
 
     /// Quick dropdown: video quality.
@@ -3205,7 +3224,7 @@ extension ClassicPlayerView {
             classicMenuIcon("dial.medium", on: model.quality != 0)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("Video quality")
+        .helpLabel("Video quality")
     }
 
     func classicMenuIcon(_ name: String, on: Bool) -> some View {
@@ -3223,19 +3242,19 @@ extension ClassicPlayerView {
                         if panel != .episodes { pickerSeason = item.ParentIndexNumber ?? 1 }
                         panel = panel == .episodes ? nil : .episodes
                     }
-                }.help("Episodes (E)")
+                }.helpLabel("Episodes (E)")
             }
             if !model.subStreams.isEmpty { classicSubtitleMenu }
             classicQualityMenu
             if !model.chapterList.isEmpty {
                 iconButton("list.bullet.rectangle", size: 18, on: panel == .chapters) {
                     withAnimation(.easeOut(duration: 0.2)) { panel = panel == .chapters ? nil : .chapters }
-                }.help("Chapters (C)")
+                }.helpLabel("Chapters (C)")
             }
-            iconButton("info.circle", size: 18, on: showInfo) { showInfo.toggle() }.help("Playback info (I)")
+            iconButton("info.circle", size: 18, on: showInfo) { showInfo.toggle() }.helpLabel("Playback info (I)")
             if model.pipSupported {
                 iconButton(model.pipActive ? "pip.exit" : "pip.enter", size: 18, on: model.pipActive) { model.togglePiP() }
-                    .help("Picture in picture (P)")
+                    .helpLabel("Picture in picture (P)")
             }
         }
     }
@@ -3694,7 +3713,7 @@ struct ClassicHoverPreview: View {
                 .frame(width: 32, height: 32)
                 .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
                 .contentShape(Circle())
-        }.buttonStyle(.plain).help(help)
+        }.buttonStyle(.plain).helpLabel(help)
     }
 }
 
@@ -3765,6 +3784,6 @@ struct ClassicAlphaLetter: View {
             hover = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .help(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+        .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
     }
 }
