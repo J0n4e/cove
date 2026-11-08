@@ -40,6 +40,10 @@ final class PlayerModel: ObservableObject {
     private var lastReport: Double = 0
     private var reportedStart = false
     private var session: Emby.PlaySession?
+    /// After a playback failure: ask the server to convert the video (no direct play, no copied video stream).
+    private var forceTranscode = false
+    private var failObs: NSObjectProtocol?
+    private var retrying = false
 
     // Chapters, intro/credits markers, scrub thumbnails, picture-in-picture
     @Published var chapters: [Chapter] = []
@@ -119,7 +123,7 @@ final class PlayerModel: ObservableObject {
         await emby.killStaleEncodings()
         // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
         let midFile = pendingSeek > 0
-        guard let u = await emby.resolveStream(req, direct: direct, reencode: midFile) else {
+        guard let u = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode) else {
             error = "Couldn't get a stream from the server."; return
         }
         let method = u.absoluteString.contains("Static=true") ? "DirectPlay" : "Transcode"
@@ -136,8 +140,8 @@ final class PlayerModel: ObservableObject {
         }
         obs = it.observe(\.status, options: [.new]) { [weak self] i, _ in
             if i.status == .failed {
-                let m = i.error?.localizedDescription ?? "Playback failed."
-                Task { @MainActor in self?.error = m }
+                let code = (i.error as NSError?).map { "\($0.domain) \($0.code)" } ?? "unknown error"
+                Task { @MainActor in self?.playbackFailed(code) }
             }
             if i.status == .readyToPlay {
                 Task { @MainActor in
@@ -163,6 +167,13 @@ final class PlayerModel: ObservableObject {
                 }
             }
         }
+        // A stream can also fail part-way (e.g. a segment AVPlayer can't decode)
+        failObs = NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: it,
+                                                         queue: .main) { [weak self] n in
+            let code = (n.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError)
+                .map { "\($0.domain) \($0.code)" } ?? "unknown error"
+            MainActor.assumeIsolated { self?.playbackFailed(code) }
+        }
         let p = AVPlayer(playerItem: it)
         p.volume = volume
         timeObs = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { [weak self] t in
@@ -171,6 +182,38 @@ final class PlayerModel: ObservableObject {
         player = p
         p.defaultRate = speed
         p.play()
+    }
+
+    /// AVPlayer couldn't play the stream. Typical causes (CoreMedia -12927 and similar): direct play of a file
+    /// AVPlayer can't decode (10-bit H.264, some HEVC files) or a stream whose video the server copied as is.
+    /// The first time, ask the server to convert the video and carry on from the same position with the same
+    /// audio and subtitles; only if that fails too is the error shown.
+    private func playbackFailed(_ code: String) {
+        // Both the item status and the "failed to play to end" notice can report the same failure: act once
+        guard player != nil, let emby, error.isEmpty, !retrying else { return }
+        var info = code
+        if let ev = player?.currentItem?.errorLog()?.events.last {   // (its URI has the token: not logged)
+            info += "; log: \(ev.errorDomain) \(ev.errorStatusCode) \(ev.errorComment ?? "")"
+        }
+        let method = session?.method ?? "?"
+        dlog("playback failed (\(method)): \(info)")
+        coveLog.error("Playback failed (\(method, privacy: .public)): \(info, privacy: .public)")
+        if !forceTranscode {
+            dlog("retrying with the video converted by the server")
+            retrying = true
+            Task { await retryTranscoded(emby); retrying = false }
+            return
+        }
+        error = "Cove couldn't play this video, even converted by the server.\n(\(code))"
+    }
+
+    /// Plays the video again converted by the server, from the same position with the same audio and subtitles.
+    func retryTranscoded(_ emby: Emby) async {
+        guard let r = req else { return }
+        forceTranscode = true
+        let pos = now > 1 ? now : time
+        pendingSeek = pos > 1 ? pos : 0
+        await start(emby, r)
     }
 
     /// Restart the stream with new settings, keeping the playback position.
@@ -481,6 +524,7 @@ final class PlayerModel: ObservableObject {
             Task { await e.stopEncoding(ps) }   // closed before playback began: still kill the transcode
         }
         session = nil
+        if let f = failObs { NotificationCenter.default.removeObserver(f); failObs = nil }
         reportedStart = false; lastReport = 0
         if let o = timeObs { player?.removeTimeObserver(o) }
         timeObs = nil

@@ -2733,7 +2733,7 @@ struct ClassicPlayerView: View {
                 if !model.error.isEmpty {
                     VStack(spacing: 12) {
                         Text(model.error).multilineTextAlignment(.center).frame(maxWidth: 420)
-                        Button("Retry with transcoding") { Task { await model.start(emby, req, direct: false) } }
+                        Button("Retry with transcoding") { Task { await model.retryTranscoded(emby) } }
                     }
                 }
 

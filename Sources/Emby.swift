@@ -979,6 +979,9 @@ final class Emby: ObservableObject {
             "TranscodingProfiles": [["Container": "ts", "Type": "Video", "AudioCodec": "aac", "VideoCodec": "h264",
                                      "Context": "Streaming", "Protocol": "hls", "MaxAudioChannels": "2",
                                      "MinSegments": "1", "BreakOnNonKeyFrames": true]],
+            // macOS can't decode 10-bit H.264 (Hi10P): have the server convert it instead of sending it as is
+            "CodecProfiles": [["Type": "Video", "Codec": "h264", "Conditions": [
+                ["Condition": "LessThanEqual", "Property": "VideoBitDepth", "Value": "8", "IsRequired": false]]]],
             "SubtitleProfiles": ["srt", "subrip", "ass", "ssa", "vtt", "pgs", "pgssub", "dvdsub"].map { ["Format": $0, "Method": "Encode"] }
         ]
         var qi = [URLQueryItem(name: "UserId", value: userId),
