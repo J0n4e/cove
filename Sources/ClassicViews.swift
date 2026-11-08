@@ -627,6 +627,8 @@ struct ClassicSearchView: View {
 /// and hides anything un-favorited from the detail page right away.
 struct ClassicFavoritesView: View {
     @EnvironmentObject var emby: Emby
+    /// "row" (scrolling row per section), "grid" or "list"; set in Settings → Libraries.
+    @AppStorage("favoritesLayout") private var layout = "row"
     @Environment(\.appBG) var bg
     @State private var items: [Item] = []
     @State private var loading = true
@@ -671,8 +673,16 @@ struct ClassicFavoritesView: View {
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plain).help("Show all")
-            ClassicArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
-                if let it = byId[id] { ClassicPosterCard(item: it) }
+            if layout == "grid" {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
+                    ForEach(list) { ClassicPosterCard(item: $0) }
+                }
+            } else if layout == "list" {
+                LazyVStack(spacing: 6) { ForEach(list) { ClassicListRow(item: $0) } }
+            } else {
+                ClassicArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
+                    if let it = byId[id] { ClassicPosterCard(item: it) }
+                }
             }
         }
     }

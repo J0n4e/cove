@@ -300,6 +300,7 @@ struct ClassicLibraryDefaults {
 
 struct ClassicLibrariesSettings: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("defaultLibraryLayout") private var defaultLayout = "grid"
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -321,6 +322,9 @@ struct ClassicLibrariesSettings: View {
     var body: some View {
         ClassicSettingsGroup(title: "Default view for new libraries") {
             ClassicSettingRow(label: "Layout") { classicSegmented($defaultLayout, [("grid", "Grid"), ("list", "List")]) }
+        }
+        ClassicSettingsGroup(title: "Favorites") {
+            ClassicSettingRow(label: "View") { classicSegmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
         }
         ClassicSettingsGroup(title: "Poster labels") {
             Toggle("Show title under posters", isOn: $showTitle)

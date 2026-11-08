@@ -363,6 +363,7 @@ struct LibrariesSettings: View {
     @AppStorage("showFavorites") private var showFavorites = true
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
+    @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("showUpNextRow") private var showUpNextRow = true
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -403,6 +404,7 @@ struct LibrariesSettings: View {
                 }
             }
             PrefNote("Shown in the sidebar and the top bar. Home is always there.")
+            PrefRow(label: "Favorites view") { segmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefRow(label: "Home") { Toggle("Up Next row", isOn: $showUpNextRow) }
             PrefNote("The next episode of each show you're watching, under Continue Watching.")
         }
