@@ -1960,7 +1960,7 @@ struct LibraryView: View {
             VStack(spacing: 18) {
                 header
                 if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 64).padding(.vertical, 24)
+            }.padding(.leading, 40).padding(.trailing, 76).padding(.vertical, 24)   // room for the A–Z bar
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -1980,7 +1980,7 @@ struct LibraryView: View {
         .background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.4)))
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.white.opacity(0.15), lineWidth: 1))
-        .padding(.trailing, 10)
+        .padding(.trailing, 22)   // clear of the window's scroll bar
     }
 
     var header: some View {
