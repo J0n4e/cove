@@ -466,34 +466,51 @@ struct ClassicTopNavButtons: View {
     @EnvironmentObject var emby: Emby
     @AppStorage(NavOrder.key) private var navOrder = ""
     @ObservedObject private var nav = ClassicNavState.shared
-    func item(_ title: String, _ id: String, badge: Int = 0) -> some View {
+    @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
+    func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
             nav.query = ""; nav.searchOpen = false
             nav.sel = id; nav.popToRoot()
         } label: {
-            Text(badge > 0 ? "\(title) \(badge)" : title)
+            // Small icon before each name, as in the sidebar
+            HStack(spacing: 6) {
+                if labels != "names" { Image(systemName: icon).font(.system(size: labels == "icons" ? 14 : 12)) }
+                if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
+                else if badge > 0 { Text("\(badge)") }
+            }
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
-                .padding(.horizontal, 18).padding(.vertical, 6)
+                .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
                 .background(Capsule().fill(on ? Color.white.opacity(0.28) : Color.clear))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .help(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
     /// Favorites or Now Playing, wherever Settings → Libraries placed it.
     @ViewBuilder func section(_ id: String) -> some View {
-        if id == NavOrder.favorites { item("Favorites", "favorites") }
-        else if id == NavOrder.nowPlaying { item("Now Playing", "nowplaying", badge: nav.activeCount) }
+        if id == NavOrder.favorites { item("Favorites", "favorites", "heart.fill") }
+        else if id == NavOrder.nowPlaying { item("Now Playing", "nowplaying", "dot.radiowaves.left.and.right", badge: nav.activeCount) }
+    }
+    func icon(_ lib: LibPref) -> String {
+        switch lib.kind {
+        case "movies": return "film"
+        case "tvshows": return "tv"
+        case "boxsets": return "square.stack"
+        case "music": return "music.note"
+        case "homevideos": return "video"
+        default: return "folder"
+        }
     }
     var body: some View {
         HStack(spacing: 4) {
-            item("Home", "home")
+            item("Home", "home", "house.fill")
             let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
             ForEach(NavOrder.top(rows), id: \.self) { section($0) }
             ForEach(emby.libs) { lib in
-                if lib.visible { item(lib.title, lib.id) }
+                if lib.visible { item(lib.title, lib.id, icon(lib)) }
                 ForEach(NavOrder.after(lib.id, rows), id: \.self) { section($0) }
             }
         }

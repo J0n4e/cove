@@ -127,6 +127,7 @@ struct ClassicGeneralSettings: View {
     @AppStorage("accent") private var accent = "red"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
+    @AppStorage("topBarLabels") private var topBarLabels = "both"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -181,6 +182,10 @@ struct ClassicGeneralSettings: View {
             }.padding(.top, 4)
             Text("Top bar replaces the sidebar with a bar across the top (Home, Favorites, libraries, search and Settings).")
                 .font(.caption).foregroundColor(.secondary)
+            // One choice, not two switches: the bar can never end up with neither icons nor names
+            ClassicSettingRow(label: "Top bar shows") {
+                classicSegmented($topBarLabels, [("both", "Icons and Names"), ("names", "Names"), ("icons", "Icons")])
+            }.disabled(navStyle != "topbar")
         }
     }
 }
