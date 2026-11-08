@@ -139,7 +139,8 @@ final class PlayerModel: ObservableObject {
             return
         }
         let method = u.absoluteString.contains("Static=true") ? "DirectPlay" : "Transcode"
-        let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u)
+        let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u,
+                                  server: emby.server, token: emby.token)
         guard current() else {
             // Overtaken while the server prepared this stream: make sure its conversion doesn't keep running
             if method == "Transcode" { Task { await emby.stopEncoding(ps) } }
