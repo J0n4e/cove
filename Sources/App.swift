@@ -55,6 +55,7 @@ struct CoveApp: App {
                 .tint(Theme.accent(accent))
                 .preferredColorScheme(.dark)
                 .frame(minWidth: 1000, minHeight: 650)
+                .sessionExpiredAlert(emby)
                 .task { await Updater.shared.checkOnLaunch() }
         }
         .commands {

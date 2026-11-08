@@ -41,6 +41,9 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
+      - name: Unit tests
+        run: swift test
+
       - name: Build app bundle (ad-hoc signature)
         env:
           VERSION: ${{ inputs.version }}
