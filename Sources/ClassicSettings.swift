@@ -73,6 +73,8 @@ struct ClassicSettingsView: View {
         }
         .frame(width: 860, height: 580)
         .background(bg)
+        // Esc closes Settings and keeps the changes, like OK / Done
+        .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
     }
 }
 
@@ -323,9 +325,6 @@ struct ClassicLibrariesSettings: View {
         ClassicSettingsGroup(title: "Default view for new libraries") {
             ClassicSettingRow(label: "Layout") { classicSegmented($defaultLayout, [("grid", "Grid"), ("list", "List")]) }
         }
-        ClassicSettingsGroup(title: "Favorites") {
-            ClassicSettingRow(label: "View") { classicSegmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
-        }
         ClassicSettingsGroup(title: "Poster labels") {
             Toggle("Show title under posters", isOn: $showTitle)
             Toggle("Show year under posters", isOn: $showYear)
@@ -356,12 +355,14 @@ struct ClassicLibrariesSettings: View {
                 }
             }.disabled(!hoverOn || !hoverZoom)
         }
-        ClassicSettingsGroup(title: "Series") {
-            ClassicSettingRow(label: "Episode layout") { classicSegmented($epLayout, [("grid", "Grid"), ("list", "List")]) }
-            Toggle("Show episode description", isOn: $showEpDesc)
-        }
         ClassicSettingsGroup(title: "Libraries",
                       note: "Show puts a library in the sidebar; Home row adds it to the home screen. Use the arrows to reorder.") {
+            // Favorites first: not a server library, so only its view can change
+            HStack(spacing: 10) {
+                Label("Favorites", systemImage: "heart").frame(width: 200, alignment: .leading)
+                labeled("View") { classicSegmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            }.font(.callout)
+            Divider()
             if emby.libs.isEmpty { Text("No libraries loaded yet.").foregroundColor(.secondary) }
             ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
                 libraryCard(i, lib)
@@ -398,6 +399,11 @@ struct ClassicLibrariesSettings: View {
                 labeled("Home row") {
                     classicMenuPicker($emby.libs[i].style, [("latest", "Latest"), ("top", "Top Rated"), ("random", "Random"), ("az", "A–Z")])
                 }.disabled(!lib.onHome || !lib.visible)
+                // Episode options apply to every TV library, so they show with any of them
+                if lib.kind == "tvshows" {
+                    labeled("Episodes") { classicSegmented($epLayout, [("grid", "Grid"), ("list", "List")]) }
+                    Toggle("Episode descriptions", isOn: $showEpDesc)
+                }
             }
             .font(.callout)
             .frame(maxWidth: .infinity, alignment: .leading)

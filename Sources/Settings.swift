@@ -66,7 +66,7 @@ struct SettingsView: View {
             Divider()
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).controlSize(.large)
+                Button("Cancel") { dismiss() }.controlSize(.large)
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent).tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
@@ -74,6 +74,8 @@ struct SettingsView: View {
         }
         .frame(width: 760, height: 640)
         .background(Color(white: 0.13))
+        // Esc closes Settings and keeps the changes, like OK / Done
+        .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
     }
 }
 
