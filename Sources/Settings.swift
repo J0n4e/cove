@@ -423,7 +423,7 @@ struct LibrariesSettings: View {
             PrefRow(label: "More Like This") { segmented($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
             PrefRow(label: "Included In") { Toggle("Show the collections a movie or show belongs to", isOn: $showIncludedIn) }
-            PrefNote("Above More Like This. Click a collection to open it. Emby servers only.")
+            PrefNote("Above More Like This. Click a collection to open it.")
         }
         PrefSection {
             PrefRow(label: "Poster labels") {
