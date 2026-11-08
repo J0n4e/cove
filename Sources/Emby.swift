@@ -237,7 +237,7 @@ struct SavedServer: Codable, Identifiable, Hashable {
 @MainActor
 final class Emby: ObservableObject {
     private let d = UserDefaults.standard
-    @Published var server = ""
+    @Published var server = "" { didSet { updateImageAuth() } }
     @Published var token = "" { didSet { updateImageAuth() } }
     @Published var userId = ""
     @Published var libs: [LibPref] = []
@@ -267,8 +267,8 @@ final class Emby: ObservableObject {
 
     /// Pictures are fetched with the token in headers (not in the link), so the saved image cache holds no token.
     private func updateImageAuth() {
-        ImageCache.shared.authHeaders = token.isEmpty ? [:]
-            : ["X-Emby-Token": token, "Authorization": authHeader + ", Token=\"\(token)\""]
+        ImageCache.shared.setAuth(server: server, headers: token.isEmpty ? [:]
+            : ["X-Emby-Token": token, "Authorization": authHeader + ", Token=\"\(token)\""])
     }
 
     /// Adds the token to a request in every form Emby and Jellyfin accept.
@@ -742,12 +742,13 @@ final class Emby: ObservableObject {
 
     // MARK: Playback progress (lets the server remember where you stopped)
 
-    private func postJSON(_ path: String, _ body: [String: Any]) async {
-        guard let url = URL(string: server + path) else { return }
+    /// `on`: a playback's own server and token (see PlaySession); otherwise the current ones.
+    private func postJSON(_ path: String, _ body: [String: Any], on s: PlaySession? = nil) async {
+        guard let url = URL(string: (s?.server ?? server) + path) else { return }
         var r = URLRequest(url: url)
         r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        authorize(&r)
+        authorize(&r, token: s?.token)
         r.httpBody = try? JSONSerialization.data(withJSONObject: body)
         _ = try? await Net.session.data(for: r)
     }
@@ -760,9 +761,14 @@ final class Emby: ObservableObject {
         /// Must be the server's PlaySessionId (from the stream URL), or the server can't
         /// match our stop report to its transcode and leaves the ffmpeg job + temp files running.
         var id: String = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        /// The server and sign-in this playback runs on. Reports and transcode kills go there, even when the
+        /// user has switched to another server since (they used to go to whichever server was current).
+        let server: String
+        let token: String
 
-        init(itemId: String, sourceId: String?, method: String, url: URL) {
+        init(itemId: String, sourceId: String?, method: String, url: URL, server: String, token: String) {
             self.itemId = itemId; self.sourceId = sourceId; self.method = method
+            self.server = server; self.token = token
             let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             if let v = q.first(where: { $0.name.lowercased() == "playsessionid" })?.value, !v.isEmpty { id = v }
         }
@@ -771,7 +777,7 @@ final class Emby: ObservableObject {
     /// Kills the server-side transcode (ffmpeg) and its temp segments for this playback.
     func stopEncoding(_ s: PlaySession) async {
         guard s.method != "DirectPlay" else { return }
-        await send("DELETE", "/Videos/ActiveEncodings?DeviceId=\(deviceId)&PlaySessionId=\(s.id)")
+        await send("DELETE", "/Videos/ActiveEncodings?DeviceId=\(deviceId)&PlaySessionId=\(s.id)", on: s)
     }
 
     private func progressBody(_ s: PlaySession, _ sec: Double, paused: Bool = false) -> [String: Any] {
@@ -783,16 +789,16 @@ final class Emby: ObservableObject {
     }
 
     func reportStart(_ s: PlaySession, _ sec: Double) async {
-        await postJSON("/Sessions/Playing", progressBody(s, sec))
+        await postJSON("/Sessions/Playing", progressBody(s, sec), on: s)
     }
 
     func reportProgress(_ s: PlaySession, _ sec: Double, paused: Bool) async {
-        await postJSON("/Sessions/Playing/Progress", progressBody(s, sec, paused: paused))
+        await postJSON("/Sessions/Playing/Progress", progressBody(s, sec, paused: paused), on: s)
     }
 
     /// Tells the server this playback is still alive (used while paused, so it keeps the transcode running).
     func ping(_ s: PlaySession) async {
-        await send("POST", "/Sessions/Playing/Ping?PlaySessionId=\(s.id)")
+        await send("POST", "/Sessions/Playing/Ping?PlaySessionId=\(s.id)", on: s)
     }
 
     /// Sessions stopped recently, whose transcode may still (or again) be running on the server.
@@ -801,11 +807,13 @@ final class Emby: ObservableObject {
     /// `quick`: the app is quitting, so skip the delayed second and third kill (they would never run).
     func reportStopped(_ s: PlaySession, _ sec: Double, duration: Double, quick: Bool = false) async {
         let finished = duration > 0 && sec / duration > 0.9
-        positions[s.itemId] = finished ? 0 : sec
-        if finished { played[s.itemId] = true }
+        if s.server == server {                     // not after a switch: item ids belong to that server
+            positions[s.itemId] = finished ? 0 : sec
+            if finished { played[s.itemId] = true }
+        }
         recentStopped.append(s)
         if recentStopped.count > 6 { recentStopped.removeFirst() }
-        await postJSON("/Sessions/Playing/Stopped", progressBody(s, sec))
+        await postJSON("/Sessions/Playing/Stopped", progressBody(s, sec), on: s)
         await stopEncoding(s)
         if quick { return }
         // A segment request that was still in flight when playback stopped can make the server start a NEW
@@ -827,11 +835,11 @@ final class Emby: ObservableObject {
 
     func isFav(_ it: Item) -> Bool { faved[it.id] ?? it.UserData?.IsFavorite ?? false }
 
-    private func send(_ method: String, _ path: String) async {
-        guard let url = URL(string: server + path) else { return }
+    private func send(_ method: String, _ path: String, on s: PlaySession? = nil) async {
+        guard let url = URL(string: (s?.server ?? server) + path) else { return }
         var r = URLRequest(url: url)
         r.httpMethod = method
-        authorize(&r)
+        authorize(&r, token: s?.token)
         _ = try? await Net.session.data(for: r)
     }
     func setPlayed(_ id: String, _ v: Bool) async {

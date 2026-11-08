@@ -14,12 +14,23 @@ final class ImageCache: @unchecked Sendable {
     let urlCache: URLCache
     private let session: URLSession
     private let lock = NSLock()
-    private var _auth: [String: String] = [:]
+    private var _auth: (server: URL?, headers: [String: String]) = (nil, [:])
     private let authLock = NSLock()    // separate from `lock`: makeTask runs while `lock` is held
-    /// Sign-in headers for the current server, set by Emby whenever the token changes.
-    var authHeaders: [String: String] {
-        get { authLock.withLock { _auth } }
-        set { authLock.withLock { _auth = newValue } }
+
+    /// Sign-in headers and the server they belong to, set by Emby whenever the server or token changes.
+    /// Look-ahead downloads still queued for the previous server are dropped.
+    func setAuth(server: String, headers: [String: String]) {
+        authLock.withLock { _auth = (URL(string: server), headers) }
+        lock.withLock { prefetchQueue.removeAll() }
+    }
+
+    /// The headers for one picture: only when it is on the server they belong to, so a download queued
+    /// before a server switch never sends the new server's token to the old one (or the other way round).
+    private func headers(for url: URL) -> [String: String] {
+        authLock.withLock {
+            guard let s = _auth.server, Net.sameOrigin(s, url) else { return [:] }
+            return _auth.headers
+        }
     }
 
     /// A download and how many views are waiting for it (prefetches pin it, so it is never cancelled).
@@ -63,11 +74,16 @@ final class ImageCache: @unchecked Sendable {
     func cached(_ url: URL) -> NSImage? { memory.object(forKey: url as NSURL) }
 
     private func makeTask(_ url: URL, priority: TaskPriority) -> Task<NSImage?, Never> {
-        let headers = authHeaders
+        let headers = headers(for: url)
         return Task(priority: priority) { [session, memory, urlCache] in
             // Looked up and stored by the bare link (no headers), so a saved copy is found whatever the sign-in
             let key = URLRequest(url: url)
-            if let c = urlCache.cachedResponse(for: key), let img = NSImage(data: c.data) {
+            // A link with the server's image tag changes when the artwork changes, so its copy is kept. Without a
+            // tag (cast and people pictures) a copy is only trusted for a week, then fetched again.
+            let tagged = url.query?.contains("tag=") ?? false
+            if let c = urlCache.cachedResponse(for: key),
+               tagged || (c.userInfo?["saved"] as? Date ?? .distantPast) > Date().addingTimeInterval(-7 * 86400),
+               let img = NSImage(data: c.data) {
                 memory.setObject(img, forKey: url as NSURL, cost: c.data.count * 4)
                 return img
             }
@@ -78,7 +94,8 @@ final class ImageCache: @unchecked Sendable {
                   (resp as? HTTPURLResponse)?.statusCode ?? 200 == 200,
                   let img = NSImage(data: data) else { return nil }
             // Saved copies are kept no matter what caching rules the server sends
-            urlCache.storeCachedResponse(CachedURLResponse(response: resp, data: data), for: key)
+            urlCache.storeCachedResponse(CachedURLResponse(response: resp, data: data, userInfo: ["saved": Date()],
+                                                           storagePolicy: .allowed), for: key)
             memory.setObject(img, forKey: url as NSURL, cost: data.count * 4)
             return img
         }
@@ -147,6 +164,12 @@ final class ImageCache: @unchecked Sendable {
     var diskUsage: Int { urlCache.currentDiskUsage }
 
     func clear() {
+        // Stop downloads first, so none of them saves a picture again right after the cache was emptied
+        lock.withLock {
+            prefetchQueue.removeAll()
+            for job in jobs.values { job.task.cancel() }
+            jobs.removeAll()
+        }
         memory.removeAllObjects()
         urlCache.removeAllCachedResponses()
         BlurHash.cache.removeAllObjects()
