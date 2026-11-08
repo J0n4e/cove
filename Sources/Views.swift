@@ -523,32 +523,44 @@ struct TopNavButtons: View {
     @AppStorage(FavoritesPlace.key) private var favPos = 0
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
-    func item(_ title: String, _ id: String, badge: Int = 0) -> some View {
+    func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
             nav.query = ""; nav.searchOpen = false
             nav.sel = id; nav.popToRoot()
         } label: {
-            Text(badge > 0 ? "\(title) \(badge)" : title)
+            // Small icon before each name, as in the sidebar
+            Label { Text(badge > 0 ? "\(title) \(badge)" : title) } icon: { Image(systemName: icon).font(.system(size: 12)) }
+                .labelStyle(.titleAndIcon)
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
-                .padding(.horizontal, 18).frame(height: 32)
+                .padding(.horizontal, 14).frame(height: 32)
                 .background(Capsule().fill(on ? Color.white.opacity(0.22) : Color.clear))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
+    func icon(_ lib: LibPref) -> String {
+        switch lib.kind {
+        case "movies": return "film"
+        case "tvshows": return "tv"
+        case "boxsets": return "square.stack"
+        case "music": return "music.note"
+        case "homevideos": return "video"
+        default: return "folder"
+        }
+    }
     var body: some View {
         HStack(spacing: 4) {
-            item("Home", "home")
+            item("Home", "home", "house")
             let favAfter = showFavorites ? FavoritesPlace.afterIndex(favPos, libCount: emby.libs.count) : nil
-            if showFavorites && favAfter == nil { item("Favorites", "favorites") }
-            if showNowPlaying { item("Now Playing", "nowplaying", badge: nav.activeCount) }
-            if showRecent { item("Recently Added", "recent") }
+            if showFavorites && favAfter == nil { item("Favorites", "favorites", "heart") }
+            if showNowPlaying { item("Now Playing", "nowplaying", "dot.radiowaves.left.and.right", badge: nav.activeCount) }
+            if showRecent { item("Recently Added", "recent", "clock") }
             ForEach(Array(emby.libs.enumerated()), id: \.element.id) { i, lib in
-                if lib.visible { item(lib.title, lib.id) }
-                if favAfter == i { item("Favorites", "favorites") }
+                if lib.visible { item(lib.title, lib.id, icon(lib)) }
+                if favAfter == i { item("Favorites", "favorites", "heart") }
             }
         }
         .padding(4)
