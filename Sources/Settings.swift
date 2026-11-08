@@ -392,19 +392,21 @@ struct LibrariesSettings: View {
                 }
             }
         }
-        if let i = emby.libs.firstIndex(where: { $0.id == selectedLib }) ?? (emby.libs.isEmpty ? nil : 0) {
+        if selectedLib == Self.favoritesId {
+            PrefSection {
+                PrefRow(label: "View") { segmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            }
+        } else if let i = emby.libs.firstIndex(where: { $0.id == selectedLib }) ?? (emby.libs.isEmpty ? nil : 0) {
             libraryOptions(i, emby.libs[i])
         }
         PrefSection {
             PrefRow(label: "Sections") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Favorites", isOn: $showFavorites)
                     Toggle("Now Playing", isOn: $showNowPlaying)
                     Toggle("Recently Added", isOn: $showRecent)
                 }
             }
             PrefNote("Shown in the sidebar and the top bar. Home is always there.")
-            PrefRow(label: "Favorites view") { segmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefRow(label: "Home") { Toggle("Up Next row", isOn: $showUpNextRow) }
             PrefNote("The next episode of each show you're watching, under Continue Watching.")
         }
@@ -438,6 +440,8 @@ struct LibrariesSettings: View {
     // MARK: Library table
 
     @State private var selectedLib: String?
+    /// Table selection for the Favorites line (not a server library).
+    static let favoritesId = "__favorites"
     let blue = Color(red: 0.24, green: 0.56, blue: 1)
 
     func kindIcon(_ lib: LibPref) -> String {
@@ -462,6 +466,7 @@ struct LibrariesSettings: View {
             .font(.caption.weight(.semibold)).foregroundColor(.secondary)
             .padding(.horizontal, 12).padding(.vertical, 6)
             Divider()
+            favoritesLine(on: selectedLib == Self.favoritesId)
             List {
                 ForEach($emby.libs) { $lib in
                     let on = lib.id == sel
@@ -493,6 +498,23 @@ struct LibrariesSettings: View {
         .frame(width: 440)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
+    }
+
+    /// Favorites, always first and not draggable: its Sidebar box is the old "Favorites" section switch.
+    func favoritesLine(on: Bool) -> some View {
+        HStack {
+            Image(systemName: "line.3.horizontal").foregroundColor(.clear).font(.caption)
+            Image(systemName: "heart").foregroundColor(on ? .white : blue).frame(width: 20)
+            Text("Favorites").foregroundColor(showFavorites ? .primary : .secondary).lineLimit(1)
+            Spacer()
+            Toggle("", isOn: $showFavorites).labelsHidden().frame(width: 70)
+            Color.clear.frame(width: 60, height: 1)
+        }
+        .padding(.horizontal, 6).frame(height: 30)
+        .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture { selectedLib = Self.favoritesId }
+        .padding(.horizontal, 4).padding(.top, 5).padding(.bottom, 1)
     }
 
     /// Options for the library picked in the table.
