@@ -1762,13 +1762,7 @@ struct ClassicLibraryView: View {
     var alphaBar: some View {
         VStack(spacing: 1) {
             ForEach(classicAlphaLetters, id: \.self) { l in
-                Button { letter = (letter == l) ? "" : l } label: {
-                    Text(l).font(.system(size: 11, weight: .bold))
-                        .frame(width: 22, height: 16)
-                        .foregroundStyle(letter == l ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.secondary))
-                        .background(letter == l ? Color.white.opacity(0.15) : Color.clear)
-                        .clipShape(Circle())
-                }.buttonStyle(.plain)
+                ClassicAlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l }
             }
         }.padding(.trailing, 22)   // clear of the window's scroll bar
     }
@@ -4213,5 +4207,29 @@ struct ClassicFlowLayout: Layout {
             }
             y += h + vSpacing
         }
+    }
+}
+
+/// One letter of the Classic A–Z bar: the original look, plus a pointing hand and a light circle under the mouse.
+struct ClassicAlphaLetter: View {
+    let l: String
+    let on: Bool
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            Text(l).font(.system(size: 11, weight: .bold))
+                .frame(width: 22, height: 16)
+                .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : hover ? AnyShapeStyle(Color.primary) : AnyShapeStyle(Color.secondary))
+                .background(on ? Color.white.opacity(0.15) : hover ? Color.white.opacity(0.1) : Color.clear)
+                .clipShape(Circle())
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            hover = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .help(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
     }
 }
