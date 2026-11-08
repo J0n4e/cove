@@ -1749,7 +1749,7 @@ struct ClassicLibraryView: View {
             VStack(spacing: 18) {
                 header
                 if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 64).padding(.vertical, 24)
+            }.padding(.leading, 40).padding(.trailing, 72).padding(.vertical, 24)   // room for the A–Z bar
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -1770,7 +1770,7 @@ struct ClassicLibraryView: View {
                         .clipShape(Circle())
                 }.buttonStyle(.plain)
             }
-        }.padding(.trailing, 14)
+        }.padding(.trailing, 22)   // clear of the window's scroll bar
     }
 
     var header: some View {
