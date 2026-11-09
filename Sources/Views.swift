@@ -1066,6 +1066,7 @@ struct HomeContent: View {
     }
     @Environment(\.appBG) var bg
     @AppStorage("homeLayout") private var homeLayout = "row"
+    @State private var pageH: CGFloat = .infinity
     let reloadToken: Int
     @State private var retry = 0
     @State private var rows: [Row] = []
@@ -1086,7 +1087,7 @@ struct HomeContent: View {
         let hero = heroItems
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                if !hero.isEmpty { Hero(items: hero) }
+                if !hero.isEmpty { Hero(items: hero, pageH: pageH) }
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         rowTitle(row).padding(.leading, 52)
@@ -1118,6 +1119,9 @@ struct HomeContent: View {
             }.padding(.bottom, 40)
         }
         .ignoresSafeArea(edges: .top)          // banner runs up under the title bar, as in Apple TV
+        .background(GeometryReader { g in
+            Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
+        })
         .background(bg)
         .task(id: "\(reloadToken)-\(retry)") {
             rows = await emby.loadHome(); loading = false
@@ -1151,12 +1155,14 @@ struct Hero: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let items: [Item]
+    /// Height of the visible page; the banner never grows past it, so the page dots stay on screen
+    var pageH: CGFloat = .infinity
     @State private var index = 0
     @State private var hover = false
     @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
-    var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900) }
+    var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900, max(pageH - 20, 360)) }
 
     /// "TV Show · Comedy · Sport", like Apple TV.
     func meta(_ item: Item) -> String {
@@ -1237,7 +1243,7 @@ struct Hero: View {
                     .accessibilityAddTraits(i == index % items.count ? .isSelected : [])
                 }
             }
-            .frame(maxWidth: .infinity).padding(.bottom, 48)
+            .frame(maxWidth: .infinity).padding(.bottom, 30)
         }
         .overlay {
             if hover && items.count > 1 {
