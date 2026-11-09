@@ -11,12 +11,13 @@ struct SettingsView: View {
     var onDone: () -> Void
 
     enum Section: String, CaseIterable, Identifiable {
-        case general = "General", libraries = "Libraries",
+        case general = "General", home = "Home", libraries = "Libraries",
              subtitles = "Subtitles", playback = "Playback", servers = "Servers", about = "About"
         var id: String { rawValue }
         var icon: String {
             switch self {
             case .general: return "paintpalette"
+            case .home: return "house"
             case .libraries: return "square.grid.2x2"
             case .subtitles: return "captions.bubble"
             case .playback: return "play.rectangle"
@@ -53,6 +54,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     switch section {
                     case .general: GeneralSettings()
+                    case .home: HomeSettings()
                     case .libraries: LibrariesSettings()
                     case .subtitles: SubtitleSettings()
                     case .playback: PlaybackSettings()
@@ -82,17 +84,26 @@ struct SettingsView: View {
 // MARK: - Building blocks
 
 /// Width of the right-aligned label column, shared by every row so all controls line up.
-let prefLabelW: CGFloat = 190
+let prefLabelW: CGFloat = 180
 
-/// A group of rows with a thin line under it (macOS / Apple TV settings style).
+/// A group of related rows: a small heading over a rounded card (System Settings style).
 struct PrefSection<C: View>: View {
+    var title: String? = nil
     var last = false
     @ViewBuilder var content: C
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) { content }
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .bottom) { if !last { Divider() } }
+        VStack(alignment: .leading, spacing: 6) {
+            if let title {
+                Text(title.uppercased()).font(.system(size: 11, weight: .semibold)).foregroundColor(.secondary)
+                    .padding(.leading, 6)
+            }
+            VStack(alignment: .leading, spacing: 12) { content }
+                .padding(.vertical, 16).padding(.trailing, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+        }
+        .padding(.vertical, 9)
     }
 }
 
@@ -191,48 +202,57 @@ struct GeneralSettings: View {
         }
     }
 
+    @AppStorage("showRecent") private var showRecent = true
+    @AppStorage("posterShowTitle") private var showTitle = true
+    @AppStorage("posterShowYear") private var showYear = true
+    @AppStorage("posterLabelAlign") private var labelAlign = "center"
+
     var body: some View {
-        PrefSection {
-            PrefRow(label: "Theme") {
-                Picker("", selection: $theme) {
-                    Text("Glass").tag("apple")
-                    Text("Classic").tag("classic")
-                }.labelsHidden().fixedSize()
-            }
-            PrefNote("Classic brings back the original Cove look and options.")
-        }
-        .onChange(of: theme) { CoveApp.applyIcon() }
-        PrefSection {
+        PrefSection(title: "Appearance") {
+            PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Classic")]) }
+            PrefNote("Classic brings back the original Cove look. Settings always use this window.")
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
-        }
-        PrefSection {
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }
-        PrefSection {
-            PrefRow(label: "Navigation") {
-                Picker("", selection: $navStyle) {
-                    Text("Sidebar").tag("sidebar")
-                    Text("Top bar").tag("topbar")
-                }.labelsHidden().fixedSize()
-            }
-            PrefNote("Top bar replaces the sidebar with a bar across the top. Settings are in the Cove menu (⌘,).")
+        .onChange(of: theme) { CoveApp.applyIcon() }
+        PrefSection(title: "Navigation") {
+            PrefRow(label: "Style") { menuPicker($navStyle, [("sidebar", "Sidebar"), ("topbar", "Top bar")]) }
             // One choice, not two switches: the bar can never end up with neither icons nor names
             PrefRow(label: "Top bar shows") {
-                Picker("", selection: $topBarLabels) {
-                    Text("Icons and Names").tag("both")
-                    Text("Names").tag("names")
-                    Text("Icons").tag("icons")
-                }.labelsHidden().fixedSize()
+                menuPicker($topBarLabels, [("both", "Icons and Names"), ("names", "Names"), ("icons", "Icons")])
             }.disabled(navStyle != "topbar")
+            PrefNote("Top bar replaces the sidebar with a bar across the top. Settings are in the Cove menu (⌘,).")
+            PrefRow(label: "Also show") { Toggle("Recently Added", isOn: $showRecent) }
+            PrefNote("Home is always there. Libraries, Favorites and Now Playing are chosen in Libraries.")
         }
-        PrefSection(last: true) {
-            PrefRow(label: "Home page") {
-                Picker("", selection: $homeLayout) {
-                    Text("Rows").tag("row")
-                    Text("Grid").tag("grid")
-                }.labelsHidden().fixedSize()
+        PrefSection(title: "Posters", last: true) {
+            PrefRow(label: "Show under poster") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Title", isOn: $showTitle)
+                    Toggle("Year", isOn: $showYear)
+                }
             }
+            PrefRow(label: "Alignment") { menuPicker($labelAlign, [("center", "Centered"), ("left", "Left")]) }
+                .disabled(!showTitle && !showYear)
+        }
+    }
+}
+
+// MARK: - Home
+
+struct HomeSettings: View {
+    @AppStorage("homeLayout") private var homeLayout = "row"
+    @AppStorage("showUpNextRow") private var showUpNextRow = true
+
+    var body: some View {
+        PrefSection(title: "Layout") {
+            PrefRow(label: "Sections show as") { menuPicker($homeLayout, [("row", "Rows"), ("grid", "Grid")]) }
             PrefNote("Rows scroll sideways; Grid shows every item of each section at once.")
+        }
+        PrefSection(title: "Rows", last: true) {
+            PrefRow(label: "Watching") { Toggle("Up Next", isOn: $showUpNextRow) }
+            PrefNote("The next episode of each show you're watching, under Continue Watching.")
+            PrefNote("Which libraries get a row on Home, and what each row shows, is set per library in Libraries.")
         }
     }
 }
@@ -312,14 +332,14 @@ struct AboutSettings: View {
     }
 
     var body: some View {
-        PrefSection {
+        PrefSection(title: "Cove") {
             PrefRow(label: "Version") { Text("Cove " + AppVersion.label).textSelection(.enabled) }
             PrefRow(label: "Updates") { UpdateRow() }
             PrefRow(label: "Source") {
                 Link("github.com/J0n4e/cove", destination: URL(string: "https://github.com/J0n4e/cove/releases")!)
             }
         }
-        PrefSection {
+        PrefSection(title: "Storage") {
             PrefRow(label: "Image cache") {
                 HStack(spacing: 10) {
                     Text(ByteCountFormatter.string(fromByteCount: Int64(cacheBytes), countStyle: .file))
@@ -330,7 +350,7 @@ struct AboutSettings: View {
             PrefNote("Posters and banners are saved on this Mac so they show instantly next time (up to 500 MB).")
         }
         .onAppear { cacheBytes = ImageCache.shared.diskUsage }
-        PrefSection {
+        PrefSection(title: "Backup") {
             PrefRow(label: "Settings file") {
                 HStack(spacing: 10) {
                     Button("Save…") { saveSettings() }
@@ -342,7 +362,7 @@ struct AboutSettings: View {
         .alert(backupMessage ?? "", isPresented: Binding(get: { backupMessage != nil }, set: { if !$0 { backupMessage = nil } })) {
             Button("OK", role: .cancel) {}
         }
-        PrefSection(last: true) {
+        PrefSection(title: "Reset", last: true) {
             PrefRow(label: "Reset") { Button("Reset All Settings…", role: .destructive) { confirmReset = true } }
             PrefNote("Puts every setting back to its default. Your servers and sign-in are kept.")
         }
@@ -377,15 +397,10 @@ struct LibrariesSettings: View {
     @AppStorage("defaultLibraryLayout") private var defaultLayout = "grid"
     @AppStorage("showFavorites") private var showFavorites = true
     @AppStorage("showNowPlaying") private var showNowPlaying = true
-    @AppStorage("showRecent") private var showRecent = true
     @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("similarLayout") private var similarLayout = "row"
     @AppStorage("showIncludedIn") private var showIncludedIn = true
     @AppStorage(NavOrder.key) private var navOrder = ""
-    @AppStorage("showUpNextRow") private var showUpNextRow = true
-    @AppStorage("posterShowTitle") private var showTitle = true
-    @AppStorage("posterShowYear") private var showYear = true
-    @AppStorage("posterLabelAlign") private var labelAlign = "center"
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
     @AppStorage("seasonLayoutTV") private var seasonLayout = "row"
@@ -402,7 +417,7 @@ struct LibrariesSettings: View {
     }
 
     var body: some View {
-        PrefSection {
+        PrefSection(title: "Your libraries") {
             PrefRow(label: "Libraries") {
                 VStack(alignment: .leading, spacing: 6) {
                     libraryTable
@@ -412,40 +427,22 @@ struct LibrariesSettings: View {
             }
         }
         if selectedLib == Self.favoritesId {
-            PrefSection {
+            PrefSection(title: "Favorites") {
                 PrefRow(label: "View") { menuPicker($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             }
         } else if selectedLib == NavOrder.nowPlaying {
-            PrefSection { PrefNote("Now Playing shows what is playing on your server right now. Move it with its ≡ handle.") }
+            PrefSection(title: "Now Playing") { PrefNote("Now Playing shows what is playing on your server right now. Move it with its ≡ handle.") }
         } else if let i = emby.libs.firstIndex(where: { $0.id == selectedLib }) ?? (emby.libs.isEmpty ? nil : 0) {
             libraryOptions(i, emby.libs[i])
         }
-        PrefSection {
-            PrefRow(label: "Sections") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Recently Added", isOn: $showRecent)
-                }
-            }
-            PrefNote("Shown in the sidebar and the top bar. Home is always there.")
-            PrefRow(label: "Home") { Toggle("Up Next row", isOn: $showUpNextRow) }
-            PrefNote("The next episode of each show you're watching, under Continue Watching.")
+        PrefSection(title: "Movie and show pages") {
             PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
             PrefRow(label: "Included In") { Toggle("Show the collections a movie or show belongs to", isOn: $showIncludedIn) }
             PrefNote("Above More Like This. Click a collection to open it.")
         }
-        PrefSection {
-            PrefRow(label: "Poster labels") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Title", isOn: $showTitle)
-                    Toggle("Year", isOn: $showYear)
-                }
-            }
-            PrefRow(label: "Label alignment") { menuPicker($labelAlign, [("center", "Centered"), ("left", "Left")]) }
-                .disabled(!showTitle && !showYear)
-        }
-        PrefSection(last: true) {
-            PrefRow(label: "New libraries") {
+        PrefSection(title: "New libraries", last: true) {
+            PrefRow(label: "Open as") {
                 HStack(spacing: 10) {
                     menuPicker($defaultLayout, [("grid", "Grid"), ("list", "List")])
                     Button("Apply to All") {
@@ -585,7 +582,7 @@ struct LibrariesSettings: View {
 
     /// Options for the library picked in the table.
     func libraryOptions(_ i: Int, _ lib: LibPref) -> some View {
-        PrefSection {
+        PrefSection(title: lib.title) {
             PrefRow(label: "Name") {
                 TextField(lib.name, text: $emby.libs[i].title).textFieldStyle(.roundedBorder).frame(width: 220)
             }
@@ -657,14 +654,14 @@ struct SubtitleSettings: View {
     @AppStorage("subLang") private var subLang = "english"
 
     var body: some View {
-        PrefSection {
+        PrefSection(title: "Language") {
             PrefRow { Toggle("Always load my subtitle language", isOn: $subAlways) }
             PrefRow(label: "Language") {
                 menuPicker($subLang, SeriesSettings.languages.map { ($0.lowercased(), $0) })
             }.disabled(!subAlways)
             PrefNote("Movies and episodes start with subtitles in this language when they have them. You can still turn them off in the player.")
         }
-        PrefSection {
+        PrefSection(title: "Style") {
             PrefRow(label: "Text size") { menuPicker($subTextSize, PlayerView.sizes.map { ($0.0, $0.1) }) }
             PrefRow(label: "Text color") { menuPicker($subColor, PlayerView.colors.map { ($0.0, $0.1) }) }
             PrefRow(label: "Shadow") { menuPicker($subShadow, PlayerView.shadows) }
@@ -678,7 +675,7 @@ struct SubtitleSettings: View {
                 }
             }
         }
-        PrefSection(last: true) {
+        PrefSection(title: "Preview", last: true) {
             PrefRow(label: "Preview") { preview.frame(width: 420) }
         }
     }
@@ -717,10 +714,15 @@ struct PlaybackSettings: View {
     @AppStorage("playerControls") private var controls = "theme"
 
     var body: some View {
-        PrefSection {
-            PrefRow(label: "Player controls") {
+        PrefSection(title: "Player") {
+            PrefRow(label: "Controls look") {
                 menuPicker($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
             }
+            PrefRow(label: "Window") { Toggle("Open videos in a separate window", isOn: $separatePlayer) }
+            PrefRow(label: "Clicking the video") { Toggle("Plays or pauses", isOn: $clickToPause) }
+            PrefNote("With this off, clicking the video shows or hides the controls.")
+        }
+        PrefSection(title: "Start with") {
             PrefRow(label: "Quality") {
                 menuPicker($quality, [(0, "Original"), (8_000_000, "1080p · 8 Mbps"), (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }
@@ -731,17 +733,16 @@ struct PlaybackSettings: View {
                 menuPicker($skip, [(5, "5 s"), (10, "10 s"), (15, "15 s"), (30, "30 s")])
             }
         }
-        PrefSection(last: true) {
-            PrefRow(label: "When playing") {
+        PrefSection(title: "Automatically") {
+            PrefRow {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Open videos in a separate window", isOn: $separatePlayer)
-                    Toggle("Play the next episode automatically", isOn: $autoNext)
-                    Toggle("Skip intros automatically", isOn: $autoSkipIntro)
-                    Toggle("Click the video to play or pause", isOn: $clickToPause)
+                    Toggle("Play the next episode", isOn: $autoNext)
+                    Toggle("Skip intros", isOn: $autoSkipIntro)
                 }
             }
-            PrefNote("With click to pause off, clicking the video shows or hides the controls.")
-            PrefRow(label: "Troubleshooting") { Toggle("Write a player debug log", isOn: $debugLog) }
+        }
+        PrefSection(title: "Troubleshooting", last: true) {
+            PrefRow(label: "Debug log") { Toggle("Write a player debug log", isOn: $debugLog) }
             PrefNote("Saved to ~/Library/Logs/Cove.log (kept under about 1 MB). Leave it off unless you're chasing a playback problem.")
         }
     }
@@ -774,7 +775,7 @@ struct ServerSettings: View {
     }
 
     var body: some View {
-        PrefSection {
+        PrefSection(title: "Current server") {
             PrefRow(label: "Connected to") {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(emby.currentServerName).bold()
@@ -788,7 +789,7 @@ struct ServerSettings: View {
                 }
             }
         }
-        PrefSection(last: true) {
+        PrefSection(title: "Saved servers", last: true) {
             PrefRow(label: "Servers") {
                 VStack(alignment: .leading, spacing: 0) {
                     if emby.servers.isEmpty { Text("No saved servers.").foregroundColor(.secondary).padding(12) }
