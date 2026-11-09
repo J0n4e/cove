@@ -405,7 +405,8 @@ struct ClassicHomeView: View {
             path.append(item)
             emby.openRequest = nil
         }
-        .sheet(isPresented: showSettingsB) { ClassicSettingsView { reloadToken += 1 } }
+        // Settings always use the Glass window, whichever theme is chosen
+        .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
     }
 }
 
@@ -482,7 +483,7 @@ struct ClassicTopNavButtons: View {
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
                 .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
-                .background(Capsule().fill(on ? Color.white.opacity(0.28) : Color.clear))
+                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -956,6 +957,8 @@ struct ClassicPersonView: View {
 struct ClassicHomeContent: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
+    @AppStorage("homeLayout") private var homeLayout = "row"
+    @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     let reloadToken: Int
     @State private var retry = 0
     @State private var rows: [Row] = []
@@ -980,7 +983,16 @@ struct ClassicHomeContent: View {
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         Text(row.title).font(.title3.bold()).padding(.leading, 32)
-                        if row.title == "Continue Watching" {
+                        let wide = row.title == "Continue Watching"
+                        // Continue Watching has its own Row / Grid choice; every other section follows Home's
+                        if (wide ? resumeLayout : homeLayout) == "grid" {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 260 : 150), spacing: 14)],
+                                      alignment: .leading, spacing: 18) {
+                                ForEach(row.items.indices, id: \.self) { i in
+                                    if wide { ClassicResumeCard(item: row.items[i]) } else { ClassicPosterCard(item: row.items[i]) }
+                                }
+                            }.padding(.horizontal, 32)
+                        } else if wide {
                             ClassicArrowScrollRow(ids: Array(row.items.indices), itemWidth: 260, spacing: 14, inset: 32) {
                                 ClassicResumeCard(item: row.items[$0])
                             }
@@ -1950,17 +1962,22 @@ struct ClassicLibraryView: View {
 struct ClassicCastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
+    @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
     var body: some View {
+        let big = castSize == "large"
         VStack(spacing: 6) {
-            CachedImage(url: emby.image(p.Id, width: 240)) { img in
+            CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 30)).foregroundColor(.secondary) }
+                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: big ? 44 : 30)).foregroundColor(.secondary) }
             }
-            .frame(width: 88, height: 88).clipShape(Circle())
-            Text(p.Name).font(.caption.weight(.semibold)).lineLimit(1)
-            Text(p.Role ?? p.`Type` ?? "").font(.caption2).foregroundColor(.secondary).lineLimit(1)
-        }.frame(width: 104).multilineTextAlignment(.center)
+            // Large: a portrait photo card (2:3); Normal: the round photo
+            .frame(width: big ? 132 : 88, height: big ? 198 : 88)
+            .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
+            .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
+            Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
+            Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+        }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
 }
 
@@ -1983,7 +2000,6 @@ struct ClassicDetailView: View {
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
     @State private var includedIn: [Item] = []
-    @AppStorage("showIncludedIn") private var showIncludedIn = true   // Settings → Libraries
     @AppStorage("similarLayout") private var similarLayout = "row"   // "row", "grid" or "list"; also in Settings → Libraries
     @State private var srcIdx = 0
     @State private var audioIdx = -1
@@ -2069,7 +2085,7 @@ struct ClassicDetailView: View {
                 if let first = kids.first { epLangs = Self.subLangs(await emby.full(first.id)) }
             }
             else if item.isBox { kids = await emby.children(item.id) }
-            if !item.isEpisode && !item.isBox && showIncludedIn { includedIn = await emby.collections(containing: item.id) }
+            if !item.isEpisode && !item.isBox { includedIn = await emby.collections(containing: item.id) }
             if !item.isEpisode { similar = await emby.similar(item.id) }
         }
         .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
@@ -2468,12 +2484,13 @@ struct ClassicDetailView: View {
         }.padding(.horizontal, 40)
     }
 
+    @AppStorage("castSize") private var castSize = "normal"
     @ViewBuilder var castSection: some View {
         let people = Array((full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
-                ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: 104) { i in
+                ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: ClassicPersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
                 }
@@ -2527,7 +2544,7 @@ struct ClassicDetailView: View {
 
     /// "Included In": the collections this title belongs to; a click opens the collection's page.
     @ViewBuilder var includedInSection: some View {
-        if showIncludedIn && !includedIn.isEmpty {
+        if !includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Included In").font(.title3.bold()).padding(.horizontal, 40)
                 ClassicArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }

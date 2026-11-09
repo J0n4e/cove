@@ -75,7 +75,7 @@ struct PillStyle: ViewModifier {
         content.font(.callout.weight(.medium))
             .foregroundStyle(Color.white)
             .padding(.horizontal, 16).frame(height: 36)
-            .background(Capsule().fill(Color.white.opacity(active ? 0.22 : 0)))
+            .background(Capsule().fill(active ? AnyShapeStyle(TintShapeStyle().opacity(0.8)) : AnyShapeStyle(Color.clear)))
             .glassCapsule()
             .contentShape(Capsule())
     }
@@ -322,7 +322,7 @@ struct HomeView: View {
         Label {
             Text(title).foregroundColor(.white)
         } icon: {
-            Image(systemName: icon).foregroundColor(Color(red: 0.24, green: 0.56, blue: 1))
+            Image(systemName: icon).foregroundStyle(TintShapeStyle())
         }.font(.system(size: 15))
     }
 
@@ -565,7 +565,7 @@ struct TopNavButtons: View {
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
                 .padding(.horizontal, 14).frame(height: 32)
-                .background(Capsule().fill(on ? Color.white.opacity(0.22) : Color.clear))
+                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -1065,6 +1065,9 @@ struct HomeContent: View {
         }
     }
     @Environment(\.appBG) var bg
+    @AppStorage("homeLayout") private var homeLayout = "row"
+    @AppStorage("homeResumeLayout") private var resumeLayout = "row"
+    @State private var pageH: CGFloat = .infinity
     let reloadToken: Int
     @State private var retry = 0
     @State private var rows: [Row] = []
@@ -1085,11 +1088,20 @@ struct HomeContent: View {
         let hero = heroItems
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                if !hero.isEmpty { Hero(items: hero) }
+                if !hero.isEmpty { Hero(items: hero, pageH: pageH) }
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         rowTitle(row).padding(.leading, 52)
-                        if row.feed == .resume || row.feed == .nextUp {
+                        let wide = row.feed == .resume || row.feed == .nextUp
+                        // Continue Watching has its own Row / Grid choice; every other section follows Home's
+                        if (row.feed == .resume ? resumeLayout : homeLayout) == "grid" {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 340 : 170), spacing: 22)],
+                                      alignment: .leading, spacing: 22) {
+                                ForEach(row.items.indices, id: \.self) { i in
+                                    if wide { ResumeCard(item: row.items[i]) } else { PosterCard(item: row.items[i]) }
+                                }
+                            }.padding(.horizontal, 52)
+                        } else if wide {
                             ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 340, spacing: 22, inset: 52) {
                                 ResumeCard(item: row.items[$0])
                             }
@@ -1109,6 +1121,9 @@ struct HomeContent: View {
             }.padding(.bottom, 40)
         }
         .ignoresSafeArea(edges: .top)          // banner runs up under the title bar, as in Apple TV
+        .background(GeometryReader { g in
+            Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
+        })
         .background(bg)
         .task(id: "\(reloadToken)-\(retry)") {
             rows = await emby.loadHome(); loading = false
@@ -1142,12 +1157,14 @@ struct Hero: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let items: [Item]
+    /// Height of the visible page; the banner never grows past it, so the page dots stay on screen
+    var pageH: CGFloat = .infinity
     @State private var index = 0
     @State private var hover = false
     @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
-    var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900) }
+    var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900, max(pageH - 20, 360)) }
 
     /// "TV Show · Comedy · Sport", like Apple TV.
     func meta(_ item: Item) -> String {
@@ -1218,7 +1235,9 @@ struct Hero: View {
             HStack(spacing: 9) {
                 ForEach(items.indices, id: \.self) { i in
                     Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { index = i } } label: {
-                        Circle().fill(Color.white.opacity(i == index % items.count ? 1 : 0.4)).frame(width: 7, height: 7)
+                        // The current banner's dot stretches into a pill so it stands out
+                        Capsule().fill(Color.white.opacity(i == index % items.count ? 1 : 0.4))
+                            .frame(width: i == index % items.count ? 16 : 7, height: 7)
                             .contentShape(Rectangle().inset(by: -5))
                     }
                     .buttonStyle(.plain)
@@ -1226,7 +1245,7 @@ struct Hero: View {
                     .accessibilityAddTraits(i == index % items.count ? .isSelected : [])
                 }
             }
-            .frame(maxWidth: .infinity).padding(.bottom, 26)
+            .frame(maxWidth: .infinity).padding(.bottom, 30)
         }
         .overlay {
             if hover && items.count > 1 {
@@ -2167,18 +2186,25 @@ struct LibraryView: View {
 struct CastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
+    @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
     var body: some View {
+        let big = castSize == "large"
         VStack(spacing: 6) {
-            CachedImage(url: emby.image(p.Id, width: 240)) { img in
+            CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 30)).foregroundColor(.secondary) }
+                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: big ? 44 : 30)).foregroundColor(.secondary) }
             }
-            .frame(width: 88, height: 88).clipShape(Circle())
-            Text(p.Name).font(.caption.weight(.semibold)).lineLimit(1)
-            Text(p.Role ?? p.`Type` ?? "").font(.caption2).foregroundColor(.secondary).lineLimit(1)
-        }.frame(width: 104).multilineTextAlignment(.center)
+            // Large: a portrait photo card (2:3); Normal: the round photo
+            .frame(width: big ? 132 : 88, height: big ? 198 : 88)
+            .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
+            .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
+            Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
+            Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+        }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
+    /// Tile width for "normal" or "large" (the Cast & Crew row spaces its tiles by this)
+    static func width(_ size: String) -> CGFloat { size == "large" ? 152 : 104 }
 }
 
 struct DetailView: View {
@@ -2201,7 +2227,6 @@ struct DetailView: View {
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
     @State private var includedIn: [Item] = []
-    @AppStorage("showIncludedIn") private var showIncludedIn = true   // Settings → Libraries
     @AppStorage("similarLayout") private var similarLayout = "row"   // "row", "grid" or "list"; also in Settings → Libraries
     @State private var srcIdx = 0
     @State private var audioIdx = -1
@@ -2288,7 +2313,7 @@ struct DetailView: View {
                 if let first = kids.first { epLangs = Self.subLangs(await emby.full(first.id)) }
             }
             else if item.isBox { kids = await emby.children(item.id) }
-            if !item.isEpisode && !item.isBox && showIncludedIn { includedIn = await emby.collections(containing: item.id) }
+            if !item.isEpisode && !item.isBox { includedIn = await emby.collections(containing: item.id) }
             if !item.isEpisode { similar = await emby.similar(item.id) }
         }
         .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
@@ -2792,12 +2817,13 @@ struct DetailView: View {
         }.padding(.horizontal, 52)
     }
 
+    @AppStorage("castSize") private var castSize = "normal"
     @ViewBuilder var castSection: some View {
         let people = Array((full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Cast & Crew").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
-                ArrowScrollRow(ids: Array(people.indices), itemWidth: 104, inset: 52) { i in
+                ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize), inset: 52) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { CastTile(p: people[i]) }
                         .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
                 }
@@ -2851,7 +2877,7 @@ struct DetailView: View {
 
     /// "Included In": the collections this title belongs to; a click opens the collection's page.
     @ViewBuilder var includedInSection: some View {
-        if showIncludedIn && !includedIn.isEmpty {
+        if !includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Included In").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
                 ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 170, spacing: 14, inset: 52) { PosterCard(item: includedIn[$0]) }

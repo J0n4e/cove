@@ -809,8 +809,10 @@ final class Emby: ObservableObject {
         return r?.Items ?? []
     }
 
+    /// A collection's titles in release order, oldest first, so a series of films reads in the order they came out.
     func children(_ parentId: String) async -> [Item] {
-        let r: ItemList? = try? await get("/Users/\(userId)/Items", ["ParentId": parentId, "Fields": "Overview", "SortBy": "SortName"])
+        let r: ItemList? = try? await get("/Users/\(userId)/Items", ["ParentId": parentId, "Fields": "Overview",
+                                                                    "SortBy": "PremiereDate,ProductionYear,SortName", "SortOrder": "Ascending"])
         return r?.Items ?? []
     }
 
