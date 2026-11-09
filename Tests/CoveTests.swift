@@ -83,4 +83,27 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(c.first?.end ?? -1, 2.5, accuracy: 0.001)
         XCTAssertEqual(c.last?.text, "Two\nlines")
     }
+
+    func testTranscodingProfile() {
+        // HEVC must come in fMP4 (AVPlayer rejects HEVC in MPEG-TS); conversion stays H.264 (listed first)
+        let h = Emby.transcodingProfile(hevc: true)
+        XCTAssertEqual(h["Container"] as? String, "mp4")
+        XCTAssertEqual(h["VideoCodec"] as? String, "h264,hevc")
+        let t = Emby.transcodingProfile(hevc: false)
+        XCTAssertEqual(t["Container"] as? String, "ts")
+        XCTAssertEqual(t["VideoCodec"] as? String, "h264")
+    }
+
+    func testCapConversion() {
+        let u = "https://s/videos/1/master.m3u8?VideoBitrate=96000000&MaxWidth=3840&x=1"
+        let c = URLComponents(string: Emby.capConversion(u, maxWidth: 2560, maxBitrate: 40_000_000))!
+        func v(_ n: String) -> String? { c.queryItems?.first { $0.name == n }?.value }
+        XCTAssertEqual(v("VideoBitrate"), "40000000")
+        XCTAssertEqual(v("MaxWidth"), "2560")
+        XCTAssertEqual(v("x"), "1")
+        // a lower value already asked for is kept
+        let d = URLComponents(string: Emby.capConversion("https://s/a?VideoBitrate=8000000", maxWidth: nil, maxBitrate: 40_000_000))!
+        XCTAssertEqual(d.queryItems?.first { $0.name == "VideoBitrate" }?.value, "8000000")
+        XCTAssertNil(d.queryItems?.first { $0.name == "MaxWidth" })
+    }
 }
