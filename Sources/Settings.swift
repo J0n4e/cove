@@ -681,11 +681,10 @@ struct SubtitleSettings: View {
                     }
                 }
                 .fixedSize(horizontal: true, vertical: false)
-                .background(GeometryReader { g in
-                    Color.clear.onAppear { menusH = g.size.height }.onChange(of: g.size.height) { _, h in menusH = h }
-                })
-                // As tall as the menus (top of the first to bottom of the last), centered in the space beside them
-                preview(h: menusH).frame(width: menusH * 16 / 9).frame(maxWidth: .infinity)
+                // As big as the space beside the menus allows, kept 16:9
+                Color.clear.aspectRatio(16 / 9, contentMode: .fit)
+                    .overlay(GeometryReader { g in preview(h: g.size.height) })
+                    .frame(maxWidth: .infinity).padding(.leading, 20)
             }
             PrefRow {
                 Button("Restore Defaults") {
@@ -694,8 +693,6 @@ struct SubtitleSettings: View {
             }
         }
     }
-
-    @State private var menusH: CGFloat = 170
 
     func preview(h: CGFloat) -> some View {
         let fs = h * (PlayerView.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045) * 1.6
