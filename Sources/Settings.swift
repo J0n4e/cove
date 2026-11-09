@@ -404,7 +404,6 @@ struct LibrariesSettings: View {
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("similarLayout") private var similarLayout = "row"
-    @AppStorage("showIncludedIn") private var showIncludedIn = true
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
@@ -443,8 +442,6 @@ struct LibrariesSettings: View {
         PrefSection(title: "Movie and show pages") {
             PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
-            PrefRow(label: "Included In") { Toggle("Show the collections a movie or show belongs to", isOn: $showIncludedIn) }
-            PrefNote("Above More Like This. Click a collection to open it.")
         }
         PrefSection(title: "New libraries", last: true) {
             PrefRow(label: "Open as") {
