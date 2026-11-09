@@ -405,7 +405,8 @@ struct ClassicHomeView: View {
             path.append(item)
             emby.openRequest = nil
         }
-        .sheet(isPresented: showSettingsB) { ClassicSettingsView { reloadToken += 1 } }
+        // Settings always use the Glass window, whichever theme is chosen
+        .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
     }
 }
 
@@ -956,6 +957,7 @@ struct ClassicPersonView: View {
 struct ClassicHomeContent: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
+    @AppStorage("homeLayout") private var homeLayout = "row"
     let reloadToken: Int
     @State private var retry = 0
     @State private var rows: [Row] = []
@@ -980,7 +982,15 @@ struct ClassicHomeContent: View {
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         Text(row.title).font(.title3.bold()).padding(.leading, 32)
-                        if row.title == "Continue Watching" {
+                        let wide = row.title == "Continue Watching"
+                        if homeLayout == "grid" {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 260 : 150), spacing: 14)],
+                                      alignment: .leading, spacing: 18) {
+                                ForEach(row.items.indices, id: \.self) { i in
+                                    if wide { ClassicResumeCard(item: row.items[i]) } else { ClassicPosterCard(item: row.items[i]) }
+                                }
+                            }.padding(.horizontal, 32)
+                        } else if wide {
                             ClassicArrowScrollRow(ids: Array(row.items.indices), itemWidth: 260, spacing: 14, inset: 32) {
                                 ClassicResumeCard(item: row.items[$0])
                             }

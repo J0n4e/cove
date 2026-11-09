@@ -1065,6 +1065,7 @@ struct HomeContent: View {
         }
     }
     @Environment(\.appBG) var bg
+    @AppStorage("homeLayout") private var homeLayout = "row"
     let reloadToken: Int
     @State private var retry = 0
     @State private var rows: [Row] = []
@@ -1089,7 +1090,15 @@ struct HomeContent: View {
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         rowTitle(row).padding(.leading, 52)
-                        if row.feed == .resume || row.feed == .nextUp {
+                        let wide = row.feed == .resume || row.feed == .nextUp
+                        if homeLayout == "grid" {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 340 : 170), spacing: 22)],
+                                      alignment: .leading, spacing: 22) {
+                                ForEach(row.items.indices, id: \.self) { i in
+                                    if wide { ResumeCard(item: row.items[i]) } else { PosterCard(item: row.items[i]) }
+                                }
+                            }.padding(.horizontal, 52)
+                        } else if wide {
                             ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 340, spacing: 22, inset: 52) {
                                 ResumeCard(item: row.items[$0])
                             }

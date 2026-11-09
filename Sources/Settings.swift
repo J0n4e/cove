@@ -163,6 +163,7 @@ struct GeneralSettings: View {
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
+    @AppStorage("homeLayout") private var homeLayout = "row"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -213,7 +214,7 @@ struct GeneralSettings: View {
         PrefSection {
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }
-        PrefSection(last: true) {
+        PrefSection {
             PrefRow(label: "Navigation") {
                 Picker("", selection: $navStyle) {
                     Text("Sidebar").tag("sidebar")
@@ -223,8 +224,21 @@ struct GeneralSettings: View {
             PrefNote("Top bar replaces the sidebar with a bar across the top. Settings are in the Cove menu (⌘,).")
             // One choice, not two switches: the bar can never end up with neither icons nor names
             PrefRow(label: "Top bar shows") {
-                segmented($topBarLabels, [("both", "Icons and Names"), ("names", "Names"), ("icons", "Icons")])
+                Picker("", selection: $topBarLabels) {
+                    Text("Icons and Names").tag("both")
+                    Text("Names").tag("names")
+                    Text("Icons").tag("icons")
+                }.pickerStyle(.radioGroup).labelsHidden()
             }.disabled(navStyle != "topbar")
+        }
+        PrefSection(last: true) {
+            PrefRow(label: "Home page") {
+                Picker("", selection: $homeLayout) {
+                    Text("Rows").tag("row")
+                    Text("Grid").tag("grid")
+                }.pickerStyle(.radioGroup).labelsHidden()
+            }
+            PrefNote("Rows scroll sideways; Grid shows every item of each section at once.")
         }
     }
 }
