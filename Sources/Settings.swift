@@ -380,6 +380,7 @@ struct LibrariesSettings: View {
     @AppStorage("posterLabelAlign") private var labelAlign = "center"
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
+    @AppStorage("seasonLayoutTV") private var seasonLayout = "row"
     @AppStorage("hoverPreviewEnabled") private var hoverOn = true
     @AppStorage("hoverPreviewDelay") private var hoverDelay = 0.7
     @AppStorage("hoverZoomEnabled") private var hoverZoom = true
@@ -593,6 +594,7 @@ struct LibrariesSettings: View {
             }.disabled(!lib.onHome || !lib.visible)
             // Episode options apply to every TV library, so they show with any of them
             if lib.kind == "tvshows" {
+                PrefRow(label: "Season layout") { segmented($seasonLayout, [("row", "Row"), ("grid", "Grid")]) }
                 PrefRow(label: "Episode layout") { segmented($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
                 PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
             }
@@ -704,9 +706,13 @@ struct PlaybackSettings: View {
     @AppStorage("clickToPause") private var clickToPause = true
     @AppStorage("separatePlayer") private var separatePlayer = false
     @AppStorage("debugLog") private var debugLog = false
+    @AppStorage("playerControls") private var controls = "theme"
 
     var body: some View {
         PrefSection {
+            PrefRow(label: "Player controls") {
+                segmented($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
+            }
             PrefRow(label: "Quality") {
                 menuPicker($quality, [(0, "Original"), (8_000_000, "1080p · 8 Mbps"), (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }
