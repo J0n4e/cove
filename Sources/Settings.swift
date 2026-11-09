@@ -679,20 +679,25 @@ struct SubtitleSettings: View {
                     PrefRow(label: "Distance from bottom") {
                         menuPicker($subBottom, [0, 5, 10, 15, 20, 25, 30].map { (Double($0), "\($0)%") })
                     }
-                    PrefRow {
-                        Button("Restore Defaults") {
-                            subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10
-                        }
-                    }
-                }.fixedSize(horizontal: true, vertical: false)
-                // Centered in the space right of the menus, level with their middle
-                preview.frame(width: 300).frame(maxWidth: .infinity)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .background(GeometryReader { g in
+                    Color.clear.onAppear { menusH = g.size.height }.onChange(of: g.size.height) { _, h in menusH = h }
+                })
+                // As tall as the menus (top of the first to bottom of the last), centered in the space beside them
+                preview(h: menusH).frame(width: menusH * 16 / 9).frame(maxWidth: .infinity)
+            }
+            PrefRow {
+                Button("Restore Defaults") {
+                    subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10
+                }
             }
         }
     }
 
-    var preview: some View {
-        let h: CGFloat = 169   // 16:9 with the 300 pt width, like a small video
+    @State private var menusH: CGFloat = 170
+
+    func preview(h: CGFloat) -> some View {
         let fs = h * (PlayerView.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045) * 1.6
         let color = PlayerView.colors.first { $0.0 == subColor }?.2 ?? .white
         return ZStack(alignment: .bottom) {
