@@ -686,13 +686,13 @@ struct SubtitleSettings: View {
                     }
                 }.fixedSize(horizontal: true, vertical: false)
                 // Centered in the space right of the menus, level with their middle
-                preview.frame(width: 240).frame(maxWidth: .infinity)
+                preview.frame(width: 300).frame(maxWidth: .infinity)
             }
         }
     }
 
     var preview: some View {
-        let h: CGFloat = 135   // 16:9 with the 240 pt width, like a small video
+        let h: CGFloat = 169   // 16:9 with the 300 pt width, like a small video
         let fs = h * (PlayerView.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045) * 1.6
         let color = PlayerView.colors.first { $0.0 == subColor }?.2 ?? .white
         return ZStack(alignment: .bottom) {
