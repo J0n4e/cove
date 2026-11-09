@@ -2196,6 +2196,7 @@ struct DetailView: View {
     /// First entry of the Subtitles menu: the preferred language when that setting is on, otherwise Off.
     var defaultSubLabel: String { subAlwaysOn ? prefSubLang.capitalized : "Off" }
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
+    @AppStorage("seasonLayoutTV") private var seasonLayout = "row"   // Seasons posters: "row" (scrolls sideways) or "grid"
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
@@ -2596,7 +2597,15 @@ struct DetailView: View {
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Seasons").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
-            ArrowScrollRow(ids: seasonNumbers, itemWidth: 170, inset: 52) { n in seasonPoster(n) }
+            if seasonLayout == "grid" {
+                // All seasons at once, wrapped onto as many lines as needed (Settings → Libraries → Season layout)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
+                          alignment: .leading, spacing: 18) {
+                    ForEach(seasonNumbers, id: \.self) { n in seasonPoster(n) }
+                }.padding(.horizontal, 52).padding(.vertical, 8)
+            } else {
+                ArrowScrollRow(ids: seasonNumbers, itemWidth: 170, inset: 52) { n in seasonPoster(n) }
+            }
         }
     }
 
