@@ -1237,7 +1237,7 @@ struct Hero: View {
                     .accessibilityAddTraits(i == index % items.count ? .isSelected : [])
                 }
             }
-            .frame(maxWidth: .infinity).padding(.bottom, 26)
+            .frame(maxWidth: .infinity).padding(.bottom, 48)
         }
         .overlay {
             if hover && items.count > 1 {
