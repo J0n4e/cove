@@ -8,6 +8,8 @@ struct SettingsView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.dismiss) var dismiss
     @Environment(\.appBG) var bg
+    @AppStorage("accent") private var accentName = "red"
+    var accent: Color { Theme.accent(accentName) }
     var onDone: () -> Void
 
     enum Section: String, CaseIterable, Identifiable {
@@ -41,10 +43,10 @@ struct SettingsView: View {
                             Image(systemName: s.icon).font(.system(size: 20))
                             Text(s.rawValue).font(.system(size: 11))
                         }
-                        .foregroundColor(on ? Color(red: 0.24, green: 0.56, blue: 1) : .secondary)
+                        .foregroundColor(on ? accent : .secondary)
                         .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.white.opacity(0.1) : Color.clear))
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? Color.white.opacity(0.12) : Color.clear))
+                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent.opacity(0.15) : Color.clear))
+                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? accent.opacity(0.4) : Color.clear))
                         .contentShape(Rectangle())
                     }.buttonStyle(.plain).focusEffectDisabled()
                 }
@@ -68,13 +70,16 @@ struct SettingsView: View {
             Divider()
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.controlSize(.large)
+                // Both buttons in the accent color; Cancel is the lighter one
+                Button { dismiss() } label: { Text("Cancel").frame(minWidth: 60) }
+                    .buttonStyle(.bordered).tint(accent).controlSize(.large)
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent).tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
+                    .buttonStyle(.borderedProminent).tint(accent).controlSize(.large)
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
+        .tint(accent)     // switches, menus and links inside Settings too
         .background(bg)   // follows Appearance → Background, like the rest of the app
         // Esc closes Settings and keeps the changes, like OK / Done
         .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
@@ -459,7 +464,8 @@ struct LibrariesSettings: View {
     @State private var selectedLib: String?
     /// Table selection for the Favorites line (not a server library).
     static let favoritesId = NavOrder.favorites
-    let blue = Color(red: 0.24, green: 0.56, blue: 1)
+    @AppStorage("accent") private var accentName = "red"
+    var blue: Color { Theme.accent(accentName) }
 
     func kindIcon(_ lib: LibPref) -> String {
         switch lib.kind {
@@ -809,7 +815,7 @@ struct ServerSettings: View {
                             }
                             Spacer(minLength: 12)
                             if current {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(Color(red: 0.24, green: 0.56, blue: 1))
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(TintShapeStyle())
                                     .help("Connected")
                             } else if busy == srv.id {
                                 Spinner().controlSize(.small)

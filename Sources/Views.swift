@@ -75,7 +75,7 @@ struct PillStyle: ViewModifier {
         content.font(.callout.weight(.medium))
             .foregroundStyle(Color.white)
             .padding(.horizontal, 16).frame(height: 36)
-            .background(Capsule().fill(Color.white.opacity(active ? 0.22 : 0)))
+            .background(Capsule().fill(active ? AnyShapeStyle(TintShapeStyle().opacity(0.8)) : AnyShapeStyle(Color.clear)))
             .glassCapsule()
             .contentShape(Capsule())
     }
@@ -322,7 +322,7 @@ struct HomeView: View {
         Label {
             Text(title).foregroundColor(.white)
         } icon: {
-            Image(systemName: icon).foregroundColor(Color(red: 0.24, green: 0.56, blue: 1))
+            Image(systemName: icon).foregroundStyle(TintShapeStyle())
         }.font(.system(size: 15))
     }
 
@@ -565,7 +565,7 @@ struct TopNavButtons: View {
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
                 .padding(.horizontal, 14).frame(height: 32)
-                .background(Capsule().fill(on ? Color.white.opacity(0.22) : Color.clear))
+                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)

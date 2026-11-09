@@ -483,7 +483,7 @@ struct ClassicTopNavButtons: View {
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
                 .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
-                .background(Capsule().fill(on ? Color.white.opacity(0.28) : Color.clear))
+                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
