@@ -670,7 +670,7 @@ struct SubtitleSettings: View {
         // Preview beside the style menus, so every change shows without scrolling (Settings is a fixed
         // 760 × 640 window, so this fits on any monitor)
         PrefSection(title: "Style", last: true) {
-            HStack(alignment: .top, spacing: 0) {
+            HStack(alignment: .center, spacing: 0) {
                 VStack(alignment: .leading, spacing: 12) {
                     PrefRow(label: "Text size") { menuPicker($subTextSize, PlayerView.sizes.map { ($0.0, $0.1) }) }
                     PrefRow(label: "Text color") { menuPicker($subColor, PlayerView.colors.map { ($0.0, $0.1) }) }
@@ -684,8 +684,9 @@ struct SubtitleSettings: View {
                             subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10
                         }
                     }
-                }
-                preview.frame(width: 240)
+                }.fixedSize(horizontal: true, vertical: false)
+                // Centered in the space right of the menus, level with their middle
+                preview.frame(width: 240).frame(maxWidth: .infinity)
             }
         }
     }
