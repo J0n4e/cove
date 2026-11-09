@@ -1227,7 +1227,9 @@ struct Hero: View {
             HStack(spacing: 9) {
                 ForEach(items.indices, id: \.self) { i in
                     Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { index = i } } label: {
-                        Circle().fill(Color.white.opacity(i == index % items.count ? 1 : 0.4)).frame(width: 7, height: 7)
+                        // The current banner's dot stretches into a pill so it stands out
+                        Capsule().fill(Color.white.opacity(i == index % items.count ? 1 : 0.4))
+                            .frame(width: i == index % items.count ? 24 : 7, height: 7)
                             .contentShape(Rectangle().inset(by: -5))
                     }
                     .buttonStyle(.plain)
