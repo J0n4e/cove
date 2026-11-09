@@ -75,7 +75,7 @@ struct SettingsView: View {
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
-        .background(Color(white: 0.13))
+        .background(bg)   // follows Appearance → Background, like the rest of the app
         // Esc closes Settings and keeps the changes, like OK / Done
         .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
     }
