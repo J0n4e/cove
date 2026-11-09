@@ -404,6 +404,7 @@ struct LibrariesSettings: View {
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("similarLayout") private var similarLayout = "row"
+    @AppStorage("castSize") private var castSize = "normal"
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
@@ -442,6 +443,8 @@ struct LibrariesSettings: View {
         PrefSection(title: "Movie and show pages") {
             PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
+            PrefRow(label: "Cast & Crew") { menuPicker($castSize, [("normal", "Normal"), ("large", "Large")]) }
+            PrefNote("Large shows bigger actor photos and names.")
         }
         PrefSection(title: "New libraries", last: true) {
             PrefRow(label: "Open as") {

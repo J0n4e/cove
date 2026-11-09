@@ -1960,17 +1960,19 @@ struct ClassicLibraryView: View {
 struct ClassicCastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
+    @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
     var body: some View {
+        let big = castSize == "large"
         VStack(spacing: 6) {
-            CachedImage(url: emby.image(p.Id, width: 240)) { img in
+            CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 30)).foregroundColor(.secondary) }
+                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: big ? 44 : 30)).foregroundColor(.secondary) }
             }
-            .frame(width: 88, height: 88).clipShape(Circle())
-            Text(p.Name).font(.caption.weight(.semibold)).lineLimit(1)
-            Text(p.Role ?? p.`Type` ?? "").font(.caption2).foregroundColor(.secondary).lineLimit(1)
-        }.frame(width: 104).multilineTextAlignment(.center)
+            .frame(width: big ? 132 : 88, height: big ? 132 : 88).clipShape(Circle())
+            Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
+            Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+        }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
 }
 
@@ -2477,12 +2479,13 @@ struct ClassicDetailView: View {
         }.padding(.horizontal, 40)
     }
 
+    @AppStorage("castSize") private var castSize = "normal"
     @ViewBuilder var castSection: some View {
         let people = Array((full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
-                ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: 104) { i in
+                ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: ClassicPersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
                 }
