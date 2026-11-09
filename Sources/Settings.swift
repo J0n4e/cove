@@ -143,12 +143,6 @@ struct SettingRow<C: View>: View {
     }
 }
 
-func segmented<T: Hashable>(_ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
-    Picker("", selection: sel) {
-        ForEach(opts, id: \.0) { Text($0.1).tag($0.0) }
-    }.pickerStyle(.segmented).labelsHidden().fixedSize()
-}
-
 func menuPicker<T: Hashable>(_ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
     Picker("", selection: sel) {
         ForEach(opts, id: \.0) { Text($0.1).tag($0.0) }
@@ -203,7 +197,7 @@ struct GeneralSettings: View {
                 Picker("", selection: $theme) {
                     Text("Glass").tag("apple")
                     Text("Classic").tag("classic")
-                }.pickerStyle(.radioGroup).labelsHidden()
+                }.labelsHidden().fixedSize()
             }
             PrefNote("Classic brings back the original Cove look and options.")
         }
@@ -219,7 +213,7 @@ struct GeneralSettings: View {
                 Picker("", selection: $navStyle) {
                     Text("Sidebar").tag("sidebar")
                     Text("Top bar").tag("topbar")
-                }.pickerStyle(.radioGroup).labelsHidden()
+                }.labelsHidden().fixedSize()
             }
             PrefNote("Top bar replaces the sidebar with a bar across the top. Settings are in the Cove menu (⌘,).")
             // One choice, not two switches: the bar can never end up with neither icons nor names
@@ -228,7 +222,7 @@ struct GeneralSettings: View {
                     Text("Icons and Names").tag("both")
                     Text("Names").tag("names")
                     Text("Icons").tag("icons")
-                }.pickerStyle(.radioGroup).labelsHidden()
+                }.labelsHidden().fixedSize()
             }.disabled(navStyle != "topbar")
         }
         PrefSection(last: true) {
@@ -236,7 +230,7 @@ struct GeneralSettings: View {
                 Picker("", selection: $homeLayout) {
                     Text("Rows").tag("row")
                     Text("Grid").tag("grid")
-                }.pickerStyle(.radioGroup).labelsHidden()
+                }.labelsHidden().fixedSize()
             }
             PrefNote("Rows scroll sideways; Grid shows every item of each section at once.")
         }
@@ -419,7 +413,7 @@ struct LibrariesSettings: View {
         }
         if selectedLib == Self.favoritesId {
             PrefSection {
-                PrefRow(label: "View") { segmented($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+                PrefRow(label: "View") { menuPicker($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             }
         } else if selectedLib == NavOrder.nowPlaying {
             PrefSection { PrefNote("Now Playing shows what is playing on your server right now. Move it with its ≡ handle.") }
@@ -435,7 +429,7 @@ struct LibrariesSettings: View {
             PrefNote("Shown in the sidebar and the top bar. Home is always there.")
             PrefRow(label: "Home") { Toggle("Up Next row", isOn: $showUpNextRow) }
             PrefNote("The next episode of each show you're watching, under Continue Watching.")
-            PrefRow(label: "More Like This") { segmented($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
             PrefRow(label: "Included In") { Toggle("Show the collections a movie or show belongs to", isOn: $showIncludedIn) }
             PrefNote("Above More Like This. Click a collection to open it.")
@@ -447,13 +441,13 @@ struct LibrariesSettings: View {
                     Toggle("Year", isOn: $showYear)
                 }
             }
-            PrefRow(label: "Label alignment") { segmented($labelAlign, [("center", "Centered"), ("left", "Left")]) }
+            PrefRow(label: "Label alignment") { menuPicker($labelAlign, [("center", "Centered"), ("left", "Left")]) }
                 .disabled(!showTitle && !showYear)
         }
         PrefSection(last: true) {
             PrefRow(label: "New libraries") {
                 HStack(spacing: 10) {
-                    segmented($defaultLayout, [("grid", "Grid"), ("list", "List")])
+                    menuPicker($defaultLayout, [("grid", "Grid"), ("list", "List")])
                     Button("Apply to All") {
                         for lib in emby.libs { LibraryDefaults(id: lib.id).set("layout", defaultLayout) }
                         tick += 1
@@ -595,7 +589,7 @@ struct LibrariesSettings: View {
             PrefRow(label: "Name") {
                 TextField(lib.name, text: $emby.libs[i].title).textFieldStyle(.roundedBorder).frame(width: 220)
             }
-            PrefRow(label: "View") { segmented(bind(lib, "layout", defaultLayout), [("grid", "Grid"), ("list", "List")]) }
+            PrefRow(label: "View") { menuPicker(bind(lib, "layout", defaultLayout), [("grid", "Grid"), ("list", "List")]) }
             PrefRow(label: "Sort by") {
                 menuPicker(bind(lib, "sort", "name"),
                            [("name", "Name"), ("latest", "Recently Added"), ("release", "Release Date"), ("top", "Rating")])
@@ -608,8 +602,8 @@ struct LibrariesSettings: View {
             }.disabled(!lib.onHome || !lib.visible)
             // Episode options apply to every TV library, so they show with any of them
             if lib.kind == "tvshows" {
-                PrefRow(label: "Season layout") { segmented($seasonLayout, [("row", "Row"), ("grid", "Grid")]) }
-                PrefRow(label: "Episode layout") { segmented($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+                PrefRow(label: "Season layout") { menuPicker($seasonLayout, [("row", "Row"), ("grid", "Grid")]) }
+                PrefRow(label: "Episode layout") { menuPicker($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
                 PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
             }
         }
@@ -643,7 +637,7 @@ struct SeriesSettings: View {
 
     var body: some View {
         SettingsGroup(title: "Episodes") {
-            SettingRow(label: "Episode layout") { segmented($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
+            SettingRow(label: "Episode layout") { menuPicker($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             SettingRow(label: "Subtitle language") { menuPicker($epSubLang, langOptions) }
         }
         Text("The subtitle language is used for every episode you play from a series page; it's the same setting as the Subtitles menu next to the episode list.")
@@ -725,7 +719,7 @@ struct PlaybackSettings: View {
     var body: some View {
         PrefSection {
             PrefRow(label: "Player controls") {
-                segmented($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
+                menuPicker($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
             }
             PrefRow(label: "Quality") {
                 menuPicker($quality, [(0, "Original"), (8_000_000, "1080p · 8 Mbps"), (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
@@ -734,7 +728,7 @@ struct PlaybackSettings: View {
                 menuPicker($speed, [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map { ($0, $0 == 1 ? "Normal" : String(format: "%gx", $0)) })
             }
             PrefRow(label: "Skip back / forward") {
-                segmented($skip, [(5, "5 s"), (10, "10 s"), (15, "15 s"), (30, "30 s")])
+                menuPicker($skip, [(5, "5 s"), (10, "10 s"), (15, "15 s"), (30, "30 s")])
             }
         }
         PrefSection(last: true) {
