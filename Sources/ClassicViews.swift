@@ -958,6 +958,7 @@ struct ClassicHomeContent: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @AppStorage("homeLayout") private var homeLayout = "row"
+    @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     let reloadToken: Int
     @State private var retry = 0
     @State private var rows: [Row] = []
@@ -983,7 +984,8 @@ struct ClassicHomeContent: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(row.title).font(.title3.bold()).padding(.leading, 32)
                         let wide = row.title == "Continue Watching"
-                        if homeLayout == "grid" {
+                        // Continue Watching has its own Row / Grid choice; every other section follows Home's
+                        if (wide ? resumeLayout : homeLayout) == "grid" {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 260 : 150), spacing: 14)],
                                       alignment: .leading, spacing: 18) {
                                 ForEach(row.items.indices, id: \.self) { i in

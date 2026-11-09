@@ -1066,6 +1066,7 @@ struct HomeContent: View {
     }
     @Environment(\.appBG) var bg
     @AppStorage("homeLayout") private var homeLayout = "row"
+    @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     @State private var pageH: CGFloat = .infinity
     let reloadToken: Int
     @State private var retry = 0
@@ -1092,7 +1093,8 @@ struct HomeContent: View {
                     VStack(alignment: .leading, spacing: 12) {
                         rowTitle(row).padding(.leading, 52)
                         let wide = row.feed == .resume || row.feed == .nextUp
-                        if homeLayout == "grid" {
+                        // Continue Watching has its own Row / Grid choice; every other section follows Home's
+                        if (row.feed == .resume ? resumeLayout : homeLayout) == "grid" {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 340 : 170), spacing: 22)],
                                       alignment: .leading, spacing: 22) {
                                 ForEach(row.items.indices, id: \.self) { i in

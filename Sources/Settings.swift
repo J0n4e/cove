@@ -247,12 +247,14 @@ struct GeneralSettings: View {
 
 struct HomeSettings: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
+    @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     @AppStorage("showUpNextRow") private var showUpNextRow = true
 
     var body: some View {
         PrefSection(title: "Layout") {
-            PrefRow(label: "Sections show as") { menuPicker($homeLayout, [("row", "Rows"), ("grid", "Grid")]) }
-            PrefNote("Rows scroll sideways; Grid shows every item of each section at once.")
+            PrefRow(label: "Continue Watching") { menuPicker($resumeLayout, [("row", "Row"), ("grid", "Grid")]) }
+            PrefRow(label: "Other sections") { menuPicker($homeLayout, [("row", "Rows"), ("grid", "Grid")]) }
+            PrefNote("Rows scroll sideways; Grid shows every item of a section at once.")
         }
         PrefSection(title: "Rows", last: true) {
             PrefRow(label: "Watching") { Toggle("Up Next", isOn: $showUpNextRow) }
