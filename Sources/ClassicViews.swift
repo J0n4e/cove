@@ -1972,6 +1972,7 @@ struct ClassicCastTile: View {
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
+            .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
             Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
         }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
