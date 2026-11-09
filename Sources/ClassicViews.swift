@@ -66,7 +66,7 @@ struct ClassicRootView: View {
                 .allowsHitTesting(emby.playing == nil)
             ClassicHoverCardLayer()
             if let req = emby.playing {
-                ClassicPlayerView(req: req).id(req.id).zIndex(10)
+                ChosenPlayerView(req: req, theme: "classic").id(req.id).zIndex(10)
             }
         }
         .onChange(of: emby.playing?.id) { _, id in

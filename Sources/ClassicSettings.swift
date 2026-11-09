@@ -557,9 +557,13 @@ struct ClassicPlaybackSettings: View {
     @AppStorage("skipSeconds") private var skip = 10
     @AppStorage("clickToPause") private var clickToPause = true
     @AppStorage("debugLog") private var debugLog = false
+    @AppStorage("playerControls") private var controls = "theme"
 
     var body: some View {
         ClassicSettingsGroup(title: "Playback") {
+            ClassicSettingRow(label: "Player controls") {
+                classicSegmented($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
+            }
             ClassicSettingRow(label: "Default quality") {
                 classicMenuPicker($quality, [(0, "Original"), (8_000_000, "1080p · 8 Mbps"), (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }

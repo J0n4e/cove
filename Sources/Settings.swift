@@ -706,9 +706,13 @@ struct PlaybackSettings: View {
     @AppStorage("clickToPause") private var clickToPause = true
     @AppStorage("separatePlayer") private var separatePlayer = false
     @AppStorage("debugLog") private var debugLog = false
+    @AppStorage("playerControls") private var controls = "theme"
 
     var body: some View {
         PrefSection {
+            PrefRow(label: "Player controls") {
+                segmented($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
+            }
             PrefRow(label: "Quality") {
                 menuPicker($quality, [(0, "Original"), (8_000_000, "1080p · 8 Mbps"), (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }

@@ -128,7 +128,7 @@ struct RootView: View {
                 .allowsHitTesting(!(inline && emby.playing != nil))
             HoverCardLayer()
             if inline, let req = emby.playing {
-                PlayerView(req: req).id(req.id).zIndex(10)
+                ChosenPlayerView(req: req, theme: "apple").id(req.id).zIndex(10)
             }
         }
         // Settings → Playback → "Open videos in a separate window" (Apple TV style): open it when something
@@ -2949,6 +2949,18 @@ enum RemoteControls {
 
 // MARK: - Player window
 
+/// The player with the controls chosen in Settings → Playback → Player controls: the Glass player, the Classic
+/// player, or (default) the one that belongs to the current theme. Both players only need `emby` and the request.
+struct ChosenPlayerView: View {
+    let req: PlayRequest
+    let theme: String   // the theme this player opens in: "apple" (Glass) or "classic"
+    @AppStorage("playerControls") private var controls = "theme"
+    var body: some View {
+        let style = controls == "theme" ? (theme == "apple" ? "glass" : "classic") : controls
+        if style == "classic" { ClassicPlayerView(req: req) } else { PlayerView(req: req) }
+    }
+}
+
 /// Contents of the separate player window. Closing the window (red button) stops playback.
 struct PlayerWindow: View {
     @EnvironmentObject var emby: Emby
@@ -2956,7 +2968,7 @@ struct PlayerWindow: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            if let req = emby.playing { PlayerView(req: req).id(req.id) }
+            if let req = emby.playing { ChosenPlayerView(req: req, theme: "apple").id(req.id) }
         }
         .ignoresSafeArea()
         .onAppear {
