@@ -682,12 +682,12 @@ struct SubtitleSettings: View {
             }
         }
         PrefSection(title: "Preview", last: true) {
-            PrefRow(label: "Preview") { preview.frame(width: 420) }
+            PrefRow(label: "Preview") { preview.frame(width: 320) }
         }
     }
 
     var preview: some View {
-        let h: CGFloat = 220
+        let h: CGFloat = 180   // 16:9 with the 320 pt width, like a small video
         let fs = h * (PlayerView.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045) * 1.6
         let color = PlayerView.colors.first { $0.0 == subColor }?.2 ?? .white
         return ZStack(alignment: .bottom) {
