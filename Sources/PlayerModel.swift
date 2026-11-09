@@ -43,6 +43,30 @@ final class PlayerModel: ObservableObject {
     /// Bumped by every start() and stop(): a start that was overtaken (another track chosen meanwhile, or the
     /// player closed while it was still loading) sees the change after its next await and gives up.
     private var startGen = 0
+    /// After a playback failure on this item: have the server convert the video (TS + H.264, no copy).
+    private var forceTranscode = false
+    private var failObs: NSObjectProtocol?
+    private var retrying = false
+    /// The file's video is HEVC (typically 4K / HDR): ask for fMP4 segments so it can be passed through.
+    var sourceIsHEVC: Bool {
+        let c = (streams.first { $0.`Type` == "Video" }?.Codec ?? "").lowercased()
+        return c == "hevc" || c == "h265"
+    }
+    /// The file's video is HDR (HDR10, HLG, Dolby Vision).
+    var sourceIsHDR: Bool {
+        let r = (streams.first { $0.`Type` == "Video" }?.VideoRange ?? "").lowercased()
+        return r.contains("hdr") || r.contains("dolby") || r.contains("hlg") || r.contains("pq")
+    }
+    /// The screen can show HDR. AVPlayer refuses an HDR stream on an SDR screen (AVFoundation -11868),
+    /// so on such a screen an HDR video is converted by the server instead of passed through.
+    static var screenIsHDR: Bool {
+        (NSScreen.main?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1) > 1
+    }
+    /// The screen's width in pixels: a converted video doesn't need to be wider.
+    static var screenWidth: Int? {
+        guard let s = NSScreen.main else { return nil }
+        return Int(s.frame.width * s.backingScaleFactor)
+    }
     /// False until the stream is ready to play (the screen shows a spinner meanwhile).
     @Published var isReady = false
     /// The player that is playing now, so quitting and sleep can reach it.
@@ -97,6 +121,7 @@ final class PlayerModel: ObservableObject {
             if streams.isEmpty { streams = src?.MediaStreams ?? [] }
             if metaFor != req.item.id {
                 metaFor = req.item.id
+                forceTranscode = false
                 chapters = f.Chapters ?? []
                 introDone = false; inIntro = false
                 loadThumbs(emby, req.item.id, src?.Id)
@@ -133,7 +158,11 @@ final class PlayerModel: ObservableObject {
         guard current() else { return }
         // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
         let midFile = pendingSeek > 0
-        let resolved = await emby.resolveStream(req, direct: direct, reencode: midFile)
+        // A 4K HEVC video passes through unchanged when the screen can show it (HDR needs an HDR screen)
+        let passHEVC = sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR)
+        if sourceIsHEVC { dlog("HEVC source (\(sourceIsHDR ? "HDR" : "SDR"), screen \(Self.screenIsHDR ? "HDR" : "SDR")): \(passHEVC ? "fMP4 pass-through" : "converted")") }
+        let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
+                                                hevc: passHEVC, maxWidth: Self.screenWidth)
         guard let u = resolved else {
             if current() { error = "Couldn't get a stream from the server." }
             return
@@ -159,8 +188,8 @@ final class PlayerModel: ObservableObject {
         }
         obs = it.observe(\.status, options: [.new]) { [weak self] i, _ in
             if i.status == .failed {
-                let m = i.error?.localizedDescription ?? "Playback failed."
-                Task { @MainActor in self?.error = m }
+                let code = (i.error as NSError?).map { "\($0.domain) \($0.code)" } ?? "unknown error"
+                Task { @MainActor in self?.playbackFailed(code, gen: gen) }
             }
             if i.status == .readyToPlay {
                 Task { @MainActor in
@@ -186,6 +215,13 @@ final class PlayerModel: ObservableObject {
                     }
                 }
             }
+        }
+        // A stream can also fail part-way (a segment AVPlayer can't decode)
+        failObs = NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: it,
+                                                         queue: .main) { [weak self] n in
+            let code = (n.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError)
+                .map { "\($0.domain) \($0.code)" } ?? "unknown error"
+            MainActor.assumeIsolated { self?.playbackFailed(code, gen: gen) }
         }
         let p = AVPlayer(playerItem: it)
         p.volume = volume
@@ -218,6 +254,38 @@ final class PlayerModel: ObservableObject {
     /// The Mac is going to sleep: pause (which reports the position and keeps the session alive).
     func pauseForSleep() {
         if let p = player, p.rate > 0 { togglePlay() }
+    }
+
+    /// AVPlayer couldn't play the stream (CoreMedia -12927 and similar: a format macOS can't decode or doesn't
+    /// accept in that container). The first time, have the server convert the video and carry on from the same
+    /// position with the same audio and subtitles; only if that fails too is the error shown.
+    private func playbackFailed(_ code: String, gen: Int) {
+        // Both the item status and the "failed to play to end" notice can report the same failure: act once
+        guard gen == startGen, player != nil, let emby, error.isEmpty, !retrying else { return }
+        var info = code
+        if let ev = player?.currentItem?.errorLog()?.events.last {   // (its URI holds the token: not logged)
+            info += "; log: \(ev.errorDomain) \(ev.errorStatusCode) \(ev.errorComment ?? "")"
+        }
+        let how = "\(session?.method ?? "?")\(sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR) ? ", HEVC fMP4" : "")"
+        dlog("playback failed (\(how)): \(info)")
+        coveLog.error("Playback failed (\(how, privacy: .public)): \(info, privacy: .public)")
+        if !forceTranscode {
+            dlog("retrying with the video converted by the server")
+            retrying = true
+            Task { await retryTranscoded(emby); retrying = false }
+            return
+        }
+        error = "Cove couldn't play this video, even converted by the server.\n(\(code))"
+            + (sourceIsHDR ? "\nFor HDR videos, turn on tone mapping in the server's transcoding settings." : "")
+    }
+
+    /// Plays the video again converted by the server, from the same position with the same audio and subtitles.
+    func retryTranscoded(_ emby: Emby) async {
+        guard let r = req else { return }
+        forceTranscode = true
+        let pos = player != nil && now > 1 ? now : time
+        pendingSeek = pos > 1 ? pos : 0
+        await start(emby, r)
     }
 
     /// Restart the stream with new settings, keeping the playback position.
@@ -528,6 +596,7 @@ final class PlayerModel: ObservableObject {
 
     func stop() {
         startGen += 1
+        if let f = failObs { NotificationCenter.default.removeObserver(f); failObs = nil }
         subGen += 1; loadingSubs = false          // a subtitle still downloading must not restart playback later
         if Self.active === self { Self.active = nil }
         if let p = player, let ps = session, reportedStart {
