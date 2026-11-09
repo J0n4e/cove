@@ -70,6 +70,7 @@ struct MStream: Decodable, Identifiable {
     let IsDefault: Bool?
     let Language: String?
     let Codec: String?
+    let VideoRange: String?       // "SDR", "HDR 10", "Dolby Vision"… (video streams)
     let Width: Int?
     let Height: Int?
     let BitRate: Int?
@@ -1027,6 +1028,27 @@ final class Emby: ObservableObject {
     /// Asks the server to re-encode the video instead of copying it. A copied video can only start at a
     /// keyframe, so a stream that starts part-way through the file (resume) begins a few seconds before the
     /// position the player thinks it has, which puts the subtitles ahead of the picture.
+    /// Without a quality chosen by the user, a converted video is limited to this. A 4K source would otherwise
+    /// be converted at up to ~100 Mbit/s, more than most networks carry and far more than the picture needs.
+    static let defaultConversionBitrate = 40_000_000
+
+    /// Limits what the server encodes when it converts the video: no wider than the screen, no more than
+    /// `maxBitrate`. A copied video is not affected (the server ignores these when it doesn't encode).
+    static func capConversion(_ url: String, maxWidth: Int?, maxBitrate: Int) -> String {
+        guard var c = URLComponents(string: url) else { return url }
+        var q = c.queryItems ?? []
+        if let w = maxWidth, w > 0 {
+            let cur = q.first { $0.name.lowercased() == "maxwidth" }.flatMap { Int($0.value ?? "") }
+            q.removeAll { $0.name.lowercased() == "maxwidth" }
+            q.append(URLQueryItem(name: "MaxWidth", value: String(min(w, cur ?? w))))
+        }
+        let vb = q.first { $0.name.lowercased() == "videobitrate" }.flatMap { Int($0.value ?? "") }
+        q.removeAll { $0.name.lowercased() == "videobitrate" }
+        q.append(URLQueryItem(name: "VideoBitrate", value: String(min(maxBitrate, vb ?? maxBitrate))))
+        c.queryItems = q
+        return c.string ?? url
+    }
+
     static func withoutVideoCopy(_ url: String) -> String {
         guard var c = URLComponents(string: url) else { return url }
         var q = (c.queryItems ?? []).filter { $0.name.lowercased() != "allowvideostreamcopy" }
@@ -1082,7 +1104,9 @@ final class Emby: ObservableObject {
     /// Asks the server how to play the item for AVPlayer: direct play for MP4/MOV, otherwise HLS transcode
     /// (also used whenever a subtitle, a different audio track or a lower quality is chosen).
     /// `hevc`: the source video is HEVC, so ask for fMP4 segments that may carry it unchanged.
-    func resolveStream(_ req: PlayRequest, direct: Bool = true, reencode: Bool = false, hevc: Bool = false) async -> URL? {
+    /// `maxWidth`: the screen's width in pixels; a video the server converts is scaled down to it.
+    func resolveStream(_ req: PlayRequest, direct: Bool = true, reencode: Bool = false, hevc: Bool = false,
+                       maxWidth: Int? = nil) async -> URL? {
         let id = req.item.id
         let canDirect = direct && !req.transcode
         let profile: [String: Any] = [
@@ -1122,7 +1146,12 @@ final class Emby: ObservableObject {
                cont.contains(where: { ["mp4", "m4v", "mov"].contains($0) }) {
                 return URL(string: "\(server)/Videos/\(id)/stream.mp4?Static=true&MediaSourceId=\(sid)&\(keyName)=\(token)")
             }
-            if let t = src["TranscodingUrl"] as? String { return absolute(Self.fixSubtitle(t, req.sub), noCopy: reencode) }
+            if let t = src["TranscodingUrl"] as? String {
+                // (no width cap when a 4K HEVC video may pass through unchanged: the cap would force a conversion)
+                let capped = Self.capConversion(Self.fixSubtitle(t, req.sub), maxWidth: hevc ? nil : maxWidth,
+                                                maxBitrate: req.maxBitrate ?? Self.defaultConversionBitrate)
+                return absolute(capped, noCopy: reencode)
+            }
             if let t = src["DirectStreamUrl"] as? String { return absolute(t, noCopy: reencode) }
         }
         let fallback = "\(server)/Videos/\(id)/master.m3u8?MediaSourceId=\(req.sourceId ?? id)&DeviceId=\(deviceId)&PlaySessionId=\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))&VideoCodec=h264&AudioCodec=aac&\(keyName)=\(token)"

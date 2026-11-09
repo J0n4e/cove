@@ -93,4 +93,17 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(t["Container"] as? String, "ts")
         XCTAssertEqual(t["VideoCodec"] as? String, "h264")
     }
+
+    func testCapConversion() {
+        let u = "https://s/videos/1/master.m3u8?VideoBitrate=96000000&MaxWidth=3840&x=1"
+        let c = URLComponents(string: Emby.capConversion(u, maxWidth: 2560, maxBitrate: 40_000_000))!
+        func v(_ n: String) -> String? { c.queryItems?.first { $0.name == n }?.value }
+        XCTAssertEqual(v("VideoBitrate"), "40000000")
+        XCTAssertEqual(v("MaxWidth"), "2560")
+        XCTAssertEqual(v("x"), "1")
+        // a lower value already asked for is kept
+        let d = URLComponents(string: Emby.capConversion("https://s/a?VideoBitrate=8000000", maxWidth: nil, maxBitrate: 40_000_000))!
+        XCTAssertEqual(d.queryItems?.first { $0.name == "VideoBitrate" }?.value, "8000000")
+        XCTAssertNil(d.queryItems?.first { $0.name == "MaxWidth" })
+    }
 }

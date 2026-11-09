@@ -52,6 +52,21 @@ final class PlayerModel: ObservableObject {
         let c = (streams.first { $0.`Type` == "Video" }?.Codec ?? "").lowercased()
         return c == "hevc" || c == "h265"
     }
+    /// The file's video is HDR (HDR10, HLG, Dolby Vision).
+    var sourceIsHDR: Bool {
+        let r = (streams.first { $0.`Type` == "Video" }?.VideoRange ?? "").lowercased()
+        return r.contains("hdr") || r.contains("dolby") || r.contains("hlg") || r.contains("pq")
+    }
+    /// The screen can show HDR. AVPlayer refuses an HDR stream on an SDR screen (AVFoundation -11868),
+    /// so on such a screen an HDR video is converted by the server instead of passed through.
+    static var screenIsHDR: Bool {
+        (NSScreen.main?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1) > 1
+    }
+    /// The screen's width in pixels: a converted video doesn't need to be wider.
+    static var screenWidth: Int? {
+        guard let s = NSScreen.main else { return nil }
+        return Int(s.frame.width * s.backingScaleFactor)
+    }
     /// False until the stream is ready to play (the screen shows a spinner meanwhile).
     @Published var isReady = false
     /// The player that is playing now, so quitting and sleep can reach it.
@@ -143,8 +158,11 @@ final class PlayerModel: ObservableObject {
         guard current() else { return }
         // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
         let midFile = pendingSeek > 0
+        // A 4K HEVC video passes through unchanged when the screen can show it (HDR needs an HDR screen)
+        let passHEVC = sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR)
+        if sourceIsHEVC { dlog("HEVC source (\(sourceIsHDR ? "HDR" : "SDR"), screen \(Self.screenIsHDR ? "HDR" : "SDR")): \(passHEVC ? "fMP4 pass-through" : "converted")") }
         let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
-                                                hevc: sourceIsHEVC && !forceTranscode)
+                                                hevc: passHEVC, maxWidth: Self.screenWidth)
         guard let u = resolved else {
             if current() { error = "Couldn't get a stream from the server." }
             return
@@ -248,7 +266,7 @@ final class PlayerModel: ObservableObject {
         if let ev = player?.currentItem?.errorLog()?.events.last {   // (its URI holds the token: not logged)
             info += "; log: \(ev.errorDomain) \(ev.errorStatusCode) \(ev.errorComment ?? "")"
         }
-        let how = "\(session?.method ?? "?")\(sourceIsHEVC && !forceTranscode ? ", HEVC fMP4" : "")"
+        let how = "\(session?.method ?? "?")\(sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR) ? ", HEVC fMP4" : "")"
         dlog("playback failed (\(how)): \(info)")
         coveLog.error("Playback failed (\(how, privacy: .public)): \(info, privacy: .public)")
         if !forceTranscode {
@@ -258,6 +276,7 @@ final class PlayerModel: ObservableObject {
             return
         }
         error = "Cove couldn't play this video, even converted by the server.\n(\(code))"
+            + (sourceIsHDR ? "\nFor HDR videos, turn on tone mapping in the server's transcoding settings." : "")
     }
 
     /// Plays the video again converted by the server, from the same position with the same audio and subtitles.
