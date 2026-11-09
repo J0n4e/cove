@@ -1229,7 +1229,7 @@ struct Hero: View {
                     Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { index = i } } label: {
                         // The current banner's dot stretches into a pill so it stands out
                         Capsule().fill(Color.white.opacity(i == index % items.count ? 1 : 0.4))
-                            .frame(width: i == index % items.count ? 24 : 7, height: 7)
+                            .frame(width: i == index % items.count ? 16 : 7, height: 7)
                             .contentShape(Rectangle().inset(by: -5))
                     }
                     .buttonStyle(.plain)
