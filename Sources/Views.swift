@@ -732,7 +732,7 @@ struct SearchView: View {
         }
     }
 
-    /// Matching people as round photo tiles; each opens the person's page.
+    /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("People").font(.title3.bold())
@@ -741,21 +741,31 @@ struct SearchView: View {
                     ForEach(people) { p in
                         NavigationLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
-                                CachedImage(url: emby.image(p.Id, width: 240)) { img in
+                                CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 30)).foregroundColor(.secondary) }
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
                                 }
-                                .frame(width: 96, height: 96).clipShape(Circle())
+                                // Poster-sized portrait, like the other result cards
+                                .frame(width: 170, height: 255).clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                                .overlay(alignment: .topLeading) {
+                                    if emby.isPersonFav(p.Id) {
+                                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
+                                    }
+                                }
+                                .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
                                 .hoverLift()
-                                Text(p.Name).font(.caption.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
-                            }.frame(width: 110)
+                                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
+                            }.frame(width: 170)
                         }
                         .buttonStyle(.plain).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
                 }.padding(.vertical, 8)
             }
         }
+        .task { _ = await emby.favoritePeople() }   // hearts on favorite people
     }
 }
 
