@@ -411,7 +411,11 @@ struct ClassicHomeView: View {
                 searchKey = SearchKey.install(isPlaying: { ClassicPlaybackFlag.shared.active },
                                               focus: { ClassicNavState.shared.focusSearch += 1 },
                                               home: { goHome() },
-                                              back: { goBack() })
+                                              back: { goBack() },
+                                              banner: { d in
+                                                  guard sel == "home" && path.isEmpty && query.isEmpty else { return false }
+                                                  nav.bannerNudge = .init(dir: d); return true
+                                              })
             }
         }
         // Switching theme replaces this view: its S key must not stay behind
@@ -468,6 +472,7 @@ final class ClassicNavState: ObservableObject {
     @Published var searchOpen = false
     /// Goes up to put the cursor in the search field (the S key)
     @Published var focusSearch = 0
+    @Published var bannerNudge: NavState.Nudge?   // ← → on Home
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
@@ -1105,6 +1110,7 @@ struct ClassicHero: View {
     @State private var hover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = ClassicPlaybackFlag.shared
+    @ObservedObject private var nav = ClassicNavState.shared
 
     func meta(_ item: Item) -> [String] {
         var m: [String] = []
@@ -1173,6 +1179,10 @@ struct ClassicHero: View {
         .padding(.horizontal, 32)
         .foregroundColor(.white)
         .onHover { hover = $0 }
+        .onChange(of: nav.bannerNudge) { _, n in   // ← → keys
+            guard let n, !items.isEmpty else { return }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { index = (index + n.dir + items.count) % items.count }
+        }
         // Next banner every 8 s, but not under the pointer, not during playback and not with Reduce Motion
         .task(id: "\(hover)-\(playback.active)") {
             guard !hover, !playback.active, !reduceMotion else { return }

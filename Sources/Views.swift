@@ -5,16 +5,20 @@ import AVKit
 
 // MARK: - Theme
 
-/// Keys in the main window: "S" opens Search, "H" goes Home, ⌘← goes Back (as ⌘[ does). Not while typing in a
+/// Keys in the main window: "S" opens Search, "H" goes Home, ⌘← goes Back (as ⌘[ does), ← → turn the Home banner. Not while typing in a
 /// field (⌘← moves the cursor there), not in the player.
 enum SearchKey {
     static func install(isPlaying: @escaping () -> Bool, focus: @escaping () -> Void,
-                        home: @escaping () -> Void, back: @escaping () -> Void) -> Any? {
+                        home: @escaping () -> Void, back: @escaping () -> Void,
+                        banner: @escaping (Int) -> Bool) -> Any? {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
             guard let w = ev.window, w.title != "Player", w.attachedSheet == nil, w.sheetParent == nil,
                   !(w.firstResponder is NSText), !isPlaying() else { return ev }
             let mods = ev.modifierFlags.intersection([.command, .control, .option, .shift])
             if ev.keyCode == 123 && mods == .command { back(); return nil }   // ⌘←
+            if mods.isEmpty && (ev.keyCode == 123 || ev.keyCode == 124) {         // ← →, only on Home
+                return banner(ev.keyCode == 123 ? -1 : 1) ? nil : ev
+            }
             guard mods.subtracting(.shift).isEmpty, let key = ev.charactersIgnoringModifiers?.lowercased(),
                   key == "s" || key == "h" else { return ev }
             if key == "s" { focus() } else { home() }
@@ -521,7 +525,11 @@ struct HomeView: View {
                 searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
                                               focus: { NavState.shared.focusSearch += 1 },
                                               home: { goHome() },
-                                              back: { goBack() })
+                                              back: { goBack() },
+                                              banner: { d in
+                                                  guard sel == "home" && path.isEmpty && query.isEmpty else { return false }
+                                                  nav.bannerNudge = .init(dir: d); return true
+                                              })
             }
         }
         // Switching theme replaces this view: its S key must not stay behind
@@ -582,6 +590,9 @@ final class NavState: ObservableObject {
     @Published var searchOpen = false
     /// Goes up to put the cursor in the search field (the S key)
     @Published var focusSearch = 0
+    /// ← → on Home: the banner turns one page that way
+    struct Nudge: Equatable { let id = UUID(); let dir: Int }
+    @Published var bannerNudge: Nudge?
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
@@ -1355,6 +1366,7 @@ struct Hero: View {
     @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
+    @ObservedObject private var nav = NavState.shared
     var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900, max(pageH - 20, 360)) }
 
     /// "TV Show · Comedy · Sport", like Apple TV.
@@ -1448,6 +1460,7 @@ struct Hero: View {
             }
         }
         .onHover { hover = $0 }
+        .onChange(of: nav.bannerNudge) { _, n in if let n { step(n.dir) } }   // ← → keys
         .clipped()
         .background(GeometryReader { g in
             Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
