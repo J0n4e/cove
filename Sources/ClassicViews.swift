@@ -227,8 +227,11 @@ struct ClassicRootTap: ViewModifier {
 }
 
 struct ClassicHomeView: View {
+    @State private var keepPage = false   // the search box is being cleared after opening a result
+    @State private var fromSearch = false // the first page on the stack was opened from search results
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
+    @State private var searchKey: Any?
     // Shared with the title bar (Top bar layout puts the navigation buttons in the window's toolbar)
     @ObservedObject private var nav = ClassicNavState.shared
     var sel: String { get { nav.sel } nonmutating set { nav.sel = newValue } }
@@ -356,9 +359,11 @@ struct ClassicHomeView: View {
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib).id(lib.id) }
                     else { Color.black }
                 }
-                .navigationDestination(for: Item.self) { ClassicDetailView(item: $0) }
-                .navigationDestination(for: ClassicPersonRef.self) { ClassicPersonView(person: $0) }
+                // A page opened from search results is the only page: no Back (deeper pages get one)
+                .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
+                .navigationDestination(for: ClassicPersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: ClassicFavoriteGridRef.self) { ClassicFavoriteGridView(title: $0.title, ids: $0.ids) }
+                .navigationDestination(for: ClassicFavoritePeopleRef.self) { _ in ClassicFavoritePeopleView() }
             }
             // Back button in the title bar, left of the window title, on every page
             .toolbar { ClassicTitleBarItems(back: nil) }   // top-level pages: no Back (pushed pages add their own)
@@ -375,12 +380,24 @@ struct ClassicHomeView: View {
         GeometryReader { geo in
             VStack(spacing: 0) {
                 // In front of the page, so nothing on a page can cover its buttons. Back sits in the bar on pushed pages.
-                ClassicTopNavBar(back: path.isEmpty ? nil : { path.removeLast() })
+                ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
                     .frame(width: geo.size.width).zIndex(1)
                 detailPane(withSearch: false)
                     .frame(width: geo.size.width).clipped()
             }
         }.background(bg)
+    }
+
+    /// ⌘← : one page back, like the Back button (none on a page opened from search)
+    func goBack() {
+        if !path.isEmpty && !(fromSearch && path.count == 1) { path.removeLast() }
+    }
+
+    /// H key: Home, from any page (search closed, pages on top of it closed)
+    func goHome() {
+        query = ""; nav.searchOpen = false
+        path = NavigationPath()
+        sel = "home"
     }
 
     var body: some View {
@@ -389,6 +406,20 @@ struct ClassicHomeView: View {
         }
         .task { await emby.loadLibs() }
         .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
+        .onAppear {
+            if searchKey == nil {
+                searchKey = SearchKey.install(isPlaying: { ClassicPlaybackFlag.shared.active },
+                                              focus: { ClassicNavState.shared.focusSearch += 1 },
+                                              home: { goHome() },
+                                              back: { goBack() },
+                                              banner: { d in
+                                                  guard sel == "home" && path.isEmpty && query.isEmpty else { return false }
+                                                  nav.bannerNudge = .init(dir: d); return true
+                                              })
+            }
+        }
+        // Switching theme replaces this view: its S key must not stay behind
+        .onDisappear { if let m = searchKey { NSEvent.removeMonitor(m); searchKey = nil } }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResizeNotification)) { _ in updateTitleBarH() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in updateTitleBarH() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in titleBarH = 0 }
@@ -400,6 +431,19 @@ struct ClassicHomeView: View {
             }
         }
         .onChange(of: sel) { path = NavigationPath(); query = "" }
+        // Typing a search on a page opened from results (an actor, a movie) goes back to the results
+        .onChange(of: query) {
+            if keepPage { keepPage = false; return }
+            if !path.isEmpty { path = NavigationPath() }
+        }
+        // Opening a search result clears the search box and stays on the opened page
+        .onChange(of: path.count) { old, new in
+            if old == 0 && new > 0 && !query.isEmpty {
+                keepPage = true; query = ""; nav.searchOpen = false; fromSearch = true
+            }
+            if new == 0 { fromSearch = false }
+        }
+        .onChange(of: sel) { fromSearch = false }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
@@ -407,6 +451,13 @@ struct ClassicHomeView: View {
         }
         // Settings always use the Glass window, whichever theme is chosen
         .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
+        .overlay {
+            if navStyle == "topbar" {
+                SearchDock(query: queryB, open: Binding(get: { nav.searchOpen }, set: { nav.searchOpen = $0 }),
+                           focusTick: nav.focusSearch)
+            }
+        }
+        .overlay { ToastOverlay(raised: navStyle == "topbar" && nav.searchOpen) }
     }
 }
 
@@ -419,6 +470,9 @@ final class ClassicNavState: ObservableObject {
     @Published var sel = "home"
     @Published var query = ""
     @Published var searchOpen = false
+    /// Goes up to put the cursor in the search field (the S key)
+    @Published var focusSearch = 0
+    @Published var bannerNudge: NavState.Nudge?   // ← → on Home
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
@@ -464,6 +518,7 @@ struct ClassicTopNavBar: View {
 }
 
 struct ClassicTopNavButtons: View {
+    @AppStorage("accent") private var accentName = "red"
     @EnvironmentObject var emby: Emby
     @AppStorage(NavOrder.key) private var navOrder = ""
     @ObservedObject private var nav = ClassicNavState.shared
@@ -481,13 +536,13 @@ struct ClassicTopNavButtons: View {
                 else if badge > 0 { Text("\(badge)") }
             }
                 .font(.callout.weight(on ? .semibold : .regular))
-                .foregroundColor(on ? .white : .secondary)
+                .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)   // black on a white accent
                 .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .help(labels == "icons" ? title : "")   // names show on hover when only icons are shown
+        .tip(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
     /// Favorites or Now Playing, wherever Settings → Libraries placed it.
@@ -524,24 +579,15 @@ struct ClassicTopNavTools: View {
     @ObservedObject private var nav = ClassicNavState.shared
     var body: some View {
         HStack(spacing: 8) {
-            if nav.searchOpen {
-                HStack(spacing: 6) {
-                    TextField("Search movies, shows, people", text: $nav.query).textFieldStyle(.plain).frame(width: 220)
-                    if !nav.query.isEmpty {
-                        Button { nav.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
-                            .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Color.white.opacity(0.1)).clipShape(Capsule())
-            }
+            // The search box itself floats at the bottom of the window (SearchDock)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plain).helpLabel("Search")
+            }.buttonStyle(.plain).helpLabel("Search (S)")
             Button { nav.showSettings = true } label: {
                 Image(systemName: "gearshape.fill").font(.system(size: 14)).padding(6).contentShape(Rectangle())
             }.buttonStyle(.plain).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
         }
+        .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
 }
 
@@ -580,12 +626,16 @@ struct ClassicTopBackButton: View {
 struct ClassicSearchBar: View {
     @Binding var query: String
     @Environment(\.appBG) var bg
+    @ObservedObject private var nav = ClassicNavState.shared
+    @FocusState private var focused: Bool
     var body: some View {
         HStack {
             Spacer()
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundColor(.secondary)
                 TextField("Search movies, shows, people", text: $query).textFieldStyle(.plain)
+                    .focused($focused)
+                    .onChange(of: nav.focusSearch) { focused = true }
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
@@ -634,7 +684,7 @@ struct ClassicSearchView: View {
         }
     }
 
-    /// Matching people as round photo tiles; each opens the person's page.
+    /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("People").font(.title3.bold())
@@ -643,21 +693,31 @@ struct ClassicSearchView: View {
                     ForEach(people) { p in
                         NavigationLink(value: ClassicPersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
-                                CachedImage(url: emby.image(p.Id, width: 240)) { img in
+                                CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 30)).foregroundColor(.secondary) }
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
                                 }
-                                .frame(width: 96, height: 96).clipShape(Circle())
+                                // Poster-sized portrait, like the other result cards
+                                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                                .overlay(alignment: .topLeading) {
+                                    if emby.isPersonFav(p.Id) {
+                                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
+                                    }
+                                }
+                                .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
                                 .classicHoverLift()
-                                Text(p.Name).font(.caption.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
-                            }.frame(width: 110)
+                                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
+                            }.frame(width: 150)
                         }
-                        .buttonStyle(.plain).helpLabel("Show everything with \(p.Name)")
+                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
                 }.padding(.vertical, 8)
             }
         }
+        .task { _ = await emby.favoritePeople() }   // hearts on favorite people
     }
 }
 
@@ -671,12 +731,14 @@ struct ClassicFavoritesView: View {
     @AppStorage("favoritesLayout") private var layout = "row"
     @Environment(\.appBG) var bg
     @State private var items: [Item] = []
+    @State private var people: [Item] = []
     @State private var loading = true
 
     var body: some View {
         let favs = items.filter { emby.isFav($0) }
-        let movies = favs.filter { !$0.isSeries && !$0.isBox }
+        let movies = favs.filter { !$0.isSeries && !$0.isBox && !$0.isEpisode }
         let shows = favs.filter { $0.isSeries }
+        let episodes = favs.filter { $0.isEpisode }
         let collections = favs.filter { $0.isBox }
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -686,23 +748,53 @@ struct ClassicFavoritesView: View {
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
                 if !shows.isEmpty { section("Favorite Shows", shows) }
+                if !episodes.isEmpty { section("Favorite Episodes", episodes) }
                 if !collections.isEmpty { section("Favorite Collections", collections) }
+                let favPeople = people.filter { emby.isFav($0) }
+                if !favPeople.isEmpty { peopleSection(favPeople) }
                 if loading && items.isEmpty { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
-                else if favs.isEmpty {
+                else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
                         Image(systemName: "heart").font(.system(size: 40)).foregroundColor(.secondary)
                         Text("No favorites yet").font(.headline)
-                        Text("Tap the heart on a movie, show or collection to add it here.").foregroundColor(.secondary)
+                        Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
         .background(bg)
-        .onAppear { Task { items = await emby.favorites(); loading = false } }
+        .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
+        .onAppear {
+            Task { items = await emby.favorites(); loading = false }
+            Task { people = await emby.favoritePeople() }
+        }
+        // Something was added or removed elsewhere (a cast photo, an episode): show it without leaving the page
+        .onChange(of: emby.favRevision) {
+            Task { items = await emby.favorites() }
+            Task { people = await emby.favoritePeople() }
+        }
     }
 
     /// Emby-style row: "Favorite Movies ›" heading (opens the full grid) and a scrolling row of posters.
+    /// Portrait photos of favorite actors and directors, poster-sized; a click opens their page.
+    func peopleSection(_ list: [Item]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // "Favorite People ›" opens all of them on their own page, like the other sections
+            NavigationLink(value: ClassicFavoritePeopleRef()) {
+                HStack(spacing: 6) {
+                    Text("Favorite People").font(.title3.bold())
+                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                }.contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 18) {
+                    ForEach(list) { ClassicFavPersonCard(p: $0) }
+                }.padding(.vertical, 6)
+            }
+        }
+    }
+
     func section(_ title: String, _ list: [Item]) -> some View {
         let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
         return VStack(alignment: .leading, spacing: 8) {
@@ -712,7 +804,7 @@ struct ClassicFavoritesView: View {
                     Text(title).font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).help("Show all")
+            }.buttonStyle(.plain).tip("Show all")
             if layout == "grid" {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(list) { ClassicPosterCard(item: $0) }
@@ -753,6 +845,7 @@ struct ClassicFavoriteGridView: View {
             }.padding(.horizontal, 32).padding(.vertical, 24)
         }
         .background(bg)
+        .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
         .navigationTitle(title)
         .navigationBarBackButtonHidden(true)
         .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
@@ -844,7 +937,7 @@ struct ClassicSessionCard: View {
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .background(Capsule().fill(transcoding ? Color.orange.opacity(0.25) : Color.green.opacity(0.25)))
-                        .help(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
+                        .tip(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
                 }
                 Spacer(minLength: 0)
             }
@@ -881,70 +974,55 @@ struct ClassicPersonRef: Hashable { let id: String; let name: String }
 
 /// Everything in the user's libraries featuring one actor / director.
 struct ClassicPersonView: View {
+    @Environment(\.noBack) private var noBack
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let person: ClassicPersonRef
     @Environment(\.dismiss) var dismiss
     @State private var items: [Item] = []
-    @State private var bio = ""
+    @State private var record: Item?
     @State private var loading = true
-    @State private var showBio = false
 
     var body: some View {
         let movies = items.filter { !$0.isSeries }
         let shows = items.filter { $0.isSeries }
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                header
-                if !movies.isEmpty { section("Movies", movies) }
-                if !shows.isEmpty { section("Shows", shows) }
-                if loading { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
-                else if items.isEmpty {
-                    Text("Nothing in your libraries with \(person.name).").foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity).padding(.top, 60)
-                }
+            VStack(alignment: .leading, spacing: 34) {
+                // Same header as the Glass theme
+                PersonHeader(id: person.id, name: person.name, record: record, items: items, loading: loading)
+                Group {
+                    if !movies.isEmpty { section("Movies", movies) }
+                    if !shows.isEmpty { section("Shows", shows) }
+                    if loading { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
+                    else if items.isEmpty {
+                        Text("Nothing in your libraries with \(person.name).").foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity).padding(.top, 40)
+                    }
+                }.padding(.horizontal, 52)
             }
-            .padding(.horizontal, 32).padding(.vertical, 24)
+            .padding(.bottom, 40)
         }
+        .ignoresSafeArea(edges: .top)
         .background(bg)
         .navigationTitle(person.name)
         .navigationBarBackButtonHidden(true)
-        .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
+        .toolbar { ClassicTitleBarItems(back: noBack ? nil : { dismiss() }) }
         .classicHideToolbarTitle()
         .task {
             async let list = emby.itemsWithPerson(person.id)
             async let me = emby.person(person.id)
             items = await list
-            bio = await me?.Overview ?? ""
+            record = await me
             loading = false
         }
     }
 
-    var header: some View {
-        HStack(alignment: .top, spacing: 24) {
-            CachedImage(url: emby.image(person.id, width: 300)) { img in
-                img.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
-            }
-            .frame(width: 140, height: 140).clipShape(Circle())
-            VStack(alignment: .leading, spacing: 8) {
-                Text(person.name).font(.largeTitle.bold())
-                if !loading {
-                    Text("\(items.count) title\(items.count == 1 ? "" : "s") in your libraries").foregroundColor(.secondary)
-                }
-                if !bio.isEmpty {
-                    Text(bio).foregroundColor(.secondary).lineLimit(showBio ? nil : 4).textSelection(.enabled)
-                        .frame(maxWidth: 760, alignment: .leading)
-                    Button(showBio ? "Less" : "More") { showBio.toggle() }.buttonStyle(.plain).foregroundColor(.accentColor)
-                }
-            }
-        }
-    }
-
     func section(_ title: String, _ list: [Item]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("\(title) (\(list.count))").font(.title3.bold())
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title).font(.title2.bold())
+                Text("\(list.count)").font(.title3).foregroundColor(.secondary)
+            }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                 ForEach(list) { ClassicPosterCard(item: $0) }
             }
@@ -1032,6 +1110,7 @@ struct ClassicHero: View {
     @State private var hover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = ClassicPlaybackFlag.shared
+    @ObservedObject private var nav = ClassicNavState.shared
 
     func meta(_ item: Item) -> [String] {
         var m: [String] = []
@@ -1100,6 +1179,10 @@ struct ClassicHero: View {
         .padding(.horizontal, 32)
         .foregroundColor(.white)
         .onHover { hover = $0 }
+        .onChange(of: nav.bannerNudge) { _, n in   // ← → keys
+            guard let n, !items.isEmpty else { return }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { index = (index + n.dir + items.count) % items.count }
+        }
         // Next banner every 8 s, but not under the pointer, not during playback and not with Reduce Motion
         .task(id: "\(hover)-\(playback.active)") {
             guard !hover, !playback.active, !reduceMotion else { return }
@@ -1181,7 +1264,7 @@ struct ClassicResumeCard: View {
                         Button { Task { await emby.play(item) } } label: {
                             Image(systemName: "play.circle.fill").font(.system(size: 40)).foregroundColor(.white)
                                 .shadow(radius: 6)
-                        }.buttonStyle(.plain).helpLabel("Resume")
+                        }.buttonStyle(.plain).accessibilityLabel("Resume")
                     }
                 }
                 .cornerRadius(8)
@@ -1195,13 +1278,14 @@ struct ClassicResumeCard: View {
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
             .focusable()
+            .focusEffectDisabled()   // no blue macOS focus ring after a click
             .onKeyPress(.return) { openPage(); return .handled }
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
             .accessibilityValue(timeLeft ?? "")
             .accessibilityAction { openPage() }
             .accessibilityAction(named: "Resume") { Task { await emby.play(item) } }
-            .helpLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)
+            .accessibilityLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)   // no tooltip on these cards
         }
     }
 }
@@ -1218,6 +1302,7 @@ struct ClassicBackdrop: View {
 
 struct ClassicPosterCard: View {
     @EnvironmentObject var emby: Emby
+    @Environment(\.inFavorites) private var inFavorites
     let item: Item
     @State private var hover = false
     // Settings → Libraries → Poster labels
@@ -1241,7 +1326,7 @@ struct ClassicPosterCard: View {
                     ClassicWatchBadge(item: item, played: played).padding(8)
                 }
                 .overlay(alignment: .topLeading) {
-                    if emby.isFav(item) {
+                    if emby.isFav(item) && !inFavorites {
                         Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
                             .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
                     }
@@ -1250,6 +1335,9 @@ struct ClassicPosterCard: View {
                     if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {
                         ProgressView(value: pct / 100).padding(.horizontal, 8).padding(.bottom, 8)
                     }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .cornerRadius(8)
                 .classicThinBorder(8)
@@ -1478,6 +1566,7 @@ struct ClassicListRow: View {
                     Text(item.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 12)
+                ItemActionsButton(item: item).opacity(hover ? 1 : 0)
                 ClassicWatchBadge(item: item, played: played)
             }
             .padding(8)
@@ -1963,6 +2052,7 @@ struct ClassicCastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
     @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
+    @State private var hover = false
     var body: some View {
         let big = castSize == "large"
         VStack(spacing: 6) {
@@ -1975,6 +2065,25 @@ struct ClassicCastTile: View {
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
+            // Favorites show a small heart top left, as posters do
+            .overlay(alignment: .topLeading) {
+                if emby.isPersonFav(p.Id) {
+                    Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                        .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
+                }
+            }
+            // Favorite heart, bottom right on hover, as on posters
+            .overlay(alignment: .bottomTrailing) {
+                if hover {
+                    let fav = emby.isPersonFav(p.Id)
+                    ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
+                                             help: fav ? "Remove from Favorites" : "Add to Favorites") {
+                        Task { await emby.setFav(p.Id, !fav, name: p.Name) }
+                    }.padding(big ? 8 : 0)
+                }
+            }
+            .onHover { hover = $0 }
+            .classicHoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
         }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
@@ -1982,6 +2091,7 @@ struct ClassicCastTile: View {
 }
 
 struct ClassicDetailView: View {
+    @Environment(\.noBack) private var noBack
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @Environment(\.dismiss) var dismiss
@@ -2055,7 +2165,7 @@ struct ClassicDetailView: View {
                 header
                 if item.isSeries { episodesList }
                 if item.isBox { boxGrid }
-                castSection
+                castSection.task { _ = await emby.favoritePeople() }   // hearts on the cast photos
                 aboutSection
                 includedInSection
                 similarSection
@@ -2091,7 +2201,7 @@ struct ClassicDetailView: View {
         .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
         .onChange(of: season) { showAllEps = false }
         .navigationBarBackButtonHidden(true)
-        .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
+        .toolbar { ClassicTitleBarItems(back: noBack ? nil : { dismiss() }) }
         .classicHideToolbarTitle()
     }
 
@@ -2200,11 +2310,11 @@ struct ClassicDetailView: View {
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
                 Button { NSWorkspace.shared.open(u) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(.plain)
             }
-            Button { Task { await emby.setPlayed(item.id, !played) } } label: {
+            Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
                 if played { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "checkmark.circle").classicCircleButton() }
             }.buttonStyle(.plain).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
-            Button { Task { await emby.setFav(item.id, !emby.isFav(item)) } } label: {
+            Button { Task { await emby.setFav(item.id, !emby.isFav(item), name: item.Name) } } label: {
                 if emby.isFav(item) { Image(systemName: "heart.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "heart").classicCircleButton() }
             }.buttonStyle(.plain).helpLabel("Favorite")
@@ -2309,6 +2419,7 @@ struct ClassicDetailView: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(selected ? 1 : 0.85), lineWidth: selected ? 3 : 1))
                 .shadow(radius: 6)
                 .classicHoverLift()
+                .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
                 Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plain)
@@ -2347,7 +2458,7 @@ struct ClassicDetailView: View {
     func episodeRow(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
-        return Button { playEpisode(ep) } label: {
+        return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
                 Text("\(ep.IndexNumber ?? 0)").font(.system(size: 26, weight: .semibold))
                     .foregroundColor(.secondary).frame(width: 40)
@@ -2360,7 +2471,8 @@ struct ClassicDetailView: View {
                 }
                 .cornerRadius(6)
                 .classicThinBorder(6)
-                .classicHoverLift(play: 36)
+                .classicHoverLift(play: 36) { playEpisode(ep) }
+                .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(ep.Name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
@@ -2379,7 +2491,7 @@ struct ClassicDetailView: View {
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played) }
+                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
             }
         }
     }
@@ -2429,7 +2541,7 @@ struct ClassicDetailView: View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
         let hasProgress: Bool = pct > 0 && pct < 100 && !played
-        return Button { playEpisode(ep) } label: {
+        return NavigationLink(value: ep) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .topTrailing) {
                     CachedImage(url: emby.image(ep.id, width: 520, plain: true)) { img in
@@ -2463,7 +2575,9 @@ struct ClassicDetailView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .classicThinBorder(6)
-                .classicHoverLift(play: 40)
+                .classicHoverLift(play: 40) { playEpisode(ep) }
+                // below the watched badge in the top-right corner
+                .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 38, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
                     Text(ep.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
                 }
@@ -2473,7 +2587,7 @@ struct ClassicDetailView: View {
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played) }
+                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
             }
         }
     }
@@ -2492,7 +2606,7 @@ struct ClassicDetailView: View {
                 Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
                 ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: ClassicPersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
-                        .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
+                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
                 }
             }
         }
@@ -2626,6 +2740,7 @@ struct ClassicPlayerView: View {
     @AppStorage("clickToPause") private var clickToPause = true
     @AppStorage("accent") private var accentName = "red"
     var accent: Color { Theme.accent(accentName) }
+    @State private var fsBusy = false   // a full screen animation is running
     @State private var isFullScreen = false
     @State private var escMonitor: Any?
     @State private var playerWin = WeakWindow()   // the window this player is in
@@ -2647,11 +2762,15 @@ struct ClassicPlayerView: View {
     var prevEp: Item? { episodes.firstIndex(where: { $0.Id == item.Id }).flatMap { $0 > 0 ? episodes[$0 - 1] : nil } }
     var nextEp: Item? { episodes.firstIndex(where: { $0.Id == item.Id }).flatMap { $0 + 1 < episodes.count ? episodes[$0 + 1] : nil } }
 
-    var window: NSWindow? { NSApp.keyWindow ?? NSApp.mainWindow }
+    /// The window this player is in (the separate player window is not always the key or main window)
+    var window: NSWindow? { playerWin.window ?? NSApp.keyWindow ?? NSApp.mainWindow }
 
     /// Height of the window's title bar while windowed (0 in full screen, where there is none).
+    /// The separate player window has no title bar (as in the Glass player): measuring one there changed the
+    /// layout during the full screen animation, and leaving full screen stalled.
     var titleBarHeight: CGFloat {
-        guard !isFullScreen, let w = window, !w.styleMask.contains(.fullScreen) else { return 0 }
+        guard !UserDefaults.standard.bool(forKey: "separatePlayer"),
+              !isFullScreen, let w = window, !w.styleMask.contains(.fullScreen) else { return 0 }
         return max(0, w.frame.height - w.contentLayoutRect.height)
     }
     /// Color of the strip under the title bar. The system draws the bar's own gray (about 93 % opaque) over it,
@@ -2685,10 +2804,18 @@ struct ClassicPlayerView: View {
 
     /// Full screen for the video; leaving the player restores the window if the player made it full screen.
     func toggleFullScreen() {
+        // One toggle at a time: a second one during macOS's animation (a held or double-pressed F) left the
+        // window stuck, ignoring every later toggle
+        guard !fsBusy else { return }
         guard let w = window else { return }
+        w.collectionBehavior.insert(.fullScreenPrimary)   // as in the Glass player
+        fsBusy = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { fsBusy = false }   // in case no notification comes
         let on = w.styleMask.contains(.fullScreen)
         if !on { enteredFullScreen = true }
-        w.toggleFullScreen(nil)
+        // After the key press has been handled: called from inside the key event, leaving full screen often
+        // didn't start at all
+        DispatchQueue.main.async { w.toggleFullScreen(nil) }
         isFullScreen = !on
     }
 
@@ -2842,11 +2969,13 @@ struct ClassicPlayerView: View {
         }
         .toolbar(.hidden, for: .windowToolbar)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
+            if playerWin.owns(n.object) { fsBusy = false }
             guard playerWin.owns(n.object) else { return }
             isFullScreen = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { n in
+            if playerWin.owns(n.object) { fsBusy = false }
             guard playerWin.owns(n.object) else { return }
             isFullScreen = false
             // Take the keyboard back after leaving full screen, so Esc / Space / F keep working
@@ -2862,8 +2991,15 @@ struct ClassicPlayerView: View {
         .onAppear {
             let win = playerWin
             escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-                guard ev.keyCode == 53, let w = win.window, ev.window === w,
+                guard let w = win.window, ev.window === w,
                       w.attachedSheet == nil, w.sheetParent == nil else { return ev }
+                // F also here: in the separate player window the SwiftUI key handler doesn't always get it
+                if ev.keyCode == 3, ev.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                   !(w.firstResponder is NSText) {
+                    if !ev.isARepeat { toggleFullScreen() }   // holding F must not toggle again and again
+                    return nil
+                }
+                guard ev.keyCode == 53 else { return ev }
                 if panel != nil { panel = nil } else if w.styleMask.contains(.fullScreen) { toggleFullScreen() } else { close() }
                 return nil
             }
@@ -2877,6 +3013,10 @@ struct ClassicPlayerView: View {
         }
         .task { await model.start(emby, req) }
         .onDisappear { model.stop(); if emby.playing == nil { RemoteControls.detach() } }   // keep keys when switching episodes
+        // Closing the player window (red button or ⌘W) stops playback, like Esc (the Glass player does the same)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { n in
+            if (n.object as? NSWindow)?.title == "Player" { close() }
+        }
         // Media keys / Control Center (shared with the Glass player)
         .onAppear { RemoteControls.attach(model, skip: Double(skipSecs)) }
         .onChange(of: model.playing) { RemoteControls.update(item, model) }
@@ -3651,13 +3791,18 @@ struct ClassicHoverLift: ViewModifier {
 /// ClassicHoverLift that tracks the pointer itself; optionally shows a play button on hover (as on Continue Watching).
 struct ClassicSelfHoverLift: ViewModifier {
     var play: CGFloat = 0
+    /// When set, the play icon is a button of its own (the card around it opens the details instead)
+    var onPlay: (() -> Void)? = nil
     @State private var hover = false
     func body(content: Content) -> some View {
         content
             .overlay {
                 if hover && play > 0 {
-                    Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
+                    let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
                         .shadow(radius: 6)
+                    if let onPlay {
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).tip("Play")
+                    } else { icon }
                 }
             }
             .modifier(ClassicHoverLift(hover: hover)).onHover { hover = $0 }
@@ -3666,7 +3811,7 @@ struct ClassicSelfHoverLift: ViewModifier {
 
 extension View {
     /// `play`: size of the play button shown on hover (0 = none).
-    func classicHoverLift(play: CGFloat = 0) -> some View { modifier(ClassicSelfHoverLift(play: play)) }
+    func classicHoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(ClassicSelfHoverLift(play: play, onPlay: onPlay)) }
 }
 
 /// Netflix-style expanded card shown when resting on a poster: backdrop, details and quick actions.
@@ -3706,11 +3851,11 @@ struct ClassicHoverPreview: View {
                             .background(Capsule().fill(Color.white))
                     }.buttonStyle(.plain)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
-                        Task { await emby.setFav(item.id, !fav) }
+                        Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
                     circle(played ? "checkmark.circle.fill" : "checkmark", on: played,
                            help: played ? "Mark as unwatched" : "Mark as watched") {
-                        Task { await emby.setPlayed(item.id, !played) }
+                        Task { await emby.setPlayed(item.id, !played, name: item.Name) }
                     }
                 }.padding(.top, 2)
             }.padding(.horizontal, 14).padding(.bottom, 14)
@@ -3802,5 +3947,56 @@ struct ClassicAlphaLetter: View {
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+    }
+}
+
+/// "Favorite People ›" opened as a page.
+struct ClassicFavoritePeopleRef: Hashable {}
+
+/// One favorite person: poster-sized portrait and name; opens their page, heart on hover removes them.
+struct ClassicFavPersonCard: View {
+    @EnvironmentObject var emby: Emby
+    let p: Item
+    var body: some View {
+        NavigationLink(value: ClassicPersonRef(id: p.id, name: p.Name)) {
+            VStack(spacing: 8) {
+                CachedImage(url: emby.image(p.id, width: 360)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                }
+                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                .modifier(HoverPersonHeart(id: p.id, name: p.Name))
+                .classicHoverLift()
+                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
+            }.frame(width: 150)
+        }.buttonStyle(.plain)
+    }
+}
+
+/// Every favorite person in a grid.
+struct ClassicFavoritePeopleView: View {
+    @EnvironmentObject var emby: Emby
+    @Environment(\.appBG) var bg
+    @Environment(\.dismiss) var dismiss
+    @State private var people: [Item] = []
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Favorite People").font(.title.bold())
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
+                    ForEach(people.filter { emby.isFav($0) }) { ClassicFavPersonCard(p: $0) }
+                }
+            }.padding(.horizontal, 32).padding(.vertical, 24)
+        }
+        .background(bg)
+        .navigationTitle("Favorite People")
+        .navigationBarBackButtonHidden(true)
+        .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
+        .classicHideToolbarTitle()
+        .task { people = await emby.favoritePeople() }
+        .onChange(of: emby.favRevision) { Task { people = await emby.favoritePeople() } }
     }
 }

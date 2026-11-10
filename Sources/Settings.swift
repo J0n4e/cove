@@ -14,7 +14,7 @@ struct SettingsView: View {
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "General", home = "Home", libraries = "Libraries",
-             subtitles = "Subtitles", playback = "Playback", servers = "Servers", about = "About"
+             subtitles = "Subtitles", playback = "Playback", servers = "Servers", shortcuts = "Shortcuts", about = "About"
         var id: String { rawValue }
         var icon: String {
             switch self {
@@ -24,6 +24,7 @@ struct SettingsView: View {
             case .subtitles: return "captions.bubble"
             case .playback: return "play.rectangle"
             case .servers: return "server.rack"
+            case .shortcuts: return "keyboard"
             case .about: return "info.circle"
             }
         }
@@ -61,6 +62,7 @@ struct SettingsView: View {
                     case .subtitles: SubtitleSettings()
                     case .playback: PlaybackSettings()
                     case .servers: ServerSettings()
+                    case .shortcuts: ShortcutsSettings()
                     case .about: AboutSettings()
                     }
                 }
@@ -185,7 +187,7 @@ struct GeneralSettings: View {
                         .overlay(Circle().stroke(Color.white, lineWidth: 3).padding(-5)
                             .opacity(selection.wrappedValue == name ? 1 : 0))
                         .frame(width: 44, height: 44).contentShape(Circle())
-                }.buttonStyle(.plain).help(name.capitalized)
+                }.buttonStyle(.plain).tip(name.capitalized)
             }
         }
     }
@@ -578,7 +580,7 @@ struct LibrariesSettings: View {
                     }
                 }
                 .onEnded { _ in dragId = nil })
-            .help("Drag to reorder")
+            .tip("Drag to reorder")
     }
 
     /// Splits a table order back into the library order and the sections' places.
@@ -763,6 +765,57 @@ struct PlaybackSettings: View {
     }
 }
 
+// MARK: - Shortcuts
+
+/// Read-only list of the app's keyboard shortcuts (the same in both themes).
+struct ShortcutsSettings: View {
+    func keys(_ list: [(String, String)]) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            ForEach(Array(list.enumerated()), id: \.offset) { _, row in
+                let (key, what) = row
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(key).font(.system(.callout, design: .rounded).weight(.semibold))
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.1)))
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.white.opacity(0.15)))
+                        .frame(width: prefLabelW, alignment: .trailing)
+                    Text(what).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    var body: some View {
+        PrefSection(title: "While a video plays") {
+            keys([("Space", "Play or pause (on Up Next: play the next episode now)"),
+                  ("Return", "Play the next episode while Up Next shows"),
+                  ("← →", "Skip back / forward (Settings → Playback)"),
+                  ("F", "Full screen on or off"),
+                  ("Esc", "Close a panel, leave full screen, or close the player"),
+                  ("I", "Show or hide playback info"),
+                  ("P", "Picture in Picture"),
+                  ("E", "Episodes panel (episodes only)"),
+                  ("C", "Chapters panel (when the video has chapters)")])
+        }
+        PrefSection(title: "Everywhere") {
+            keys([("S", "Search (when not typing in a field)"),
+                  ("H", "Home (when not typing in a field)"),
+                  ("← →", "Home: previous / next banner"),
+                  ("⌘ ,", "Open Settings"),
+                  ("⌘ ←  or  ⌘ [", "Back")])
+        }
+        PrefSection(title: "In Settings") {
+            keys([("Return", "OK"),
+                  ("Esc", "Close and keep the changes")])
+        }
+        PrefSection(title: "Other", last: true) {
+            keys([("Return", "Open the selected Continue Watching card"),
+                  ("Return", "Try Again when the server can't be reached")])
+            PrefNote("The usual Mac shortcuts work too, such as ⌘Q, ⌘W, ⌘H and ⌃⌘F.")
+        }
+    }
+}
+
 // MARK: - Servers
 
 struct ServerSettings: View {
@@ -825,13 +878,13 @@ struct ServerSettings: View {
                             Spacer(minLength: 12)
                             if current {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(TintShapeStyle())
-                                    .help("Connected")
+                                    .tip("Connected")
                             } else if busy == srv.id {
                                 Spinner().controlSize(.small)
                             } else {
                                 Button("Connect") { connect(srv) }
                                 Button { emby.removeServer(srv) } label: { Image(systemName: "minus.circle") }
-                                    .buttonStyle(.borderless).help("Remove this server and its sign-in")
+                                    .buttonStyle(.borderless).tip("Remove this server and its sign-in")
                             }
                         }
                         .padding(.horizontal, 12).padding(.vertical, 10)

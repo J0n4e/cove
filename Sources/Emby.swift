@@ -31,6 +31,8 @@ struct Item: Identifiable, Decodable, Hashable {
     let Genres: [String]?
     let EndDate: String?
     let Status: String?
+    let PremiereDate: String?            // a person's birth date
+    let ProductionLocations: [String]?   // a person's birthplace
     struct UD: Decodable, Hashable { let Played: Bool?; let IsFavorite: Bool?; let PlayedPercentage: Double?; let UnplayedItemCount: Int?; let PlaybackPositionTicks: Int64? }
     var id: String { Id }
     var backdropId: String? { (BackdropImageTags ?? []).isEmpty ? ParentBackdropItemId : Id }
@@ -257,6 +259,14 @@ final class Emby: ObservableObject {
     @Published var openSeason: Int?
     @Published var played: [String: Bool] = [:]
     @Published var faved: [String: Bool] = [:]
+    /// Favorite people from the last `favoritePeople()` call (cast tiles have no favorite flag of their own)
+    @Published var favPeopleIds: Set<String> = []
+    /// Goes up once the server has taken a favorite change, so the Favorites page can reload what it shows
+    @Published var favRevision = 0
+    /// Short confirmation shown at the bottom of the window ("Added … to Favorites")
+    struct Toast: Equatable { let id = UUID(); let text: String; let icon: String }
+    @Published var toast: Toast?
+    func isPersonFav(_ id: String) -> Bool { faved[id] ?? favPeopleIds.contains(id) }
     @Published var servers: [SavedServer] = []
     /// The saved entry for the server we're signed in to.
     var currentServer: SavedServer? { servers.first { $0.id == server.lowercased() } }
@@ -935,14 +945,24 @@ final class Emby: ObservableObject {
         authorize(&r, token: s?.token)
         _ = try? await Net.session.data(for: r)
     }
-    func setPlayed(_ id: String, _ v: Bool) async {
+    /// `children`: episodes shown under this season or show. The server marks them itself; this updates their
+    /// ticks and the unwatched count on screen right away.
+    /// `name`: when given (a click, not the player finishing), a toast confirms the change.
+    func setPlayed(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
+        if let name { toast = Toast(text: "Marked \u{201C}\(name)\u{201D} as \(v ? "watched" : "unwatched")", icon: v ? "checkmark.circle.fill" : "circle") }
         played[id] = v
         positions[id] = 0
+        for c in children { played[c.id] = v; positions[c.id] = 0 }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
     }
-    func setFav(_ id: String, _ v: Bool) async {
+    /// `children`: a season's episodes. Favorites don't carry down on the server, so each episode is sent too.
+    func setFav(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
+        if let name { toast = Toast(text: v ? "Added \u{201C}\(name)\u{201D} to Favorites" : "Removed \u{201C}\(name)\u{201D} from Favorites", icon: v ? "heart.fill" : "heart.slash") }
         faved[id] = v
+        for c in children { faved[c.id] = v }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(id)")
+        for c in children { await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(c.id)") }
+        favRevision += 1
     }
     func play(_ it: Item) async {
         if it.isSeries {
@@ -988,7 +1008,7 @@ final class Emby: ObservableObject {
 
     /// A person's own record (name, biography).
     func person(_ id: String) async -> Item? {
-        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview"])
+        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,ProductionLocations"])
     }
 
     /// Any item's record by id (used to find the series behind an episode).
@@ -998,8 +1018,16 @@ final class Emby: ObservableObject {
 
     func favorites() async -> [Item] {
         let r: ItemList? = try? await get("/Users/\(userId)/Items", ["Filters": "IsFavorite", "Recursive": "true",
-            "IncludeItemTypes": "Movie,Series,BoxSet", "SortBy": "SortName", "SortOrder": "Ascending",
+            "IncludeItemTypes": "Movie,Series,BoxSet,Episode", "SortBy": "SortName", "SortOrder": "Ascending",
             "Fields": "Overview,Genres,EndDate,Status"])
+        return r?.Items ?? []
+    }
+
+    /// People (actors, directors) marked as favorite. `/Persons` takes IsFavorite on Emby and Jellyfin.
+    func favoritePeople() async -> [Item] {
+        let r: ItemList? = try? await get("/Persons", ["UserId": userId, "IsFavorite": "true", "SortBy": "SortName",
+                                                        "SortOrder": "Ascending", "Recursive": "true"])
+        if let r { favPeopleIds = Set(r.Items.map(\.Id)) }
         return r?.Items ?? []
     }
 
