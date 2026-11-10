@@ -3484,7 +3484,9 @@ struct PlayerView: View {
         w.collectionBehavior.insert(.fullScreenPrimary)   // the separate player window isn't full-screen capable by default
         let on = w.styleMask.contains(.fullScreen)
         if !on { enteredFullScreen = true }
-        w.toggleFullScreen(nil)
+        // After the key press has been handled: called from inside the key event, leaving full screen often
+        // didn't start at all
+        DispatchQueue.main.async { w.toggleFullScreen(nil) }
         isFullScreen = !on
     }
 

@@ -2810,7 +2810,9 @@ struct ClassicPlayerView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { fsBusy = false }   // in case no notification comes
         let on = w.styleMask.contains(.fullScreen)
         if !on { enteredFullScreen = true }
-        w.toggleFullScreen(nil)
+        // After the key press has been handled: called from inside the key event, leaving full screen often
+        // didn't start at all
+        DispatchQueue.main.async { w.toggleFullScreen(nil) }
         isFullScreen = !on
     }
 
@@ -3013,6 +3015,10 @@ struct ClassicPlayerView: View {
         }
         .task { await model.start(emby, req) }
         .onDisappear { model.stop(); if emby.playing == nil { RemoteControls.detach() } }   // keep keys when switching episodes
+        // Closing the player window (red button or ⌘W) stops playback, like Esc (the Glass player does the same)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { n in
+            if (n.object as? NSWindow)?.title == "Player" { close() }
+        }
         // Media keys / Control Center (shared with the Glass player)
         .onAppear { RemoteControls.attach(model, skip: Double(skipSecs)) }
         .onChange(of: model.playing) { RemoteControls.update(item, model) }
