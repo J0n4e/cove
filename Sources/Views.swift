@@ -2108,6 +2108,22 @@ struct HoverButton: ButtonStyle {
     }
 }
 
+/// The same look for the player's icon menus (subtitles, quality), which can't take a button style.
+struct HoverBacking: ViewModifier {
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        content
+            .padding(4)
+            .background(Capsule().fill(Color.white.opacity(hover ? 0.16 : 0)))
+            .padding(-4)
+            .brightness(hover ? 0.12 : 0)
+            .scaleEffect(hover ? 1.07 : 1)
+            .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
+            .onHover { hover = $0 }
+            .animation(.easeOut(duration: 0.15), value: hover)
+    }
+}
+
 /// Green badge: a check when the count is 0, otherwise the number.
 struct CountBadge: View {
     let count: Int?
@@ -4122,7 +4138,7 @@ extension PlayerView {
         } label: {
             menuIcon("captions.bubble", on: model.sub != nil)
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().modifier(HoverBacking())
         .helpLabel("Subtitles")
     }
 
@@ -4137,7 +4153,7 @@ extension PlayerView {
         } label: {
             menuIcon("dial.medium", on: model.quality != 0)
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().modifier(HoverBacking())
         .helpLabel("Video quality")
     }
 

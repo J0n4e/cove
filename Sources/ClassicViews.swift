@@ -3370,7 +3370,7 @@ extension ClassicPlayerView {
         } label: {
             classicMenuIcon("captions.bubble", on: model.sub != nil)
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().modifier(HoverBacking())
         .helpLabel("Subtitles")
     }
 
@@ -3385,7 +3385,7 @@ extension ClassicPlayerView {
         } label: {
             classicMenuIcon("dial.medium", on: model.quality != 0)
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().modifier(HoverBacking())
         .helpLabel("Video quality")
     }
 
