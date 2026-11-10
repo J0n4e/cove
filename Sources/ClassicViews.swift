@@ -115,7 +115,7 @@ struct ClassicLoginView: View {
                         Text("Add Server").font(.headline)
                         Text(" ").font(.caption)
                     }.contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
             if busy { ClassicSpinner().controlSize(.small) }
         }
@@ -139,7 +139,7 @@ struct ClassicLoginView: View {
             }
             .frame(width: 150).contentShape(Rectangle())
         }
-        .buttonStyle(.plain).disabled(busy)
+        .buttonStyle(.plainHand).disabled(busy)
         .contextMenu {
             Button("Edit / Sign In Again") { edit(s) }
             Button("Remove Server", role: .destructive) { emby.removeServer(s) }
@@ -151,7 +151,7 @@ struct ClassicLoginView: View {
             HStack {
                 if !emby.servers.isEmpty {
                     Button { adding = false; error = "" } label: { Image(systemName: "chevron.left") }
-                        .buttonStyle(.plain).helpLabel("Back to servers")
+                        .buttonStyle(.plainHand).helpLabel("Back to servers")
                 }
                 Spacer()
                 Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.title.bold())
@@ -169,7 +169,7 @@ struct ClassicLoginView: View {
                     if busy { ClassicSpinner().controlSize(.small) }
                     Text("Sign In").bold().classicOnAccent()
                 }.frame(maxWidth: .infinity).padding(8)
-            }.buttonStyle(.borderedProminent).disabled(busy || server.isEmpty || user.isEmpty)
+            }.buttonStyle(.borderedProminent).handCursor().disabled(busy || server.isEmpty || user.isEmpty)
         }
         .textFieldStyle(.roundedBorder).controlSize(.large)
         .onAppear { focus = server.isEmpty ? .server : .pw }
@@ -317,7 +317,7 @@ struct ClassicHomeView: View {
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
                         .cornerRadius(8).contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.plainHand)
                     .helpLabel("Connected to \(emby.server) — click to switch server")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
@@ -330,7 +330,7 @@ struct ClassicHomeView: View {
                     }
                     .helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
                     Spacer()
-                }.buttonStyle(.plain).padding(10)
+                }.buttonStyle(.plainHand).padding(10)
             }
             // Sidebar in the chosen background color instead of the system gray. The color stops below the
             // title bar, so the strip behind the window buttons keeps the same gray as the rest of the title bar.
@@ -541,7 +541,7 @@ struct ClassicTopNavButtons: View {
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .tip(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
@@ -582,10 +582,10 @@ struct ClassicTopNavTools: View {
             // The search box itself floats at the bottom of the window (SearchDock)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plain).helpLabel("Search (S)")
+            }.buttonStyle(.plainHand).helpLabel("Search (S)")
             Button { nav.showSettings = true } label: {
                 Image(systemName: "gearshape.fill").font(.system(size: 14)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plain).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
+            }.buttonStyle(.plainHand).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
@@ -615,7 +615,7 @@ struct ClassicTopBackButton: View {
             .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
         .helpLabel("Back (⌘[)")
@@ -639,7 +639,7 @@ struct ClassicSearchBar: View {
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 7)
@@ -712,7 +712,7 @@ struct ClassicSearchView: View {
                                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 150)
                         }
-                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
+                        .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
                 }.padding(.vertical, 8)
             }
@@ -786,7 +786,7 @@ struct ClassicFavoritesView: View {
                     Text("Favorite People").font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plainHand)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(list) { ClassicFavPersonCard(p: $0) }
@@ -804,7 +804,7 @@ struct ClassicFavoritesView: View {
                     Text(title).font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).tip("Show all")
+            }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(list) { ClassicPosterCard(item: $0) }
@@ -1264,7 +1264,7 @@ struct ClassicResumeCard: View {
                         Button { Task { await emby.play(item) } } label: {
                             Image(systemName: "play.circle.fill").font(.system(size: 40)).foregroundColor(.white)
                                 .shadow(radius: 6)
-                        }.buttonStyle(.plain).accessibilityLabel("Resume")
+                        }.buttonStyle(.plainHand).accessibilityLabel("Resume")
                     }
                 }
                 .cornerRadius(8)
@@ -1274,7 +1274,7 @@ struct ClassicResumeCard: View {
             .frame(width: 260, alignment: .leading)
             .contentShape(Rectangle())
             .onHover { hover = $0 }
-            .onTapGesture { openPage() }
+            .onTapGesture { openPage() }.handCursor()
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
             .focusable()
@@ -1376,7 +1376,7 @@ struct ClassicPosterCard: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .zIndex(hover ? 1 : 0)
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 }
 
@@ -1573,7 +1573,7 @@ struct ClassicListRow: View {
             .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(6)
             .contentShape(Rectangle())
             .onHover { hover = $0 }
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 }
 
@@ -1594,7 +1594,7 @@ struct ClassicBackPill: View {
             .overlay(Capsule().stroke(Color.white.opacity(hover ? 0.7 : 0.3), lineWidth: 1))
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
         .keyboardShortcut("[", modifiers: .command)
@@ -1740,7 +1740,7 @@ struct ClassicArrowScrollRow<ID: Hashable, Content: View>: View {
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain).helpLabel(help)
+        .buttonStyle(.plainHand).helpLabel(help)
         .transition(.opacity)
     }
 }
@@ -1907,7 +1907,7 @@ struct ClassicLibraryView: View {
                                 .background(tab == i ? Color.white.opacity(0.28) : Color.clear)
                                 .clipShape(Capsule())
                                 .foregroundColor(tab == i ? .white : .secondary)
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(.plainHand)
                     }
                 }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
             }
@@ -1920,10 +1920,10 @@ struct ClassicLibraryView: View {
             Text("\(total) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { if let f = items.first { await emby.play(f) } } } label: {
                 Label("Play", systemImage: "play.fill").classicPill()
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plainHand)
             Button { Task { await shuffle() } } label: {
                 Label("Shuffle", systemImage: "shuffle").classicPill()
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plainHand)
             Menu {
                 Picker("Sort by", selection: $sort) {
                     Text("Recently Added").tag("latest")
@@ -1952,7 +1952,7 @@ struct ClassicLibraryView: View {
                 Image(systemName: "line.3.horizontal.decrease.circle").classicPill(active: filtered)
             }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             if !genre.isEmpty {
-                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicPill(active: true) }.buttonStyle(.plain)
+                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicPill(active: true) }.buttonStyle(.plainHand)
             }
             layoutToggle
             Menu {
@@ -2004,7 +2004,7 @@ struct ClassicLibraryView: View {
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plain).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
     }
@@ -2015,7 +2015,7 @@ struct ClassicLibraryView: View {
                 Button { genre = g; tab = 0 } label: {
                     Text(g).font(.headline).frame(maxWidth: .infinity, minHeight: 70)
                         .background(Color.white.opacity(0.1)).cornerRadius(8)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
         }
     }
@@ -2427,7 +2427,7 @@ struct ClassicDetailView: View {
                 .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
                 Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 
     var seasonRow: some View {
@@ -2444,7 +2444,7 @@ struct ClassicDetailView: View {
             Text(heading).font(.title3.bold())
             if canFilterWatched {
                 Button(showAllEps ? "Hide watched" : "Show all") { showAllEps.toggle() }
-                    .buttonStyle(.plain).font(.callout.weight(.semibold)).foregroundStyle(.tint)
+                    .buttonStyle(.plainHand).font(.callout.weight(.semibold)).foregroundStyle(.tint)
             }
             Spacer()
             episodeLayoutToggle
@@ -2492,7 +2492,7 @@ struct ClassicDetailView: View {
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1) }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).padding(.horizontal, 40)
+        .buttonStyle(.plainHand).padding(.horizontal, 40)
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
@@ -2526,7 +2526,7 @@ struct ClassicDetailView: View {
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plain).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
     }
@@ -2588,7 +2588,7 @@ struct ClassicDetailView: View {
                 }
             }.contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
@@ -2611,7 +2611,7 @@ struct ClassicDetailView: View {
                 Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
                 ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: ClassicPersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
-                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
+                        .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
                 }
             }
         }
@@ -2705,7 +2705,7 @@ struct ClassicDetailView: View {
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plain).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
     }
@@ -3238,11 +3238,11 @@ struct ClassicPlayerView: View {
                         Text("\(model.subOffset) ms").font(.system(size: 13)).foregroundColor(.secondary)
                     }
                     Spacer()
-                    Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plain)
+                    Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms earlier")
-                    Button { model.subOffset = 0 } label: { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plain)
+                    Button { model.subOffset = 0 } label: { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plainHand)
                         .opacity(model.subOffset == 0 ? 0.3 : 1).helpLabel("Reset offset")
-                    Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plain)
+                    Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms later")
                 }
                 .font(.system(size: 18))
@@ -3276,7 +3276,7 @@ struct ClassicPlayerView: View {
                                 .foregroundColor(on ? .black : .white)
                                 .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
                                 .contentShape(Rectangle())
-                        }.buttonStyle(.plain).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
+                        }.buttonStyle(.plainHand).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
                     }
                 }
                 .padding(.horizontal, 22).padding(.bottom, 6)
@@ -3310,7 +3310,7 @@ struct ClassicPlayerView: View {
                 .background(Color.white.opacity(0.1)).cornerRadius(6)
                 .contentShape(Rectangle())
             }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).handCursor()
         }
     }
 
@@ -3318,7 +3318,7 @@ struct ClassicPlayerView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 20) {
                 Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.system(size: 18, weight: .semibold)) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.plainHand)
                 Text("Subtitle Appearance").font(.system(size: 18, weight: .bold))
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
@@ -3469,7 +3469,7 @@ extension ClassicPlayerView {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
                     Text("Intro skipped").font(.system(size: 15, weight: .semibold))
-                    Button("Watch intro") { model.watchIntro() }.buttonStyle(.plain)
+                    Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
                         .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
@@ -3480,7 +3480,7 @@ extension ClassicPlayerView {
                     Text("Skip Intro").font(.system(size: 16, weight: .bold)).foregroundColor(.black)
                         .padding(.horizontal, 20).padding(.vertical, 11)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
             if classicShowUpNext, let n = nextEp { classicUpNextCard(n) }
         }
@@ -3506,12 +3506,12 @@ extension ClassicPlayerView {
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
                             .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
                             .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent, lineWidth: 3))
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                     Button { upNextCancelled = true } label: {
                         Text("Cancel").font(.system(size: 14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.15)))
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                 }
                 if autoNext {
                     Text("Next starts in \(classicSecsLeft)s")
@@ -3806,7 +3806,7 @@ struct ClassicSelfHoverLift: ViewModifier {
                     let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
                         .shadow(radius: 6)
                     if let onPlay {
-                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).tip("Play")
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand).tip("Play")
                     } else { icon }
                 }
             }
@@ -3854,7 +3854,7 @@ struct ClassicHoverPreview: View {
                         Label("Play", systemImage: "play.fill").font(.callout.weight(.bold))
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 6)
                             .background(Capsule().fill(Color.white))
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
                         Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
@@ -3870,7 +3870,7 @@ struct ClassicHoverPreview: View {
         .environment(\.colorScheme, .dark)
         // Clicking anywhere on the card (outside its buttons) opens this item's page
         .contentShape(Rectangle())
-        .onTapGesture { close(); emby.openRequest = item }
+        .onTapGesture { close(); emby.openRequest = item }.handCursor()
     }
 
     func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
@@ -3880,7 +3880,7 @@ struct ClassicHoverPreview: View {
                 .frame(width: 32, height: 32)
                 .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
                 .contentShape(Circle())
-        }.buttonStyle(.plain).helpLabel(help)
+        }.buttonStyle(.plainHand).helpLabel(help)
     }
 }
 
@@ -3946,7 +3946,7 @@ struct ClassicAlphaLetter: View {
                 .clipShape(Circle())
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .onHover { inside in
             hover = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
@@ -3976,7 +3976,7 @@ struct ClassicFavPersonCard: View {
                 .classicHoverLift()
                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
             }.frame(width: 150)
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 }
 

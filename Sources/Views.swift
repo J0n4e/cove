@@ -94,7 +94,7 @@ struct AlphaLetter: View {
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(hover ? 0.18 : 0))))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .onHover { inside in
             hover = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
@@ -221,7 +221,7 @@ struct LoginView: View {
                         Text("Add Server").font(.headline)
                         Text(" ").font(.caption)
                     }.contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
             if busy { Spinner().controlSize(.small) }
         }
@@ -245,7 +245,7 @@ struct LoginView: View {
             }
             .frame(width: 150).contentShape(Rectangle())
         }
-        .buttonStyle(.plain).disabled(busy)
+        .buttonStyle(.plainHand).disabled(busy)
         .contextMenu {
             Button("Edit / Sign In Again") { edit(s) }
             Button("Remove Server", role: .destructive) { emby.removeServer(s) }
@@ -257,7 +257,7 @@ struct LoginView: View {
             HStack {
                 if !emby.servers.isEmpty {
                     Button { adding = false; error = "" } label: { Image(systemName: "chevron.left") }
-                        .buttonStyle(.plain).helpLabel("Back to servers")
+                        .buttonStyle(.plainHand).helpLabel("Back to servers")
                 }
                 Spacer()
                 Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.title.bold())
@@ -275,7 +275,7 @@ struct LoginView: View {
                     if busy { Spinner().controlSize(.small) }
                     Text("Sign In").bold().onAccent()
                 }.frame(maxWidth: .infinity).padding(8)
-            }.buttonStyle(.borderedProminent).disabled(busy || server.isEmpty || user.isEmpty)
+            }.buttonStyle(.borderedProminent).handCursor().disabled(busy || server.isEmpty || user.isEmpty)
         }
         .textFieldStyle(.roundedBorder).controlSize(.large)
         .onAppear { focus = server.isEmpty ? .server : .pw }
@@ -434,7 +434,7 @@ struct HomeView: View {
                         if !query.isEmpty {
                             Button { query = "" } label: {
                                 Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(.plainHand)
                         }
                     }
                     .font(.system(size: 14))
@@ -664,7 +664,7 @@ struct TopNavButtons: View {
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .tip(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
@@ -716,7 +716,7 @@ struct TopNavTools: View {
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
                     .contentShape(Circle())
-            }.buttonStyle(.plain).helpLabel("Search (S)")
+            }.buttonStyle(.plainHand).helpLabel("Search (S)")
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
@@ -745,7 +745,7 @@ struct TopBackButton: View {
                 .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
         .helpLabel("Back (⌘[)")
@@ -765,7 +765,7 @@ struct SearchBar: View {
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 7)
@@ -838,7 +838,7 @@ struct SearchView: View {
                                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 170)
                         }
-                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
+                        .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
                 }.padding(.vertical, 8)
             }
@@ -912,7 +912,7 @@ struct FavoritesView: View {
                     Text("Favorite People").font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plainHand)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(list) { FavPersonCard(p: $0) }
@@ -930,7 +930,7 @@ struct FavoritesView: View {
                     Text(title).font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).tip("Show all")
+            }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(list) { PosterCard(item: $0) }
@@ -1259,9 +1259,9 @@ struct HomeContent: View {
             Image(systemName: "chevron.right").font(.system(size: 17, weight: .bold)).foregroundColor(.secondary)
         }.contentShape(Rectangle())
         if let f = row.feed {
-            NavigationLink(value: f) { label }.buttonStyle(.plain).tip("Show all")
+            NavigationLink(value: f) { label }.buttonStyle(.plainHand).tip("Show all")
         } else if let id = row.libId {
-            Button { nav.sel = id } label: { label }.buttonStyle(.plain).tip("Open \(row.title)")
+            Button { nav.sel = id } label: { label }.buttonStyle(.plainHand).tip("Open \(row.title)")
         } else {
             Text(row.title).font(.system(size: 22, weight: .bold))
         }
@@ -1591,7 +1591,7 @@ struct ResumeCard: View {
                 Button { Task { await emby.play(item) } } label: {
                     Image(systemName: "play.fill").font(.system(size: 22)).foregroundColor(.white)
                         .frame(width: 54, height: 54).background(.ultraThinMaterial, in: Circle())
-                }.buttonStyle(.plain).accessibilityLabel("Resume")
+                }.buttonStyle(.plainHand).accessibilityLabel("Resume")
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -1600,7 +1600,7 @@ struct ResumeCard: View {
         .frame(width: 340, alignment: .leading)
         .contentShape(Rectangle())
         .onHover { hover = $0 }
-        .onTapGesture { openPage() }
+        .onTapGesture { openPage() }.handCursor()
         // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
         // Resume button itself only shows under the pointer
         .focusable()
@@ -1717,7 +1717,7 @@ struct PosterCard: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .zIndex(hover ? 1 : 0)
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 }
 
@@ -1760,7 +1760,7 @@ struct SearchDock: View {
                         .onExitCommand { query = ""; open = false }   // Esc closes it
                     if !query.isEmpty {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.plainHand)
                     }
                 }
                 .padding(.horizontal, 18).frame(height: 44)
@@ -1845,7 +1845,7 @@ struct ItemActionsButton: View {
                 .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain).tip(help)
+        .buttonStyle(.plainHand).tip(help)
     }
     var body: some View {
         let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
@@ -2054,7 +2054,7 @@ struct ListRow: View {
             .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(6)
             .contentShape(Rectangle())
             .onHover { hover = $0 }
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 }
 
@@ -2075,7 +2075,7 @@ struct BackPill: View {
             .overlay(Capsule().stroke(Color.white.opacity(hover ? 0.7 : 0.3), lineWidth: 1))
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
         .keyboardShortcut("[", modifiers: .command)
@@ -2102,10 +2102,44 @@ struct HoverButton: ButtonStyle {
                 .scaleEffect(c.isPressed ? 0.95 : hover ? 1.07 : 1)
                 .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
                 .onHover { hover = $0 }
+                .handCursor()
                 .animation(.easeOut(duration: 0.15), value: hover)
                 .animation(.easeOut(duration: 0.1), value: c.isPressed)
         }
     }
+}
+
+/// Pointing-hand cursor over anything clickable.
+struct HandCursor: ViewModifier {
+    @State private var inside = false
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) {
+            content.pointerStyle(.link)
+        } else {
+            content
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active: inside = true; NSCursor.pointingHand.set()
+                    case .ended: inside = false; NSCursor.arrow.set()
+                    }
+                }
+                // Removed while under the mouse (e.g. a button that closes its panel): don't leave the hand behind
+                .onDisappear { if inside { NSCursor.arrow.set() } }
+        }
+    }
+}
+extension View {
+    func handCursor() -> some View { modifier(HandCursor()) }
+}
+
+/// `.plain` with the pointing-hand cursor: the style of Cove's own buttons and links.
+struct PlainHand: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.opacity(configuration.isPressed ? 0.75 : 1).handCursor()
+    }
+}
+extension ButtonStyle where Self == PlainHand {
+    static var plainHand: PlainHand { PlainHand() }
 }
 
 /// The same look for the player's icon menus (subtitles, quality), which can't take a button style.
@@ -2120,6 +2154,7 @@ struct HoverBacking: ViewModifier {
             .scaleEffect(hover ? 1.07 : 1)
             .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
             .onHover { hover = $0 }
+            .handCursor()
             .animation(.easeOut(duration: 0.15), value: hover)
     }
 }
@@ -2263,7 +2298,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain).helpLabel(help)
+        .buttonStyle(.plainHand).helpLabel(help)
         .transition(.opacity)
     }
 }
@@ -2435,7 +2470,7 @@ struct LibraryView: View {
                                 .background(Capsule().fill(tab == i ? Color.white.opacity(0.22) : Color.clear))
                                 .foregroundColor(tab == i ? .white : .secondary)
                                 .contentShape(Capsule())
-                        }.buttonStyle(.plain).focusEffectDisabled()
+                        }.buttonStyle(.plainHand).focusEffectDisabled()
                     }
                 }.padding(4).frame(height: 40).glassCapsule()
             }
@@ -2448,10 +2483,10 @@ struct LibraryView: View {
             Text("\(total) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { if let f = items.first { await emby.play(f) } } } label: {
                 Label("Play", systemImage: "play.fill").pill()
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plainHand)
             Button { Task { await shuffle() } } label: {
                 Label("Shuffle", systemImage: "shuffle").pill()
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plainHand)
             Menu {
                 Picker("Sort by", selection: $sort) {
                     Text("Recently Added").tag("latest")
@@ -2465,7 +2500,7 @@ struct LibraryView: View {
                 }.pickerStyle(.inline)
             } label: {
                 Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").pill()
-            }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
             Menu {
                 Picker("Status", selection: $watch) {
                     Text("All").tag("all")
@@ -2478,9 +2513,9 @@ struct LibraryView: View {
                 }.pickerStyle(.inline)
             } label: {
                 Image(systemName: "line.3.horizontal.decrease.circle").pill(active: filtered)
-            }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
             if !genre.isEmpty {
-                Button { genre = "" } label: { Label(genre, systemImage: "xmark").pill(active: true) }.buttonStyle(.plain)
+                Button { genre = "" } label: { Label(genre, systemImage: "xmark").pill(active: true) }.buttonStyle(.plainHand)
             }
             layoutToggle
             Menu {
@@ -2490,7 +2525,7 @@ struct LibraryView: View {
                 }
                 Button("Refresh") { Task { await load(reset: true) } }
             } label: { Image(systemName: "ellipsis").pill() }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
         }
     }
 
@@ -2531,7 +2566,7 @@ struct LibraryView: View {
                         .background(Capsule().fill(layout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .contentShape(Capsule())
-                }.buttonStyle(.plain).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 36).glassCapsule()
     }
@@ -2542,7 +2577,7 @@ struct LibraryView: View {
                 Button { genre = g; tab = 0 } label: {
                     Text(g).font(.headline).frame(maxWidth: .infinity, minHeight: 70)
                         .background(Color.white.opacity(0.1)).cornerRadius(8)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
         }
     }
@@ -3028,7 +3063,7 @@ struct DetailView: View {
                 .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
                 Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 
     var seasonRow: some View {
@@ -3058,13 +3093,13 @@ struct DetailView: View {
                         Text(heading).font(.system(size: 22, weight: .bold))
                         Image(systemName: "chevron.up.chevron.down").font(.system(size: 14, weight: .semibold)).foregroundColor(.secondary)
                     }
-                }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
             } else {
                 Text(heading).font(.system(size: 22, weight: .bold))
             }
             if canFilterWatched {
                 Button(showAllEps ? "Hide watched" : "Show all") { showAllEps.toggle() }
-                    .buttonStyle(.plain).font(.callout.weight(.semibold)).foregroundStyle(.tint)
+                    .buttonStyle(.plainHand).font(.callout.weight(.semibold)).foregroundStyle(.tint)
             }
             Spacer()
             episodeLayoutToggle
@@ -3112,7 +3147,7 @@ struct DetailView: View {
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1) }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).padding(.horizontal, 52)
+        .buttonStyle(.plainHand).padding(.horizontal, 52)
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
@@ -3152,7 +3187,7 @@ struct DetailView: View {
                         .background(Capsule().fill(epLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .contentShape(Capsule())
-                }.buttonStyle(.plain).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 36).glassCapsule()
     }
@@ -3209,7 +3244,7 @@ struct DetailView: View {
             .thinBorder(12)
             .hoverLift(play: 44) { playEpisode(ep) }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plainHand)
         .hoverItemActions(ep)
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
@@ -3239,7 +3274,7 @@ struct DetailView: View {
                 Text("Cast & Crew").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize), inset: 52) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { CastTile(p: people[i]) }
-                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
+                        .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
                 }
             }
         }
@@ -3332,7 +3367,7 @@ struct DetailView: View {
                         .background(Capsule().fill(similarLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .contentShape(Capsule())
-                }.buttonStyle(.plain).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 36).glassCapsule()
     }
@@ -4006,11 +4041,11 @@ struct PlayerView: View {
                         Text("\(model.subOffset) ms").font(.system(size: 13)).foregroundColor(.secondary)
                     }
                     Spacer()
-                    Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plain)
+                    Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms earlier")
-                    Button { model.subOffset = 0 } label: { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plain)
+                    Button { model.subOffset = 0 } label: { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plainHand)
                         .opacity(model.subOffset == 0 ? 0.3 : 1).helpLabel("Reset offset")
-                    Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plain)
+                    Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms later")
                 }
                 .font(.system(size: 18))
@@ -4044,7 +4079,7 @@ struct PlayerView: View {
                                 .foregroundColor(on ? .black : .white)
                                 .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
                                 .contentShape(Rectangle())
-                        }.buttonStyle(.plain).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
+                        }.buttonStyle(.plainHand).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
                     }
                 }
                 .padding(.horizontal, 22).padding(.bottom, 6)
@@ -4078,7 +4113,7 @@ struct PlayerView: View {
                 .background(Color.white.opacity(0.1)).cornerRadius(6)
                 .contentShape(Rectangle())
             }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).handCursor()
         }
     }
 
@@ -4086,7 +4121,7 @@ struct PlayerView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 20) {
                 Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.system(size: 18, weight: .semibold)) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.plainHand)
                 Text("Subtitle Appearance").font(.system(size: 18, weight: .bold))
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
@@ -4237,7 +4272,7 @@ extension PlayerView {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
                     Text("Intro skipped").font(.system(size: 15, weight: .semibold))
-                    Button("Watch intro") { model.watchIntro() }.buttonStyle(.plain)
+                    Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
                         .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
@@ -4248,7 +4283,7 @@ extension PlayerView {
                     Text("Skip Intro").font(.system(size: 16, weight: .bold)).foregroundColor(.black)
                         .padding(.horizontal, 20).padding(.vertical, 11)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
             if showUpNext, let n = nextEp { upNextCard(n) }
         }
@@ -4274,12 +4309,12 @@ extension PlayerView {
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
                             .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
                             .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent, lineWidth: 3))
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                     Button { upNextCancelled = true } label: {
                         Text("Cancel").font(.system(size: 14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.15)))
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                 }
                 if autoNext {
                     Text("Next starts in \(secsLeft)s")
@@ -4600,7 +4635,7 @@ struct SelfHoverLift: ViewModifier {
                     let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
                         .shadow(radius: 6)
                     if let onPlay {
-                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).tip("Play")
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand).tip("Play")
                     } else { icon }
                 }
             }
@@ -4648,7 +4683,7 @@ struct HoverPreview: View {
                         Label("Play", systemImage: "play.fill").font(.callout.weight(.bold))
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 6)
                             .background(Capsule().fill(Color.white))
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plainHand)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
                         Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
@@ -4664,7 +4699,7 @@ struct HoverPreview: View {
         .environment(\.colorScheme, .dark)
         // Clicking anywhere on the card (outside its buttons) opens this item's page
         .contentShape(Rectangle())
-        .onTapGesture { close(); emby.openRequest = item }
+        .onTapGesture { close(); emby.openRequest = item }.handCursor()
     }
 
     func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
@@ -4674,7 +4709,7 @@ struct HoverPreview: View {
                 .frame(width: 32, height: 32)
                 .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
                 .contentShape(Circle())
-        }.buttonStyle(.plain).helpLabel(help)
+        }.buttonStyle(.plainHand).helpLabel(help)
     }
 }
 
@@ -4746,7 +4781,7 @@ struct FavPersonCard: View {
                 .hoverLift()
                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
             }.frame(width: 170)
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plainHand)
     }
 }
 

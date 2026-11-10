@@ -54,7 +54,7 @@ struct TrailerPlayerView: View {
                 Spacer()
                 Button { NSWorkspace.shared.open(link); close() } label: {
                     Label("Watch on YouTube", systemImage: "arrow.up.right.square")
-                }.buttonStyle(.plain).foregroundStyle(.secondary)
+                }.buttonStyle(.plainHand).foregroundStyle(.secondary)
             }
             // The separate window has no title bar: room for its window buttons
             .padding(.leading, separate ? 80 : 14).padding(.trailing, 14).frame(height: 48)
@@ -65,7 +65,7 @@ struct TrailerPlayerView: View {
                         Image(systemName: "film").font(.system(size: 40)).foregroundStyle(.secondary)
                         Text("This trailer can only be played on YouTube.").font(.title3)
                         Button("Watch on YouTube") { NSWorkspace.shared.open(link); close() }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.borderedProminent).handCursor()
                     }
                 } else {
                     YouTubePlayer(videoID: videoID) { blocked = true }

@@ -49,7 +49,7 @@ struct SettingsView: View {
                         .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent.opacity(0.15) : Color.clear))
                         .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? accent.opacity(0.4) : Color.clear))
                         .contentShape(Rectangle())
-                    }.buttonStyle(.plain).focusEffectDisabled()
+                    }.buttonStyle(.plainHand).focusEffectDisabled()
                 }
             }.padding(.top, 8).padding(.bottom, 10)
             Divider()
@@ -74,10 +74,10 @@ struct SettingsView: View {
                 Spacer()
                 // Both buttons in the accent color; Cancel is the lighter one
                 Button { dismiss() } label: { Text("Cancel").frame(minWidth: 60) }
-                    .buttonStyle(.bordered).tint(accent).controlSize(.large)
+                    .buttonStyle(.bordered).handCursor().tint(accent).controlSize(.large)
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent).tint(accent).controlSize(.large)
+                    .buttonStyle(.borderedProminent).handCursor().tint(accent).controlSize(.large)
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
@@ -187,7 +187,7 @@ struct GeneralSettings: View {
                         .overlay(Circle().stroke(Color.white, lineWidth: 3).padding(-5)
                             .opacity(selection.wrappedValue == name ? 1 : 0))
                         .frame(width: 44, height: 44).contentShape(Circle())
-                }.buttonStyle(.plain).tip(name.capitalized)
+                }.buttonStyle(.plainHand).tip(name.capitalized)
             }
         }
     }
@@ -204,7 +204,7 @@ struct GeneralSettings: View {
                                 .stroke(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.15)), lineWidth: on ? 3 : 1))
                         Text(name.capitalized).font(.caption).foregroundColor(on ? .primary : .secondary)
                     }.contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
         }
     }
@@ -532,7 +532,7 @@ struct LibrariesSettings: View {
         .padding(.horizontal, 6).frame(height: 30)
         .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
-        .onTapGesture { selectedLib = lib.id }
+        .onTapGesture { selectedLib = lib.id }.handCursor()
     }
 
     /// Favorites or Now Playing: not server libraries, so the Sidebar box is the section's show switch
@@ -551,7 +551,7 @@ struct LibrariesSettings: View {
         .padding(.horizontal, 6).frame(height: 30)
         .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
-        .onTapGesture { selectedLib = id }
+        .onTapGesture { selectedLib = id }.handCursor()
     }
 
     @State private var dragId: String?
@@ -884,7 +884,7 @@ struct ServerSettings: View {
                             } else {
                                 Button("Connect") { connect(srv) }
                                 Button { emby.removeServer(srv) } label: { Image(systemName: "minus.circle") }
-                                    .buttonStyle(.borderless).tip("Remove this server and its sign-in")
+                                    .buttonStyle(.borderless).handCursor().tip("Remove this server and its sign-in")
                             }
                         }
                         .padding(.horizontal, 12).padding(.vertical, 10)
