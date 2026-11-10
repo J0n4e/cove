@@ -801,7 +801,7 @@ struct ShortcutsSettings: View {
             keys([("S", "Search (when not typing in a field)"),
                   ("H", "Home (when not typing in a field)"),
                   ("⌘ ,", "Open Settings"),
-                  ("⌘ [", "Back")])
+                  ("⌘ ←  or  ⌘ [", "Back")])
         }
         PrefSection(title: "In Settings") {
             keys([("Return", "OK"),

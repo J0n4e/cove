@@ -388,6 +388,11 @@ struct ClassicHomeView: View {
         }.background(bg)
     }
 
+    /// ⌘← : one page back, like the Back button (none on a page opened from search)
+    func goBack() {
+        if !path.isEmpty && !(fromSearch && path.count == 1) { path.removeLast() }
+    }
+
     /// H key: Home, from any page (search closed, pages on top of it closed)
     func goHome() {
         query = ""; nav.searchOpen = false
@@ -405,7 +410,8 @@ struct ClassicHomeView: View {
             if searchKey == nil {
                 searchKey = SearchKey.install(isPlaying: { ClassicPlaybackFlag.shared.active },
                                               focus: { ClassicNavState.shared.focusSearch += 1 },
-                                              home: { goHome() })
+                                              home: { goHome() },
+                                              back: { goBack() })
             }
         }
         // Switching theme replaces this view: its S key must not stay behind

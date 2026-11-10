@@ -5,16 +5,18 @@ import AVKit
 
 // MARK: - Theme
 
-/// One-letter keys in the main window: "S" opens Search, "H" goes Home. Not while typing in a field, not in
-/// the player.
+/// Keys in the main window: "S" opens Search, "H" goes Home, ⌘← goes Back (as ⌘[ does). Not while typing in a
+/// field (⌘← moves the cursor there), not in the player.
 enum SearchKey {
     static func install(isPlaying: @escaping () -> Bool, focus: @escaping () -> Void,
-                        home: @escaping () -> Void) -> Any? {
+                        home: @escaping () -> Void, back: @escaping () -> Void) -> Any? {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-            guard let key = ev.charactersIgnoringModifiers?.lowercased(), key == "s" || key == "h",
-                  ev.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  let w = ev.window, w.title != "Player", w.attachedSheet == nil, w.sheetParent == nil,
+            guard let w = ev.window, w.title != "Player", w.attachedSheet == nil, w.sheetParent == nil,
                   !(w.firstResponder is NSText), !isPlaying() else { return ev }
+            let mods = ev.modifierFlags.intersection([.command, .control, .option, .shift])
+            if ev.keyCode == 123 && mods == .command { back(); return nil }   // ⌘←
+            guard mods.subtracting(.shift).isEmpty, let key = ev.charactersIgnoringModifiers?.lowercased(),
+                  key == "s" || key == "h" else { return ev }
             if key == "s" { focus() } else { home() }
             return nil
         }
@@ -496,6 +498,11 @@ struct HomeView: View {
         }.background(bg)
     }
 
+    /// ⌘← : one page back, like the Back button (none on a page opened from search)
+    func goBack() {
+        if !path.isEmpty && !(fromSearch && path.count == 1) { path.removeLast() }
+    }
+
     /// H key: Home, from any page (search closed, pages on top of it closed)
     func goHome() {
         query = ""; nav.searchOpen = false
@@ -513,7 +520,8 @@ struct HomeView: View {
             if searchKey == nil {
                 searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
                                               focus: { NavState.shared.focusSearch += 1 },
-                                              home: { goHome() })
+                                              home: { goHome() },
+                                              back: { goBack() })
             }
         }
         // Switching theme replaces this view: its S key must not stay behind
