@@ -317,6 +317,7 @@ struct RootTap: ViewModifier {
 }
 
 struct HomeView: View {
+    @State private var keepPage = false   // the search box is being cleared after opening a result
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @FocusState private var searchFocused: Bool
@@ -508,7 +509,14 @@ struct HomeView: View {
         }
         .onChange(of: sel) { path = NavigationPath(); query = "" }
         // Typing a search on a page opened from results (an actor, a movie) goes back to the results
-        .onChange(of: query) { if !path.isEmpty { path = NavigationPath() } }
+        .onChange(of: query) {
+            if keepPage { keepPage = false; return }
+            if !path.isEmpty { path = NavigationPath() }
+        }
+        // Opening a search result clears the search box and stays on the opened page
+        .onChange(of: path.count) { old, new in
+            if old == 0 && new > 0 && !query.isEmpty { keepPage = true; query = "" }
+        }
         .onChange(of: [showFavorites, showNowPlaying, showRecent]) {
             let hidden = (!showFavorites && sel == "favorites") || (!showNowPlaying && sel == "nowplaying") || (!showRecent && sel == "recent")
             if hidden { nav.sel = "home" }

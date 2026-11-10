@@ -227,6 +227,7 @@ struct ClassicRootTap: ViewModifier {
 }
 
 struct ClassicHomeView: View {
+    @State private var keepPage = false   // the search box is being cleared after opening a result
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @State private var searchKey: Any?
@@ -409,7 +410,14 @@ struct ClassicHomeView: View {
         }
         .onChange(of: sel) { path = NavigationPath(); query = "" }
         // Typing a search on a page opened from results (an actor, a movie) goes back to the results
-        .onChange(of: query) { if !path.isEmpty { path = NavigationPath() } }
+        .onChange(of: query) {
+            if keepPage { keepPage = false; return }
+            if !path.isEmpty { path = NavigationPath() }
+        }
+        // Opening a search result clears the search box and stays on the opened page
+        .onChange(of: path.count) { old, new in
+            if old == 0 && new > 0 && !query.isEmpty { keepPage = true; query = "" }
+        }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
