@@ -229,6 +229,7 @@ struct ClassicRootTap: ViewModifier {
 struct ClassicHomeView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
+    @State private var searchKey: Any?
     // Shared with the title bar (Top bar layout puts the navigation buttons in the window's toolbar)
     @ObservedObject private var nav = ClassicNavState.shared
     var sel: String { get { nav.sel } nonmutating set { nav.sel = newValue } }
@@ -389,6 +390,13 @@ struct ClassicHomeView: View {
         }
         .task { await emby.loadLibs() }
         .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
+        .onAppear {
+            if searchKey == nil {
+                searchKey = SearchKey.install(isPlaying: { ClassicPlaybackFlag.shared.active }) { ClassicNavState.shared.focusSearch += 1 }
+            }
+        }
+        // Switching theme replaces this view: its S key must not stay behind
+        .onDisappear { if let m = searchKey { NSEvent.removeMonitor(m); searchKey = nil } }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResizeNotification)) { _ in updateTitleBarH() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in updateTitleBarH() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in titleBarH = 0 }
@@ -422,6 +430,8 @@ final class ClassicNavState: ObservableObject {
     @Published var sel = "home"
     @Published var query = ""
     @Published var searchOpen = false
+    /// Goes up to put the cursor in the search field (the S key)
+    @Published var focusSearch = 0
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
@@ -525,11 +535,13 @@ struct ClassicTopNavButtons: View {
 
 struct ClassicTopNavTools: View {
     @ObservedObject private var nav = ClassicNavState.shared
+    @FocusState private var focused: Bool
     var body: some View {
         HStack(spacing: 8) {
             if nav.searchOpen {
                 HStack(spacing: 6) {
                     TextField("Search movies, shows, people", text: $nav.query).textFieldStyle(.plain).frame(width: 220)
+                        .focused($focused)
                     if !nav.query.isEmpty {
                         Button { nav.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
                             .buttonStyle(.plain)
@@ -541,10 +553,15 @@ struct ClassicTopNavTools: View {
             }
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plain).helpLabel("Search")
+            }.buttonStyle(.plain).helpLabel("Search (S)")
             Button { nav.showSettings = true } label: {
                 Image(systemName: "gearshape.fill").font(.system(size: 14)).padding(6).contentShape(Rectangle())
             }.buttonStyle(.plain).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
+        }
+        // Opening the field puts the cursor in it, ready to type (also from the S key)
+        .onChange(of: nav.searchOpen) { _, open in if open { DispatchQueue.main.async { focused = true } } }
+        .onChange(of: nav.focusSearch) {
+            if nav.searchOpen { focused = true } else { nav.searchOpen = true }
         }
     }
 }
@@ -584,12 +601,16 @@ struct ClassicTopBackButton: View {
 struct ClassicSearchBar: View {
     @Binding var query: String
     @Environment(\.appBG) var bg
+    @ObservedObject private var nav = ClassicNavState.shared
+    @FocusState private var focused: Bool
     var body: some View {
         HStack {
             Spacer()
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundColor(.secondary)
                 TextField("Search movies, shows, people", text: $query).textFieldStyle(.plain)
+                    .focused($focused)
+                    .onChange(of: nav.focusSearch) { focused = true }
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)

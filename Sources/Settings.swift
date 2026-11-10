@@ -798,7 +798,8 @@ struct ShortcutsSettings: View {
                   ("C", "Chapters panel (when the video has chapters)")])
         }
         PrefSection(title: "Everywhere") {
-            keys([("⌘ ,", "Open Settings"),
+            keys([("S", "Search (when not typing in a field)"),
+                  ("⌘ ,", "Open Settings"),
                   ("⌘ [", "Back")])
         }
         PrefSection(title: "In Settings") {

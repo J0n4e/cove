@@ -5,6 +5,20 @@ import AVKit
 
 // MARK: - Theme
 
+/// "S" opens Search from anywhere in the main window: not while typing in a field, not in the player.
+enum SearchKey {
+    static func install(isPlaying: @escaping () -> Bool, focus: @escaping () -> Void) -> Any? {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
+            guard ev.charactersIgnoringModifiers?.lowercased() == "s",
+                  ev.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  let w = ev.window, w.title != "Player", w.attachedSheet == nil, w.sheetParent == nil,
+                  !(w.firstResponder is NSText), !isPlaying() else { return ev }
+            focus()
+            return nil
+        }
+    }
+}
+
 private struct BGKey: EnvironmentKey { static let defaultValue = Color.black }
 private struct InFavoritesKey: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {
@@ -305,6 +319,8 @@ struct RootTap: ViewModifier {
 struct HomeView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
+    @FocusState private var searchFocused: Bool
+    @State private var searchKey: Any?
     // Shared with the title bar (Top bar layout puts the navigation buttons in the window's toolbar)
     @ObservedObject private var nav = NavState.shared
     var sel: String { get { nav.sel } nonmutating set { nav.sel = newValue } }
@@ -395,6 +411,8 @@ struct HomeView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass").foregroundColor(.secondary)
                         TextField("Search", text: queryB).textFieldStyle(.plain)
+                            .focused($searchFocused)
+                            .onChange(of: nav.focusSearch) { searchFocused = true }
                         if !query.isEmpty {
                             Button { query = "" } label: {
                                 Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
@@ -470,6 +488,13 @@ struct HomeView: View {
         }
         .task { await emby.loadLibs() }
         .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
+        .onAppear {
+            if searchKey == nil {
+                searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active }) { NavState.shared.focusSearch += 1 }
+            }
+        }
+        // Switching theme replaces this view: its S key must not stay behind
+        .onDisappear { if let m = searchKey { NSEvent.removeMonitor(m); searchKey = nil } }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResizeNotification)) { _ in updateTitleBarH() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in updateTitleBarH() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in titleBarH = 0 }
@@ -507,6 +532,8 @@ final class NavState: ObservableObject {
     @Published var sel = "home"
     @Published var query = ""
     @Published var searchOpen = false
+    /// Goes up to put the cursor in the search field (the S key)
+    @Published var focusSearch = 0
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
@@ -619,6 +646,7 @@ struct TopNavButtons: View {
 
 struct TopNavTools: View {
     @ObservedObject private var nav = NavState.shared
+    @FocusState private var focused: Bool
     var body: some View {
         HStack(spacing: 8) {
             if nav.searchOpen {
@@ -626,6 +654,7 @@ struct TopNavTools: View {
                 HStack(spacing: 8) {
                     TextField("Search movies, shows, people", text: $nav.query).textFieldStyle(.plain)
                         .font(.system(size: 14)).frame(width: 240)
+                        .focused($focused)
                     if !nav.query.isEmpty {
                         Button { nav.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
                             .buttonStyle(.plain)
@@ -643,7 +672,12 @@ struct TopNavTools: View {
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
                     .contentShape(Circle())
-            }.buttonStyle(.plain).helpLabel("Search")
+            }.buttonStyle(.plain).helpLabel("Search (S)")
+        }
+        // Opening the field puts the cursor in it, ready to type (also from the S key)
+        .onChange(of: nav.searchOpen) { _, open in if open { DispatchQueue.main.async { focused = true } } }
+        .onChange(of: nav.focusSearch) {
+            if nav.searchOpen { focused = true } else { nav.searchOpen = true }
         }
     }
 }
