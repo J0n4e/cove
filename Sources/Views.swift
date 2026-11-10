@@ -829,6 +829,7 @@ struct FavoritesView: View {
                                 // Poster-sized portrait, like the movies above
                                 .frame(width: 170, height: 255).clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                                .modifier(HoverPersonHeart(id: p.id))   // remove from Favorites, as on posters
                                 .hoverLift()
                                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
                             }.frame(width: 170)
@@ -1645,6 +1646,26 @@ extension View {
                           _ padding: EdgeInsets = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8),
                           children: [Item] = []) -> some View {
         modifier(HoverItemActions(item: item, children: children, alignment: alignment, padding: padding))
+    }
+}
+
+/// Heart button in the bottom-right corner on hover, for a person (Favorite People cards).
+struct HoverPersonHeart: ViewModifier {
+    @EnvironmentObject var emby: Emby
+    let id: String
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .bottomTrailing) {
+                if hover {
+                    let fav = emby.isPersonFav(id)
+                    ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
+                                             help: fav ? "Remove from Favorites" : "Add to Favorites") {
+                        Task { await emby.setFav(id, !fav) }
+                    }.padding(8)
+                }
+            }
+            .onHover { hover = $0 }
     }
 }
 

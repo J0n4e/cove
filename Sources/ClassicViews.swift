@@ -734,6 +734,7 @@ struct ClassicFavoritesView: View {
                                 // Poster-sized portrait, like the movies above
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                                .modifier(HoverPersonHeart(id: p.id))   // remove from Favorites, as on posters
                                 .classicHoverLift()
                                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
                             }.frame(width: 150)
