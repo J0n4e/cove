@@ -425,7 +425,13 @@ struct ClassicHomeView: View {
         }
         // Settings always use the Glass window, whichever theme is chosen
         .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
-        .overlay { ToastOverlay() }
+        .overlay {
+            if navStyle == "topbar" {
+                SearchDock(query: queryB, open: Binding(get: { nav.searchOpen }, set: { nav.searchOpen = $0 }),
+                           focusTick: nav.focusSearch)
+            }
+        }
+        .overlay { ToastOverlay(raised: navStyle == "topbar" && nav.searchOpen) }
     }
 }
 
@@ -543,22 +549,9 @@ struct ClassicTopNavButtons: View {
 
 struct ClassicTopNavTools: View {
     @ObservedObject private var nav = ClassicNavState.shared
-    @FocusState private var focused: Bool
     var body: some View {
         HStack(spacing: 8) {
-            if nav.searchOpen {
-                HStack(spacing: 6) {
-                    TextField("Search movies, shows, people", text: $nav.query).textFieldStyle(.plain).frame(width: 220)
-                        .focused($focused)
-                    if !nav.query.isEmpty {
-                        Button { nav.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
-                            .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 12).frame(height: 30)   // as tall as the bar's pills
-                .background(Capsule().fill(Color.white.opacity(0.1)))
-                .overlay(Capsule().stroke(Color.white.opacity(0.12)))
-            }
+            // The search box itself floats at the bottom of the window (SearchDock)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())
             }.buttonStyle(.plain).helpLabel("Search (S)")
@@ -566,11 +559,7 @@ struct ClassicTopNavTools: View {
                 Image(systemName: "gearshape.fill").font(.system(size: 14)).padding(6).contentShape(Rectangle())
             }.buttonStyle(.plain).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
         }
-        // Opening the field puts the cursor in it, ready to type (also from the S key)
-        .onChange(of: nav.searchOpen) { _, open in if open { DispatchQueue.main.async { focused = true } } }
-        .onChange(of: nav.focusSearch) {
-            if nav.searchOpen { focused = true } else { nav.searchOpen = true }
-        }
+        .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
 }
 

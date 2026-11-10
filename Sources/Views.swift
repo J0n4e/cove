@@ -527,7 +527,13 @@ struct HomeView: View {
             emby.openRequest = nil
         }
         .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
-        .overlay { ToastOverlay() }
+        .overlay {
+            if navStyle == "topbar" {
+                SearchDock(query: queryB, open: Binding(get: { nav.searchOpen }, set: { nav.searchOpen = $0 }),
+                           focusTick: nav.focusSearch)
+            }
+        }
+        .overlay { ToastOverlay(raised: navStyle == "topbar" && nav.searchOpen) }
     }
 }
 
@@ -654,25 +660,9 @@ struct TopNavButtons: View {
 
 struct TopNavTools: View {
     @ObservedObject private var nav = NavState.shared
-    @FocusState private var focused: Bool
     var body: some View {
         HStack(spacing: 8) {
-            if nav.searchOpen {
-                // Same height and glass as the round Search button next to it
-                HStack(spacing: 8) {
-                    TextField("Search movies, shows, people", text: $nav.query).textFieldStyle(.plain)
-                        .font(.system(size: 14)).frame(width: 240)
-                        .focused($focused)
-                    if !nav.query.isEmpty {
-                        Button { nav.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
-                            .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16).frame(height: 40)
-                .background(Capsule().fill(Color.black.opacity(0.4)))
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1))
-            }
+            // The search box itself floats at the bottom of the window (SearchDock)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold))
                     .frame(width: 40, height: 40)
@@ -682,11 +672,7 @@ struct TopNavTools: View {
                     .contentShape(Circle())
             }.buttonStyle(.plain).helpLabel("Search (S)")
         }
-        // Opening the field puts the cursor in it, ready to type (also from the S key)
-        .onChange(of: nav.searchOpen) { _, open in if open { DispatchQueue.main.async { focused = true } } }
-        .onChange(of: nav.focusSearch) {
-            if nav.searchOpen { focused = true } else { nav.searchOpen = true }
-        }
+        .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
 }
 
@@ -1717,9 +1703,47 @@ extension View {
     }
 }
 
+/// Search box floating at the bottom of the window (top bar layout), above the toast spot.
+struct SearchDock: View {
+    @Binding var query: String
+    @Binding var open: Bool
+    let focusTick: Int
+    @FocusState private var focused: Bool
+    var body: some View {
+        VStack {
+            Spacer()
+            if open {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold)).foregroundColor(.secondary)
+                    TextField("Search movies, shows, people", text: $query).textFieldStyle(.plain)
+                        .font(.system(size: 15)).frame(width: 320)
+                        .focused($focused)
+                        .onExitCommand { query = ""; open = false }   // Esc closes it
+                    if !query.isEmpty {
+                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
+                            .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 18).frame(height: 44)
+                .background(Capsule().fill(Color.black.opacity(0.55)))
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                .shadow(color: .black.opacity(0.45), radius: 14, y: 5)
+                .padding(.bottom, 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .onAppear { DispatchQueue.main.async { focused = true } }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .animation(.spring(duration: 0.35), value: open)
+        .onChange(of: focusTick) { focused = true }
+    }
+}
+
 /// Confirmation pill at the bottom of the window after a favorite or watched change; fades after 2 s.
 struct ToastOverlay: View {
     @EnvironmentObject var emby: Emby
+    var raised = false   // the search box is open at the bottom: sit above it
     var body: some View {
         VStack {
             Spacer()
@@ -1731,7 +1755,7 @@ struct ToastOverlay: View {
                     .background(.ultraThinMaterial, in: Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.15)))
                     .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
-                    .padding(.bottom, 28)
+                    .padding(.bottom, raised ? 80 : 28)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .id(t.id)
                     .task(id: t.id) {
