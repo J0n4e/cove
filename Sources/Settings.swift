@@ -30,6 +30,45 @@ struct SettingsView: View {
         }
     }
     @State private var section: Section = .general
+    @State private var keyMonitor: Any?
+
+    /// ← → switch tabs, ↑ ↓ scroll the page. Not while typing in a field (the arrows move the cursor there).
+    func installKeys() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
+            guard let w = ev.window, w.isSheet || w.sheetParent != nil,   // only the Settings sheet
+                  !(w.firstResponder is NSText),
+                  ev.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty else { return ev }
+            let all = Section.allCases, i = all.firstIndex(of: section) ?? 0
+            switch ev.keyCode {
+            case 123: if i > 0 { section = all[i - 1] }; return nil                 // ←
+            case 124: if i < all.count - 1 { section = all[i + 1] }; return nil     // →
+            case 125, 126:                                                          // ↓ ↑
+                guard let sv = Self.pageScroller(in: w.contentView) else { return ev }
+                let clip = sv.contentView
+                let maxY = max(0, (sv.documentView?.frame.height ?? 0) - clip.bounds.height)
+                var y = clip.bounds.origin.y + (ev.keyCode == 125 ? 60 : -60)
+                y = min(max(0, y), maxY)
+                NSAnimationContext.runAnimationGroup { c in
+                    c.duration = 0.12
+                    clip.animator().setBoundsOrigin(NSPoint(x: clip.bounds.origin.x, y: y))
+                }
+                sv.reflectScrolledClipView(clip)
+                return nil
+            default: return ev
+            }
+        }
+    }
+
+    /// The page's scroll view: the biggest one in the window (the library table has its own, smaller one).
+    static func pageScroller(in v: NSView?) -> NSScrollView? {
+        guard let v else { return nil }
+        var best: NSScrollView? = v as? NSScrollView
+        for s in v.subviews {
+            if let c = pageScroller(in: s),
+               c.frame.width * c.frame.height > (best.map { $0.frame.width * $0.frame.height } ?? 0) { best = c }
+        }
+        return best
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -81,6 +120,8 @@ struct SettingsView: View {
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
+        .onAppear { installKeys() }
+        .onDisappear { if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil } }
         .tint(accent)     // switches, menus and links inside Settings too
         .background(bg)   // follows Appearance → Background, like the rest of the app
         // Esc closes Settings and keeps the changes, like OK / Done
@@ -805,7 +846,9 @@ struct ShortcutsSettings: View {
                   ("⌘ ←  or  ⌘ [", "Back")])
         }
         PrefSection(title: "In Settings") {
-            keys([("Return", "OK"),
+            keys([("← →", "Previous / next tab"),
+                  ("↑ ↓", "Scroll the page"),
+                  ("Return", "OK"),
                   ("Esc", "Close and keep the changes")])
         }
         PrefSection(title: "Other", last: true) {
