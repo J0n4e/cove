@@ -1076,7 +1076,6 @@ struct PersonHeader: View {
     let record: Item?
     let items: [Item]
     let loading: Bool
-    @State private var photoHover = false
 
     var bio: String { record?.Overview ?? "" }
     var backdrop: Item? { items.first { $0.backdropId != nil } }
@@ -1121,17 +1120,6 @@ struct PersonHeader: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 70)).foregroundColor(.secondary) }
                 }
                 .frame(width: 280, height: 420).clipShape(RoundedRectangle(cornerRadius: 14))
-                // Favorite heart in the bottom-right corner on hover, as on posters
-                .overlay(alignment: .bottomTrailing) {
-                    if photoHover, let record {
-                        let fav = emby.isFav(record)
-                        ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
-                                                 help: fav ? "Remove from Favorites" : "Add to Favorites") {
-                            Task { await emby.setFav(record.id, !fav) }
-                        }.padding(10)
-                    }
-                }
-                .onHover { photoHover = $0 }
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.15)))
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                 VStack(alignment: .leading, spacing: 12) {
@@ -2359,6 +2347,7 @@ struct CastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
     @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
+    @State private var hover = false
     var body: some View {
         let big = castSize == "large"
         VStack(spacing: 6) {
@@ -2371,6 +2360,17 @@ struct CastTile: View {
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
+            // Favorite heart, bottom right on hover, as on posters
+            .overlay(alignment: .bottomTrailing) {
+                if hover {
+                    let fav = emby.isPersonFav(p.Id)
+                    ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
+                                             help: fav ? "Remove from Favorites" : "Add to Favorites") {
+                        Task { await emby.setFav(p.Id, !fav) }
+                    }.padding(big ? 8 : 0)
+                }
+            }
+            .onHover { hover = $0 }
             .hoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
@@ -2457,7 +2457,7 @@ struct DetailView: View {
                     pickers
                     if item.isSeries { episodesList }
                     if item.isBox { boxGrid }
-                    castSection
+                    castSection.task { _ = await emby.favoritePeople() }   // hearts on the cast photos
                     aboutSection
                     includedInSection
                     similarSection

@@ -259,6 +259,9 @@ final class Emby: ObservableObject {
     @Published var openSeason: Int?
     @Published var played: [String: Bool] = [:]
     @Published var faved: [String: Bool] = [:]
+    /// Favorite people from the last `favoritePeople()` call (cast tiles have no favorite flag of their own)
+    @Published var favPeopleIds: Set<String> = []
+    func isPersonFav(_ id: String) -> Bool { faved[id] ?? favPeopleIds.contains(id) }
     @Published var servers: [SavedServer] = []
     /// The saved entry for the server we're signed in to.
     var currentServer: SavedServer? { servers.first { $0.id == server.lowercased() } }
@@ -1015,6 +1018,7 @@ final class Emby: ObservableObject {
     func favoritePeople() async -> [Item] {
         let r: ItemList? = try? await get("/Persons", ["UserId": userId, "IsFavorite": "true", "SortBy": "SortName",
                                                         "SortOrder": "Ascending", "Recursive": "true"])
+        if let r { favPeopleIds = Set(r.Items.map(\.Id)) }
         return r?.Items ?? []
     }
 

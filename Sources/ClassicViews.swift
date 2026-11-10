@@ -1987,6 +1987,7 @@ struct ClassicCastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
     @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
+    @State private var hover = false
     var body: some View {
         let big = castSize == "large"
         VStack(spacing: 6) {
@@ -1999,6 +2000,17 @@ struct ClassicCastTile: View {
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
+            // Favorite heart, bottom right on hover, as on posters
+            .overlay(alignment: .bottomTrailing) {
+                if hover {
+                    let fav = emby.isPersonFav(p.Id)
+                    ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
+                                             help: fav ? "Remove from Favorites" : "Add to Favorites") {
+                        Task { await emby.setFav(p.Id, !fav) }
+                    }.padding(big ? 8 : 0)
+                }
+            }
+            .onHover { hover = $0 }
             .classicHoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
@@ -2080,7 +2092,7 @@ struct ClassicDetailView: View {
                 header
                 if item.isSeries { episodesList }
                 if item.isBox { boxGrid }
-                castSection
+                castSection.task { _ = await emby.favoritePeople() }   // hearts on the cast photos
                 aboutSection
                 includedInSection
                 similarSection
