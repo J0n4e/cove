@@ -388,6 +388,13 @@ struct ClassicHomeView: View {
         }.background(bg)
     }
 
+    /// H key: Home, from any page (search closed, pages on top of it closed)
+    func goHome() {
+        query = ""; nav.searchOpen = false
+        path = NavigationPath()
+        sel = "home"
+    }
+
     var body: some View {
         Group {
             if navStyle == "topbar" { topLayout } else { splitLayout }
@@ -396,7 +403,9 @@ struct ClassicHomeView: View {
         .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
         .onAppear {
             if searchKey == nil {
-                searchKey = SearchKey.install(isPlaying: { ClassicPlaybackFlag.shared.active }) { ClassicNavState.shared.focusSearch += 1 }
+                searchKey = SearchKey.install(isPlaying: { ClassicPlaybackFlag.shared.active },
+                                              focus: { ClassicNavState.shared.focusSearch += 1 },
+                                              home: { goHome() })
             }
         }
         // Switching theme replaces this view: its S key must not stay behind

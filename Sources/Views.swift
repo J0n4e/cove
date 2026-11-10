@@ -5,15 +5,17 @@ import AVKit
 
 // MARK: - Theme
 
-/// "S" opens Search from anywhere in the main window: not while typing in a field, not in the player.
+/// One-letter keys in the main window: "S" opens Search, "H" goes Home. Not while typing in a field, not in
+/// the player.
 enum SearchKey {
-    static func install(isPlaying: @escaping () -> Bool, focus: @escaping () -> Void) -> Any? {
+    static func install(isPlaying: @escaping () -> Bool, focus: @escaping () -> Void,
+                        home: @escaping () -> Void) -> Any? {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-            guard ev.charactersIgnoringModifiers?.lowercased() == "s",
+            guard let key = ev.charactersIgnoringModifiers?.lowercased(), key == "s" || key == "h",
                   ev.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                   let w = ev.window, w.title != "Player", w.attachedSheet == nil, w.sheetParent == nil,
                   !(w.firstResponder is NSText), !isPlaying() else { return ev }
-            focus()
+            if key == "s" { focus() } else { home() }
             return nil
         }
     }
@@ -494,6 +496,13 @@ struct HomeView: View {
         }.background(bg)
     }
 
+    /// H key: Home, from any page (search closed, pages on top of it closed)
+    func goHome() {
+        query = ""; nav.searchOpen = false
+        path = NavigationPath()
+        sel = "home"
+    }
+
     var body: some View {
         Group {
             if navStyle == "topbar" { topLayout } else { splitLayout }
@@ -502,7 +511,9 @@ struct HomeView: View {
         .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
         .onAppear {
             if searchKey == nil {
-                searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active }) { NavState.shared.focusSearch += 1 }
+                searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
+                                              focus: { NavState.shared.focusSearch += 1 },
+                                              home: { goHome() })
             }
         }
         // Switching theme replaces this view: its S key must not stay behind

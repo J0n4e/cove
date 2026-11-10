@@ -799,6 +799,7 @@ struct ShortcutsSettings: View {
         }
         PrefSection(title: "Everywhere") {
             keys([("S", "Search (when not typing in a field)"),
+                  ("H", "Home (when not typing in a field)"),
                   ("⌘ ,", "Open Settings"),
                   ("⌘ [", "Back")])
         }
