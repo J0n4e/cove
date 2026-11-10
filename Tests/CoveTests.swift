@@ -62,6 +62,17 @@ final class CoveTests: XCTestCase {
         }
     }
 
+    func testYouTubeID() {
+        let id = { (s: String) in Trailer.youTubeID(URL(string: s)!) }
+        XCTAssertEqual(id("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=5"), "dQw4w9WgXcQ")
+        XCTAssertEqual(id("http://youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+        XCTAssertEqual(id("https://youtu.be/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+        XCTAssertEqual(id("https://www.youtube.com/embed/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+        XCTAssertNil(id("https://vimeo.com/123456"))
+        XCTAssertNil(id("https://www.youtube.com/watch?v=x'%3Balert(1)"))
+        XCTAssertNil(id("https://notyoutube.com/watch?v=dQw4w9WgXcQ"))
+    }
+
     func testSafeLink() {
         XCTAssertNotNil(SafeLink.url("https://www.imdb.com/title/tt0111161"))
         XCTAssertNotNil(SafeLink.url(" http://example.com "))

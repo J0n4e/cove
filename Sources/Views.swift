@@ -2867,7 +2867,7 @@ struct DetailView: View {
                 Task { await emby.setPlayed(item.id, !played, name: item.Name) }
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
-                glassCircle("film", help: "Trailer") { NSWorkspace.shared.open(u) }
+                glassCircle("film", help: "Trailer") { Trailer.open(u) }
             }
         }
     }
