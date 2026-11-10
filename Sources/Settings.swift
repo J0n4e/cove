@@ -32,7 +32,7 @@ struct SettingsView: View {
     @State private var section: Section = .general
     @State private var keyMonitor: Any?
 
-    /// ← → switch tabs, ↑ ↓ scroll the page. Not while typing in a field (the arrows move the cursor there).
+    /// ← → switch tabs, ↑ ↓ move between the options like Tab / ⇧Tab. Not while typing in a field (the arrows move the cursor there).
     func installKeys() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
             guard let w = ev.window, w.isSheet || w.sheetParent != nil,   // only the Settings sheet
@@ -42,33 +42,17 @@ struct SettingsView: View {
             switch ev.keyCode {
             case 123: if i > 0 { section = all[i - 1] }; return nil                 // ←
             case 124: if i < all.count - 1 { section = all[i + 1] }; return nil     // →
-            case 125, 126:                                                          // ↓ ↑
-                guard let sv = Self.pageScroller(in: w.contentView) else { return ev }
-                let clip = sv.contentView
-                let maxY = max(0, (sv.documentView?.frame.height ?? 0) - clip.bounds.height)
-                var y = clip.bounds.origin.y + (ev.keyCode == 125 ? 60 : -60)
-                y = min(max(0, y), maxY)
-                NSAnimationContext.runAnimationGroup { c in
-                    c.duration = 0.12
-                    clip.animator().setBoundsOrigin(NSPoint(x: clip.bounds.origin.x, y: y))
-                }
-                sv.reflectScrolledClipView(clip)
-                return nil
+            case 125, 126:                                                          // ↓ ↑ work as Tab / ⇧Tab
+                return NSEvent.keyEvent(with: .keyDown, location: ev.locationInWindow,
+                                        modifierFlags: ev.keyCode == 126 ? .shift : [],
+                                        timestamp: ev.timestamp, windowNumber: ev.windowNumber, context: nil,
+                                        characters: "\t", charactersIgnoringModifiers: "\t",
+                                        isARepeat: ev.isARepeat, keyCode: 48) ?? ev
             default: return ev
             }
         }
     }
 
-    /// The page's scroll view: the biggest one in the window (the library table has its own, smaller one).
-    static func pageScroller(in v: NSView?) -> NSScrollView? {
-        guard let v else { return nil }
-        var best: NSScrollView? = v as? NSScrollView
-        for s in v.subviews {
-            if let c = pageScroller(in: s),
-               c.frame.width * c.frame.height > (best.map { $0.frame.width * $0.frame.height } ?? 0) { best = c }
-        }
-        return best
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -847,7 +831,7 @@ struct ShortcutsSettings: View {
         }
         PrefSection(title: "In Settings") {
             keys([("← →", "Previous / next tab"),
-                  ("↑ ↓", "Scroll the page"),
+                  ("↑ ↓", "Next / previous option, like Tab"),
                   ("Return", "OK"),
                   ("Esc", "Close and keep the changes")])
         }
