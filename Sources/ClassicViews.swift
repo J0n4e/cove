@@ -535,8 +535,9 @@ struct ClassicTopNavTools: View {
                             .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Color.white.opacity(0.1)).clipShape(Capsule())
+                .padding(.horizontal, 12).frame(height: 30)   // as tall as the bar's pills
+                .background(Capsule().fill(Color.white.opacity(0.1)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.12)))
             }
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())

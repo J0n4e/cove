@@ -622,15 +622,19 @@ struct TopNavTools: View {
     var body: some View {
         HStack(spacing: 8) {
             if nav.searchOpen {
-                HStack(spacing: 6) {
-                    TextField("Search movies, shows, people", text: $nav.query).textFieldStyle(.plain).frame(width: 220)
+                // Same height and glass as the round Search button next to it
+                HStack(spacing: 8) {
+                    TextField("Search movies, shows, people", text: $nav.query).textFieldStyle(.plain)
+                        .font(.system(size: 14)).frame(width: 240)
                     if !nav.query.isEmpty {
                         Button { nav.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
                             .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Color.white.opacity(0.1)).clipShape(Capsule())
+                .padding(.horizontal, 16).frame(height: 40)
+                .background(Capsule().fill(Color.black.opacity(0.4)))
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1))
             }
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold))
