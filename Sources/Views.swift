@@ -1492,6 +1492,9 @@ struct PosterCard: View {
                         ProgressView(value: pct / 100).padding(.horizontal, 8).padding(.bottom, 8)
                     }
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
+                }
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .thinBorder(12)
                 .modifier(HoverLift(hover: hover))
@@ -1509,27 +1512,33 @@ struct PosterCard: View {
             .onHover { hover = $0 }
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plain)
-        .itemActions(item)
     }
 }
 
-/// Right-click menu on a poster or list row: mark watched / unwatched, add to / remove from Favorites.
-struct ItemActions: ViewModifier {
+/// "•••" button on a poster (bottom right) or list row: mark watched / unwatched, add to / remove from Favorites.
+struct ItemActionsButton: View {
     @EnvironmentObject var emby: Emby
     let item: Item
-    func body(content: Content) -> some View {
-        content.contextMenu {
-            let played = emby.isPlayed(item), fav = emby.isFav(item)
+    var body: some View {
+        let played = emby.isPlayed(item), fav = emby.isFav(item)
+        Menu {
             Button { Task { await emby.setPlayed(item.id, !played) } } label: {
                 Label(played ? "Mark as Unwatched" : "Mark as Watched", systemImage: played ? "eye.slash" : "checkmark.circle")
             }
             Button { Task { await emby.setFav(item.id, !fav) } } label: {
                 Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "heart.slash" : "heart")
             }
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.black.opacity(0.6)))
+                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                .contentShape(Circle())
         }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help("Watched and Favorites")
     }
 }
-extension View { func itemActions(_ item: Item) -> some View { modifier(ItemActions(item: item)) } }
 
 /// Pointer position on a poster in its own and in window coordinates (a class: writes don't redraw the poster).
 final class PointerBox {
@@ -1717,6 +1726,7 @@ struct ListRow: View {
                     Text(item.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 12)
+                ItemActionsButton(item: item).opacity(hover ? 1 : 0)
                 WatchBadge(item: item, played: played)
             }
             .padding(8)
@@ -1724,7 +1734,6 @@ struct ListRow: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
         }.buttonStyle(.plain)
-        .itemActions(item)
     }
 }
 

@@ -1251,6 +1251,9 @@ struct ClassicPosterCard: View {
                         ProgressView(value: pct / 100).padding(.horizontal, 8).padding(.bottom, 8)
                     }
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
+                }
                 .cornerRadius(8)
                 .classicThinBorder(8)
                 // The Netflix-style preview card is drawn by ClassicHoverCardLayer (window level), centered on this poster.
@@ -1289,7 +1292,6 @@ struct ClassicPosterCard: View {
             .onHover { hover = $0 }
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plain)
-        .itemActions(item)
     }
 }
 
@@ -1479,6 +1481,7 @@ struct ClassicListRow: View {
                     Text(item.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 12)
+                ItemActionsButton(item: item).opacity(hover ? 1 : 0)
                 ClassicWatchBadge(item: item, played: played)
             }
             .padding(8)
@@ -1486,7 +1489,6 @@ struct ClassicListRow: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
         }.buttonStyle(.plain)
-        .itemActions(item)
     }
 }
 
