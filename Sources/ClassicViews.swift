@@ -363,6 +363,7 @@ struct ClassicHomeView: View {
                 .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: ClassicPersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: ClassicFavoriteGridRef.self) { ClassicFavoriteGridView(title: $0.title, ids: $0.ids) }
+                .navigationDestination(for: ClassicFavoritePeopleRef.self) { _ in ClassicFavoritePeopleView() }
             }
             // Back button in the title bar, left of the window title, on every page
             .toolbar { ClassicTitleBarItems(back: nil) }   // top-level pages: no Back (pushed pages add their own)
@@ -758,26 +759,16 @@ struct ClassicFavoritesView: View {
     /// Portrait photos of favorite actors and directors, poster-sized; a click opens their page.
     func peopleSection(_ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Favorite People").font(.title3.bold())
+            // "Favorite People ›" opens all of them on their own page, like the other sections
+            NavigationLink(value: ClassicFavoritePeopleRef()) {
+                HStack(spacing: 6) {
+                    Text("Favorite People").font(.title3.bold())
+                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                }.contentShape(Rectangle())
+            }.buttonStyle(.plain)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
-                    ForEach(list) { p in
-                        NavigationLink(value: ClassicPersonRef(id: p.id, name: p.Name)) {
-                            VStack(spacing: 8) {
-                                CachedImage(url: emby.image(p.id, width: 260)) { img in
-                                    img.resizable().aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
-                                }
-                                // Poster-sized portrait, like the movies above
-                                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
-                                .modifier(HoverPersonHeart(id: p.id, name: p.Name))   // remove from Favorites, as on posters
-                                .classicHoverLift()
-                                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
-                            }.frame(width: 150)
-                        }.buttonStyle(.plain)
-                    }
+                    ForEach(list) { ClassicFavPersonCard(p: $0) }
                 }.padding(.vertical, 6)
             }
         }
@@ -3904,5 +3895,56 @@ struct ClassicAlphaLetter: View {
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+    }
+}
+
+/// "Favorite People ›" opened as a page.
+struct ClassicFavoritePeopleRef: Hashable {}
+
+/// One favorite person: poster-sized portrait and name; opens their page, heart on hover removes them.
+struct ClassicFavPersonCard: View {
+    @EnvironmentObject var emby: Emby
+    let p: Item
+    var body: some View {
+        NavigationLink(value: ClassicPersonRef(id: p.id, name: p.Name)) {
+            VStack(spacing: 8) {
+                CachedImage(url: emby.image(p.id, width: 360)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                }
+                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                .modifier(HoverPersonHeart(id: p.id, name: p.Name))
+                .classicHoverLift()
+                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
+            }.frame(width: 150)
+        }.buttonStyle(.plain)
+    }
+}
+
+/// Every favorite person in a grid.
+struct ClassicFavoritePeopleView: View {
+    @EnvironmentObject var emby: Emby
+    @Environment(\.appBG) var bg
+    @Environment(\.dismiss) var dismiss
+    @State private var people: [Item] = []
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Favorite People").font(.title.bold())
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
+                    ForEach(people.filter { emby.isFav($0) }) { ClassicFavPersonCard(p: $0) }
+                }
+            }.padding(.horizontal, 32).padding(.vertical, 24)
+        }
+        .background(bg)
+        .navigationTitle("Favorite People")
+        .navigationBarBackButtonHidden(true)
+        .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
+        .classicHideToolbarTitle()
+        .task { people = await emby.favoritePeople() }
+        .onChange(of: emby.favRevision) { Task { people = await emby.favoritePeople() } }
     }
 }
