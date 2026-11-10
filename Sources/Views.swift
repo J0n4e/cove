@@ -3860,7 +3860,7 @@ struct PlayerView: View {
             Spacer()
             // Right glass group: volume
             HStack(spacing: 12) {
-                Slider(value: $model.volume, in: 0...1).frame(width: 170).tint(.white).controlSize(.small)
+                Slider(value: $model.volume, in: 0...1).frame(width: 170).tint(.white).controlSize(.small).handCursor()
                 Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
                     Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 17))
                         .frame(width: 26)
@@ -3961,7 +3961,7 @@ struct PlayerView: View {
                     if editing { scrub = model.time; scrubbing = true }
                     else { model.seek(to: scrub); scrubbing = false }
                 }
-                .tint(.white).controlSize(.small)
+                .tint(.white).controlSize(.small).handCursor()
                 .background(GeometryReader { g in
                     Color.clear.onAppear { sliderW = g.size.width }.onChange(of: g.size.width) { _, w in sliderW = w }
                 })

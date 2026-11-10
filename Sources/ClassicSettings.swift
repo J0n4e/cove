@@ -348,7 +348,7 @@ struct ClassicLibrariesSettings: View {
             Toggle("Show the preview card when hovering a poster", isOn: $hoverOn)
             ClassicSettingRow(label: "Delay before it opens") {
                 HStack(spacing: 10) {
-                    Slider(value: $hoverDelay, in: 0.1...2.0, step: 0.1).frame(width: 200)
+                    Slider(value: $hoverDelay, in: 0.1...2.0, step: 0.1).frame(width: 200).handCursor()
                     Text(String(format: "%.1f s", hoverDelay)).monospacedDigit().foregroundColor(.secondary)
                         .frame(width: 46, alignment: .trailing)
                 }
@@ -362,7 +362,7 @@ struct ClassicLibrariesSettings: View {
             }.disabled(!hoverOn || !hoverZoom)
             ClassicSettingRow(label: "Zoom duration") {
                 HStack(spacing: 10) {
-                    Slider(value: $hoverZoomDur, in: 0.1...1.0, step: 0.05).frame(width: 200)
+                    Slider(value: $hoverZoomDur, in: 0.1...1.0, step: 0.05).frame(width: 200).handCursor()
                     Text(String(format: "%.2f s", hoverZoomDur)).monospacedDigit().foregroundColor(.secondary)
                         .frame(width: 46, alignment: .trailing)
                 }

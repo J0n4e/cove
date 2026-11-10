@@ -3100,7 +3100,7 @@ struct ClassicPlayerView: View {
             } placeholder: { EmptyView() }
             .frame(maxWidth: 160, maxHeight: 40, alignment: .leading)
             Spacer()
-            Slider(value: $model.volume, in: 0...1).frame(width: 160).tint(.white).controlSize(.small)
+            Slider(value: $model.volume, in: 0...1).frame(width: 160).tint(.white).controlSize(.small).handCursor()
             Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
                 Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 18))
             }.buttonStyle(HoverButton(backing: true))
@@ -3136,7 +3136,7 @@ struct ClassicPlayerView: View {
                 if editing { scrub = model.time; scrubbing = true }
                 else { model.seek(to: scrub); scrubbing = false }
             }
-            .tint(accent).controlSize(.small)
+            .tint(accent).controlSize(.small).handCursor()
             .background(GeometryReader { g in
                 Color.clear.onAppear { sliderW = g.size.width }.onChange(of: g.size.width) { _, w in sliderW = w }
             })
