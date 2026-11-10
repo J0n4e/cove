@@ -2507,7 +2507,6 @@ struct DetailView: View {
         .toolbarBackground(.hidden, for: .windowToolbar)
     }
 
-    @State private var moreText = false
 
     /// "Movie · Action · Drama", like Apple TV.
     var kindLine: String {
@@ -2555,15 +2554,9 @@ struct DetailView: View {
                         }
                     }.font(.system(size: 15, weight: .medium))
                     if let o = item.Overview, !o.isEmpty {
-                        HStack(alignment: .lastTextBaseline, spacing: 6) {
-                            Text(o).lineLimit(moreText ? nil : 2).frame(maxWidth: 440, alignment: .leading)
-                            if o.count > 110 {
-                                Button(moreText ? "LESS" : "MORE") { withAnimation { moreText.toggle() } }
-                                    .buttonStyle(.plain).font(.system(size: 12, weight: .bold))
-                                    .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(Capsule().fill(Color.white.opacity(0.18)))
-                            }
-                        }.font(.system(size: 15)).foregroundColor(.white.opacity(0.85))
+                        // The whole description, no MORE button
+                        Text(o).frame(maxWidth: 560, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 15)).foregroundColor(.white.opacity(0.85))
                     }
                     HStack(spacing: 8) {
                         if let y = item.ProductionYear { Text(item.isSeries ? item.yearText : String(y)) }
