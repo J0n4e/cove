@@ -807,7 +807,7 @@ struct FavoritesView: View {
     }
 
     /// Emby-style row: "Favorite Movies ›" heading (opens the full grid) and a scrolling row of posters.
-    /// Round photos of favorite actors and directors; a click opens their page.
+    /// Portrait photos of favorite actors and directors, poster-sized; a click opens their page.
     func peopleSection(_ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Favorite People").font(.title3.bold())
@@ -819,11 +819,14 @@ struct FavoritesView: View {
                                 CachedImage(url: emby.image(p.id, width: 260)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 34)).foregroundColor(.secondary) }
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
                                 }
-                                .frame(width: 110, height: 110).clipShape(Circle())
+                                // Poster-sized portrait, like the movies above
+                                .frame(width: 170, height: 255).clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                                .hoverLift()
                                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
-                            }.frame(width: 124)
+                            }.frame(width: 170)
                         }.buttonStyle(.plain)
                     }
                 }.padding(.vertical, 6)
