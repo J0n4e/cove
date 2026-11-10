@@ -165,12 +165,12 @@ struct ConnectionBadge: View {
     var body: some View {
         switch ConnectionSecurity.kind(address) {
         case .encrypted:
-            Image(systemName: "lock.fill").foregroundColor(.secondary).help("Encrypted connection (https)")
+            Image(systemName: "lock.fill").foregroundColor(.secondary).tip("Encrypted connection (https)")
         case .localPlain:
-            Image(systemName: "lock.open").foregroundColor(.secondary).help("Not encrypted (http), on your home network")
+            Image(systemName: "lock.open").foregroundColor(.secondary).tip("Not encrypted (http), on your home network")
         case .remotePlain:
             Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                .help("Not encrypted (http) over the internet: the sign-in can be read on the network. Use an https address if the server has one.")
+                .tip("Not encrypted (http) over the internet: the sign-in can be read on the network. Use an https address if the server has one.")
         }
     }
 }
