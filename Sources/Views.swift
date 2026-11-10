@@ -3473,6 +3473,7 @@ struct PlayerView: View {
 
     /// Full screen for the video; leaving the player restores the window if the player made it full screen.
     func toggleFullScreen() {
+        DebugLog.write("fs toggle: playerWin=\(playerWin.window?.title ?? "nil") key=\(NSApp.keyWindow?.title ?? "nil") main=\(NSApp.mainWindow?.title ?? "nil") chosen=\(window?.title ?? "nil") fullscreen=\(window?.styleMask.contains(.fullScreen) ?? false)")
         guard let w = window else { return }
         w.collectionBehavior.insert(.fullScreenPrimary)   // the separate player window isn't full-screen capable by default
         let on = w.styleMask.contains(.fullScreen)
@@ -3633,11 +3634,13 @@ struct PlayerView: View {
         }
         .toolbar(.hidden, for: .windowToolbar)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
+            DebugLog.write("fs entered: \((n.object as? NSWindow)?.title ?? "?") owns=\(playerWin.owns(n.object))")
             guard playerWin.owns(n.object) else { return }
             isFullScreen = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { n in
+            DebugLog.write("fs exited: \((n.object as? NSWindow)?.title ?? "?") owns=\(playerWin.owns(n.object))")
             guard playerWin.owns(n.object) else { return }
             isFullScreen = false
             // Take the keyboard back after leaving full screen, so Esc / Space / F keep working
@@ -3654,6 +3657,9 @@ struct PlayerView: View {
         .onAppear {
             let win = playerWin
             escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
+                if ev.keyCode == 3 || ev.keyCode == 53 {
+                    DebugLog.write("fs key \(ev.keyCode): event window=\(ev.window?.title ?? "nil") playerWin=\(win.window?.title ?? "nil") same=\(ev.window === win.window) sheet=\(win.window?.attachedSheet != nil)")
+                }
                 guard let w = win.window, ev.window === w,
                       w.attachedSheet == nil, w.sheetParent == nil else { return ev }
                 // F also here: in the separate player window the SwiftUI key handler doesn't always get it
