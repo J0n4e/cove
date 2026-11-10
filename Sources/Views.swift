@@ -1517,18 +1517,18 @@ struct PosterCard: View {
 
 /// Shows the Watched / Favorite buttons in a corner while the pointer is on the view (episode cards and rows).
 struct HoverItemActions: ViewModifier {
-    let item: Item
+    let item: Item?     // nil: no buttons (a season the server didn't list)
     let alignment: Alignment
     var padding = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
     @State private var hover = false
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: alignment) { if hover { ItemActionsButton(item: item).padding(padding) } }
+            .overlay(alignment: alignment) { if hover, let item { ItemActionsButton(item: item).padding(padding) } }
             .onHover { hover = $0 }   // after the overlay, so moving onto the buttons keeps them shown
     }
 }
 extension View {
-    func hoverItemActions(_ item: Item, _ alignment: Alignment = .topTrailing,
+    func hoverItemActions(_ item: Item?, _ alignment: Alignment = .topTrailing,
                           _ padding: EdgeInsets = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)) -> some View {
         modifier(HoverItemActions(item: item, alignment: alignment, padding: padding))
     }
@@ -2665,6 +2665,7 @@ struct DetailView: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(selected ? 1 : 0.85), lineWidth: selected ? 3 : 1))
                 .shadow(radius: 6)
                 .hoverLift()
+                .hoverItemActions(sItem, .bottomTrailing)
                 Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plain)
