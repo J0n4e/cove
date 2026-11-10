@@ -345,7 +345,7 @@ struct AboutSettings: View {
             PrefRow(label: "Version") { Text("Cove " + AppVersion.label).textSelection(.enabled) }
             PrefRow(label: "Updates") { UpdateRow() }
             PrefRow(label: "Source") {
-                Link("github.com/J0n4e/cove", destination: URL(string: "https://github.com/J0n4e/cove/releases")!)
+                Link("github.com/J0n4e/cove", destination: URL(string: "https://github.com/J0n4e/cove/releases")!).handCursor()
             }
         }
         PrefSection(title: "Storage") {

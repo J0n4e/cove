@@ -3146,7 +3146,7 @@ struct DetailView: View {
             .padding(.vertical, 14)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1) }
             .contentShape(Rectangle())
-        }
+        }.handCursor()
         .buttonStyle(.plainHand).padding(.horizontal, 52)
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
@@ -3243,7 +3243,7 @@ struct DetailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .thinBorder(12)
             .hoverLift(play: 44) { playEpisode(ep) }
-        }
+        }.handCursor()
         .buttonStyle(.plainHand)
         .hoverItemActions(ep)
         .contextMenu {
@@ -3308,7 +3308,7 @@ struct DetailView: View {
                         Text("Links").bold()
                         HStack(spacing: 10) {
                             ForEach(links.indices, id: \.self) { i in
-                                if let n = links[i].Name, let u = SafeLink.url(links[i].Url) { Link(n, destination: u) }
+                                if let n = links[i].Name, let u = SafeLink.url(links[i].Url) { Link(n, destination: u).handCursor() }
                             }
                         }
                     }

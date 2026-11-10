@@ -262,7 +262,7 @@ struct ClassicAboutSettings: View {
             }
             ClassicSettingRow(label: "Updates") { UpdateRow() }
             ClassicSettingRow(label: "Source & releases") {
-                Link("github.com/J0n4e/cove", destination: URL(string: "https://github.com/J0n4e/cove/releases")!)
+                Link("github.com/J0n4e/cove", destination: URL(string: "https://github.com/J0n4e/cove/releases")!).handCursor()
             }
         }
         ClassicSettingsGroup(title: "Save and load settings",
