@@ -2308,7 +2308,7 @@ struct ClassicDetailView: View {
                     .buttonStyle(.plain)
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
-                Button { Trailer.open(u) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(.plain)
+                Button { Trailer.open(u, item: item, emby: emby) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(.plain)
             }
             Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
                 if played { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).classicCircleButton() }

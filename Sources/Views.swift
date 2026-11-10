@@ -2867,7 +2867,7 @@ struct DetailView: View {
                 Task { await emby.setPlayed(item.id, !played, name: item.Name) }
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
-                glassCircle("film", help: "Trailer") { Trailer.open(u) }
+                glassCircle("film", help: "Trailer") { Trailer.open(u, item: item, emby: emby) }
             }
         }
     }
@@ -3355,7 +3355,8 @@ struct ChosenPlayerView: View {
     @AppStorage("playerControls") private var controls = "theme"
     var body: some View {
         let style = controls == "theme" ? (theme == "apple" ? "glass" : "classic") : controls
-        if style == "classic" { ClassicPlayerView(req: req) } else { PlayerView(req: req) }
+        if let t = req.trailer { TrailerPlayerView(link: t) }
+        else if style == "classic" { ClassicPlayerView(req: req) } else { PlayerView(req: req) }
     }
 }
 

@@ -61,6 +61,7 @@ struct PlayRequest: Identifiable {
     var start: Double? = nil      // seconds to resume from
     var noSub = false             // user chose "Off": don't auto-load the preferred language
     var burnIn = false            // subtitle couldn't be read as text: have the server burn it in
+    var trailer: URL? = nil       // a YouTube trailer of the item, played with YouTube's player instead
     var id: String { item.id }
     var transcode: Bool { audio != nil || sub != nil || maxBitrate != nil }
 }

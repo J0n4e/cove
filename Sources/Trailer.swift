@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import WebKit
 
-/// Trailers: YouTube links play in a sheet over the window with YouTube's own player, no browser. Other links,
+/// Trailers: YouTube links play in the player area with YouTube's own player, no browser. Other links,
 /// and YouTube videos whose owner doesn't allow playing outside YouTube, open in the browser.
 @MainActor
 enum Trailer {
@@ -27,44 +27,37 @@ enum Trailer {
         return id
     }
 
-    private static var sheet: NSWindow?
-    private static var escMonitor: Any?
-
-    /// Trailer button: a YouTube trailer plays in Cove, anything else opens in the browser.
-    static func open(_ u: URL) {
-        guard let id = youTubeID(u), let parent = NSApp.keyWindow ?? NSApp.mainWindow, parent.attachedSheet == nil
-        else { NSWorkspace.shared.open(u); return }
-        let w = min(max(parent.frame.width * 0.8, 640), 1280)
-        let s = NSWindow(contentRect: NSRect(x: 0, y: 0, width: w, height: w * 9 / 16 + 52),
-                         styleMask: [.titled], backing: .buffered, defer: false)
-        s.contentView = NSHostingView(rootView: TrailerView(videoID: id, link: u, close: close)
-            .preferredColorScheme(.dark))
-        sheet = s
-        // Esc closes it, also while the player has the keyboard
-        escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-            guard ev.keyCode == 53, ev.window === sheet else { return ev }
-            close(); return nil
-        }
-        parent.beginSheet(s)
-    }
-
-    static func close() {
-        if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil }
-        guard let s = sheet else { return }
-        sheet = nil
-        s.sheetParent?.endSheet(s)
-        s.contentView = nil          // drops the web view, so the sound stops at once
+    /// Trailer button: a YouTube trailer plays in the player area like a video, anything else opens in the browser.
+    static func open(_ u: URL, item: Item, emby: Emby) {
+        guard youTubeID(u) != nil else { NSWorkspace.shared.open(u); return }
+        emby.playing = PlayRequest(item: item, trailer: u)
     }
 }
 
-private struct TrailerView: View {
-    let videoID: String
+/// Plays a trailer where videos play (in the window or the separate player window). Esc leaves full screen,
+/// then the trailer; F toggles full screen.
+struct TrailerPlayerView: View {
+    @EnvironmentObject var emby: Emby
     let link: URL
-    let close: () -> Void
     @State private var blocked = false
+    @State private var playerWin = WeakWindow()
+    @State private var keyMonitor: Any?
+    @State private var enteredFullScreen = false
+
+    var videoID: String { Trailer.youTubeID(link) ?? "" }
+    var separate: Bool { UserDefaults.standard.bool(forKey: "separatePlayer") }
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                BackPill(compact: true) { close() }.helpLabel("Back (Esc)")
+                Spacer()
+                Button { NSWorkspace.shared.open(link); close() } label: {
+                    Label("Watch on YouTube", systemImage: "arrow.up.right.square")
+                }.buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+            // The separate window has no title bar: room for its window buttons
+            .padding(.leading, separate ? 80 : 14).padding(.trailing, 14).frame(height: 48)
             ZStack {
                 Color.black
                 if blocked {
@@ -78,13 +71,35 @@ private struct TrailerView: View {
                     YouTubePlayer(videoID: videoID) { blocked = true }
                 }
             }
-            HStack {
-                Button { NSWorkspace.shared.open(link); close() } label: { Label("Watch on YouTube", systemImage: "arrow.up.right.square") }
-                Spacer()
-                Button("Close", action: close).keyboardShortcut(.cancelAction)
-            }
-            .padding(.horizontal, 14).frame(height: 52)
         }
+        .background(Color.black.ignoresSafeArea())
+        .background(WindowReader { playerWin.window = $0 })
+        .onAppear {
+            let win = playerWin
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
+                guard let w = win.window, ev.window === w, w.attachedSheet == nil else { return ev }
+                if ev.keyCode == 3, ev.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+                    if !ev.isARepeat { toggleFullScreen(w) }
+                    return nil
+                }
+                guard ev.keyCode == 53 else { return ev }
+                if w.styleMask.contains(.fullScreen) { toggleFullScreen(w) } else { close() }
+                return nil
+            }
+        }
+        .onDisappear { if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil } }
+    }
+
+    func toggleFullScreen(_ w: NSWindow) {
+        w.collectionBehavior.insert(.fullScreenPrimary)
+        if !w.styleMask.contains(.fullScreen) { enteredFullScreen = true }
+        DispatchQueue.main.async { w.toggleFullScreen(nil) }   // after the key event, as in the video player
+    }
+
+    func close() {
+        if enteredFullScreen, let w = playerWin.window, w.styleMask.contains(.fullScreen) { w.toggleFullScreen(nil) }
+        enteredFullScreen = false
+        emby.playing = nil
     }
 }
 
