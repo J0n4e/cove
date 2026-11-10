@@ -2761,7 +2761,8 @@ struct ClassicPlayerView: View {
     var prevEp: Item? { episodes.firstIndex(where: { $0.Id == item.Id }).flatMap { $0 > 0 ? episodes[$0 - 1] : nil } }
     var nextEp: Item? { episodes.firstIndex(where: { $0.Id == item.Id }).flatMap { $0 + 1 < episodes.count ? episodes[$0 + 1] : nil } }
 
-    var window: NSWindow? { NSApp.keyWindow ?? NSApp.mainWindow }
+    /// The window this player is in (the separate player window is not always the key or main window)
+    var window: NSWindow? { playerWin.window ?? NSApp.keyWindow ?? NSApp.mainWindow }
 
     /// Height of the window's title bar while windowed (0 in full screen, where there is none).
     var titleBarHeight: CGFloat {
@@ -2976,8 +2977,14 @@ struct ClassicPlayerView: View {
         .onAppear {
             let win = playerWin
             escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-                guard ev.keyCode == 53, let w = win.window, ev.window === w,
+                guard let w = win.window, ev.window === w,
                       w.attachedSheet == nil, w.sheetParent == nil else { return ev }
+                // F also here: in the separate player window the SwiftUI key handler doesn't always get it
+                if ev.keyCode == 3, ev.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                   !(w.firstResponder is NSText) {
+                    toggleFullScreen(); return nil
+                }
+                guard ev.keyCode == 53 else { return ev }
                 if panel != nil { panel = nil } else if w.styleMask.contains(.fullScreen) { toggleFullScreen() } else { close() }
                 return nil
             }
