@@ -890,26 +890,29 @@ struct ClassicPersonView: View {
     let person: ClassicPersonRef
     @Environment(\.dismiss) var dismiss
     @State private var items: [Item] = []
-    @State private var bio = ""
+    @State private var record: Item?
     @State private var loading = true
-    @State private var showBio = false
 
     var body: some View {
         let movies = items.filter { !$0.isSeries }
         let shows = items.filter { $0.isSeries }
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                header
-                if !movies.isEmpty { section("Movies", movies) }
-                if !shows.isEmpty { section("Shows", shows) }
-                if loading { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
-                else if items.isEmpty {
-                    Text("Nothing in your libraries with \(person.name).").foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity).padding(.top, 60)
-                }
+            VStack(alignment: .leading, spacing: 34) {
+                // Same header as the Glass theme
+                PersonHeader(id: person.id, name: person.name, record: record, items: items, loading: loading)
+                Group {
+                    if !movies.isEmpty { section("Movies", movies) }
+                    if !shows.isEmpty { section("Shows", shows) }
+                    if loading { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
+                    else if items.isEmpty {
+                        Text("Nothing in your libraries with \(person.name).").foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity).padding(.top, 40)
+                    }
+                }.padding(.horizontal, 52)
             }
-            .padding(.horizontal, 32).padding(.vertical, 24)
+            .padding(.bottom, 40)
         }
+        .ignoresSafeArea(edges: .top)
         .background(bg)
         .navigationTitle(person.name)
         .navigationBarBackButtonHidden(true)
@@ -919,36 +922,17 @@ struct ClassicPersonView: View {
             async let list = emby.itemsWithPerson(person.id)
             async let me = emby.person(person.id)
             items = await list
-            bio = await me?.Overview ?? ""
+            record = await me
             loading = false
         }
     }
 
-    var header: some View {
-        HStack(alignment: .top, spacing: 24) {
-            CachedImage(url: emby.image(person.id, width: 300)) { img in
-                img.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
-            }
-            .frame(width: 140, height: 140).clipShape(Circle())
-            VStack(alignment: .leading, spacing: 8) {
-                Text(person.name).font(.largeTitle.bold())
-                if !loading {
-                    Text("\(items.count) title\(items.count == 1 ? "" : "s") in your libraries").foregroundColor(.secondary)
-                }
-                if !bio.isEmpty {
-                    Text(bio).foregroundColor(.secondary).lineLimit(showBio ? nil : 4).textSelection(.enabled)
-                        .frame(maxWidth: 760, alignment: .leading)
-                    Button(showBio ? "Less" : "More") { showBio.toggle() }.buttonStyle(.plain).foregroundColor(.accentColor)
-                }
-            }
-        }
-    }
-
     func section(_ title: String, _ list: [Item]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("\(title) (\(list.count))").font(.title3.bold())
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title).font(.title2.bold())
+                Text("\(list.count)").font(.title3).foregroundColor(.secondary)
+            }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                 ForEach(list) { ClassicPosterCard(item: $0) }
             }

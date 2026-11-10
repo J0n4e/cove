@@ -31,6 +31,8 @@ struct Item: Identifiable, Decodable, Hashable {
     let Genres: [String]?
     let EndDate: String?
     let Status: String?
+    let PremiereDate: String?            // a person's birth date
+    let ProductionLocations: [String]?   // a person's birthplace
     struct UD: Decodable, Hashable { let Played: Bool?; let IsFavorite: Bool?; let PlayedPercentage: Double?; let UnplayedItemCount: Int?; let PlaybackPositionTicks: Int64? }
     var id: String { Id }
     var backdropId: String? { (BackdropImageTags ?? []).isEmpty ? ParentBackdropItemId : Id }
@@ -994,7 +996,7 @@ final class Emby: ObservableObject {
 
     /// A person's own record (name, biography).
     func person(_ id: String) async -> Item? {
-        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview"])
+        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,ProductionLocations"])
     }
 
     /// Any item's record by id (used to find the series behind an episode).
