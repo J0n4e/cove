@@ -905,6 +905,7 @@ struct FavoritesView: View {
 
     /// Emby-style row: "Favorite Movies ›" heading (opens the full grid) and a scrolling row of posters.
     /// Portrait photos of favorite actors and directors, poster-sized; a click opens their page.
+    /// Follows the Favorites layout (Row, Grid or List) like the other sections.
     func peopleSection(_ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // "Favorite People ›" opens all of them on their own page, like the other sections
@@ -914,10 +915,17 @@ struct FavoritesView: View {
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 18) {
+            if layout == "grid" {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(list) { FavPersonCard(p: $0) }
-                }.padding(.vertical, 6)
+                }
+            } else if layout == "list" {
+                LazyVStack(spacing: 6) { ForEach(list) { FavPersonListRow(p: $0, link: PersonRef(id: $0.id, name: $0.Name)) } }
+            } else {
+                let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
+                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 170, spacing: 16, inset: 0) { id in
+                    if let p = byId[id] { FavPersonCard(p: p) }
+                }
             }
         }
     }
@@ -4796,6 +4804,34 @@ struct FavPersonCard: View {
                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
             }.frame(width: 170)
         }.buttonStyle(.plainHand)
+    }
+}
+
+/// A favorite person as a list row (Favorites in List layout): small photo and name; a click opens their page.
+struct FavPersonListRow<Link: Hashable>: View {
+    @EnvironmentObject var emby: Emby
+    let p: Item
+    let link: Link
+    @State private var hover = false
+    var body: some View {
+        NavigationLink(value: link) {
+            HStack(spacing: 14) {
+                CachedImage(url: emby.image(p.id, width: 120)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").foregroundColor(.secondary) }
+                }
+                .frame(width: 44, height: 66).clipShape(RoundedRectangle(cornerRadius: 6))
+                Text(p.Name).font(.body.weight(.semibold)).lineLimit(1)
+                Spacer(minLength: 0)
+                if emby.isFav(p) { Image(systemName: "heart.fill").foregroundStyle(.tint) }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hover ? 0.1 : 0.04)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plainHand)
+        .onHover { hover = $0 }
     }
 }
 

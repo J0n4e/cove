@@ -779,6 +779,7 @@ struct ClassicFavoritesView: View {
 
     /// Emby-style row: "Favorite Movies ›" heading (opens the full grid) and a scrolling row of posters.
     /// Portrait photos of favorite actors and directors, poster-sized; a click opens their page.
+    /// Follows the Favorites layout (Row, Grid or List) like the other sections.
     func peopleSection(_ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // "Favorite People ›" opens all of them on their own page, like the other sections
@@ -788,10 +789,17 @@ struct ClassicFavoritesView: View {
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 18) {
+            if layout == "grid" {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(list) { ClassicFavPersonCard(p: $0) }
-                }.padding(.vertical, 6)
+                }
+            } else if layout == "list" {
+                LazyVStack(spacing: 6) { ForEach(list) { FavPersonListRow(p: $0, link: ClassicPersonRef(id: $0.id, name: $0.Name)) } }
+            } else {
+                let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
+                ClassicArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
+                    if let p = byId[id] { ClassicFavPersonCard(p: p) }
+                }
             }
         }
     }
