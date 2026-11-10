@@ -1202,7 +1202,7 @@ struct ClassicResumeCard: View {
                         Button { Task { await emby.play(item) } } label: {
                             Image(systemName: "play.circle.fill").font(.system(size: 40)).foregroundColor(.white)
                                 .shadow(radius: 6)
-                        }.buttonStyle(.plain).helpLabel("Resume")
+                        }.buttonStyle(.plain).accessibilityLabel("Resume")
                     }
                 }
                 .cornerRadius(8)
@@ -1223,7 +1223,7 @@ struct ClassicResumeCard: View {
             .accessibilityValue(timeLeft ?? "")
             .accessibilityAction { openPage() }
             .accessibilityAction(named: "Resume") { Task { await emby.play(item) } }
-            .helpLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)
+            .accessibilityLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)   // no tooltip on these cards
         }
     }
 }
