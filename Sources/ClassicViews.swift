@@ -407,6 +407,7 @@ struct ClassicHomeView: View {
         }
         // Settings always use the Glass window, whichever theme is chosen
         .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
+        .overlay { ToastOverlay() }
     }
 }
 
@@ -734,7 +735,7 @@ struct ClassicFavoritesView: View {
                                 // Poster-sized portrait, like the movies above
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
-                                .modifier(HoverPersonHeart(id: p.id))   // remove from Favorites, as on posters
+                                .modifier(HoverPersonHeart(id: p.id, name: p.Name))   // remove from Favorites, as on posters
                                 .classicHoverLift()
                                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
                             }.frame(width: 150)
@@ -2022,7 +2023,7 @@ struct ClassicCastTile: View {
                     let fav = emby.isPersonFav(p.Id)
                     ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
                                              help: fav ? "Remove from Favorites" : "Add to Favorites") {
-                        Task { await emby.setFav(p.Id, !fav) }
+                        Task { await emby.setFav(p.Id, !fav, name: p.Name) }
                     }.padding(big ? 8 : 0)
                 }
             }
@@ -2253,11 +2254,11 @@ struct ClassicDetailView: View {
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
                 Button { NSWorkspace.shared.open(u) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(.plain)
             }
-            Button { Task { await emby.setPlayed(item.id, !played) } } label: {
+            Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
                 if played { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "checkmark.circle").classicCircleButton() }
             }.buttonStyle(.plain).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
-            Button { Task { await emby.setFav(item.id, !emby.isFav(item)) } } label: {
+            Button { Task { await emby.setFav(item.id, !emby.isFav(item), name: item.Name) } } label: {
                 if emby.isFav(item) { Image(systemName: "heart.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "heart").classicCircleButton() }
             }.buttonStyle(.plain).helpLabel("Favorite")
@@ -2434,7 +2435,7 @@ struct ClassicDetailView: View {
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played) }
+                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
             }
         }
     }
@@ -2530,7 +2531,7 @@ struct ClassicDetailView: View {
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played) }
+                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
             }
         }
     }
@@ -3768,11 +3769,11 @@ struct ClassicHoverPreview: View {
                             .background(Capsule().fill(Color.white))
                     }.buttonStyle(.plain)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
-                        Task { await emby.setFav(item.id, !fav) }
+                        Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
                     circle(played ? "checkmark.circle.fill" : "checkmark", on: played,
                            help: played ? "Mark as unwatched" : "Mark as watched") {
-                        Task { await emby.setPlayed(item.id, !played) }
+                        Task { await emby.setPlayed(item.id, !played, name: item.Name) }
                     }
                 }.padding(.top, 2)
             }.padding(.horizontal, 14).padding(.bottom, 14)

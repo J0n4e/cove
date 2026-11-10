@@ -492,6 +492,7 @@ struct HomeView: View {
             emby.openRequest = nil
         }
         .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
+        .overlay { ToastOverlay() }
     }
 }
 
@@ -829,7 +830,7 @@ struct FavoritesView: View {
                                 // Poster-sized portrait, like the movies above
                                 .frame(width: 170, height: 255).clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
-                                .modifier(HoverPersonHeart(id: p.id))   // remove from Favorites, as on posters
+                                .modifier(HoverPersonHeart(id: p.id, name: p.Name))   // remove from Favorites, as on posters
                                 .hoverLift()
                                 Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
                             }.frame(width: 170)
@@ -1329,7 +1330,7 @@ struct Hero: View {
                             .background(Capsule().fill(.white)).foregroundColor(.black)
                     }.buttonStyle(.plain)
                     let fav = emby.isFav(item)
-                    Button { Task { await emby.setFav(item.id, !fav) } } label: {
+                    Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                         Image(systemName: fav ? "checkmark" : "plus").font(.system(size: 18, weight: .semibold))
                             .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
                     }.buttonStyle(.plain).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
@@ -1649,10 +1650,40 @@ extension View {
     }
 }
 
+/// Confirmation pill at the bottom of the window after a favorite or watched change; fades after 2 s.
+struct ToastOverlay: View {
+    @EnvironmentObject var emby: Emby
+    var body: some View {
+        VStack {
+            Spacer()
+            if let t = emby.toast {
+                Label(t.text, systemImage: t.icon)
+                    .font(.system(size: 14, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                    .padding(.horizontal, 18).padding(.vertical, 10)
+                    .background(Capsule().fill(Color.black.opacity(0.55)))
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(Capsule().stroke(Color.white.opacity(0.15)))
+                    .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
+                    .padding(.bottom, 28)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .id(t.id)
+                    .task(id: t.id) {
+                        try? await Task.sleep(for: .seconds(2))
+                        if emby.toast?.id == t.id { emby.toast = nil }
+                    }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .animation(.spring(duration: 0.35), value: emby.toast)
+        .allowsHitTesting(false)
+    }
+}
+
 /// Heart button in the bottom-right corner on hover, for a person (Favorite People cards).
 struct HoverPersonHeart: ViewModifier {
     @EnvironmentObject var emby: Emby
     let id: String
+    let name: String
     @State private var hover = false
     func body(content: Content) -> some View {
         content
@@ -1661,7 +1692,7 @@ struct HoverPersonHeart: ViewModifier {
                     let fav = emby.isPersonFav(id)
                     ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
                                              help: fav ? "Remove from Favorites" : "Add to Favorites") {
-                        Task { await emby.setFav(id, !fav) }
+                        Task { await emby.setFav(id, !fav, name: name) }
                     }.padding(8)
                 }
             }
@@ -1691,10 +1722,10 @@ struct ItemActionsButton: View {
         let fav = children.isEmpty ? emby.isFav(item) : emby.isFav(item) && children.allSatisfy { emby.isFav($0) }
         HStack(spacing: 6) {
             Self.circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
-                Task { await emby.setPlayed(item.id, !played, children: children) }
+                Task { await emby.setPlayed(item.id, !played, children: children, name: item.Name) }
             }
             Self.circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from Favorites" : "Add to Favorites") {
-                Task { await emby.setFav(item.id, !fav, children: children) }
+                Task { await emby.setFav(item.id, !fav, children: children, name: item.Name) }
             }
         }
     }
@@ -2402,7 +2433,7 @@ struct CastTile: View {
                     let fav = emby.isPersonFav(p.Id)
                     ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
                                              help: fav ? "Remove from Favorites" : "Add to Favorites") {
-                        Task { await emby.setFav(p.Id, !fav) }
+                        Task { await emby.setFav(p.Id, !fav, name: p.Name) }
                     }.padding(big ? 8 : 0)
                 }
             }
@@ -2699,10 +2730,10 @@ struct DetailView: View {
                 glassCircle("arrow.counterclockwise", help: "Start Over") { playNow(from: 0) }
             }
             glassCircle(fav ? "checkmark" : "plus", help: fav ? "Remove from Favorites" : "Add to Favorites") {
-                Task { await emby.setFav(item.id, !fav) }
+                Task { await emby.setFav(item.id, !fav, name: item.Name) }
             }
             glassCircle(played ? "eye.slash" : "eye", help: played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(item.id, !played) }
+                Task { await emby.setPlayed(item.id, !played, name: item.Name) }
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
                 glassCircle("film", help: "Trailer") { NSWorkspace.shared.open(u) }
@@ -2907,7 +2938,7 @@ struct DetailView: View {
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played) }
+                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
             }
         }
     }
@@ -3005,7 +3036,7 @@ struct DetailView: View {
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played) }
+                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
             }
         }
     }
@@ -4422,11 +4453,11 @@ struct HoverPreview: View {
                             .background(Capsule().fill(Color.white))
                     }.buttonStyle(.plain)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
-                        Task { await emby.setFav(item.id, !fav) }
+                        Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
                     circle(played ? "checkmark.circle.fill" : "checkmark", on: played,
                            help: played ? "Mark as unwatched" : "Mark as watched") {
-                        Task { await emby.setPlayed(item.id, !played) }
+                        Task { await emby.setPlayed(item.id, !played, name: item.Name) }
                     }
                 }.padding(.top, 2)
             }.padding(.horizontal, 14).padding(.bottom, 14)

@@ -263,6 +263,9 @@ final class Emby: ObservableObject {
     @Published var favPeopleIds: Set<String> = []
     /// Goes up once the server has taken a favorite change, so the Favorites page can reload what it shows
     @Published var favRevision = 0
+    /// Short confirmation shown at the bottom of the window ("Added … to Favorites")
+    struct Toast: Equatable { let id = UUID(); let text: String; let icon: String }
+    @Published var toast: Toast?
     func isPersonFav(_ id: String) -> Bool { faved[id] ?? favPeopleIds.contains(id) }
     @Published var servers: [SavedServer] = []
     /// The saved entry for the server we're signed in to.
@@ -944,14 +947,17 @@ final class Emby: ObservableObject {
     }
     /// `children`: episodes shown under this season or show. The server marks them itself; this updates their
     /// ticks and the unwatched count on screen right away.
-    func setPlayed(_ id: String, _ v: Bool, children: [Item] = []) async {
+    /// `name`: when given (a click, not the player finishing), a toast confirms the change.
+    func setPlayed(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
+        if let name { toast = Toast(text: "Marked \u{201C}\(name)\u{201D} as \(v ? "watched" : "unwatched")", icon: v ? "checkmark.circle.fill" : "circle") }
         played[id] = v
         positions[id] = 0
         for c in children { played[c.id] = v; positions[c.id] = 0 }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
     }
     /// `children`: a season's episodes. Favorites don't carry down on the server, so each episode is sent too.
-    func setFav(_ id: String, _ v: Bool, children: [Item] = []) async {
+    func setFav(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
+        if let name { toast = Toast(text: v ? "Added \u{201C}\(name)\u{201D} to Favorites" : "Removed \u{201C}\(name)\u{201D} from Favorites", icon: v ? "heart.fill" : "heart.slash") }
         faved[id] = v
         for c in children { faved[c.id] = v }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(id)")
