@@ -483,7 +483,7 @@ struct HomeView: View {
         GeometryReader { geo in
             VStack(spacing: 0) {
                 // In front of the page, so nothing on a page can cover its buttons. Back sits in the bar on pushed pages.
-                TopNavBar(back: path.isEmpty ? nil : { path.removeLast() })
+                TopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
                     .frame(width: geo.size.width).zIndex(1)
                 detailPane(withSearch: false)
                     .frame(width: geo.size.width).clipped()
