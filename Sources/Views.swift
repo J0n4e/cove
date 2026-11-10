@@ -1419,16 +1419,16 @@ struct Hero: View {
                             .font(.system(size: 17, weight: .semibold))
                             .frame(width: 170, height: 46)
                             .background(Capsule().fill(.white)).foregroundColor(.black)
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(HoverButton())
                     let fav = emby.isFav(item)
                     Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                         Image(systemName: fav ? "checkmark" : "plus").font(.system(size: 18, weight: .semibold))
                             .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
-                    }.buttonStyle(.plain).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
+                    }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
                     NavigationLink(value: item) {
                         Image(systemName: "info").font(.system(size: 18, weight: .semibold))
                             .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
-                    }.buttonStyle(.plain).helpLabel("More info")
+                    }.buttonStyle(HoverButton()).helpLabel("More info")
                 }.padding(.top, 8)
             }
             .padding(.leading, 52).padding(.bottom, 64)
@@ -1443,7 +1443,7 @@ struct Hero: View {
                             .frame(width: i == index % items.count ? 16 : 7, height: 7)
                             .contentShape(Rectangle().inset(by: -5))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HoverButton())
                     .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
                     .accessibilityAddTraits(i == index % items.count ? .isSelected : [])
                 }
@@ -1490,7 +1490,7 @@ struct Hero: View {
             Image(systemName: name).font(.system(size: 30, weight: .light))
                 .frame(width: 44, height: 80).contentShape(Rectangle())
                 .shadow(color: .black.opacity(0.6), radius: 4)
-        }.buttonStyle(.plain)
+        }.buttonStyle(HoverButton())
     }
 }
 
@@ -2082,7 +2082,7 @@ struct BackPill: View {
     }
 }
 
-/// Page buttons (Play, Trailer, Watched, Favorite): grow a little and brighten under the mouse, and dip
+/// Page, player and banner buttons: grow a little and brighten under the mouse, and dip
 /// when clicked.
 struct HoverButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { LiftBody(c: configuration) }
@@ -3793,7 +3793,7 @@ struct PlayerView: View {
                 Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
                     Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 17))
                         .frame(width: 26)
-                }.buttonStyle(.plain)
+                }.buttonStyle(HoverButton())
             }
             .padding(.horizontal, 18).frame(height: 50).background(.ultraThinMaterial, in: Capsule())
         }
@@ -3808,7 +3808,7 @@ struct PlayerView: View {
                 .frame(width: 40, height: 40)
                 .foregroundColor(on ? accent : .white)
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        }.buttonStyle(HoverButton())
     }
 
     /// Apple TV style: back 10, play / pause and forward 10 as big glass circles in the middle of the picture.
@@ -3831,7 +3831,7 @@ struct PlayerView: View {
                 .background(.ultraThinMaterial, in: Circle())
                 .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
                 .contentShape(Circle())
-        }.buttonStyle(.plain)
+        }.buttonStyle(HoverButton())
     }
 
     // MARK: Bottom bar
@@ -3917,7 +3917,7 @@ struct PlayerView: View {
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        }.buttonStyle(HoverButton())
     }
 
     // MARK: Panels

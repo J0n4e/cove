@@ -1146,12 +1146,12 @@ struct ClassicHero: View {
                         Label("Play", systemImage: "play.fill").font(.system(size: 16, weight: .bold))
                             .padding(.horizontal, 26).frame(height: 44)
                             .background(.white).foregroundColor(.black).cornerRadius(6)
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(HoverButton())
                     NavigationLink(value: item) {
                         Label("More Info", systemImage: "info.circle").font(.system(size: 16, weight: .bold))
                             .padding(.horizontal, 22).frame(height: 44)
                             .background(Color.gray.opacity(0.55)).foregroundColor(.white).cornerRadius(6)
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(HoverButton())
                     Spacer()
                     HStack(spacing: 6) {
                         ForEach(items.indices, id: \.self) { i in
@@ -1163,7 +1163,7 @@ struct ClassicHero: View {
                                     .shadow(color: .black.opacity(0.7), radius: 3)
                                     .contentShape(Rectangle().inset(by: -6))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(HoverButton())
                             .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
                             .accessibilityAddTraits(on ? .isSelected : [])
                         }
@@ -3090,7 +3090,7 @@ struct ClassicPlayerView: View {
             Slider(value: $model.volume, in: 0...1).frame(width: 160).tint(.white).controlSize(.small)
             Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
                 Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 18))
-            }.buttonStyle(.plain)
+            }.buttonStyle(HoverButton())
         }
         .padding(.horizontal, 20).padding(.top, 14)
     }
@@ -3149,7 +3149,7 @@ struct ClassicPlayerView: View {
                         .frame(width: 56, height: 56)
                         .background(Circle().fill(Color.white))
                         .contentShape(Circle())
-                }.buttonStyle(.plain).helpLabel(model.playing ? "Pause (Space)" : "Play (Space)")
+                }.buttonStyle(HoverButton()).helpLabel(model.playing ? "Pause (Space)" : "Play (Space)")
                 iconButton("goforward.\(skipSecs)", size: 22) { model.skip(Double(skipSecs)) }.helpLabel("Forward \(skipSecs) seconds")
                 iconButton("forward.end.fill", size: 18) { if let n = nextEp { play(n) } }
                     .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).helpLabel("Next")
@@ -3171,7 +3171,7 @@ struct ClassicPlayerView: View {
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        }.buttonStyle(HoverButton())
     }
 
     // MARK: Panels
