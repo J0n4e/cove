@@ -1082,7 +1082,8 @@ struct PersonHeader: View {
                 }
                 .clipped()
                 .overlay(LinearGradient(colors: [bg.opacity(0.2), bg.opacity(0.75), bg], startPoint: .top, endPoint: .bottom))
-            HStack(alignment: .bottom, spacing: 36) {
+            // Photo top lines up with the name
+            HStack(alignment: .top, spacing: 36) {
                 CachedImage(url: emby.image(id, width: 480)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
