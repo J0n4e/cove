@@ -653,7 +653,7 @@ struct ClassicSearchView: View {
                                 Text(p.Name).font(.caption.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 110)
                         }
-                        .buttonStyle(.plain).helpLabel("Show everything with \(p.Name)")
+                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
                 }.padding(.vertical, 8)
             }
@@ -2543,7 +2543,7 @@ struct ClassicDetailView: View {
                 Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
                 ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: ClassicPersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
-                        .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
+                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
                 }
             }
         }

@@ -748,7 +748,7 @@ struct SearchView: View {
                                 Text(p.Name).font(.caption.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 110)
                         }
-                        .buttonStyle(.plain).helpLabel("Show everything with \(p.Name)")
+                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
                 }.padding(.vertical, 8)
             }
@@ -3004,7 +3004,7 @@ struct DetailView: View {
                 Text("Cast & Crew").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize), inset: 52) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { CastTile(p: people[i]) }
-                        .buttonStyle(.plain).helpLabel("Show everything with \(people[i].Name)")
+                        .buttonStyle(.plain).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
                 }
             }
         }
