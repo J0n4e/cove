@@ -582,10 +582,10 @@ struct ClassicTopNavTools: View {
             // The search box itself floats at the bottom of the window (SearchDock)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plainHand).helpLabel("Search (S)")
+            }.buttonStyle(HoverButton(backing: true)).helpLabel("Search (S)")
             Button { nav.showSettings = true } label: {
                 Image(systemName: "gearshape.fill").font(.system(size: 14)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(.plainHand).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
+            }.buttonStyle(HoverButton(backing: true)).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }

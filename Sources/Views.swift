@@ -716,7 +716,7 @@ struct TopNavTools: View {
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
                     .contentShape(Circle())
-            }.buttonStyle(.plainHand).helpLabel("Search (S)")
+            }.buttonStyle(HoverButton()).helpLabel("Search (S)")
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
