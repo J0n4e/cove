@@ -2730,7 +2730,7 @@ struct DetailView: View {
     func episodeRow(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
-        return Button { playEpisode(ep) } label: {
+        return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
                 Text("\(ep.IndexNumber ?? 0)").font(.system(size: 26, weight: .semibold))
                     .foregroundColor(.secondary).frame(width: 40)
@@ -2743,7 +2743,7 @@ struct DetailView: View {
                 }
                 .cornerRadius(6)
                 .thinBorder(6)
-                .hoverLift(play: 36)
+                .hoverLift(play: 36) { playEpisode(ep) }
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
@@ -2812,7 +2812,7 @@ struct DetailView: View {
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
         let hasProgress: Bool = pct > 0 && pct < 100 && !played
         let height: CGFloat = showEpDesc ? 330 : 203
-        return Button { playEpisode(ep) } label: {
+        return NavigationLink(value: ep) {
             Group {
                 if fill {
                     Color.clear.frame(minWidth: 0, maxWidth: .infinity).aspectRatio(360 / height, contentMode: .fit)
@@ -2854,7 +2854,7 @@ struct DetailView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .thinBorder(12)
-            .hoverLift(play: 44)
+            .hoverLift(play: 44) { playEpisode(ep) }
         }
         .buttonStyle(.plain)
         .hoverItemActions(ep)
@@ -4218,13 +4218,18 @@ struct HoverLift: ViewModifier {
 /// HoverLift that tracks the pointer itself; optionally shows a play button on hover (as on Continue Watching).
 struct SelfHoverLift: ViewModifier {
     var play: CGFloat = 0
+    /// When set, the play icon is a button of its own (the card around it opens the details instead)
+    var onPlay: (() -> Void)? = nil
     @State private var hover = false
     func body(content: Content) -> some View {
         content
             .overlay {
                 if hover && play > 0 {
-                    Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
+                    let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
                         .shadow(radius: 6)
+                    if let onPlay {
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).help("Play")
+                    } else { icon }
                 }
             }
             .modifier(HoverLift(hover: hover)).onHover { hover = $0 }
@@ -4233,7 +4238,7 @@ struct SelfHoverLift: ViewModifier {
 
 extension View {
     /// `play`: size of the play button shown on hover (0 = none).
-    func hoverLift(play: CGFloat = 0) -> some View { modifier(SelfHoverLift(play: play)) }
+    func hoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(SelfHoverLift(play: play, onPlay: onPlay)) }
 }
 
 /// Netflix-style expanded card shown when resting on a poster: backdrop, details and quick actions.
