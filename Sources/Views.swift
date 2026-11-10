@@ -2940,7 +2940,12 @@ struct DetailView: View {
     }
 
     /// All episodes of the season being shown.
-    var seasonEpisodes: [Item] { kids.filter { ($0.ParentIndexNumber ?? 0) == currentSeason } }
+    /// currentSeason is worked out once: inside the filter it re-scanned every episode for each episode,
+    /// which made every redraw of a long series slow (switching back to Cove, leaving full screen).
+    var seasonEpisodes: [Item] {
+        let s = currentSeason
+        return kids.filter { ($0.ParentIndexNumber ?? 0) == s }
+    }
 
     /// The season has both watched and unwatched episodes, so "hide watched" makes sense.
     var canFilterWatched: Bool {
