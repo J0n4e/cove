@@ -1197,6 +1197,7 @@ struct ClassicResumeCard: View {
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
             .focusable()
+            .focusEffectDisabled()   // no blue macOS focus ring after a click
             .onKeyPress(.return) { openPage(); return .handled }
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
