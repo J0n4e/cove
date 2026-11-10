@@ -2365,6 +2365,7 @@ struct ClassicDetailView: View {
                 .cornerRadius(6)
                 .classicThinBorder(6)
                 .classicHoverLift(play: 36)
+                .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(ep.Name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
@@ -2468,6 +2469,8 @@ struct ClassicDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .classicThinBorder(6)
                 .classicHoverLift(play: 40)
+                // below the watched badge in the top-right corner
+                .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 38, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
                     Text(ep.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
                 }

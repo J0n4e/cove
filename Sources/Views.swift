@@ -1515,6 +1515,25 @@ struct PosterCard: View {
     }
 }
 
+/// Shows the Watched / Favorite buttons in a corner while the pointer is on the view (episode cards and rows).
+struct HoverItemActions: ViewModifier {
+    let item: Item
+    let alignment: Alignment
+    var padding = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: alignment) { if hover { ItemActionsButton(item: item).padding(padding) } }
+            .onHover { hover = $0 }   // after the overlay, so moving onto the buttons keeps them shown
+    }
+}
+extension View {
+    func hoverItemActions(_ item: Item, _ alignment: Alignment = .topTrailing,
+                          _ padding: EdgeInsets = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)) -> some View {
+        modifier(HoverItemActions(item: item, alignment: alignment, padding: padding))
+    }
+}
+
 /// Two round buttons on a poster (bottom right) or list row: watched / unwatched and Favorites.
 struct ItemActionsButton: View {
     @EnvironmentObject var emby: Emby
@@ -2717,6 +2736,7 @@ struct DetailView: View {
                 .cornerRadius(6)
                 .thinBorder(6)
                 .hoverLift(play: 36)
+                .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(ep.Name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
@@ -2829,6 +2849,7 @@ struct DetailView: View {
             .hoverLift(play: 44)
         }
         .buttonStyle(.plain)
+        .hoverItemActions(ep)
         .contextMenu {
             Button("Play from Beginning") { playEpisode(ep, from: 0) }
             Button(played ? "Mark as unwatched" : "Mark as watched") {
