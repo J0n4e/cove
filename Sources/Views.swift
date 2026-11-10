@@ -1509,8 +1509,27 @@ struct PosterCard: View {
             .onHover { hover = $0 }
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plain)
+        .itemActions(item)
     }
 }
+
+/// Right-click menu on a poster or list row: mark watched / unwatched, add to / remove from Favorites.
+struct ItemActions: ViewModifier {
+    @EnvironmentObject var emby: Emby
+    let item: Item
+    func body(content: Content) -> some View {
+        content.contextMenu {
+            let played = emby.isPlayed(item), fav = emby.isFav(item)
+            Button { Task { await emby.setPlayed(item.id, !played) } } label: {
+                Label(played ? "Mark as Unwatched" : "Mark as Watched", systemImage: played ? "eye.slash" : "checkmark.circle")
+            }
+            Button { Task { await emby.setFav(item.id, !fav) } } label: {
+                Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "heart.slash" : "heart")
+            }
+        }
+    }
+}
+extension View { func itemActions(_ item: Item) -> some View { modifier(ItemActions(item: item)) } }
 
 /// Pointer position on a poster in its own and in window coordinates (a class: writes don't redraw the poster).
 final class PointerBox {
@@ -1705,6 +1724,7 @@ struct ListRow: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
         }.buttonStyle(.plain)
+        .itemActions(item)
     }
 }
 

@@ -1289,6 +1289,7 @@ struct ClassicPosterCard: View {
             .onHover { hover = $0 }
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plain)
+        .itemActions(item)
     }
 }
 
@@ -1485,6 +1486,7 @@ struct ClassicListRow: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
         }.buttonStyle(.plain)
+        .itemActions(item)
     }
 }
 
