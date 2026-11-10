@@ -1515,28 +1515,31 @@ struct PosterCard: View {
     }
 }
 
-/// "•••" button on a poster (bottom right) or list row: mark watched / unwatched, add to / remove from Favorites.
+/// Two round buttons on a poster (bottom right) or list row: watched / unwatched and Favorites.
 struct ItemActionsButton: View {
     @EnvironmentObject var emby: Emby
     let item: Item
-    var body: some View {
-        let played = emby.isPlayed(item), fav = emby.isFav(item)
-        Menu {
-            Button { Task { await emby.setPlayed(item.id, !played) } } label: {
-                Label(played ? "Mark as Unwatched" : "Mark as Watched", systemImage: played ? "eye.slash" : "checkmark.circle")
-            }
-            Button { Task { await emby.setFav(item.id, !fav) } } label: {
-                Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "heart.slash" : "heart")
-            }
-        } label: {
-            Image(systemName: "ellipsis").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+    func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 12, weight: .bold))
+                .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
                 .frame(width: 28, height: 28)
                 .background(Circle().fill(Color.black.opacity(0.6)))
                 .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                 .contentShape(Circle())
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("Watched and Favorites")
+        .buttonStyle(.plain).help(help)
+    }
+    var body: some View {
+        let played = emby.isPlayed(item), fav = emby.isFav(item)
+        HStack(spacing: 6) {
+            circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
+                Task { await emby.setPlayed(item.id, !played) }
+            }
+            circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from Favorites" : "Add to Favorites") {
+                Task { await emby.setFav(item.id, !fav) }
+            }
+        }
     }
 }
 
