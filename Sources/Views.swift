@@ -3411,6 +3411,7 @@ struct PlayerView: View {
     @AppStorage("clickToPause") private var clickToPause = true
     @AppStorage("accent") private var accentName = "red"
     var accent: Color { Theme.accent(accentName) }
+    @State private var fsBusy = false   // a full screen animation is running
     @State private var isFullScreen = false
     // Remembered across episodes (each episode gets a fresh PlayerView), so closing the player still leaves full screen
     var enteredFullScreen: Bool {
@@ -3474,7 +3475,12 @@ struct PlayerView: View {
     /// Full screen for the video; leaving the player restores the window if the player made it full screen.
     func toggleFullScreen() {
         DebugLog.write("fs toggle: playerWin=\(playerWin.window?.title ?? "nil") key=\(NSApp.keyWindow?.title ?? "nil") main=\(NSApp.mainWindow?.title ?? "nil") chosen=\(window?.title ?? "nil") fullscreen=\(window?.styleMask.contains(.fullScreen) ?? false)")
+        // One toggle at a time: a second one during macOS's animation (a held or double-pressed F) left the
+        // window stuck, ignoring every later toggle
+        guard !fsBusy else { DebugLog.write("fs toggle ignored: animation running"); return }
         guard let w = window else { return }
+        fsBusy = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { fsBusy = false }   // in case no notification comes
         w.collectionBehavior.insert(.fullScreenPrimary)   // the separate player window isn't full-screen capable by default
         let on = w.styleMask.contains(.fullScreen)
         if !on { enteredFullScreen = true }
@@ -3635,12 +3641,14 @@ struct PlayerView: View {
         .toolbar(.hidden, for: .windowToolbar)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
             DebugLog.write("fs entered: \((n.object as? NSWindow)?.title ?? "?") owns=\(playerWin.owns(n.object))")
+            if playerWin.owns(n.object) { fsBusy = false }
             guard playerWin.owns(n.object) else { return }
             isFullScreen = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { n in
             DebugLog.write("fs exited: \((n.object as? NSWindow)?.title ?? "?") owns=\(playerWin.owns(n.object))")
+            if playerWin.owns(n.object) { fsBusy = false }
             guard playerWin.owns(n.object) else { return }
             isFullScreen = false
             // Take the keyboard back after leaving full screen, so Esc / Space / F keep working
@@ -3665,7 +3673,8 @@ struct PlayerView: View {
                 // F also here: in the separate player window the SwiftUI key handler doesn't always get it
                 if ev.keyCode == 3, ev.modifierFlags.intersection([.command, .control, .option]).isEmpty,
                    !(w.firstResponder is NSText) {
-                    toggleFullScreen(); return nil
+                    if !ev.isARepeat { toggleFullScreen() }   // holding F must not toggle again and again
+                    return nil
                 }
                 guard ev.keyCode == 53 else { return ev }
                 if panel != nil { panel = nil } else if w.styleMask.contains(.fullScreen) { toggleFullScreen() } else { close() }
