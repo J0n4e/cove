@@ -675,8 +675,9 @@ struct ClassicFavoritesView: View {
 
     var body: some View {
         let favs = items.filter { emby.isFav($0) }
-        let movies = favs.filter { !$0.isSeries && !$0.isBox }
+        let movies = favs.filter { !$0.isSeries && !$0.isBox && !$0.isEpisode }
         let shows = favs.filter { $0.isSeries }
+        let episodes = favs.filter { $0.isEpisode }
         let collections = favs.filter { $0.isBox }
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -686,6 +687,7 @@ struct ClassicFavoritesView: View {
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
                 if !shows.isEmpty { section("Favorite Shows", shows) }
+                if !episodes.isEmpty { section("Favorite Episodes", episodes) }
                 if !collections.isEmpty { section("Favorite Collections", collections) }
                 if loading && items.isEmpty { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty {

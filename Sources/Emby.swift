@@ -943,9 +943,12 @@ final class Emby: ObservableObject {
         for c in children { played[c.id] = v; positions[c.id] = 0 }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
     }
-    func setFav(_ id: String, _ v: Bool) async {
+    /// `children`: a season's episodes. Favorites don't carry down on the server, so each episode is sent too.
+    func setFav(_ id: String, _ v: Bool, children: [Item] = []) async {
         faved[id] = v
+        for c in children { faved[c.id] = v }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(id)")
+        for c in children { await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(c.id)") }
     }
     func play(_ it: Item) async {
         if it.isSeries {
@@ -1001,7 +1004,7 @@ final class Emby: ObservableObject {
 
     func favorites() async -> [Item] {
         let r: ItemList? = try? await get("/Users/\(userId)/Items", ["Filters": "IsFavorite", "Recursive": "true",
-            "IncludeItemTypes": "Movie,Series,BoxSet", "SortBy": "SortName", "SortOrder": "Ascending",
+            "IncludeItemTypes": "Movie,Series,BoxSet,Episode", "SortBy": "SortName", "SortOrder": "Ascending",
             "Fields": "Overview,Genres,EndDate,Status"])
         return r?.Items ?? []
     }

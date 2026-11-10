@@ -764,8 +764,9 @@ struct FavoritesView: View {
 
     var body: some View {
         let favs = items.filter { emby.isFav($0) }
-        let movies = favs.filter { !$0.isSeries && !$0.isBox }
+        let movies = favs.filter { !$0.isSeries && !$0.isBox && !$0.isEpisode }
         let shows = favs.filter { $0.isSeries }
+        let episodes = favs.filter { $0.isEpisode }
         let collections = favs.filter { $0.isBox }
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -775,6 +776,7 @@ struct FavoritesView: View {
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
                 if !shows.isEmpty { section("Favorite Shows", shows) }
+                if !episodes.isEmpty { section("Favorite Episodes", episodes) }
                 if !collections.isEmpty { section("Favorite Collections", collections) }
                 if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty {
@@ -1555,13 +1557,13 @@ struct ItemActionsButton: View {
     }
     var body: some View {
         let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
-        let fav = emby.isFav(item)
+        let fav = children.isEmpty ? emby.isFav(item) : emby.isFav(item) && children.allSatisfy { emby.isFav($0) }
         HStack(spacing: 6) {
             circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
                 Task { await emby.setPlayed(item.id, !played, children: children) }
             }
             circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from Favorites" : "Add to Favorites") {
-                Task { await emby.setFav(item.id, !fav) }
+                Task { await emby.setFav(item.id, !fav, children: children) }
             }
         }
     }
