@@ -64,6 +64,7 @@ struct ClassicRootView: View {
             Group { if emby.loggedIn { ClassicHomeView() } else { ClassicLoginView() } }
                 .opacity(emby.playing == nil ? 1 : 0)
                 .allowsHitTesting(emby.playing == nil)
+                .modifier(FreezeSizeWhilePlaying(playing: emby.playing != nil && !UserDefaults.standard.bool(forKey: "separatePlayer")))
             ClassicHoverCardLayer()
             if let req = emby.playing {
                 ChosenPlayerView(req: req, theme: "classic").id(req.id).zIndex(10)

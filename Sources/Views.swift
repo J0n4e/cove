@@ -144,6 +144,26 @@ func parseDate(_ s: String?) -> Date? {
     return ISO8601DateFormatter().date(from: String(s.prefix(19)) + "Z")
 }
 
+/// Keeps the page under an in-window player at the size it had when the video started. Going full screen
+/// resizes the window; without this the hidden page was laid out again on every frame of the animation,
+/// which made the video stutter.
+struct FreezeSizeWhilePlaying: ViewModifier {
+    let playing: Bool
+    @State private var frozen: CGSize?
+    private final class Box { var size = CGSize.zero }
+    @State private var last = Box()   // current size, kept without redrawing anything
+    func body(content: Content) -> some View {
+        content
+            .frame(width: frozen?.width, height: frozen?.height, alignment: .topLeading)
+            .background(GeometryReader { g in
+                Color.clear.onAppear { last.size = g.size }.onChange(of: g.size) { _, s in last.size = s }
+            })
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .clipped()
+            .onChange(of: playing, initial: true) { _, on in frozen = on ? last.size : nil }
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
@@ -162,6 +182,7 @@ struct RootView: View {
             }
                 .opacity(inline && emby.playing != nil ? 0 : 1)
                 .allowsHitTesting(!(inline && emby.playing != nil))
+                .modifier(FreezeSizeWhilePlaying(playing: inline && emby.playing != nil))
             HoverCardLayer()
             if inline, let req = emby.playing {
                 ChosenPlayerView(req: req, theme: "apple").id(req.id).zIndex(10)
