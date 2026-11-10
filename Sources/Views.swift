@@ -1046,7 +1046,6 @@ struct PersonHeader: View {
     let record: Item?
     let items: [Item]
     let loading: Bool
-    @State private var showBio = false
 
     var bio: String { record?.Overview ?? "" }
     var backdrop: Item? { items.first { $0.backdropId != nil } }
@@ -1103,11 +1102,9 @@ struct PersonHeader: View {
                     }
                     if !bio.isEmpty {
                         Text(bio).font(.system(size: 15)).lineSpacing(4).foregroundColor(.white.opacity(0.85))
-                            .lineLimit(showBio ? nil : 5).textSelection(.enabled)
+                            .textSelection(.enabled)
                             .frame(maxWidth: 820, alignment: .leading)
                             .fixedSize(horizontal: false, vertical: true)
-                        Button(showBio ? "Show Less" : "Read More") { showBio.toggle() }
-                            .buttonStyle(.plain).font(.system(size: 14, weight: .semibold)).foregroundStyle(.tint)
                     }
                 }
                 .padding(.bottom, 4)
