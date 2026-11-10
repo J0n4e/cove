@@ -21,8 +21,14 @@ enum SearchKey {
 
 private struct BGKey: EnvironmentKey { static let defaultValue = Color.black }
 private struct InFavoritesKey: EnvironmentKey { static let defaultValue = false }
+private struct NoBackKey: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {
     /// True on the Favorites pages, where posters leave out their heart badge
+    /// A page opened from search results: it stands on its own, with no Back button
+    var noBack: Bool {
+        get { self[NoBackKey.self] }
+        set { self[NoBackKey.self] = newValue }
+    }
     var inFavorites: Bool {
         get { self[InFavoritesKey.self] }
         set { self[InFavoritesKey.self] = newValue }
@@ -318,6 +324,7 @@ struct RootTap: ViewModifier {
 
 struct HomeView: View {
     @State private var keepPage = false   // the search box is being cleared after opening a result
+    @State private var fromSearch = false // the first page on the stack was opened from search results
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @FocusState private var searchFocused: Bool
@@ -454,8 +461,9 @@ struct HomeView: View {
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { LibraryView(lib: lib).id(lib.id) }
                     else { Color.black }
                 }
-                .navigationDestination(for: Item.self) { DetailView(item: $0) }
-                .navigationDestination(for: PersonRef.self) { PersonView(person: $0) }
+                // A page opened from search results is the only page: no Back (deeper pages get one)
+                .navigationDestination(for: Item.self) { DetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
+                .navigationDestination(for: PersonRef.self) { PersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: Feed.self) { FeedView(feed: $0) }
                 .navigationDestination(for: FavoriteGridRef.self) { FavoriteGridView(title: $0.title, ids: $0.ids) }
             }
@@ -515,8 +523,12 @@ struct HomeView: View {
         }
         // Opening a search result clears the search box and stays on the opened page
         .onChange(of: path.count) { old, new in
-            if old == 0 && new > 0 && !query.isEmpty { keepPage = true; query = "" }
+            if old == 0 && new > 0 && !query.isEmpty {
+                keepPage = true; query = ""; nav.searchOpen = false; fromSearch = true
+            }
+            if new == 0 { fromSearch = false }
         }
+        .onChange(of: sel) { fromSearch = false }
         .onChange(of: [showFavorites, showNowPlaying, showRecent]) {
             let hidden = (!showFavorites && sel == "favorites") || (!showNowPlaying && sel == "nowplaying") || (!showRecent && sel == "recent")
             if hidden { nav.sel = "home" }
@@ -1065,6 +1077,7 @@ struct PersonRef: Hashable { let id: String; let name: String }
 
 /// Everything in the user's libraries featuring one actor / director.
 struct PersonView: View {
+    @Environment(\.noBack) private var noBack
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let person: PersonRef
@@ -1095,7 +1108,7 @@ struct PersonView: View {
         .background(bg)
         .navigationTitle(person.name)
         .navigationBarBackButtonHidden(true)
-        .toolbar { TitleBarItems(back: { dismiss() }) }
+        .toolbar { TitleBarItems(back: noBack ? nil : { dismiss() }) }
         .hideToolbarTitle()
         .toolbarBackground(.hidden, for: .windowToolbar)
         .task {
@@ -2539,6 +2552,7 @@ struct CastTile: View {
 }
 
 struct DetailView: View {
+    @Environment(\.noBack) private var noBack
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @Environment(\.dismiss) var dismiss
@@ -2650,7 +2664,7 @@ struct DetailView: View {
         .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
         .onChange(of: season) { showAllEps = false }
         .navigationBarBackButtonHidden(true)
-        .toolbar { TitleBarItems(back: { dismiss() }) }
+        .toolbar { TitleBarItems(back: noBack ? nil : { dismiss() }) }
         .hideToolbarTitle()
         .toolbarBackground(.hidden, for: .windowToolbar)
     }

@@ -228,6 +228,7 @@ struct ClassicRootTap: ViewModifier {
 
 struct ClassicHomeView: View {
     @State private var keepPage = false   // the search box is being cleared after opening a result
+    @State private var fromSearch = false // the first page on the stack was opened from search results
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @State private var searchKey: Any?
@@ -358,8 +359,9 @@ struct ClassicHomeView: View {
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib).id(lib.id) }
                     else { Color.black }
                 }
-                .navigationDestination(for: Item.self) { ClassicDetailView(item: $0) }
-                .navigationDestination(for: ClassicPersonRef.self) { ClassicPersonView(person: $0) }
+                // A page opened from search results is the only page: no Back (deeper pages get one)
+                .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
+                .navigationDestination(for: ClassicPersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: ClassicFavoriteGridRef.self) { ClassicFavoriteGridView(title: $0.title, ids: $0.ids) }
             }
             // Back button in the title bar, left of the window title, on every page
@@ -416,8 +418,12 @@ struct ClassicHomeView: View {
         }
         // Opening a search result clears the search box and stays on the opened page
         .onChange(of: path.count) { old, new in
-            if old == 0 && new > 0 && !query.isEmpty { keepPage = true; query = "" }
+            if old == 0 && new > 0 && !query.isEmpty {
+                keepPage = true; query = ""; nav.searchOpen = false; fromSearch = true
+            }
+            if new == 0 { fromSearch = false }
         }
+        .onChange(of: sel) { fromSearch = false }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
@@ -956,6 +962,7 @@ struct ClassicPersonRef: Hashable { let id: String; let name: String }
 
 /// Everything in the user's libraries featuring one actor / director.
 struct ClassicPersonView: View {
+    @Environment(\.noBack) private var noBack
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let person: ClassicPersonRef
@@ -987,7 +994,7 @@ struct ClassicPersonView: View {
         .background(bg)
         .navigationTitle(person.name)
         .navigationBarBackButtonHidden(true)
-        .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
+        .toolbar { ClassicTitleBarItems(back: noBack ? nil : { dismiss() }) }
         .classicHideToolbarTitle()
         .task {
             async let list = emby.itemsWithPerson(person.id)
@@ -2067,6 +2074,7 @@ struct ClassicCastTile: View {
 }
 
 struct ClassicDetailView: View {
+    @Environment(\.noBack) private var noBack
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @Environment(\.dismiss) var dismiss
@@ -2176,7 +2184,7 @@ struct ClassicDetailView: View {
         .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
         .onChange(of: season) { showAllEps = false }
         .navigationBarBackButtonHidden(true)
-        .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
+        .toolbar { ClassicTitleBarItems(back: noBack ? nil : { dismiss() }) }
         .classicHideToolbarTitle()
     }
 
