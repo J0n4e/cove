@@ -498,6 +498,7 @@ struct ClassicTopNavBar: View {
 }
 
 struct ClassicTopNavButtons: View {
+    @AppStorage("accent") private var accentName = "red"
     @EnvironmentObject var emby: Emby
     @AppStorage(NavOrder.key) private var navOrder = ""
     @ObservedObject private var nav = ClassicNavState.shared
@@ -515,7 +516,7 @@ struct ClassicTopNavButtons: View {
                 else if badge > 0 { Text("\(badge)") }
             }
                 .font(.callout.weight(on ? .semibold : .regular))
-                .foregroundColor(on ? .white : .secondary)
+                .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)   // black on a white accent
                 .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())

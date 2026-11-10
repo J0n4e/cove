@@ -73,6 +73,7 @@ extension View { func glassCapsule() -> some View { modifier(GlassCapsule()) } }
 
 /// One letter of the library A–Z bar.
 struct AlphaLetter: View {
+    @AppStorage("accent") private var accentName = "red"
     let l: String
     let on: Bool
     let action: () -> Void
@@ -81,7 +82,7 @@ struct AlphaLetter: View {
         Button(action: action) {
             Text(l).font(.system(size: 11, weight: .bold))
                 .frame(width: 22, height: 17)
-                .foregroundColor(on ? .white : hover ? .primary : .secondary)
+                .foregroundColor(on ? Theme.onAccent(accentName) : hover ? .primary : .secondary)
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(hover ? 0.18 : 0))))
                 .contentShape(Rectangle())
         }
@@ -96,10 +97,11 @@ struct AlphaLetter: View {
 
 /// Toolbar button in Apple TV glass; `active` (a filter in use) gets a lighter fill.
 struct PillStyle: ViewModifier {
+    @AppStorage("accent") private var accentName = "red"
     let active: Bool
     func body(content: Content) -> some View {
         content.font(.callout.weight(.medium))
-            .foregroundStyle(Color.white)
+            .foregroundStyle(active ? Theme.onAccent(accentName) : Color.white)
             .padding(.horizontal, 16).frame(height: 36)
             .background(Capsule().fill(active ? AnyShapeStyle(TintShapeStyle().opacity(0.8)) : AnyShapeStyle(Color.clear)))
             .glassCapsule()
@@ -606,6 +608,7 @@ struct TopNavBar: View {
 }
 
 struct TopNavButtons: View {
+    @AppStorage("accent") private var accentName = "red"
     @EnvironmentObject var emby: Emby
     @ObservedObject private var nav = NavState.shared
     @AppStorage("showFavorites") private var showFavorites = true
@@ -626,7 +629,7 @@ struct TopNavButtons: View {
                 else if badge > 0 { Text("\(badge)") }
             }
                 .font(.callout.weight(on ? .semibold : .regular))
-                .foregroundColor(on ? .white : .secondary)
+                .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)   // black on a white accent
                 .padding(.horizontal, 14).frame(height: 32)
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
                 .contentShape(Capsule())
