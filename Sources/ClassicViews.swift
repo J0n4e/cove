@@ -2766,8 +2766,11 @@ struct ClassicPlayerView: View {
     var window: NSWindow? { playerWin.window ?? NSApp.keyWindow ?? NSApp.mainWindow }
 
     /// Height of the window's title bar while windowed (0 in full screen, where there is none).
+    /// The separate player window has no title bar (as in the Glass player): measuring one there changed the
+    /// layout during the full screen animation, and leaving full screen stalled.
     var titleBarHeight: CGFloat {
-        guard !isFullScreen, let w = window, !w.styleMask.contains(.fullScreen) else { return 0 }
+        guard !UserDefaults.standard.bool(forKey: "separatePlayer"),
+              !isFullScreen, let w = window, !w.styleMask.contains(.fullScreen) else { return 0 }
         return max(0, w.frame.height - w.contentLayoutRect.height)
     }
     /// Color of the strip under the title bar. The system draws the bar's own gray (about 93 % opaque) over it,
@@ -2806,6 +2809,7 @@ struct ClassicPlayerView: View {
         // window stuck, ignoring every later toggle
         guard !fsBusy else { DebugLog.write("fs toggle ignored: animation running"); return }
         guard let w = window else { return }
+        w.collectionBehavior.insert(.fullScreenPrimary)   // as in the Glass player
         fsBusy = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { fsBusy = false }   // in case no notification comes
         let on = w.styleMask.contains(.fullScreen)
