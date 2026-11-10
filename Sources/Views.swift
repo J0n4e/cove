@@ -1130,6 +1130,15 @@ struct PersonHeader: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 70)).foregroundColor(.secondary) }
                 }
                 .frame(width: 280, height: 420).clipShape(RoundedRectangle(cornerRadius: 14))
+                // Favorite: heart top left when it is one, heart button bottom right on hover (as on cast photos)
+                .overlay(alignment: .topLeading) {
+                    if emby.isPersonFav(id) {
+                        Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(.tint)
+                            .shadow(color: .black.opacity(0.6), radius: 3).padding(12)
+                    }
+                }
+                .modifier(HoverPersonHeart(id: id, name: name))
+                .task { _ = await emby.favoritePeople() }   // knows whether this person is a favorite
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.15)))
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                 VStack(alignment: .leading, spacing: 12) {
