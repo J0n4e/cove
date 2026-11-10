@@ -616,6 +616,7 @@ struct ClassicTopBackButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
+        .focusEffectDisabled()   // no blue macOS focus ring when a page opens
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
         .helpLabel("Back (⌘[)")
@@ -1595,6 +1596,7 @@ struct ClassicBackPill: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
+        .focusEffectDisabled()   // no blue macOS focus ring when a page opens
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
         .keyboardShortcut("[", modifiers: .command)
