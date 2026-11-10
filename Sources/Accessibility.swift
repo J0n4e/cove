@@ -7,7 +7,19 @@ extension View {
 
     /// Tooltip drawn by AppKit. SwiftUI's `.help` restarts its timer whenever the view redraws, and cards redraw
     /// on hover (lift, buttons appearing), so its tooltips often never showed. An empty text shows none.
-    func tip(_ text: String) -> some View { overlay(ToolTipView(text: text)) }
+    func tip(_ text: String) -> some View { modifier(HoverTip(text: text)) }
+}
+
+/// The AppKit tooltip view exists only while the pointer is on the view. Dozens of always-present AppKit views
+/// made every window resize (going full screen) slow and made the video stutter.
+private struct HoverTip: ViewModifier {
+    let text: String
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        content
+            .overlay { if hover && !text.isEmpty { ToolTipView(text: text) } }
+            .onHover { hover = $0 }
+    }
 }
 
 private struct ToolTipView: NSViewRepresentable {
