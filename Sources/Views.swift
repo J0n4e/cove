@@ -2082,6 +2082,26 @@ struct BackPill: View {
     }
 }
 
+/// Page buttons (Play, Trailer, Watched, Favorite): grow a little and brighten under the mouse, and dip
+/// when clicked.
+struct HoverButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { LiftBody(c: configuration) }
+
+    struct LiftBody: View {
+        let c: ButtonStyleConfiguration
+        @State private var hover = false
+        var body: some View {
+            c.label
+                .brightness(hover ? 0.12 : 0)
+                .scaleEffect(c.isPressed ? 0.95 : hover ? 1.07 : 1)
+                .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
+                .onHover { hover = $0 }
+                .animation(.easeOut(duration: 0.15), value: hover)
+                .animation(.easeOut(duration: 0.1), value: c.isPressed)
+        }
+    }
+}
+
 /// Green badge: a check when the count is 0, otherwise the number.
 struct CountBadge: View {
     let count: Int?
@@ -2856,7 +2876,7 @@ struct DetailView: View {
                 Label(playLabel, systemImage: "play.fill").font(.system(size: 17, weight: .semibold))
                     .padding(.horizontal, 34).frame(height: 46)
                     .background(Capsule().fill(.white)).foregroundColor(.black)
-            }.buttonStyle(.plain)
+            }.buttonStyle(HoverButton())
             if let t = playTarget, emby.resumeAt(t) > 0 {
                 glassCircle("arrow.counterclockwise", help: "Start Over") { playNow(from: 0) }
             }
@@ -2877,7 +2897,7 @@ struct DetailView: View {
             Image(systemName: name).font(.system(size: 17, weight: .semibold))
                 .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
                 .contentShape(Circle())
-        }.buttonStyle(.plain).helpLabel(help)
+        }.buttonStyle(HoverButton()).helpLabel(help)
     }
 
     /// Language name from "English (SRT)" etc., so "eng" and "en" tracks group together.

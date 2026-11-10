@@ -2302,22 +2302,22 @@ struct ClassicDetailView: View {
                 Label(playLabel, systemImage: "play.fill").bold()
                     .padding(.horizontal, 24).frame(height: 44)
                     .background(.white).foregroundColor(.black).clipShape(Capsule())
-            }.buttonStyle(.plain)
+            }.buttonStyle(HoverButton())
             if let t = playTarget, emby.resumeAt(t) > 0 {
                 Button { playNow(from: 0) } label: { Label("Start Over", systemImage: "arrow.counterclockwise").classicPill() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HoverButton())
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
-                Button { Trailer.open(u, item: item, emby: emby) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(.plain)
+                Button { Trailer.open(u, item: item, emby: emby) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(HoverButton())
             }
             Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
                 if played { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "checkmark.circle").classicCircleButton() }
-            }.buttonStyle(.plain).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
+            }.buttonStyle(HoverButton()).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !emby.isFav(item), name: item.Name) } } label: {
                 if emby.isFav(item) { Image(systemName: "heart.fill").foregroundStyle(.tint).classicCircleButton() }
                 else { Image(systemName: "heart").classicCircleButton() }
-            }.buttonStyle(.plain).helpLabel("Favorite")
+            }.buttonStyle(HoverButton()).helpLabel("Favorite")
         }
     }
 
