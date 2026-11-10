@@ -1742,7 +1742,7 @@ struct ClassicArrowScrollRow<ID: Hashable, Content: View>: View {
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plainHand).helpLabel(help)
+        .buttonStyle(HoverButton()).helpLabel(help)
         .transition(.opacity)
     }
 }
@@ -1810,12 +1810,23 @@ final class ClassicScrollFinder: ObservableObject {
 struct ClassicScrollFinderView: NSViewRepresentable {
     let finder: ClassicScrollFinder
     func makeNSView(context: Context) -> NSView {
-        let v = NSView()
+        let v = Probe()
+        v.finder = finder
         DispatchQueue.main.async { finder.attach(v.enclosingScrollView) }
         return v
     }
     func updateNSView(_ v: NSView, context: Context) {
         if finder.scrollView == nil { DispatchQueue.main.async { finder.attach(v.enclosingScrollView) } }
+    }
+
+    /// Finds its scroll view once it's really in one (see ScrollFinderView.Probe).
+    final class Probe: NSView {
+        weak var finder: ClassicScrollFinder?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window != nil else { return }
+            DispatchQueue.main.async { [weak self] in self?.finder?.attach(self?.enclosingScrollView) }
+        }
     }
 }
 

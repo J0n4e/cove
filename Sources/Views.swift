@@ -2300,7 +2300,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plainHand).helpLabel(help)
+        .buttonStyle(HoverButton()).helpLabel(help)
         .transition(.opacity)
     }
 }
@@ -2368,12 +2368,24 @@ final class ScrollFinder: ObservableObject {
 struct ScrollFinderView: NSViewRepresentable {
     let finder: ScrollFinder
     func makeNSView(context: Context) -> NSView {
-        let v = NSView()
+        let v = Probe()
+        v.finder = finder
         DispatchQueue.main.async { finder.attach(v.enclosingScrollView) }
         return v
     }
     func updateNSView(_ v: NSView, context: Context) {
         if finder.scrollView == nil { DispatchQueue.main.async { finder.attach(v.enclosingScrollView) } }
+    }
+
+    /// Finds its scroll view once it's really in one. Right after creation it often isn't yet, and a row
+    /// that never redraws afterwards (a Home poster row) then never showed its arrows.
+    final class Probe: NSView {
+        weak var finder: ScrollFinder?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window != nil else { return }
+            DispatchQueue.main.async { [weak self] in self?.finder?.attach(self?.enclosingScrollView) }
+        }
     }
 }
 
