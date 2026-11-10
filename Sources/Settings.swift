@@ -30,29 +30,6 @@ struct SettingsView: View {
         }
     }
     @State private var section: Section = .general
-    @State private var keyMonitor: Any?
-
-    /// ← → switch tabs, ↑ ↓ move between the options like Tab / ⇧Tab. Not while typing in a field (the arrows move the cursor there).
-    func installKeys() {
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-            guard let w = ev.window, w.isSheet || w.sheetParent != nil,   // only the Settings sheet
-                  !(w.firstResponder is NSText),
-                  ev.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty else { return ev }
-            let all = Section.allCases, i = all.firstIndex(of: section) ?? 0
-            switch ev.keyCode {
-            case 123: if i > 0 { section = all[i - 1] }; return nil                 // ←
-            case 124: if i < all.count - 1 { section = all[i + 1] }; return nil     // →
-            case 125, 126:                                                          // ↓ ↑ work as Tab / ⇧Tab
-                return NSEvent.keyEvent(with: .keyDown, location: ev.locationInWindow,
-                                        modifierFlags: ev.keyCode == 126 ? .shift : [],
-                                        timestamp: ev.timestamp, windowNumber: ev.windowNumber, context: nil,
-                                        characters: "\t", charactersIgnoringModifiers: "\t",
-                                        isARepeat: ev.isARepeat, keyCode: 48) ?? ev
-            default: return ev
-            }
-        }
-    }
-
 
     var body: some View {
         VStack(spacing: 0) {
@@ -104,8 +81,6 @@ struct SettingsView: View {
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
-        .onAppear { installKeys() }
-        .onDisappear { if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil } }
         .tint(accent)     // switches, menus and links inside Settings too
         .background(bg)   // follows Appearance → Background, like the rest of the app
         // Esc closes Settings and keeps the changes, like OK / Done
@@ -830,9 +805,7 @@ struct ShortcutsSettings: View {
                   ("⌘ ←  or  ⌘ [", "Back")])
         }
         PrefSection(title: "In Settings") {
-            keys([("← →", "Previous / next tab"),
-                  ("↑ ↓", "Next / previous option, like Tab"),
-                  ("Return", "OK"),
+            keys([("Return", "OK"),
                   ("Esc", "Close and keep the changes")])
         }
         PrefSection(title: "Other", last: true) {
