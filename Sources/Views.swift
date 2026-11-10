@@ -745,7 +745,7 @@ struct TopBackButton: View {
                 .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
                 .contentShape(Circle())
         }
-        .buttonStyle(.plainHand)
+        .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
@@ -2076,7 +2076,7 @@ struct BackPill: View {
             .overlay(Capsule().stroke(Color.white.opacity(hover ? 0.7 : 0.3), lineWidth: 1))
             .contentShape(Capsule())
         }
-        .buttonStyle(.plainHand)
+        .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
