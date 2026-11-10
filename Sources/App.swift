@@ -9,6 +9,8 @@ struct CoveApp: App {
     @AppStorage("bg") private var bg = "black"
     @AppStorage("theme") private var theme = "apple"
     init() {
+        // Tooltips show after 0.4 s instead of macOS's default of about 1 s (a default, not saved, so Reset keeps it)
+        UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 400])
         Self.importEmbyFlixSettings()
         Self.scrubEmbyFlixTokens()
         NSApplication.shared.setActivationPolicy(.regular)
