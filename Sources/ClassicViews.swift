@@ -3090,7 +3090,7 @@ struct ClassicPlayerView: View {
             Slider(value: $model.volume, in: 0...1).frame(width: 160).tint(.white).controlSize(.small)
             Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
                 Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 18))
-            }.buttonStyle(HoverButton())
+            }.buttonStyle(HoverButton(backing: true))
         }
         .padding(.horizontal, 20).padding(.top, 14)
     }
@@ -3171,7 +3171,7 @@ struct ClassicPlayerView: View {
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
                 .contentShape(Rectangle())
-        }.buttonStyle(HoverButton())
+        }.buttonStyle(HoverButton(backing: true))
     }
 
     // MARK: Panels

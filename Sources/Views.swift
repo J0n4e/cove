@@ -1490,7 +1490,7 @@ struct Hero: View {
             Image(systemName: name).font(.system(size: 30, weight: .light))
                 .frame(width: 44, height: 80).contentShape(Rectangle())
                 .shadow(color: .black.opacity(0.6), radius: 4)
-        }.buttonStyle(HoverButton())
+        }.buttonStyle(HoverButton(backing: true))
     }
 }
 
@@ -2085,13 +2085,19 @@ struct BackPill: View {
 /// Page, player and banner buttons: grow a little and brighten under the mouse, and dip
 /// when clicked.
 struct HoverButton: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View { LiftBody(c: configuration) }
+    /// For bare icons: a soft see-through backing appears under the mouse
+    var backing = false
+    func makeBody(configuration: Configuration) -> some View { LiftBody(c: configuration, backing: backing) }
 
     struct LiftBody: View {
         let c: ButtonStyleConfiguration
+        let backing: Bool
         @State private var hover = false
         var body: some View {
             c.label
+                .padding(backing ? 4 : 0)
+                .background(Capsule().fill(Color.white.opacity(backing && hover ? 0.16 : 0)))
+                .padding(backing ? -4 : 0)
                 .brightness(hover ? 0.12 : 0)
                 .scaleEffect(c.isPressed ? 0.95 : hover ? 1.07 : 1)
                 .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
@@ -3793,7 +3799,7 @@ struct PlayerView: View {
                 Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
                     Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 17))
                         .frame(width: 26)
-                }.buttonStyle(HoverButton())
+                }.buttonStyle(HoverButton(backing: true))
             }
             .padding(.horizontal, 18).frame(height: 50).background(.ultraThinMaterial, in: Capsule())
         }
@@ -3808,7 +3814,7 @@ struct PlayerView: View {
                 .frame(width: 40, height: 40)
                 .foregroundColor(on ? accent : .white)
                 .contentShape(Rectangle())
-        }.buttonStyle(HoverButton())
+        }.buttonStyle(HoverButton(backing: true))
     }
 
     /// Apple TV style: back 10, play / pause and forward 10 as big glass circles in the middle of the picture.
@@ -3917,7 +3923,7 @@ struct PlayerView: View {
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
                 .contentShape(Rectangle())
-        }.buttonStyle(HoverButton())
+        }.buttonStyle(HoverButton(backing: true))
     }
 
     // MARK: Panels
