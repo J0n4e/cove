@@ -701,6 +701,7 @@ struct ClassicFavoritesView: View {
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
         .background(bg)
+        .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
         .onAppear { Task { items = await emby.favorites(); loading = false } }
     }
 
@@ -755,6 +756,7 @@ struct ClassicFavoriteGridView: View {
             }.padding(.horizontal, 32).padding(.vertical, 24)
         }
         .background(bg)
+        .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
         .navigationTitle(title)
         .navigationBarBackButtonHidden(true)
         .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
@@ -1221,6 +1223,7 @@ struct ClassicBackdrop: View {
 
 struct ClassicPosterCard: View {
     @EnvironmentObject var emby: Emby
+    @Environment(\.inFavorites) private var inFavorites
     let item: Item
     @State private var hover = false
     // Settings → Libraries → Poster labels
@@ -1244,7 +1247,7 @@ struct ClassicPosterCard: View {
                     ClassicWatchBadge(item: item, played: played).padding(8)
                 }
                 .overlay(alignment: .topLeading) {
-                    if emby.isFav(item) {
+                    if emby.isFav(item) && !inFavorites {
                         Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
                             .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
                     }
