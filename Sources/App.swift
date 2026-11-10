@@ -54,6 +54,8 @@ struct CoveApp: App {
                 .environment(\.appBG, Theme.bg(bg))
                 .tint(Theme.accent(accent))
                 .preferredColorScheme(.dark)
+                // No blue macOS focus ring anywhere: it showed up at random on buttons after clicks and page changes
+                .focusEffectDisabled()
                 .frame(minWidth: 1000, minHeight: 650)
                 .sessionExpiredAlert(emby)
                 .task { await Updater.shared.checkOnLaunch() }
@@ -77,6 +79,7 @@ struct CoveApp: App {
                 .environment(\.appBG, Theme.bg(bg))
                 .tint(Theme.accent(accent))
                 .preferredColorScheme(.dark)
+                .focusEffectDisabled()
                 .frame(minWidth: 640, minHeight: 360)
         }
         .windowStyle(.hiddenTitleBar)

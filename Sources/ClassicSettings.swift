@@ -37,7 +37,7 @@ struct ClassicSettingsView: View {
                 Spacer()
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("Done").classicOnAccent() }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.borderedProminent).handCursor()
             }.padding(.horizontal, 20).padding(.vertical, 14)
             Divider()
             HStack(spacing: 0) {
@@ -49,7 +49,7 @@ struct ClassicSettingsView: View {
                                 .padding(.horizontal, 10).padding(.vertical, 7)
                                 .background(section == s ? Color.white.opacity(0.14) : Color.clear)
                                 .cornerRadius(6).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(.plainHand)
                     }
                     Spacer()
                 }
@@ -139,7 +139,7 @@ struct ClassicGeneralSettings: View {
                         .overlay(Circle().stroke(Color.white, lineWidth: 3).padding(-5)
                             .opacity(selection.wrappedValue == name ? 1 : 0))
                         .frame(width: 44, height: 44).contentShape(Circle())
-                }.buttonStyle(.plain).tip(name.capitalized)
+                }.buttonStyle(.plainHand).tip(name.capitalized)
             }
         }
     }
@@ -156,7 +156,7 @@ struct ClassicGeneralSettings: View {
                                 .stroke(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.15)), lineWidth: on ? 3 : 1))
                         Text(name.capitalized).font(.caption).foregroundColor(on ? .primary : .secondary)
                     }.contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plainHand)
             }
         }
     }
@@ -262,7 +262,7 @@ struct ClassicAboutSettings: View {
             }
             ClassicSettingRow(label: "Updates") { UpdateRow() }
             ClassicSettingRow(label: "Source & releases") {
-                Link("github.com/J0n4e/cove", destination: URL(string: "https://github.com/J0n4e/cove/releases")!)
+                Link("github.com/J0n4e/cove", destination: URL(string: "https://github.com/J0n4e/cove/releases")!).handCursor()
             }
         }
         ClassicSettingsGroup(title: "Save and load settings",
@@ -348,7 +348,7 @@ struct ClassicLibrariesSettings: View {
             Toggle("Show the preview card when hovering a poster", isOn: $hoverOn)
             ClassicSettingRow(label: "Delay before it opens") {
                 HStack(spacing: 10) {
-                    Slider(value: $hoverDelay, in: 0.1...2.0, step: 0.1).frame(width: 200)
+                    Slider(value: $hoverDelay, in: 0.1...2.0, step: 0.1).frame(width: 200).handCursor()
                     Text(String(format: "%.1f s", hoverDelay)).monospacedDigit().foregroundColor(.secondary)
                         .frame(width: 46, alignment: .trailing)
                 }
@@ -362,7 +362,7 @@ struct ClassicLibrariesSettings: View {
             }.disabled(!hoverOn || !hoverZoom)
             ClassicSettingRow(label: "Zoom duration") {
                 HStack(spacing: 10) {
-                    Slider(value: $hoverZoomDur, in: 0.1...1.0, step: 0.05).frame(width: 200)
+                    Slider(value: $hoverZoomDur, in: 0.1...1.0, step: 0.05).frame(width: 200).handCursor()
                     Text(String(format: "%.2f s", hoverZoomDur)).monospacedDigit().foregroundColor(.secondary)
                         .frame(width: 46, alignment: .trailing)
                 }
@@ -401,9 +401,9 @@ struct ClassicLibrariesSettings: View {
     func arrows(_ n: Int, _ count: Int) -> some View {
         HStack(spacing: 10) {
             Button { move(n, by: -1) } label: { Image(systemName: "arrow.up") }
-                .disabled(n == 0).buttonStyle(.borderless)
+                .disabled(n == 0).buttonStyle(.borderless).handCursor()
             Button { move(n, by: 1) } label: { Image(systemName: "arrow.down") }
-                .disabled(n == count - 1).buttonStyle(.borderless)
+                .disabled(n == count - 1).buttonStyle(.borderless).handCursor()
         }
     }
 
