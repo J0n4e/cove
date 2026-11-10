@@ -139,7 +139,7 @@ struct ClassicGeneralSettings: View {
                         .overlay(Circle().stroke(Color.white, lineWidth: 3).padding(-5)
                             .opacity(selection.wrappedValue == name ? 1 : 0))
                         .frame(width: 44, height: 44).contentShape(Circle())
-                }.buttonStyle(.plain).tip(name.capitalized)
+                }.buttonStyle(.plain).help(name.capitalized)
             }
         }
     }
@@ -619,7 +619,7 @@ struct ClassicServerSettings: View {
                     Text(s.token != nil ? "Signed in" : "Signed out").font(.caption).foregroundColor(.secondary)
                     Button("Remove", role: .destructive) { emby.removeServer(s) }
                         .disabled(s.id == emby.server.lowercased())
-                        .tip(s.id == emby.server.lowercased() ? "Switch to another server first" : "")
+                        .help(s.id == emby.server.lowercased() ? "Switch to another server first" : "")
                 }
             }
         }

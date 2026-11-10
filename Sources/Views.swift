@@ -144,26 +144,6 @@ func parseDate(_ s: String?) -> Date? {
     return ISO8601DateFormatter().date(from: String(s.prefix(19)) + "Z")
 }
 
-/// Keeps the page under an in-window player at the size it had when the video started. Going full screen
-/// resizes the window; without this the hidden page was laid out again on every frame of the animation,
-/// which made the video stutter.
-struct FreezeSizeWhilePlaying: ViewModifier {
-    let playing: Bool
-    @State private var frozen: CGSize?
-    private final class Box { var size = CGSize.zero }
-    @State private var last = Box()   // current size, kept without redrawing anything
-    func body(content: Content) -> some View {
-        content
-            .frame(width: frozen?.width, height: frozen?.height, alignment: .topLeading)
-            .background(GeometryReader { g in
-                Color.clear.onAppear { last.size = g.size }.onChange(of: g.size) { _, s in last.size = s }
-            })
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .clipped()
-            .onChange(of: playing, initial: true) { _, on in frozen = on ? last.size : nil }
-    }
-}
-
 struct RootView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
@@ -182,7 +162,6 @@ struct RootView: View {
             }
                 .opacity(inline && emby.playing != nil ? 0 : 1)
                 .allowsHitTesting(!(inline && emby.playing != nil))
-                .modifier(FreezeSizeWhilePlaying(playing: inline && emby.playing != nil))
             HoverCardLayer()
             if inline, let req = emby.playing {
                 ChosenPlayerView(req: req, theme: "apple").id(req.id).zIndex(10)
@@ -686,7 +665,7 @@ struct TopNavButtons: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .tip(labels == "icons" ? title : "")   // names show on hover when only icons are shown
+        .help(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
     func icon(_ lib: LibPref) -> String {
@@ -951,7 +930,7 @@ struct FavoritesView: View {
                     Text(title).font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).tip("Show all")
+            }.buttonStyle(.plain).help("Show all")
             if layout == "grid" {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(list) { PosterCard(item: $0) }
@@ -1085,7 +1064,7 @@ struct SessionCard: View {
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .background(Capsule().fill(transcoding ? Color.orange.opacity(0.25) : Color.green.opacity(0.25)))
-                        .tip(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
+                        .help(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
                 }
                 Spacer(minLength: 0)
             }
@@ -1280,9 +1259,9 @@ struct HomeContent: View {
             Image(systemName: "chevron.right").font(.system(size: 17, weight: .bold)).foregroundColor(.secondary)
         }.contentShape(Rectangle())
         if let f = row.feed {
-            NavigationLink(value: f) { label }.buttonStyle(.plain).tip("Show all")
+            NavigationLink(value: f) { label }.buttonStyle(.plain).help("Show all")
         } else if let id = row.libId {
-            Button { nav.sel = id } label: { label }.buttonStyle(.plain).tip("Open \(row.title)")
+            Button { nav.sel = id } label: { label }.buttonStyle(.plain).help("Open \(row.title)")
         } else {
             Text(row.title).font(.system(size: 22, weight: .bold))
         }
@@ -1866,7 +1845,7 @@ struct ItemActionsButton: View {
                 .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain).tip(help)
+        .buttonStyle(.plain).help(help)
     }
     var body: some View {
         let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
@@ -4555,7 +4534,7 @@ struct SelfHoverLift: ViewModifier {
                     let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
                         .shadow(radius: 6)
                     if let onPlay {
-                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).tip("Play")
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).help("Play")
                     } else { icon }
                 }
             }

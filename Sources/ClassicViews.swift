@@ -64,7 +64,6 @@ struct ClassicRootView: View {
             Group { if emby.loggedIn { ClassicHomeView() } else { ClassicLoginView() } }
                 .opacity(emby.playing == nil ? 1 : 0)
                 .allowsHitTesting(emby.playing == nil)
-                .modifier(FreezeSizeWhilePlaying(playing: emby.playing != nil && !UserDefaults.standard.bool(forKey: "separatePlayer")))
             ClassicHoverCardLayer()
             if let req = emby.playing {
                 ChosenPlayerView(req: req, theme: "classic").id(req.id).zIndex(10)
@@ -543,7 +542,7 @@ struct ClassicTopNavButtons: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .tip(labels == "icons" ? title : "")   // names show on hover when only icons are shown
+        .help(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
     /// Favorites or Now Playing, wherever Settings → Libraries placed it.
@@ -805,7 +804,7 @@ struct ClassicFavoritesView: View {
                     Text(title).font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).tip("Show all")
+            }.buttonStyle(.plain).help("Show all")
             if layout == "grid" {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(list) { ClassicPosterCard(item: $0) }
@@ -938,7 +937,7 @@ struct ClassicSessionCard: View {
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .background(Capsule().fill(transcoding ? Color.orange.opacity(0.25) : Color.green.opacity(0.25)))
-                        .tip(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
+                        .help(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
                 }
                 Spacer(minLength: 0)
             }
@@ -3776,7 +3775,7 @@ struct ClassicSelfHoverLift: ViewModifier {
                     let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
                         .shadow(radius: 6)
                     if let onPlay {
-                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).tip("Play")
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plain).help("Play")
                     } else { icon }
                 }
             }

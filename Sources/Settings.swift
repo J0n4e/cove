@@ -187,7 +187,7 @@ struct GeneralSettings: View {
                         .overlay(Circle().stroke(Color.white, lineWidth: 3).padding(-5)
                             .opacity(selection.wrappedValue == name ? 1 : 0))
                         .frame(width: 44, height: 44).contentShape(Circle())
-                }.buttonStyle(.plain).tip(name.capitalized)
+                }.buttonStyle(.plain).help(name.capitalized)
             }
         }
     }
@@ -580,7 +580,7 @@ struct LibrariesSettings: View {
                     }
                 }
                 .onEnded { _ in dragId = nil })
-            .tip("Drag to reorder")
+            .help("Drag to reorder")
     }
 
     /// Splits a table order back into the library order and the sections' places.
@@ -878,13 +878,13 @@ struct ServerSettings: View {
                             Spacer(minLength: 12)
                             if current {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(TintShapeStyle())
-                                    .tip("Connected")
+                                    .help("Connected")
                             } else if busy == srv.id {
                                 Spinner().controlSize(.small)
                             } else {
                                 Button("Connect") { connect(srv) }
                                 Button { emby.removeServer(srv) } label: { Image(systemName: "minus.circle") }
-                                    .buttonStyle(.borderless).tip("Remove this server and its sign-in")
+                                    .buttonStyle(.borderless).help("Remove this server and its sign-in")
                             }
                         }
                         .padding(.horizontal, 12).padding(.vertical, 10)
