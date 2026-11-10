@@ -804,6 +804,11 @@ struct FavoritesView: View {
             Task { items = await emby.favorites(); loading = false }
             Task { people = await emby.favoritePeople() }
         }
+        // Something was added or removed elsewhere (a cast photo, an episode): show it without leaving the page
+        .onChange(of: emby.favRevision) {
+            Task { items = await emby.favorites() }
+            Task { people = await emby.favoritePeople() }
+        }
     }
 
     /// Emby-style row: "Favorite Movies ›" heading (opens the full grid) and a scrolling row of posters.

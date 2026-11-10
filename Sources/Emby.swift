@@ -261,6 +261,8 @@ final class Emby: ObservableObject {
     @Published var faved: [String: Bool] = [:]
     /// Favorite people from the last `favoritePeople()` call (cast tiles have no favorite flag of their own)
     @Published var favPeopleIds: Set<String> = []
+    /// Goes up once the server has taken a favorite change, so the Favorites page can reload what it shows
+    @Published var favRevision = 0
     func isPersonFav(_ id: String) -> Bool { faved[id] ?? favPeopleIds.contains(id) }
     @Published var servers: [SavedServer] = []
     /// The saved entry for the server we're signed in to.
@@ -954,6 +956,7 @@ final class Emby: ObservableObject {
         for c in children { faved[c.id] = v }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(id)")
         for c in children { await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(c.id)") }
+        favRevision += 1
     }
     func play(_ it: Item) async {
         if it.isSeries {
