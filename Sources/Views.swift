@@ -1076,6 +1076,7 @@ struct PersonHeader: View {
     let record: Item?
     let items: [Item]
     let loading: Bool
+    @State private var photoHover = false
 
     var bio: String { record?.Overview ?? "" }
     var backdrop: Item? { items.first { $0.backdropId != nil } }
@@ -1120,24 +1121,23 @@ struct PersonHeader: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 70)).foregroundColor(.secondary) }
                 }
                 .frame(width: 280, height: 420).clipShape(RoundedRectangle(cornerRadius: 14))
+                // Favorite heart in the bottom-right corner on hover, as on posters
+                .overlay(alignment: .bottomTrailing) {
+                    if photoHover, let record {
+                        let fav = emby.isFav(record)
+                        ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
+                                                 help: fav ? "Remove from Favorites" : "Add to Favorites") {
+                            Task { await emby.setFav(record.id, !fav) }
+                        }.padding(10)
+                    }
+                }
+                .onHover { photoHover = $0 }
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.15)))
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                 VStack(alignment: .leading, spacing: 12) {
                     Text(name).font(.system(size: 42, weight: .bold)).lineLimit(2)
                     if !facts.isEmpty { Text(facts).font(.system(size: 15)).foregroundColor(.secondary) }
                     HStack(spacing: 8) {
-                        if let record {
-                            let fav = emby.isFav(record)
-                            Button { Task { await emby.setFav(record.id, !fav) } } label: {
-                                Label(fav ? "Favorite" : "Add to Favorites", systemImage: fav ? "heart.fill" : "heart")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(fav ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
-                                    .padding(.horizontal, 12).padding(.vertical, 5)
-                                    .background(Capsule().fill(Color.white.opacity(0.12)))
-                                    .overlay(Capsule().stroke(Color.white.opacity(0.15)))
-                                    .contentShape(Capsule())
-                            }.buttonStyle(.plain).help(fav ? "Remove from Favorites" : "Add to Favorites")
-                        }
                         if !loading {
                             if movies > 0 { chip("\(movies) Movie\(movies == 1 ? "" : "s")") }
                             if shows > 0 { chip("\(shows) Show\(shows == 1 ? "" : "s")") }
@@ -1658,7 +1658,7 @@ struct ItemActionsButton: View {
     let item: Item
     /// A season's episodes: Watched marks them all, and shows as on only when every one is watched
     var children: [Item] = []
-    func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
+    static func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 12, weight: .bold))
                 .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
@@ -1673,10 +1673,10 @@ struct ItemActionsButton: View {
         let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
         let fav = children.isEmpty ? emby.isFav(item) : emby.isFav(item) && children.allSatisfy { emby.isFav($0) }
         HStack(spacing: 6) {
-            circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
+            Self.circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
                 Task { await emby.setPlayed(item.id, !played, children: children) }
             }
-            circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from Favorites" : "Add to Favorites") {
+            Self.circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await emby.setFav(item.id, !fav, children: children) }
             }
         }
