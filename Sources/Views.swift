@@ -1518,19 +1518,21 @@ struct PosterCard: View {
 /// Shows the Watched / Favorite buttons in a corner while the pointer is on the view (episode cards and rows).
 struct HoverItemActions: ViewModifier {
     let item: Item?     // nil: no buttons (a season the server didn't list)
+    var children: [Item] = []
     let alignment: Alignment
     var padding = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
     @State private var hover = false
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: alignment) { if hover, let item { ItemActionsButton(item: item).padding(padding) } }
+            .overlay(alignment: alignment) { if hover, let item { ItemActionsButton(item: item, children: children).padding(padding) } }
             .onHover { hover = $0 }   // after the overlay, so moving onto the buttons keeps them shown
     }
 }
 extension View {
     func hoverItemActions(_ item: Item?, _ alignment: Alignment = .topTrailing,
-                          _ padding: EdgeInsets = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)) -> some View {
-        modifier(HoverItemActions(item: item, alignment: alignment, padding: padding))
+                          _ padding: EdgeInsets = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8),
+                          children: [Item] = []) -> some View {
+        modifier(HoverItemActions(item: item, children: children, alignment: alignment, padding: padding))
     }
 }
 
@@ -1538,6 +1540,8 @@ extension View {
 struct ItemActionsButton: View {
     @EnvironmentObject var emby: Emby
     let item: Item
+    /// A season's episodes: Watched marks them all, and shows as on only when every one is watched
+    var children: [Item] = []
     func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 12, weight: .bold))
@@ -1550,10 +1554,11 @@ struct ItemActionsButton: View {
         .buttonStyle(.plain).help(help)
     }
     var body: some View {
-        let played = emby.isPlayed(item), fav = emby.isFav(item)
+        let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
+        let fav = emby.isFav(item)
         HStack(spacing: 6) {
             circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
-                Task { await emby.setPlayed(item.id, !played) }
+                Task { await emby.setPlayed(item.id, !played, children: children) }
             }
             circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await emby.setFav(item.id, !fav) }
@@ -2665,7 +2670,7 @@ struct DetailView: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(selected ? 1 : 0.85), lineWidth: selected ? 3 : 1))
                 .shadow(radius: 6)
                 .hoverLift()
-                .hoverItemActions(sItem, .bottomTrailing)
+                .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
                 Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plain)

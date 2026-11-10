@@ -935,9 +935,12 @@ final class Emby: ObservableObject {
         authorize(&r, token: s?.token)
         _ = try? await Net.session.data(for: r)
     }
-    func setPlayed(_ id: String, _ v: Bool) async {
+    /// `children`: episodes shown under this season or show. The server marks them itself; this updates their
+    /// ticks and the unwatched count on screen right away.
+    func setPlayed(_ id: String, _ v: Bool, children: [Item] = []) async {
         played[id] = v
         positions[id] = 0
+        for c in children { played[c.id] = v; positions[c.id] = 0 }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
     }
     func setFav(_ id: String, _ v: Bool) async {
