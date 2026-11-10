@@ -482,6 +482,8 @@ struct HomeView: View {
             }
         }
         .onChange(of: sel) { path = NavigationPath(); query = "" }
+        // Typing a search on a page opened from results (an actor, a movie) goes back to the results
+        .onChange(of: query) { if !path.isEmpty { path = NavigationPath() } }
         .onChange(of: [showFavorites, showNowPlaying, showRecent]) {
             let hidden = (!showFavorites && sel == "favorites") || (!showNowPlaying && sel == "nowplaying") || (!showRecent && sel == "recent")
             if hidden { nav.sel = "home" }

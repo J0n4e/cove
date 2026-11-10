@@ -400,6 +400,8 @@ struct ClassicHomeView: View {
             }
         }
         .onChange(of: sel) { path = NavigationPath(); query = "" }
+        // Typing a search on a page opened from results (an actor, a movie) goes back to the results
+        .onChange(of: query) { if !path.isEmpty { path = NavigationPath() } }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
