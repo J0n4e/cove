@@ -671,6 +671,7 @@ struct ClassicFavoritesView: View {
     @AppStorage("favoritesLayout") private var layout = "row"
     @Environment(\.appBG) var bg
     @State private var items: [Item] = []
+    @State private var people: [Item] = []
     @State private var loading = true
 
     var body: some View {
@@ -689,12 +690,14 @@ struct ClassicFavoritesView: View {
                 if !shows.isEmpty { section("Favorite Shows", shows) }
                 if !episodes.isEmpty { section("Favorite Episodes", episodes) }
                 if !collections.isEmpty { section("Favorite Collections", collections) }
+                let favPeople = people.filter { emby.isFav($0) }
+                if !favPeople.isEmpty { peopleSection(favPeople) }
                 if loading && items.isEmpty { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
-                else if favs.isEmpty {
+                else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
                         Image(systemName: "heart").font(.system(size: 40)).foregroundColor(.secondary)
                         Text("No favorites yet").font(.headline)
-                        Text("Tap the heart on a movie, show or collection to add it here.").foregroundColor(.secondary)
+                        Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 }
             }
@@ -702,10 +705,37 @@ struct ClassicFavoritesView: View {
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
-        .onAppear { Task { items = await emby.favorites(); loading = false } }
+        .onAppear {
+            Task { items = await emby.favorites(); loading = false }
+            Task { people = await emby.favoritePeople() }
+        }
     }
 
     /// Emby-style row: "Favorite Movies ›" heading (opens the full grid) and a scrolling row of posters.
+    /// Round photos of favorite actors and directors; a click opens their page.
+    func peopleSection(_ list: [Item]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Favorite People").font(.title3.bold())
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 18) {
+                    ForEach(list) { p in
+                        NavigationLink(value: ClassicPersonRef(id: p.id, name: p.Name)) {
+                            VStack(spacing: 8) {
+                                CachedImage(url: emby.image(p.id, width: 260)) { img in
+                                    img.resizable().aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 34)).foregroundColor(.secondary) }
+                                }
+                                .frame(width: 110, height: 110).clipShape(Circle())
+                                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
+                            }.frame(width: 124)
+                        }.buttonStyle(.plain)
+                    }
+                }.padding(.vertical, 6)
+            }
+        }
+    }
+
     func section(_ title: String, _ list: [Item]) -> some View {
         let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
         return VStack(alignment: .leading, spacing: 8) {

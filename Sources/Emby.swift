@@ -1011,6 +1011,13 @@ final class Emby: ObservableObject {
         return r?.Items ?? []
     }
 
+    /// People (actors, directors) marked as favorite. `/Persons` takes IsFavorite on Emby and Jellyfin.
+    func favoritePeople() async -> [Item] {
+        let r: ItemList? = try? await get("/Persons", ["UserId": userId, "IsFavorite": "true", "SortBy": "SortName",
+                                                        "SortOrder": "Ascending", "Recursive": "true"])
+        return r?.Items ?? []
+    }
+
     func search(_ term: String) async -> [Item] {
         let r: ItemList? = try? await get("/Users/\(userId)/Items", ["SearchTerm": term, "Recursive": "true", "Limit": "60",
             "IncludeItemTypes": "Movie,Series,BoxSet,Video,MusicVideo,Episode", "Fields": "Overview"])
