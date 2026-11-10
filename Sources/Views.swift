@@ -2360,6 +2360,13 @@ struct CastTile: View {
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
+            // Favorites show a small heart top left, as posters do
+            .overlay(alignment: .topLeading) {
+                if emby.isPersonFav(p.Id) {
+                    Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                        .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
+                }
+            }
             // Favorite heart, bottom right on hover, as on posters
             .overlay(alignment: .bottomTrailing) {
                 if hover {
