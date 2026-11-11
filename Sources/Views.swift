@@ -2338,17 +2338,28 @@ struct ProgressRing: View {
         }
         .frame(width: size, height: size)
     }
-    /// A clear glass straw bent into a circle, filled with see-through accent color as far as the progress: the tube's
-    /// edges are thin light lines, and a highlight runs along the inside of the tube and of the fill.
+    /// Light on a glass edge: bright at the top-left and bottom-right, fading along the sides (as the card frames).
+    static let edgeLight = AngularGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
+                                                   .init(color: .white.opacity(0.85), location: 0.125),
+                                                   .init(color: .white.opacity(0.12), location: 0.25),
+                                                   .init(color: .white.opacity(0.06), location: 0.375),
+                                                   .init(color: .white.opacity(0.12), location: 0.5),
+                                                   .init(color: .white.opacity(0.85), location: 0.625),
+                                                   .init(color: .white.opacity(0.12), location: 0.75),
+                                                   .init(color: .white.opacity(0.06), location: 0.875),
+                                                   .init(color: .white.opacity(0.12), location: 1)],
+                                           center: .center, angle: .zero)
+
+    /// A glass ring like the card frames, filled with see-through accent color as far as the progress, with a
+    /// highlight along the fill.
     var tube: some View {
         let w: CGFloat = 5               // tube thickness
         let d = size + 2                 // centerline diameter
         return ZStack {
-            // empty glass tube: faint body, light outer and inner walls, a highlight along it
-            Circle().stroke(Color.white.opacity(0.12), lineWidth: w)
-            Circle().stroke(Color.white.opacity(0.45), lineWidth: 0.6).frame(width: d + w, height: d + w)
-            Circle().stroke(Color.white.opacity(0.3), lineWidth: 0.6).frame(width: d - w, height: d - w)
-            Circle().stroke(Color.white.opacity(0.25), lineWidth: 1).frame(width: d - 1.5, height: d - 1.5)
+            // glass pane ring, as the card frames: frosted body, edges lit at the top-left and bottom-right
+            Circle().stroke(Color.white.opacity(0.14), lineWidth: w).blur(radius: 0.8)
+            Circle().stroke(Self.edgeLight, lineWidth: 0.9).frame(width: d + w, height: d + w)
+            Circle().stroke(Self.edgeLight, lineWidth: 0.7).frame(width: d - w, height: d - w)
             // liquid: see-through accent fill with its own highlight, rounded ends
             if filled { Group {
                 Circle().trim(from: 0, to: trim)
