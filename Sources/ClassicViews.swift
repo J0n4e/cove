@@ -57,6 +57,8 @@ struct ClassicRootView: View {
             if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
         .environment(\.classicGlass, true)
+        // Rounded system font: soft like the glass pills and rounded corners, still very readable
+        .fontDesign(.rounded)
         .tipLayer()
     }
 }
