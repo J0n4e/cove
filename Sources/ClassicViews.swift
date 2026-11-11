@@ -2156,8 +2156,8 @@ struct ClassicDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .classicThinBorder(6)
                 .classicHoverLift(play: 40) { playEpisode(ep) }
-                // below the watched badge in the top-right corner
-                .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 38, leading: 6, bottom: 6, trailing: 6))
+                // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
+                .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
                     Text(ep.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
                 }
