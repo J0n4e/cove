@@ -43,15 +43,23 @@ struct ClassicGlassPillStyle: ViewModifier {
     /// Set: the pill is this tall.
     var size: CGFloat? = nil
     @AppStorage("accent") private var accentName = "red"
-    @ViewBuilder func body(content: Content) -> some View {
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        styled(content)
+            .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
+    }
+    /// Under the mouse the glass takes the accent color.
+    var hoverTint: some View { Capsule().fill(accent.opacity(hover ? 0.45 : 0)) }
+    @ViewBuilder func styled(_ content: Content) -> some View {
         if #available(macOS 26, *) {
             // System glass, untinted: lenses the page behind it, with light catching the edges and reacting to the
             // pointer
             sized(content).foregroundColor(.white)
+                .background(hoverTint)
                 .background(ClassicGlassBacking(shape: Capsule()))
                 .glassEffect(.clear.interactive(), in: Capsule())   // the clearest glass
         } else {
-            sized(content).foregroundColor(.white).background(ClassicGlassPill())
+            sized(content).foregroundColor(.white).background(hoverTint).background(ClassicGlassPill())
         }
     }
     private var accent: Color { Theme.accent(accentName) }
