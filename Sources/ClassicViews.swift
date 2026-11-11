@@ -2007,10 +2007,13 @@ struct ClassicDetailView: View {
         return "Play"
     }
 
+    /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
+    var bigBanner: Bool { item.isSeries && seasonLayout == "deck" && seasonNumbers.count > 1 }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                header
+                if bigBanner { showBanner } else { header }
                 if item.isSeries { episodesList }
                 if item.isBox { boxGrid }
                 castSection.task { _ = await emby.favoritePeople() }   // hearts on the cast photos
@@ -2019,15 +2022,19 @@ struct ClassicDetailView: View {
                 similarSection
             }.padding(.bottom, 50)
         }
+        .ignoresSafeArea(edges: bigBanner ? .top : [])   // the banner runs up under the floating top bar
+        .background(GeometryReader { g in
+            Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
+        }.ignoresSafeArea(edges: .top))
         .background(alignment: .top) {
-            ZStack {
+            if !bigBanner { ZStack {
                 // Fill the page width without growing it: a filled image sized by its own width made the whole
                 // page wider than the window (pushing the Top bar's Search and Settings off screen)
                 Color.clear.frame(height: 520)
                     .overlay { ClassicBackdrop(id: item.backdropId ?? item.Id) }
                     .clipped().opacity(0.35)
                 LinearGradient(colors: [Color.clear, bg], startPoint: .top, endPoint: .bottom)
-            }.frame(height: 520)
+            }.frame(height: 520) }
         }
         .background(bg)
         .task {
@@ -2051,6 +2058,37 @@ struct ClassicDetailView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar { ClassicTitleBarItems(back: noBack ? nil : { dismiss() }) }
         .classicHideToolbarTitle()
+    }
+
+    @State private var pageH: CGFloat = 800
+
+    /// The show as a banner the size of the page (as Home's): backdrop edge to edge, title logo, facts, description
+    /// and buttons on a dark fade at the left, the season deck bottom right.
+    var showBanner: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color.clear.frame(maxWidth: .infinity).frame(height: max(pageH, 420))
+                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: 2560) }.clipped()
+            LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
+                           startPoint: .leading, endPoint: .trailing)
+            LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
+                                   .init(color: bg, location: 1)], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 14) {
+                TitleLogo(item: item, height: 110, font: 56)
+                meta
+                buttons
+                Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
+                    .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
+            }
+            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 420)
+            SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
+                       title: { seasonTitle($0) },
+                       image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
+                       select: { season = $0 })
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(.trailing, 44).padding(.bottom, 56)
+        }
+        .frame(height: max(pageH, 420))
+        .foregroundColor(.white)
     }
 
     // Header: poster + info + pickers + buttons
