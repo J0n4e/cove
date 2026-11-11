@@ -1045,7 +1045,7 @@ struct SeasonDeck: View {
                 }
                 .modifier(FrontActions(on: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p])))
                     .buttonStyle(.plainHand)
-                    .helpLabel(title(numbers[p]))
+                    .accessibilityLabel(title(numbers[p]))   // no tooltip: the card shows its name
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * peek)
             }
