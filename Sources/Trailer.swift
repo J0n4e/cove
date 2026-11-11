@@ -50,7 +50,7 @@ struct TrailerPlayerView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                BackPill(compact: true) { close() }.helpLabel("Back (Esc)")
+                backButton.helpLabel("Back (Esc)")
                 Spacer()
                 Button { NSWorkspace.shared.open(link); close() } label: {
                     Label("Watch on YouTube", systemImage: "arrow.up.right.square")
@@ -88,6 +88,36 @@ struct TrailerPlayerView: View {
             }
         }
         .onDisappear { if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil } }
+    }
+
+    @AppStorage("theme") private var theme = "apple"
+
+    /// The page Back button of the current theme: Glass's round ‹, Classic's "‹ Back" capsule.
+    /// (The pages' own Back buttons switch off while something plays, so these are drawn here.)
+    @ViewBuilder var backButton: some View {
+        if theme == "apple" {
+            Button(action: close) {
+                Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(Color.black.opacity(0.4)))
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+                    .contentShape(Circle())
+            }.buttonStyle(HoverButton())
+        } else {
+            Button(action: close) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
+                    Text("Back").font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 14).padding(.vertical, 6)
+                .background(Capsule().fill(Color.white.opacity(0.18)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
+                .contentShape(Capsule())
+            }.buttonStyle(HoverButton())
+        }
     }
 
     func toggleFullScreen(_ w: NSWindow) {
