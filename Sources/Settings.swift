@@ -427,6 +427,7 @@ struct LibrariesSettings: View {
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
     @AppStorage("seasonLayoutTV") private var seasonLayout = "row"
+    @AppStorage("theme") private var theme = "apple"
     @AppStorage("hoverPreviewEnabled") private var hoverOn = true
     @AppStorage("hoverPreviewDelay") private var hoverDelay = 0.7
     @AppStorage("hoverZoomEnabled") private var hoverZoom = true
@@ -624,7 +625,9 @@ struct LibrariesSettings: View {
             // Episode options apply to every TV library, so they show with any of them
             if lib.kind == "tvshows" {
                 PrefRow(label: "Season layout") {
-                    menuPicker($seasonLayout, [("row", "Row"), ("grid", "Grid"), ("deck", "Cards (Classic)")])
+                    // Cards exists only in the Classic theme
+                    menuPicker($seasonLayout, theme == "classic" ? [("row", "Row"), ("grid", "Grid"), ("deck", "Cards")]
+                                                                 : [("row", "Row"), ("grid", "Grid")])
                 }
                 PrefRow(label: "Episode layout") { menuPicker($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
                 PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }

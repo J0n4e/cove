@@ -988,6 +988,7 @@ struct SeasonDeck: View {
     let select: (Int) -> Void
     @State private var leaving: Int?
     @State private var leavingGone = false
+    @State private var busy = false   // a move is still animating: clicks wait for it to finish
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let w: CGFloat = 150, h: CGFloat = 225
     private let peek: CGFloat = 22
@@ -1009,7 +1010,11 @@ struct SeasonDeck: View {
     }
 
     func go(_ p: Int) {
-        guard p >= 0, p < numbers.count, p != pos else { return }
+        guard !busy, p >= 0, p < numbers.count, p != pos else { return }
+        if !reduceMotion {
+            busy = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { busy = false }
+        }
         if p > pos && !reduceMotion {
             leaving = selected; leavingGone = false
             DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.6)) { leavingGone = true } }
@@ -1086,6 +1091,7 @@ struct ClassicHero: View {
     @State private var pos = 0
     var index: Int { items.isEmpty ? 0 : ((pos % items.count) + items.count) % items.count }
     @State private var leaving: Item?       // the deck's front card while it fades away
+    @State private var busy = false
     @State private var leavingGone = false
     @State private var hover = false
     @State private var width: CGFloat = 1200
@@ -1110,7 +1116,11 @@ struct ClassicHero: View {
     /// Shows banner `i` (any integer; wraps). One back steps back; anything else moves forward through the deck.
     func go(_ i: Int) {
         let n = items.count
-        guard n > 0 else { return }
+        guard n > 0, !busy else { return }
+        if !reduceMotion {
+            busy = true   // clicks during a move wait for it to finish
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { busy = false }
+        }
         let d = (((i - index) % n) + n) % n
         let back = d == n - 1 && n > 2
         // Moving forward: keep the front card on screen as a copy and fade it away over the deck
