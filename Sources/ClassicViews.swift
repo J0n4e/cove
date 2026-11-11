@@ -3814,7 +3814,7 @@ struct ClassicAlphaLetter: View {
             hover = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+        .accessibilityLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")   // no tooltip
     }
 }
 
