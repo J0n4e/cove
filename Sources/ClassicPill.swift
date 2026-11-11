@@ -1,7 +1,7 @@
 import SwiftUI
 
-// Classic theme pills: deep see-through glass tinted with the accent from Settings, light pooling along the
-// bottom edge and a soft lit rim that is brightest at the bottom.
+// Classic theme pills: glassmorphism capsule. A semi-transparent accent gradient that lets the page show through,
+// a soft inner backlight glow, and light catching the rim at the top and the bottom. Bold white label.
 
 /// The glass behind a Classic pill.
 struct ClassicGlassPill: View {
@@ -9,27 +9,31 @@ struct ClassicGlassPill: View {
     var body: some View {
         let accent = Theme.accent(accentName)
         ZStack {
-            // dark accent-tinted glass, a touch lighter at the top
-            Capsule().fill(.ultraThinMaterial)
-            Capsule().fill(Color.black.opacity(0.6))
-            Capsule().fill(LinearGradient(colors: [accent.opacity(0.42), accent.opacity(0.22)],
+            // semi-transparent accent gradient: deeper at the top, the background shows through
+            Capsule().fill(LinearGradient(colors: [accent.opacity(0.55), accent.opacity(0.3)],
                                           startPoint: .top, endPoint: .bottom))
-            // light pooling along the bottom edge
-            Capsule().fill(LinearGradient(stops: [.init(color: .clear, location: 0.55),
-                                                  .init(color: accent.opacity(0.35), location: 1)],
-                                          startPoint: .top, endPoint: .bottom))
-            // soft lit rim, brightest along the bottom
-            Capsule().strokeBorder(LinearGradient(colors: [accent.opacity(0.7), accent.opacity(0.45), accent],
-                                                  startPoint: .top, endPoint: .bottom), lineWidth: 1.5)
-            Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5)
+            Capsule().fill(Color.black.opacity(0.25))
+            // soft inner backlight
+            GeometryReader { g in
+                Capsule().fill(RadialGradient(colors: [accent.opacity(0.55), .clear], center: .center,
+                                              startRadius: 0, endRadius: g.size.width * 0.5))
+                    .blur(radius: 6)
+            }
+            // rim lit at the top and the bottom, darker along the sides
+            Capsule().strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.7), location: 0),
+                                                          .init(color: accent.opacity(0.4), location: 0.3),
+                                                          .init(color: accent.opacity(0.4), location: 0.7),
+                                                          .init(color: .white.opacity(0.45), location: 1)],
+                                                  startPoint: .top, endPoint: .bottom), lineWidth: 1)
         }
-        .shadow(color: accent.opacity(0.35), radius: 6)
+        .clipShape(Capsule())
+        .shadow(color: accent.opacity(0.4), radius: 8)
     }
 }
 
 extension View {
-    /// Classic pill look: white label on accent glass.
+    /// Classic pill look: bold white label on accent glass.
     func classicGlassPill() -> some View {
-        foregroundColor(.white).background(ClassicGlassPill())
+        fontWeight(.bold).foregroundColor(.white).background(ClassicGlassPill())
     }
 }
