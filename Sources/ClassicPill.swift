@@ -49,13 +49,9 @@ struct ClassicGlassPillStyle: ViewModifier {
         styled(content)
             .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
     }
-    /// Under the mouse a soft accent glow (as the top bar's sections), brightest at the bottom; the flame it replaces
-    /// is kept in git history (try-out).
+    /// Under the mouse the glass mists over like a fogged bathroom mirror (try-out).
     var hoverTint: some View {
-        Capsule()
-            .fill(RadialGradient(colors: [accent.opacity(0.5), accent.opacity(0.12)], center: .bottom, startRadius: 2, endRadius: 50))
-            .blur(radius: 6)
-            .opacity(hover ? 1 : 0)
+        FoggedGlass(shape: Capsule()).opacity(hover ? 1 : 0)
     }
     @ViewBuilder func styled(_ content: Content) -> some View {
         if #available(macOS 26, *) {
@@ -146,6 +142,33 @@ struct ClassicGlassCard: ViewModifier {
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
             .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
             .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+    }
+}
+
+/// A fogged mirror: frosted haze over what is behind, uneven patches of white mist (denser low down, as fog
+/// settles), a faint tint of the accent, and a soft clear edge where it fades out. Only drawn while hovered.
+struct FoggedGlass<S: Shape>: View {
+    let shape: S
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        let accent = Theme.accent(accentName)
+        GeometryReader { g in
+            let w = g.size.width, h = g.size.height
+            ZStack {
+                shape.fill(.ultraThinMaterial)                       // frosted: what is behind goes soft
+                shape.fill(Color.white.opacity(0.14))                // milky haze
+                // uneven mist patches
+                Ellipse().fill(Color.white.opacity(0.22)).frame(width: w * 0.55, height: h * 0.9)
+                    .position(x: w * 0.3, y: h * 0.75).blur(radius: 6)
+                Ellipse().fill(Color.white.opacity(0.16)).frame(width: w * 0.45, height: h * 0.7)
+                    .position(x: w * 0.75, y: h * 0.6).blur(radius: 7)
+                Ellipse().fill(Color.white.opacity(0.10)).frame(width: w * 0.35, height: h * 0.5)
+                    .position(x: w * 0.55, y: h * 0.2).blur(radius: 5)
+                shape.fill(accent.opacity(0.12))                     // a breath of the accent
+                shape.fill(LinearGradient(colors: [.clear, .white.opacity(0.08)], startPoint: .top, endPoint: .bottom))
+            }
+            .clipShape(shape)
+        }
     }
 }
 

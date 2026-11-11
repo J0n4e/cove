@@ -1184,19 +1184,15 @@ struct GlassSlider: View {
     }
 }
 
-/// Top bar hover (try-out): an accent glow shaped like the selected section's pill, without the pill itself.
+/// Top bar and switch hover (try-out): a fogged-mirror patch shaped like the selected section's pill, no pill itself.
 struct SectionHoverGlow: ViewModifier {
     let on: Bool
-    @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     func body(content: Content) -> some View {
-        let accent = Theme.accent(accentName)
         content
             .background {
-                Capsule()
-                    .fill(RadialGradient(colors: [accent.opacity(0.5), accent.opacity(0.12)], center: .bottom,
-                                         startRadius: 2, endRadius: 50))
-                    .blur(radius: 6)
+                // Fogged-mirror hover, as the buttons (try-out)
+                FoggedGlass(shape: Capsule())
                     .opacity(on && hover ? 1 : 0)
                     .allowsHitTesting(false)
             }
