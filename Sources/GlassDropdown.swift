@@ -46,7 +46,7 @@ private struct DropdownLayer: View {
                     let longest = l.options.map { ($0 as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 13, weight: .medium)]).width }.max() ?? 0
                     let width = min(max(l.anchor.width, longest + 84), 560)
                     let rowH: CGFloat = 30
-                    let h = CGFloat(l.options.count) * rowH + 12
+                    let h = min(CGFloat(l.options.count) * rowH + 12, 372)   // as tall as the list, at most (it scrolls)
                     let below = l.anchor.maxY + 6 + h <= g.size.height
                     list(l, width: width, rowH: rowH)
                         .frame(width: width)
@@ -91,7 +91,7 @@ private struct DropdownLayer: View {
             }
             .padding(6)
         }
-        .frame(maxHeight: min(CGFloat(l.options.count) * rowH + 12, 360))
+        .frame(maxHeight: min(CGFloat(l.options.count) * rowH + 12, 372))
         .scrollIndicators(.never)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(bg.opacity(0.75)))
         .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: 16, style: .continuous)))
