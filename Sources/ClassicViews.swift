@@ -1395,17 +1395,18 @@ struct ClassicResumeCard: View {
                 .frame(width: 260, height: 146).clipped()
                 // Title, bottom-left
                 .overlay(alignment: .bottomLeading) {
+                    // No background: a black outline keeps it readable
                     Text(item.heroTitle)
                         .font(.cv(12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                        .shadow(color: .black.opacity(0.8), radius: 3)
-                        .padding(.leading, 10).padding(.trailing, 40).padding(.top, 28).padding(.bottom, 10)
+                        .classicBlackOutline()
+                        .padding(.leading, 10).padding(.trailing, 40).padding(.bottom, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
                 }
                 // Series info (S3·E3 · 42m left), top-left
                 .overlay(alignment: .topLeading) {
                     if let subtitle {
-                        TubeLabel(text: subtitle).padding(10)
+                        Text(subtitle).font(.cv(10, weight: .semibold)).foregroundColor(.white)
+                            .classicBlackOutline().padding(10)
                     }
                 }
                 // White progress ring, bottom-right
