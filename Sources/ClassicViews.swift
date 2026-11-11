@@ -2008,7 +2008,9 @@ struct ClassicDetailView: View {
     }
 
     /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
-    var bigBanner: Bool { item.isSeries && seasonLayout == "deck" && seasonNumbers.count > 1 }
+    /// Decided by the setting alone (not by the seasons, which load a moment later), so the page never shows the
+    /// old header first
+    var bigBanner: Bool { item.isSeries && seasonLayout == "deck" }
 
     var body: some View {
         ScrollView {
@@ -2080,12 +2082,15 @@ struct ClassicDetailView: View {
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
             .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 420)
-            SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
-                       title: { seasonTitle($0) },
-                       image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
-                       select: { season = $0 })
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, 44).padding(.bottom, 56)
+            if seasonNumbers.count > 1 {
+                SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
+                           title: { seasonTitle($0) },
+                           image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
+                           select: { season = $0 })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 44).padding(.bottom, 56)
+                    .transition(.opacity)
+            }
         }
         .frame(height: max(pageH, 420))
         .foregroundColor(.white)
