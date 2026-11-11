@@ -63,7 +63,16 @@ struct ClassicGlassPillStyle: ViewModifier {
     }
 }
 
+/// Clear glass behind a group of controls (the top bar's sections); a faint fill on macOS before 26.
+struct ClassicClearGlass: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26, *) { content.glassEffect(.clear, in: Capsule()) }
+        else { content.background(Capsule().fill(Color.white.opacity(0.1))) }
+    }
+}
+
 extension View {
+    func classicClearGlass() -> some View { modifier(ClassicClearGlass()) }
     /// Classic pill look: white label on accent glass.
     func classicGlassPill(size: CGFloat? = nil) -> some View { modifier(ClassicGlassPillStyle(size: size)) }
 }
