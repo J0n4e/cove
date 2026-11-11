@@ -43,6 +43,7 @@ struct TrailerPlayerView: View {
     @State private var playerWin = WeakWindow()
     @State private var keyMonitor: Any?
     @State private var enteredFullScreen = false
+    @State private var isFullScreen = false
 
     var videoID: String { Trailer.youTubeID(link) ?? "" }
     var separate: Bool { UserDefaults.standard.bool(forKey: "separatePlayer") }
@@ -55,6 +56,12 @@ struct TrailerPlayerView: View {
                 Button { NSWorkspace.shared.open(link); close() } label: {
                     Label("Watch on YouTube", systemImage: "arrow.up.right.square")
                 }.buttonStyle(.plainHand).foregroundStyle(.secondary)
+                Button { if let w = playerWin.window { toggleFullScreen(w) } } label: {
+                    Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 16, weight: .semibold)).frame(width: 34, height: 34)
+                }
+                .buttonStyle(HoverButton(backing: true))
+                .helpLabel(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
             }
             // The separate window has no title bar: room for its window buttons
             .padding(.leading, separate ? 80 : 14).padding(.trailing, 14).frame(height: 48)
@@ -88,6 +95,14 @@ struct TrailerPlayerView: View {
             }
         }
         .onDisappear { if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil } }
+        // Keeps the full screen button's icon right, however full screen was entered (F, button, green button)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
+            if playerWin.owns(n.object) { isFullScreen = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { n in
+            if playerWin.owns(n.object) { isFullScreen = false }
+        }
+        .task { isFullScreen = playerWin.window?.styleMask.contains(.fullScreen) ?? false }
     }
 
     @AppStorage("theme") private var theme = "apple"
