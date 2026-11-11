@@ -2295,7 +2295,43 @@ struct WatchBadge: View {
     /// Neutral badge fill (dark, with a light ring), so "watched" doesn't compete with the accent color.
     static let green = Color.black.opacity(0.7)
 
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass tubes, as the progress ring
+    @AppStorage("accent") private var accentName = "red"
+
     var body: some View {
+        if classic { tubeBadge } else { plainBadge }
+    }
+
+    /// Watched: a full tube ring (as a finished progress ring) around a check. Unwatched episodes: the count in a
+    /// glass tube bent into a capsule.
+    @ViewBuilder var tubeBadge: some View {
+        if played {
+            ProgressRing(progress: 1)
+                .overlay {
+                    Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundColor(.white)
+                        .shadow(color: .black.opacity(0.7), radius: 1.5)
+                }
+                .helpLabel("Watched")
+        } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
+            let accent = Theme.accent(accentName)
+            Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                .shadow(color: .black.opacity(0.7), radius: 1.5)
+                .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 26)
+                .overlay {
+                    ZStack {
+                        Capsule().stroke(Color.white.opacity(0.12), lineWidth: 5)
+                        Capsule().stroke(accent, lineWidth: 3.8)
+                        Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1).padding(0.75)
+                        Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.6).padding(-2.5)
+                        Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.6).padding(2.5)
+                    }
+                }
+                .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
+                .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
+        }
+    }
+
+    @ViewBuilder var plainBadge: some View {
         if played {
             Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
                 .frame(width: 24, height: 24)
