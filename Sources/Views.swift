@@ -2234,6 +2234,8 @@ struct CountBadge: View {
 struct ProgressRing: View {
     let progress: Double      // 0...1
     var size: CGFloat = 22
+    /// Classic only: false draws the empty glass tube (the watched badge)
+    var filled = true
     @Environment(\.classicGlass) private var classic   // Classic theme: a glass tube bent into a ring
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
@@ -2262,13 +2264,13 @@ struct ProgressRing: View {
             Circle().stroke(Color.white.opacity(0.3), lineWidth: 0.6).frame(width: d - w, height: d - w)
             Circle().stroke(Color.white.opacity(0.25), lineWidth: 1).frame(width: d - 1.5, height: d - 1.5)
             // liquid: accent fill with its own highlight, rounded ends
-            Group {
+            if filled { Group {
                 Circle().trim(from: 0, to: trim)
                     .stroke(accent, style: StrokeStyle(lineWidth: w - 1.2, lineCap: .round))
                 Circle().trim(from: 0, to: trim)
                     .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, lineCap: .round))
                     .frame(width: d - 1.5, height: d - 1.5)
-            }.rotationEffect(.degrees(-90))
+            }.rotationEffect(.degrees(-90)) }
         }
         .frame(width: d, height: d)
         .frame(width: d + w, height: d + w)
@@ -2296,31 +2298,24 @@ struct WatchBadge: View {
     static let green = Color.black.opacity(0.7)
 
     @Environment(\.classicGlass) private var classic   // Classic theme: glass tubes, as the progress ring
-    @AppStorage("accent") private var accentName = "red"
 
     var body: some View {
         if classic { tubeBadge } else { plainBadge }
     }
 
-    /// Watched: a full tube ring (as a finished progress ring) around a check. Unwatched episodes: the count in a
-    /// glass tube bent into a capsule.
+    /// Watched: an empty glass tube ring around a glass check. Unwatched episodes: the count in a glass tube bent
+    /// into a capsule.
     @ViewBuilder var tubeBadge: some View {
         if played {
-            ProgressRing(progress: 1)
-                .overlay {
-                    Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.7), radius: 1.5)
-                }
+            ProgressRing(progress: 1, filled: false)
+                .overlay { glassGlyph(Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))) }
                 .helpLabel("Watched")
         } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
-            let accent = Theme.accent(accentName)
-            Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
-                .shadow(color: .black.opacity(0.7), radius: 1.5)
+            glassGlyph(Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)))
                 .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 26)
                 .overlay {
                     ZStack {
                         Capsule().stroke(Color.white.opacity(0.12), lineWidth: 5)
-                        Capsule().stroke(accent, lineWidth: 3.8)
                         Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1).padding(0.75)
                         Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.6).padding(-2.5)
                         Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.6).padding(2.5)
@@ -2329,6 +2324,13 @@ struct WatchBadge: View {
                 .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
                 .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
         }
+    }
+
+    /// A check or number drawn as glass: white lit from above, fading lower down, with a fine dark edge.
+    func glassGlyph<V: View>(_ v: V) -> some View {
+        v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.6)], startPoint: .top, endPoint: .bottom))
+            .shadow(color: .black.opacity(0.8), radius: 0.5, y: 0.5)
+            .shadow(color: .black.opacity(0.5), radius: 2)
     }
 
     @ViewBuilder var plainBadge: some View {
