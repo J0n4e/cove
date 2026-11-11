@@ -681,7 +681,7 @@ struct ClassicSearchView: View {
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                                .classicThinBorder(12)
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
                                         Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
@@ -1075,6 +1075,15 @@ struct SeasonDeck: View {
         .classicThinBorder(10)
         .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+}
+
+/// The subtitle appearance panel: dark glass in the Classic theme, the plain grey panel otherwise.
+struct AppearanceSurface: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(PanelSurface(classic: true)).padding(.vertical, 24).padding(.trailing, 24) }
+        else { content.background(Color(white: 0.16).opacity(0.97)) }
     }
 }
 
@@ -1946,9 +1955,12 @@ struct ClassicLibraryView: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
             ForEach(genres, id: \.self) { g in
                 Button { genre = g; tab = 0 } label: {
-                    Text(g).font(.cv(13, weight: .bold)).frame(maxWidth: .infinity, minHeight: 70)
-                        .background(Color.white.opacity(0.1)).cornerRadius(8)
-                }.buttonStyle(.plainHand)
+                    // Glass tiles, as the buttons
+                    Text(g).font(.cv(13, weight: .bold)).foregroundColor(.white).frame(maxWidth: .infinity, minHeight: 70)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                        .contentShape(RoundedRectangle(cornerRadius: 14))
+                }.buttonStyle(HoverButton())
             }
         }
     }
@@ -2922,7 +2934,7 @@ struct ClassicPlayerView: View {
                 if !model.error.isEmpty {
                     VStack(spacing: 12) {
                         Text(model.error).multilineTextAlignment(.center).frame(maxWidth: 420)
-                        Button("Retry with transcoding") { Task { await model.retryTranscoded(emby) } }
+                        retryButton
                     }
                 }
 
@@ -3233,6 +3245,27 @@ struct ClassicPlayerView: View {
         }
     }
 
+    @ViewBuilder var resetAppearanceButton: some View {
+        let reset = { subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10 }
+        if classic {
+            Button(action: reset) {
+                Text("Reset to Default").font(.cv(13, weight: .semibold)).padding(.horizontal, 16).frame(height: 34).classicGlassPill()
+            }.buttonStyle(HoverButton())
+        } else {
+            Button("Reset to Default", action: reset)
+        }
+    }
+
+    @ViewBuilder var retryButton: some View {
+        if classic {
+            Button { Task { await model.retryTranscoded(emby) } } label: {
+                Label("Retry with transcoding", systemImage: "arrow.clockwise").classicGlassPill(size: 40, iconOnly: false)
+            }.buttonStyle(HoverButton())
+        } else {
+            Button("Retry with transcoding") { Task { await model.retryTranscoded(emby) } }
+        }
+    }
+
     func row(_ icon: String, _ title: String, sub: String? = nil, checked: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: classic ? 12 : 18) {
@@ -3338,7 +3371,14 @@ struct ClassicPlayerView: View {
         .onTapGesture {}   // keep taps inside the panel
     }
 
-    func dropdown<T: Hashable>(_ label: String, _ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
+    @ViewBuilder func dropdown<T: Hashable>(_ label: String, _ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
+        if classic {
+            // Classic: the glass pill and glass list
+            VStack(alignment: .leading, spacing: 6) {
+                Text(label).font(.cv(12, weight: .medium)).foregroundColor(.white.opacity(0.75))
+                GlassPicker(selection: sel, options: opts, maxWidth: 300)
+            }
+        } else {
         VStack(alignment: .leading, spacing: 8) {
             Text(label).font(.cv(15)).foregroundColor(.white.opacity(0.85))
             Menu {
@@ -3358,6 +3398,7 @@ struct ClassicPlayerView: View {
                 .contentShape(Rectangle())
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).handCursor()
+        }
         }
     }
 
@@ -3381,16 +3422,14 @@ struct ClassicPlayerView: View {
                         Text("Set the vertical position of the subtitles relative to the bottom of the screen.")
                             .font(.cv(13)).foregroundColor(.secondary)
                     }
-                    Button("Reset to Default") {
-                        subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10
-                    }.padding(.top, 6)
+                    resetAppearanceButton.padding(.top, 6)
                 }
                 .padding(.horizontal, 28).padding(.bottom, 28)
             }
         }
-        .frame(width: 400)
+        .frame(width: classic ? 340 : 400)
         .frame(maxHeight: .infinity)
-        .background(Color(white: 0.16).opacity(0.97))
+        .modifier(AppearanceSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
@@ -3623,9 +3662,13 @@ extension ClassicPlayerView {
                 Text("Episodes").font(.cv(18, weight: .bold))
                 Spacer()
                 if seasons.count > 1 {
-                    Picker("", selection: $pickerSeason) {
-                        ForEach(seasons, id: \.self) { n in Text(n == 0 ? "Specials" : "Season \(n)").tag(n) }
-                    }.labelsHidden().fixedSize()
+                    if classic {
+                        GlassPicker(selection: $pickerSeason, options: seasons.map { ($0, $0 == 0 ? "Specials" : "Season \($0)") })
+                    } else {
+                        Picker("", selection: $pickerSeason) {
+                            ForEach(seasons, id: \.self) { n in Text(n == 0 ? "Specials" : "Season \(n)").tag(n) }
+                        }.labelsHidden().fixedSize()
+                    }
                 }
             }.padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
             ScrollViewReader { proxy in
@@ -3638,9 +3681,7 @@ extension ClassicPlayerView {
             }
         }
         .frame(width: 400)
-        .background(.ultraThinMaterial.opacity(0.95))
-        .background(Color(white: 0.15).opacity(0.85))
-        .cornerRadius(14)
+        .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
@@ -3695,9 +3736,7 @@ extension ClassicPlayerView {
             }.padding(.vertical, 12)
         }
         .frame(width: 380)
-        .background(.ultraThinMaterial.opacity(0.95))
-        .background(Color(white: 0.15).opacity(0.85))
-        .cornerRadius(14)
+        .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
