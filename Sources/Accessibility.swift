@@ -26,7 +26,10 @@ private struct HoverTip: ViewModifier {
                         GeometryReader { g in
                             Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.white).lineLimit(1)
                                 .padding(.horizontal, 10).frame(height: 24)
+                                // dark smoked glass, so the text reads over any picture
+                                .background(Capsule().fill(Color.black.opacity(0.72)))
                                 .classicClearGlass()
+                                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
                                 .fixedSize()
                                 .position(x: g.size.width / 2, y: g.size.height + 8 + 12)
                         }
