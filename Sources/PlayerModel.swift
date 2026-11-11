@@ -472,6 +472,9 @@ final class PlayerModel: ObservableObject {
             keepPlayer = true
             await restart(emby) { $0.sub = s; $0.burnIn = true }
         } else if !on, pipBurned {
+            // Swapping the stream makes PiP report "off" for a moment: only switch back once it really stays off
+            try? await Task.sleep(for: .seconds(1.5))
+            guard pip?.isPictureInPictureActive != true, pipBurned else { return }
             pipBurned = false
             await restart(emby) { $0.burnIn = false }
         }
