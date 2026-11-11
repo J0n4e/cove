@@ -998,7 +998,9 @@ struct ClassicHero: View {
     @Environment(\.appBG) var bg
     let items: [Item]
     var pageH: CGFloat = .infinity
-    @State private var index = 0
+    /// Banners moved through so far (back = −1); never wraps, so each card in the deck keeps its own identity
+    @State private var pos = 0
+    var index: Int { items.isEmpty ? 0 : ((pos % items.count) + items.count) % items.count }
     @State private var hover = false
     @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1017,8 +1019,12 @@ struct ClassicHero: View {
         return m.joined(separator: " · ")
     }
 
+    /// Shows banner `i` (any integer; wraps). One back steps back; anything else moves forward through the deck.
     func go(_ i: Int) {
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { index = (i + items.count) % items.count }
+        let n = items.count
+        guard n > 0 else { return }
+        let d = (((i - index) % n) + n) % n
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { pos += (d == n - 1 && n > 2) ? -1 : d }
     }
 
     var body: some View {
@@ -1035,9 +1041,12 @@ struct ClassicHero: View {
                         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black.opacity(0.35)))
                 } else { info(item) }
             }
-            .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, items.count > 1 ? 72 : 48)
+            .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, 56)
             .id("t" + item.id).transition(.opacity)
-            if items.count > 1 { thumbs.frame(maxWidth: .infinity).padding(.bottom, 26) }
+            // The coming banners as a deck of cards, right side, middle
+            if items.count > 1 {
+                deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing).padding(.trailing, 90)
+            }
         }
         .overlay { if hover && items.count > 1 { sideArrows } }
         .animation(.easeOut(duration: 0.15), value: hover)
@@ -1050,7 +1059,7 @@ struct ClassicHero: View {
         .onHover { hover = $0 }
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
         // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
-        .task(id: "\(index)-\(hover)-\(playback.active)") {
+        .task(id: "\(pos)-\(hover)-\(playback.active)") {
             guard !hover, !playback.active, !reduceMotion, items.count > 1 else { return }
             try? await Task.sleep(nanoseconds: 9_000_000_000)
             if !Task.isCancelled { go(index + 1) }
@@ -1104,6 +1113,47 @@ struct ClassicHero: View {
             }.padding(.top, 6)
         }
         .frame(maxWidth: 520, alignment: .leading)
+    }
+
+    /// The banners stacked like playing cards: the current one in front, the next ones peeking out behind it, each a
+    /// little smaller, further right and dimmer. Moving on, the front card fades away (growing slightly) and the one
+    /// beneath slides up into its place. Clicking a card shows that banner.
+    var deck: some View {
+        let shown = min(items.count, 4)
+        let w: CGFloat = 260, h: CGFloat = w * 9 / 16
+        return ZStack(alignment: .leading) {
+            ForEach(pos..<(pos + shown), id: \.self) { p in
+                let k = p - pos
+                let i = ((p % items.count) + items.count) % items.count
+                let it = items[i]
+                Button { go(i) } label: {
+                    CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: { Color(white: 0.15) }
+                    .frame(width: w, height: h).clipped()
+                    .overlay(alignment: .bottomLeading) {
+                        if k == 0 {
+                            Text(it.heroTitle).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                        }
+                    }
+                    .cornerRadius(12)
+                    .classicThinBorder(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
+                    .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+                }
+                .buttonStyle(.plainHand)
+                .helpLabel(it.heroTitle)
+                .scaleEffect(1 - CGFloat(k) * 0.07, anchor: .leading)
+                .offset(x: CGFloat(k) * 34)
+                .zIndex(Double(shown - k))
+                .transition(.asymmetric(insertion: .opacity,
+                                        removal: .opacity.combined(with: .scale(scale: 1.08)).combined(with: .offset(x: -30))))
+            }
+        }
+        .frame(width: w + CGFloat(shown - 1) * 34, height: h, alignment: .leading)
     }
 
     /// Page bullets: small glass pills; the current one stretches longer and is lit.
