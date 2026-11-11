@@ -508,7 +508,7 @@ struct ClassicTopNavButtons: View {
                 .font(.system(size: 15, weight: on ? .semibold : .medium))
                 .foregroundColor(on ? .white : .white.opacity(0.6))
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
-                .classicGlassPill()   // each section its own glass pill, inside the bar's big one
+                .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)

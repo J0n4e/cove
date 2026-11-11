@@ -107,6 +107,10 @@ extension EnvironmentValues {
 
 extension View {
     func classicClearGlass() -> some View { modifier(ClassicClearGlass(shape: Capsule())) }
+    /// The banner Play button's glass pill, only when `on` (the selected top-bar section).
+    @ViewBuilder func classicSelectedPill(_ on: Bool) -> some View {
+        if on { classicGlassPill() } else { self }
+    }
     /// The selected option of a strip of choices (top bar sections, view switches): Play-button glass.
     @ViewBuilder func classicSelectedGlass(_ on: Bool) -> some View {
         if on { modifier(ClassicClearGlass(shape: Capsule())) } else { self }
