@@ -987,8 +987,8 @@ struct SeasonDeck: View {
     let title: (Int) -> String
     let image: (Int) -> URL?
     let select: (Int) -> Void
-    private let w: CGFloat = 225, h: CGFloat = 338
-    private let peek: CGFloat = 33
+    private let w: CGFloat = 280, h: CGFloat = 420
+    private let peek: CGFloat = 40
 
     /// The deck's own position; the page's season follows it (and the deck follows the page when the season
     /// changes elsewhere).
@@ -2088,7 +2088,7 @@ struct ClassicDetailView: View {
                 Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
-            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 520)
+            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 600)
             if seasonNumbers.count > 1 {
                 SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
                            title: { seasonTitle($0) },
@@ -2107,7 +2107,7 @@ struct ClassicDetailView: View {
     var header: some View {
         let deck = item.isSeries && seasonLayout == "deck" && seasonNumbers.count > 1
         return headerBody
-            .padding(.trailing, deck ? 440 : 0)   // the text stays clear of the deck
+            .padding(.trailing, deck ? 520 : 0)   // the text stays clear of the deck
             .frame(maxWidth: .infinity, alignment: .leading)   // full page width, so the deck reaches the corner
             .overlay(alignment: .bottomTrailing) {
                 // Series, Settings → Season layout → Cards: the seasons as a deck of cards, as on the Home banner;
