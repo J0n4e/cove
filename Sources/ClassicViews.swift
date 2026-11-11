@@ -1971,6 +1971,7 @@ struct ClassicLibraryView: View {
                                 .font(.cv(12, weight: .medium))
                                 .padding(.horizontal, 16).frame(height: 36)
                                 .classicSelectedPill(tab == i)
+                        .modifier(SectionHoverGlow(on: !(tab == i)))   // accent glow on hover, as the top bar
                                 .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
@@ -2066,6 +2067,7 @@ struct ClassicLibraryView: View {
                     Image(systemName: m.1).font(.cv(13, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(layout == m.0)
+                        .modifier(SectionHoverGlow(on: !(layout == m.0)))   // accent glow on hover, as the top bar
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -2669,6 +2671,7 @@ struct ClassicDetailView: View {
                     Image(systemName: m.1).font(.cv(13, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(epLayout == m.0)
+                        .modifier(SectionHoverGlow(on: !(epLayout == m.0)))   // accent glow on hover, as the top bar
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -2840,6 +2843,7 @@ struct ClassicDetailView: View {
                     Image(systemName: m.1).font(.cv(13, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(similarLayout == m.0)
+                        .modifier(SectionHoverGlow(on: !(similarLayout == m.0)))   // accent glow on hover, as the top bar
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
