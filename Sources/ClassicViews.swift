@@ -980,7 +980,6 @@ struct ClassicHero: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let items: [Item]
-    /// Height of the visible page; the banner never grows past it
     var pageH: CGFloat = .infinity
     @State private var index = 0
     @State private var hover = false
@@ -988,7 +987,8 @@ struct ClassicHero: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var nav = ClassicNavState.shared
-    var bannerH: CGFloat { min(max(width * 9 / 16, 460), 860, max(pageH - 40, 380)) }
+    /// The picture's own 16:9 shape at the window's width, so nothing of it is cut off
+    var bannerH: CGFloat { width * 9 / 16 }
 
     func meta(_ item: Item) -> String {
         var m: [String] = [item.isEpisode || item.isSeries ? "TV Show" : "Movie"]
@@ -1005,7 +1005,7 @@ struct ClassicHero: View {
         let item = items[index % items.count]
         ZStack(alignment: .bottomLeading) {
             Color.clear.frame(maxWidth: .infinity).frame(height: bannerH)
-                .overlay { ClassicBackdrop(id: item.backdropId ?? item.Id) }.clipped()
+                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: min(Int(width * 2), 2560)) }.clipped()   // Retina-sharp
                 .id("b" + item.id).transition(.opacity)
             // Dark fade from the left (behind the text) and into the page at the bottom
             LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
