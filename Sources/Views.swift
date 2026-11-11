@@ -2234,15 +2234,27 @@ struct CountBadge: View {
 struct ProgressRing: View {
     let progress: Double      // 0...1
     var size: CGFloat = 22
+    @Environment(\.classicGlass) private var classic   // Classic theme: on a disc, as the tooltips
+    @Environment(\.appBG) private var bg
     var body: some View {
+        if classic {
+            ring(size - 6)
+                .frame(width: size + 6, height: size + 6)
+                .background(Circle().fill(bg.opacity(0.85)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.75))
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+        } else {
+            ring(size).shadow(color: .black.opacity(0.6), radius: 3)
+        }
+    }
+    func ring(_ d: CGFloat) -> some View {
         ZStack {
             Circle().stroke(Color.white.opacity(0.35), lineWidth: 2.5)
             Circle().trim(from: 0, to: CGFloat(min(1, max(0.03, progress))))
                 .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
-        .frame(width: size, height: size)
-        .shadow(color: .black.opacity(0.6), radius: 3)
+        .frame(width: d, height: d)
     }
 }
 
