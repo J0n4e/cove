@@ -960,9 +960,10 @@ struct ClassicHomeContent: View {
         }
         // The banner runs up under the floating top bar (not the inset card)
         .ignoresSafeArea(edges: hero.isEmpty || bannerStyle == "card" ? [] : .top)
+        // Height of the whole visible page, including the part under the top bar the banner runs up into
         .background(GeometryReader { g in
             Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
-        })
+        }.ignoresSafeArea(edges: bannerStyle == "card" ? [] : .top))
         .background(bg)
         .task(id: "\(reloadToken)-\(retry)") { rows = await emby.loadHome(); loading = false }
     }
