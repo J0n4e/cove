@@ -974,8 +974,8 @@ extension View {
 }
 
 /// Home banner, cinematic: the picture runs edge to edge up under the floating top bar, the title logo, facts,
-/// description and glass buttons sit on a dark fade at the left, and the coming banners are a row of small glass
-/// thumbnails at the bottom (the current one lit).
+/// description and glass buttons sit on a dark fade at the left; glass page bullets at the bottom and glass arrows at
+/// the sides on hover.
 struct ClassicHero: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
@@ -1042,10 +1042,12 @@ struct ClassicHero: View {
                     }.buttonStyle(HoverButton()).helpLabel("More Info")
                 }.padding(.top, 6)
             }
-            .padding(.leading, 44).padding(.bottom, items.count > 1 ? 104 : 48)
+            .padding(.leading, 80).padding(.bottom, items.count > 1 ? 72 : 48)
             .id("t" + item.id).transition(.opacity)
             if items.count > 1 { thumbs.frame(maxWidth: .infinity).padding(.bottom, 26) }
         }
+        .overlay { if hover && items.count > 1 { sideArrows } }
+        .animation(.easeOut(duration: 0.15), value: hover)
         .frame(height: bannerH)
         .clipped()
         .foregroundColor(.white)
@@ -1062,26 +1064,40 @@ struct ClassicHero: View {
         }
     }
 
-    /// The banners as small glass thumbnails; the current one is lit and a little bigger.
+    /// Page bullets: small glass pills; the current one stretches longer and is lit.
     var thumbs: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             ForEach(items.indices, id: \.self) { i in
                 let on = i == index % items.count
                 Button { go(i) } label: {
-                    CachedImage(url: emby.image(items[i].backdropId ?? items[i].Id, "Backdrop", width: 240)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: { Color(white: 0.15) }
-                    .frame(width: on ? 104 : 84, height: on ? 58 : 47).clipped()
-                    .cornerRadius(6)
-                    .opacity(on ? 1 : 0.55)
-                    .classicThinBorder(6)
+                    Capsule().fill(Color.white.opacity(on ? 0.85 : 0.25))
+                        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.15)],
+                                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
+                        .frame(width: on ? 26 : 9, height: 9)
+                        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                        .contentShape(Rectangle().inset(by: -6))
                 }
-                .buttonStyle(.plainHand)
-                .helpLabel(items[i].heroTitle)
+                .buttonStyle(HoverButton())
+                .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
+        .padding(.horizontal, 12).frame(height: 26)
+        .classicClearGlass()
         .animation(.easeOut(duration: 0.25), value: index)
+    }
+
+    /// Previous / next banner: round glass buttons at the sides, shown while the pointer is on the banner.
+    var sideArrows: some View {
+        HStack {
+            Button { go(index - 1) } label: { Label("Previous", systemImage: "chevron.left").classicGlassPill(size: 44) }
+                .buttonStyle(HoverButton()).helpLabel("Previous banner")
+            Spacer()
+            Button { go(index + 1) } label: { Label("Next", systemImage: "chevron.right").classicGlassPill(size: 44) }
+                .buttonStyle(HoverButton()).helpLabel("Next banner")
+        }
+        .padding(.horizontal, 18)
+        .transition(.opacity)
     }
 }
 
@@ -1732,6 +1748,7 @@ struct ClassicDetailView: View {
     /// First entry of the Subtitles menu: the preferred language when that setting is on, otherwise Off.
     var defaultSubLabel: String { subAlwaysOn ? prefSubLang.capitalized : "Off" }
     @AppStorage("episodeLayout") private var epLayout = "list"
+    @AppStorage("seasonLayoutTV") private var seasonLayout = "row"   // Settings → Libraries → Season layout
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
@@ -2067,7 +2084,15 @@ struct ClassicDetailView: View {
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Seasons").font(.title3.bold()).padding(.horizontal, 40)
-            ArrowScrollRow(ids: seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
+            if seasonLayout == "grid" {
+                // All seasons at once, wrapped onto as many lines as needed
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
+                          alignment: .leading, spacing: 18) {
+                    ForEach(seasonNumbers, id: \.self) { n in seasonPoster(n) }
+                }.padding(.horizontal, 40).padding(.vertical, 8)
+            } else {
+                ArrowScrollRow(ids: seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
+            }
         }
     }
 
