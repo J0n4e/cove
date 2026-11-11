@@ -1886,15 +1886,32 @@ struct ItemActionsButton: View {
     /// A season's episodes: Watched marks them all, and shows as on only when every one is watched
     var children: [Item] = []
     static func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon).font(.system(size: 12, weight: .bold))
-                .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.black.opacity(0.6)))
-                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                .contentShape(Circle())
+        ActionCircle(icon: icon, on: on, help: help, action: action)
+    }
+
+    /// Small round action button on a card. Classic theme: the glass button ("on" shows as the filled icon).
+    struct ActionCircle: View {
+        let icon: String
+        let on: Bool
+        let help: String
+        let action: () -> Void
+        @Environment(\.classicGlass) private var classic
+        var body: some View {
+            Button(action: action) {
+                if classic {
+                    Label(help, systemImage: on && !icon.hasSuffix(".fill") ? icon + ".circle.fill" : icon)
+                        .classicGlassPill(size: 30)
+                } else {
+                    Image(systemName: icon).font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.black.opacity(0.6)))
+                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        .contentShape(Circle())
+                }
+            }
+            .buttonStyle(.plainHand).tip(help)
         }
-        .buttonStyle(.plainHand).tip(help)
     }
     var body: some View {
         let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
