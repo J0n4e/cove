@@ -353,6 +353,7 @@ struct ClassicHomeView: View {
             // Back sits in the bar on pushed pages.
             detailPane(withSearch: false)
                 .frame(width: geo.size.width)
+                .modifier(NoTopScrollEdge())   // no dark edge line where the bar ends
                 .safeAreaInset(edge: .top, spacing: 0) {
                     ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
                         .frame(width: geo.size.width)
@@ -465,6 +466,13 @@ struct ClassicTitleBarItems: ToolbarContent {
 /// Top bar layout: the row under the title bar with Back (on pushed pages) on the left,
 /// the navigation classicPill in the middle and search and Settings on the right. It stays in place on every page.
 /// Laid out side by side, so a long classicPill never covers search and Settings.
+/// macOS 26 draws an edge effect (a dark line) where a page scrolls under the top bar; hide it.
+struct NoTopScrollEdge: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26, *) { content.scrollEdgeEffectHidden(true, for: .top) } else { content }
+    }
+}
+
 struct ClassicTopNavBar: View {
     @Environment(\.appBG) var bg
     let back: (() -> Void)?
