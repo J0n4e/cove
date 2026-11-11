@@ -1175,7 +1175,6 @@ struct ClassicHero: View {
                 }
             }.zIndex(Double(pos) + 1)
         }
-        .overlay { if hover && items.count > 1 { sideArrows } }
         .animation(.easeOut(duration: 0.15), value: hover)
         .frame(height: style == "card" ? max(bannerH - 24, 340) : bannerH)
         .modifier(BannerShape(card: style == "card"))
@@ -1315,18 +1314,6 @@ struct ClassicHero: View {
         .animation(.easeOut(duration: 0.25), value: index)
     }
 
-    /// Previous / next banner: round glass buttons at the sides, shown while the pointer is on the banner.
-    var sideArrows: some View {
-        HStack {
-            Button { go(index - 1) } label: { Label("Previous", systemImage: "chevron.left").classicGlassPill(size: 44) }
-                .buttonStyle(HoverButton()).helpLabel("Previous banner")
-            Spacer()
-            Button { go(index + 1) } label: { Label("Next", systemImage: "chevron.right").classicGlassPill(size: 44) }
-                .buttonStyle(HoverButton()).helpLabel("Next banner")
-        }
-        .padding(.horizontal, 18)
-        .transition(.opacity)
-    }
 }
 
 /// Landscape card for the Continue Watching row: still image, accent progress bar, time left.
@@ -2448,13 +2435,18 @@ struct ClassicDetailView: View {
         return VStack(alignment: .leading, spacing: 12) {
             if seasonNumbers.count > 1 && seasonLayout != "deck" { seasonRow }   // the deck sits in the header instead
             episodesHeader
-            if epLayout == "grid" {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
-                    ForEach(eps) { ep in episodeTile(ep) }
-                }.padding(.horizontal, 40)
-            } else {
-                ForEach(eps) { ep in episodeRow(ep) }
+            // A new season's episodes cross-fade in as one block (cards sliding and resizing one by one looked glitchy)
+            Group {
+                if epLayout == "grid" {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
+                        ForEach(eps) { ep in episodeTile(ep) }
+                    }.padding(.horizontal, 40)
+                } else {
+                    VStack(alignment: .leading, spacing: 12) { ForEach(eps) { ep in episodeRow(ep) } }
+                }
             }
+            .id(currentSeason)
+            .transition(.opacity)
         }
     }
 
