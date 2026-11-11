@@ -1957,7 +1957,8 @@ struct ClassicDetailView: View {
     @AppStorage("subLang") private var prefSubLang = "english"
     /// First entry of the Subtitles menu: the preferred language when that setting is on, otherwise Off.
     var defaultSubLabel: String { subAlwaysOn ? prefSubLang.capitalized : "Off" }
-    @AppStorage("episodeLayout") private var epLayout = "list"
+    // Shared with Settings → Libraries → Episode layout and the Glass theme: "row", "grid" or "list"
+    @AppStorage("episodeLayoutTV") private var epLayout = "row"
     @AppStorage("seasonLayoutTV") private var seasonLayout = "row"   // Settings → Libraries → Season layout
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
@@ -2432,7 +2433,12 @@ struct ClassicDetailView: View {
             episodesHeader
             // A new season's episodes cross-fade in as one block (cards sliding and resizing one by one looked glitchy)
             Group {
-                if epLayout == "grid" {
+                if epLayout == "row" {
+                    // One line that scrolls sideways
+                    ArrowScrollRow(ids: eps.map { $0.id }, itemWidth: 300, spacing: 18) { id in
+                        if let ep = eps.first(where: { $0.id == id }) { episodeTile(ep).frame(width: 300) }
+                    }
+                } else if epLayout == "grid" {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
                         ForEach(eps) { ep in episodeTile(ep) }
                     }.padding(.horizontal, 40)
@@ -2447,7 +2453,7 @@ struct ClassicDetailView: View {
 
     var episodeLayoutToggle: some View {
         HStack(spacing: 0) {
-            ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
+            ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { epLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 36, height: 36)
@@ -2455,7 +2461,7 @@ struct ClassicDetailView: View {
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 44).classicClearGlass()
     }
