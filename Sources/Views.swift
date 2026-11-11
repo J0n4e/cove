@@ -2245,32 +2245,20 @@ struct HoverBacking: ViewModifier {
 }
 
 /// Green badge: a check when the count is 0, otherwise the number.
-/// Classic badge: a check (`count` nil) in an empty glass tube ring, or a number in a glass tube bent into a
-/// capsule; the check and number are drawn as glass too (white lit from above, fine dark edge).
+/// Classic badge: just a check (`count` nil) or the number of unwatched episodes, drawn as glass (white lit from
+/// above, fine dark edge), without a ring or capsule around it, so posters stay light to scroll.
 struct TubeBadge: View {
     let count: Int?
     var body: some View {
         if let n = count {
-            glyph(Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)))
-                .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 26)
-                .overlay {
-                    ZStack {
-                        Capsule().stroke(Color.white.opacity(0.12), lineWidth: 5)
-                        Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1).padding(0.75)
-                        Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.6).padding(-2.5)
-                        Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.6).padding(2.5)
-                    }
-                }
-                .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
+            glyph(Text(n > 99 ? "99+" : "\(n)").font(.system(size: 14, weight: .bold)))
         } else {
-            ProgressRing(progress: 1, filled: false)
-                .overlay { glyph(Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))) }
+            glyph(Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)))
         }
     }
     func glyph<V: View>(_ v: V) -> some View {
-        v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.6)], startPoint: .top, endPoint: .bottom))
-            .shadow(color: .black.opacity(0.8), radius: 0.5, y: 0.5)
-            .shadow(color: .black.opacity(0.5), radius: 2)
+        v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+            .shadow(color: .black.opacity(0.85), radius: 1, y: 0.5)
     }
 }
 
