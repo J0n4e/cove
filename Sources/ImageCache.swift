@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ImageIO
 
 /// Pictures from the server, kept in memory while Cove runs and on disk (~/Library/Caches/Cove/Images) between
 /// launches, so posters and banners seen before appear at once. Links carry the server's image tag, which
@@ -70,6 +71,17 @@ final class ImageCache: @unchecked Sendable {
         }
     }
 
+    /// Unpacks a downloaded picture here, off the main thread, and gives its real size in memory.
+    /// NSImage(data:) kept the picture compressed and unpacked it on the main thread the first time it was
+    /// drawn, so a row of new posters made scrolling stutter; and its cost was counted as 4 × the compressed
+    /// size, while an unpacked picture takes 10–20 × that, so the 200 MB limit let memory grow far past it.
+    static func decode(_ data: Data) -> (NSImage, Int)? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+              let cg = CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
+        else { return NSImage(data: data).map { ($0, data.count * 10) } }   // a format Image I/O can't read
+        return (NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height)), cg.bytesPerRow * cg.height)
+    }
+
     /// Already decoded and in memory (no waiting, no flash).
     func cached(_ url: URL) -> NSImage? { memory.object(forKey: url as NSURL) }
 
@@ -83,8 +95,8 @@ final class ImageCache: @unchecked Sendable {
             let tagged = url.query?.contains("tag=") ?? false
             if let c = urlCache.cachedResponse(for: key),
                tagged || (c.userInfo?["saved"] as? Date ?? .distantPast) > Date().addingTimeInterval(-7 * 86400),
-               let img = NSImage(data: c.data) {
-                memory.setObject(img, forKey: url as NSURL, cost: c.data.count * 4)
+               let (img, cost) = ImageCache.decode(c.data) {
+                memory.setObject(img, forKey: url as NSURL, cost: cost)
                 return img
             }
             var r = URLRequest(url: url)
@@ -92,11 +104,11 @@ final class ImageCache: @unchecked Sendable {
             for (k, v) in headers { r.setValue(v, forHTTPHeaderField: k) }
             guard let (data, resp) = try? await session.data(for: r),
                   (resp as? HTTPURLResponse)?.statusCode ?? 200 == 200,
-                  let img = NSImage(data: data) else { return nil }
+                  let (img, cost) = ImageCache.decode(data) else { return nil }
             // Saved copies are kept no matter what caching rules the server sends
             urlCache.storeCachedResponse(CachedURLResponse(response: resp, data: data, userInfo: ["saved": Date()],
                                                            storagePolicy: .allowed), for: key)
-            memory.setObject(img, forKey: url as NSURL, cost: data.count * 4)
+            memory.setObject(img, forKey: url as NSURL, cost: cost)
             return img
         }
     }

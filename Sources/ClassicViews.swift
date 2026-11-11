@@ -9,12 +9,6 @@ import AVKit
 
 // Background color, accent colors (Theme) and \.appBG are shared with the Apple TV theme (Views.swift).
 
-/// Foreground that contrasts with the accent color (for labels drawn on an accent-colored background).
-struct ClassicOnAccent: ViewModifier {
-    @AppStorage("accent") private var name = "red"
-    func body(content: Content) -> some View { content.foregroundColor(Theme.onAccent(name)) }
-}
-
 struct ClassicPillStyle: ViewModifier {
     @AppStorage("accent") private var name = "red"
     let active: Bool
@@ -33,7 +27,7 @@ extension View {
         overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.85), lineWidth: 1))
     }
     func classicPill(active: Bool = false) -> some View { modifier(ClassicPillStyle(active: active)) }
-    func classicOnAccent() -> some View { modifier(ClassicOnAccent()) }
+    func classicOnAccent() -> some View { modifier(OnAccent()) }
     func classicCircleButton() -> some View {
         self.font(.title3).frame(width: 44, height: 44)
             .background(Color.white.opacity(0.14)).clipShape(Circle())
@@ -42,13 +36,6 @@ extension View {
 
 let classicAlphaLetters: [String] = ["#"] + "ABCDEFGHIJKLMNOPQRSTUVWXYZ".map { String($0) }
 
-func classicRuntimeText(_ t: Int64) -> String {
-    let m = Int(t / 600_000_000)
-    return m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m"
-}
-func classicEndsAtText(_ t: Int64) -> String {
-    Date().addingTimeInterval(Double(t) / 10_000_000).formatted(date: .omitted, time: .shortened)
-}
 func classicParseDate(_ s: String?) -> Date? {
     guard let s, s.count >= 19 else { return nil }
     return ISO8601DateFormatter().date(from: String(s.prefix(19)) + "Z")
@@ -70,7 +57,7 @@ struct ClassicRootView: View {
             }
         }
         .onChange(of: emby.playing?.id) { _, id in
-            ClassicPlaybackFlag.shared.active = id != nil
+            PlaybackFlag.shared.active = id != nil
             if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
     }
@@ -117,7 +104,7 @@ struct ClassicLoginView: View {
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plainHand)
             }
-            if busy { ClassicSpinner().controlSize(.small) }
+            if busy { Spinner().controlSize(.small) }
         }
     }
 
@@ -166,7 +153,7 @@ struct ClassicLoginView: View {
             SecureField("Password", text: $pw).focused($focus, equals: .pw).onSubmit(go)
             Button(action: go) {
                 HStack {
-                    if busy { ClassicSpinner().controlSize(.small) }
+                    if busy { Spinner().controlSize(.small) }
                     Text("Sign In").bold().classicOnAccent()
                 }.frame(maxWidth: .infinity).padding(8)
             }.buttonStyle(.borderedProminent).handCursor().disabled(busy || server.isEmpty || user.isEmpty)
@@ -209,22 +196,6 @@ struct ClassicLoginView: View {
 }
 
 // MARK: - Sidebar shell + search
-
-/// Lets a click on an already-selected sidebar row act (a List only reports *changes* of selection).
-/// The tap gesture is switched on ONLY for the row that is already selected: a gesture on a row that is
-/// not selected yet swallows the first click on macOS, so that row would need several clicks to select.
-struct ClassicRootTap: ViewModifier {
-    let id: String
-    let sel: String
-    let action: () -> Void
-    func body(content: Content) -> some View {
-        content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .simultaneousGesture(TapGesture().onEnded { action() },
-                                 including: sel == id ? .all : .subviews)
-    }
-}
 
 struct ClassicHomeView: View {
     @State private var keepPage = false   // the search box is being cleared after opening a result
@@ -274,11 +245,11 @@ struct ClassicHomeView: View {
     /// Favorites or Now Playing in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
         if id == NavOrder.favorites {
-            Label("Favorites", systemImage: "heart.fill").foregroundStyle(.tint).modifier(ClassicRootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
+            Label("Favorites", systemImage: "heart.fill").foregroundStyle(.tint).modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
         } else if id == NavOrder.nowPlaying {
             Label("Now Playing", systemImage: "dot.radiowaves.left.and.right")
                 .foregroundStyle(.tint)
-                .modifier(ClassicRootTap(id: "nowplaying", sel: sel, action: popToRoot))
+                .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
                 .badge(activeCount)
                 .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
         }
@@ -287,13 +258,13 @@ struct ClassicHomeView: View {
     var splitLayout: some View {
         NavigationSplitView {
             List(selection: selB) {
-                Label("Home", systemImage: "house.fill").foregroundStyle(.tint).modifier(ClassicRootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
+                Label("Home", systemImage: "house.fill").foregroundStyle(.tint).modifier(RootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
                 let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
                 ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
                 Section("My Media") {
                     ForEach(emby.libs) { lib in
                         if lib.visible {
-                            Label(lib.title, systemImage: icon(lib)).foregroundStyle(.tint).modifier(ClassicRootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
+                            Label(lib.title, systemImage: icon(lib)).foregroundStyle(.tint).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
                         }
                         ForEach(NavOrder.after(lib.id, rows), id: \.self) { sideSection($0) }
                     }
@@ -355,15 +326,15 @@ struct ClassicHomeView: View {
                     if !query.isEmpty { ClassicSearchView(query: query) }
                     else if sel == "home" { ClassicHomeContent(reloadToken: reloadToken) }
                     else if sel == "favorites" { ClassicFavoritesView() }
-                    else if sel == "nowplaying" { ClassicNowPlayingView() }
+                    else if sel == "nowplaying" { NowPlayingView() }
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib).id(lib.id) }
                     else { Color.black }
                 }
                 // A page opened from search results is the only page: no Back (deeper pages get one)
                 .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
-                .navigationDestination(for: ClassicPersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
-                .navigationDestination(for: ClassicFavoriteGridRef.self) { ClassicFavoriteGridView(title: $0.title, ids: $0.ids) }
-                .navigationDestination(for: ClassicFavoritePeopleRef.self) { _ in ClassicFavoritePeopleView() }
+                .navigationDestination(for: PersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
+                .navigationDestination(for: FavoriteGridRef.self) { ClassicFavoriteGridView(title: $0.title, ids: $0.ids) }
+                .navigationDestination(for: FavoritePeopleRef.self) { _ in ClassicFavoritePeopleView() }
             }
             // Back button in the title bar, left of the window title, on every page
             .toolbar { ClassicTitleBarItems(back: nil) }   // top-level pages: no Back (pushed pages add their own)
@@ -408,7 +379,7 @@ struct ClassicHomeView: View {
         .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
         .onAppear {
             if searchKey == nil {
-                searchKey = SearchKey.install(isPlaying: { ClassicPlaybackFlag.shared.active },
+                searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
                                               focus: { ClassicNavState.shared.focusSearch += 1 },
                                               home: { goHome() },
                                               back: { goBack() },
@@ -591,13 +562,7 @@ struct ClassicTopNavTools: View {
     }
 }
 
-/// Removes the toolbar's default left-aligned title (`ToolbarDefaultItemKind.title` needs macOS 15).
-struct ClassicHideToolbarTitle: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) { content.toolbar(removing: .title) } else { content }
-    }
-}
-extension View { func classicHideToolbarTitle() -> some View { modifier(ClassicHideToolbarTitle()) } }
+extension View { func classicHideToolbarTitle() -> some View { modifier(HideToolbarTitle()) } }
 
 struct ClassicTopBackButton: View {
     @EnvironmentObject var emby: Emby
@@ -668,7 +633,7 @@ struct ClassicSearchView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
                     ForEach(results) { ClassicPosterCard(item: $0) }
                 }
-                if busy { ClassicSpinner() }
+                if busy { Spinner() }
                 else if results.isEmpty && people.isEmpty { Text("No results").foregroundColor(.secondary) }
             }.padding(40)
         }
@@ -692,7 +657,7 @@ struct ClassicSearchView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(people) { p in
-                        NavigationLink(value: ClassicPersonRef(id: p.Id, name: p.Name)) {
+                        NavigationLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
@@ -753,7 +718,7 @@ struct ClassicFavoritesView: View {
                 if !collections.isEmpty { section("Favorite Collections", collections) }
                 let favPeople = people.filter { emby.isFav($0) }
                 if !favPeople.isEmpty { peopleSection(favPeople) }
-                if loading && items.isEmpty { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
+                if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
                         Image(systemName: "heart").font(.system(size: 40)).foregroundColor(.secondary)
@@ -783,7 +748,7 @@ struct ClassicFavoritesView: View {
     func peopleSection(_ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // "Favorite People ›" opens all of them on their own page, like the other sections
-            NavigationLink(value: ClassicFavoritePeopleRef()) {
+            NavigationLink(value: FavoritePeopleRef()) {
                 HStack(spacing: 6) {
                     Text("Favorite People").font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
@@ -794,10 +759,10 @@ struct ClassicFavoritesView: View {
                     ForEach(list) { ClassicFavPersonCard(p: $0) }
                 }
             } else if layout == "list" {
-                LazyVStack(spacing: 6) { ForEach(list) { FavPersonListRow(p: $0, link: ClassicPersonRef(id: $0.id, name: $0.Name)) } }
+                LazyVStack(spacing: 6) { ForEach(list) { FavPersonListRow(p: $0, link: PersonRef(id: $0.id, name: $0.Name)) } }
             } else {
                 let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
-                ClassicArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
+                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
                     if let p = byId[id] { ClassicFavPersonCard(p: p) }
                 }
             }
@@ -808,7 +773,7 @@ struct ClassicFavoritesView: View {
         let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
         return VStack(alignment: .leading, spacing: 8) {
             // Opened through the page path (like every other page), so Back shows and the top bar can leave it
-            NavigationLink(value: ClassicFavoriteGridRef(title: title, ids: list.map(\.Id))) {
+            NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
                     Text(title).font(.title3.bold())
                     Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
@@ -819,21 +784,14 @@ struct ClassicFavoritesView: View {
                     ForEach(list) { ClassicPosterCard(item: $0) }
                 }
             } else if layout == "list" {
-                LazyVStack(spacing: 6) { ForEach(list) { ClassicListRow(item: $0) } }
+                LazyVStack(spacing: 6) { ForEach(list) { ListRow(item: $0) } }
             } else {
-                ClassicArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
+                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
                     if let it = byId[id] { ClassicPosterCard(item: it) }
                 }
             }
         }
     }
-}
-
-/// Full grid for one Favorites section (the › in the heading).
-/// A Favorites section ("Favorite Movies ›" and so on) opened as a page.
-struct ClassicFavoriteGridRef: Hashable {
-    let title: String
-    let ids: [String]
 }
 
 struct ClassicFavoriteGridView: View {
@@ -869,124 +827,14 @@ struct ClassicFavoriteGridView: View {
 
 // MARK: - Now Playing (active sessions on the server)
 
-struct ClassicNowPlayingView: View {
-    @EnvironmentObject var emby: Emby
-    @Environment(\.appBG) var bg
-    @State private var sessions: [ActiveSession] = []
-    @State private var loaded = false
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Now Playing").font(.title.bold())
-                    if !sessions.isEmpty { Text("\(sessions.count) active").foregroundColor(.secondary) }
-                }
-                if !loaded { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
-                else if sessions.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "play.slash").font(.system(size: 40)).foregroundColor(.secondary)
-                        Text("Nothing is playing right now").font(.headline)
-                    }.frame(maxWidth: .infinity).padding(.top, 80)
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18)], alignment: .leading, spacing: 18) {
-                        ForEach(sessions) { ClassicSessionCard(s: $0) }
-                    }
-                }
-            }
-            .padding(.horizontal, 32).padding(.vertical, 24)
-        }
-        .background(bg)
-        .task {
-            while !Task.isCancelled {
-                sessions = await emby.nowPlaying()
-                loaded = true
-                try? await Task.sleep(for: .seconds(5))
-            }
-        }
-    }
-}
-
-struct ClassicSessionCard: View {
-    @EnvironmentObject var emby: Emby
-    let s: ActiveSession
-
-    func clock(_ ticks: Int64?) -> String { classicTimeString(Double(ticks ?? 0) / 10_000_000) }
-
-    var icon: String {
-        let c = (s.Client ?? "").lowercased() + " " + (s.DeviceName ?? "").lowercased()
-        if c.contains("cove") || c.contains("embyflix") || c.contains("mac") { return "desktopcomputer" }
-        if c.contains("web") || c.contains("chrome") || c.contains("firefox") || c.contains("safari") { return "globe" }
-        if c.contains("iphone") || c.contains("ios") || c.contains("android") { return "iphone" }
-        if c.contains("tv") || c.contains("roku") || c.contains("kodi") { return "tv" }
-        return "display"
-    }
-
-    var body: some View {
-        let it = s.NowPlayingItem!
-        let pos = Double(s.PlayState?.PositionTicks ?? 0), dur = Double(it.RunTimeTicks ?? 0)
-        let transcoding = s.PlayState?.PlayMethod == "Transcode"
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 14) {
-                CachedImage(url: emby.image(it.SeriesId ?? it.Id, width: 160)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: { Color.white.opacity(0.08) }
-                .frame(width: 64, height: 96).clipped().cornerRadius(4)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(it.SeriesName ?? it.Name).font(.headline).lineLimit(1)
-                    if it.SeriesName != nil {
-                        Text("S\(it.ParentIndexNumber ?? 0):E\(it.IndexNumber ?? 0) - \(it.Name)")
-                            .foregroundColor(.secondary).lineLimit(1)
-                    }
-                    HStack(spacing: 6) {
-                        if s.PlayState?.IsPaused == true { Image(systemName: "pause.fill").font(.caption) }
-                        Text("\(clock(s.PlayState?.PositionTicks)) / \(clock(it.RunTimeTicks))").monospacedDigit()
-                    }.foregroundColor(.secondary)
-                    Text(transcoding ? "Transcode" : "Direct play")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 7).padding(.vertical, 2)
-                        .background(Capsule().fill(transcoding ? Color.orange.opacity(0.25) : Color.green.opacity(0.25)))
-                        .tip(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(12)
-            // Progress: watched position, plus how far the server has transcoded
-            GeometryReader { g in
-                ZStack(alignment: .leading) {
-                    Rectangle().fill(Color.white.opacity(0.15))
-                    if let c = s.TranscodingInfo?.CompletionPercentage {
-                        Rectangle().fill(Color.white.opacity(0.3)).frame(width: g.size.width * min(1, c / 100))
-                    }
-                    Rectangle().fill(Color.accentColor).frame(width: dur > 0 ? g.size.width * min(1, pos / dur) : 0)
-                }
-            }.frame(height: 4)
-            HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 26)).frame(width: 36)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(s.Client ?? "Unknown") \(s.ApplicationVersion ?? "")").font(.callout.weight(.semibold))
-                    Text([s.DeviceName, s.UserName].compactMap { $0 }.joined(separator: " · ")).foregroundColor(.secondary)
-                    if let ip = s.RemoteEndPoint { Text(ip).font(.caption).foregroundColor(.secondary) }
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(12)
-        }
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(10)
-    }
-}
-
 // MARK: - Person
-
-struct ClassicPersonRef: Hashable { let id: String; let name: String }
 
 /// Everything in the user's libraries featuring one actor / director.
 struct ClassicPersonView: View {
     @Environment(\.noBack) private var noBack
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
-    let person: ClassicPersonRef
+    let person: PersonRef
     @Environment(\.dismiss) var dismiss
     @State private var items: [Item] = []
     @State private var record: Item?
@@ -1002,7 +850,7 @@ struct ClassicPersonView: View {
                 Group {
                     if !movies.isEmpty { section("Movies", movies) }
                     if !shows.isEmpty { section("Shows", shows) }
-                    if loading { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
+                    if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
                     else if items.isEmpty {
                         Text("Nothing in your libraries with \(person.name).").foregroundColor(.secondary)
                             .frame(maxWidth: .infinity).padding(.top, 40)
@@ -1080,17 +928,17 @@ struct ClassicHomeContent: View {
                                 }
                             }.padding(.horizontal, 32)
                         } else if wide {
-                            ClassicArrowScrollRow(ids: Array(row.items.indices), itemWidth: 260, spacing: 14, inset: 32) {
+                            ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 260, spacing: 14, inset: 32) {
                                 ClassicResumeCard(item: row.items[$0])
                             }
                         } else {
-                            ClassicArrowScrollRow(ids: Array(row.items.indices), itemWidth: 150, spacing: 14, inset: 32) {
+                            ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 150, spacing: 14, inset: 32) {
                                 ClassicPosterCard(item: row.items[$0])
                             }
                         }
                     }
                 }
-                if loading { ClassicSpinner().frame(maxWidth: .infinity).padding(60) }
+                if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if rows.isEmpty, let m = emby.lastFailure {
                     // The server couldn't be reached: say so, instead of an empty page
                     ErrorStateView(message: m, retry: { loading = true; retry += 1 },
@@ -1118,13 +966,13 @@ struct ClassicHero: View {
     @State private var index = 0
     @State private var hover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObservedObject private var playback = ClassicPlaybackFlag.shared
+    @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var nav = ClassicNavState.shared
 
     func meta(_ item: Item) -> [String] {
         var m: [String] = []
         if let y = item.ProductionYear { m.append(String(y)) }
-        if let t = item.RunTimeTicks, t > 0 { m.append(classicRuntimeText(t)) }
+        if let t = item.RunTimeTicks, t > 0 { m.append(runtimeText(t)) }
         if let g = item.Genres?.first { m.append(g) }
         return m
     }
@@ -1214,7 +1062,7 @@ struct ClassicResumeCard: View {
     var timeLeft: String? {
         guard let total = item.RunTimeTicks, total > 0 else { return nil }
         let left = max(0, total - (item.UserData?.PlaybackPositionTicks ?? 0))
-        return classicRuntimeText(left) + " left"
+        return runtimeText(left) + " left"
     }
     var subtitle: String? {
         if item.isEpisode { return "S\(item.ParentIndexNumber ?? 0)·E\(item.IndexNumber ?? 0)" + (timeLeft.map { " · " + $0 } ?? "") }
@@ -1265,7 +1113,7 @@ struct ClassicResumeCard: View {
                 }
                 // White progress ring, bottom-right
                 .overlay(alignment: .bottomTrailing) {
-                    if progress > 0 && progress < 1 { ClassicProgressRing(progress: progress).padding(.trailing, 10).padding(.bottom, 10) }
+                    if progress > 0 && progress < 1 { ProgressRing(progress: progress).padding(.trailing, 10).padding(.bottom, 10) }
                 }
                 // Play button: resumes playback; clicking anywhere else on the card opens the page
                 .overlay {
@@ -1319,7 +1167,7 @@ struct ClassicPosterCard: View {
     @AppStorage("posterShowYear") private var showYear = true
     @AppStorage("posterLabelAlign") private var labelAlign = "center"
     var centered: Bool { labelAlign == "center" }
-    @State private var ptr = ClassicPointerBox()    // pointer position on the poster (read lazily, no redraws)
+    @State private var ptr = PointerBox()    // pointer position on the poster (read lazily, no redraws)
     var body: some View {
         let played = emby.isPlayed(item)
         NavigationLink(value: item) {
@@ -1332,7 +1180,7 @@ struct ClassicPosterCard: View {
                     }
                     .frame(width: 150, height: 225).clipped()
                     .opacity(played ? 0.6 : 1)
-                    ClassicWatchBadge(item: item, played: played).padding(8)
+                    WatchBadge(item: item, played: played).padding(8)
                 }
                 .overlay(alignment: .topLeading) {
                     if emby.isFav(item) && !inFavorites {
@@ -1371,7 +1219,7 @@ struct ClassicPosterCard: View {
                         ClassicHoverCardCenter.shared.posterHover(item, inside: false) { .zero }
                     }
                 }
-                .modifier(ClassicHoverLift(hover: hover))
+                .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
                         if showTitle { Text(item.Name).font(.callout.weight(.semibold)).lineLimit(1) }
@@ -1387,13 +1235,6 @@ struct ClassicPosterCard: View {
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
-}
-
-/// Pointer position on a poster in its own and in window coordinates (a class: writes don't redraw the poster).
-final class ClassicPointerBox {
-    var local = CGPoint.zero
-    var global = CGPoint.zero
-    var inside = false
 }
 
 /// Decides which poster's preview card is showing. Opens ~0.7 s after the pointer rests on a poster and stays
@@ -1422,10 +1263,10 @@ final class ClassicHoverCardCenter: ObservableObject {
         if inside { overPoster = it; anchorFor = anchorProvider }
         else if overPoster?.id == it.id { overPoster = nil }
         openTask?.cancel()
-        guard inside, enabled, !ClassicPlaybackFlag.shared.active, item?.id != it.id else { return }
+        guard inside, enabled, !PlaybackFlag.shared.active, item?.id != it.id else { return }
         openTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(openDelayMs))   // same delay for every poster
-            if Task.isCancelled || ClassicPlaybackFlag.shared.active { return }
+            if Task.isCancelled || PlaybackFlag.shared.active { return }
             guard overPoster?.id == it.id, let a = anchorFor?() else { return }
             item = it
             anchor = a
@@ -1453,7 +1294,7 @@ final class ClassicHoverCardCenter: ObservableObject {
             while !Task.isCancelled && item != nil {
                 try? await Task.sleep(for: .milliseconds(100))
                 if Task.isCancelled { return }
-                if ClassicPlaybackFlag.shared.active { hide(); return }
+                if PlaybackFlag.shared.active { hide(); return }
                 away = pointerInside() ? 0 : away + 1
                 if away >= 3 { closeCard(); return }
             }
@@ -1467,11 +1308,6 @@ final class ClassicHoverCardCenter: ObservableObject {
         let pt = CGPoint(x: m.x, y: v.bounds.height - m.y)
         return anchor.insetBy(dx: -4, dy: -4).contains(pt) || cardRect.insetBy(dx: -4, dy: -4).contains(pt)
     }
-}
-
-private struct ClassicCardHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 340
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 /// Window-level layer that draws the preview card centered on the hovered poster (kept inside the window),
@@ -1503,9 +1339,9 @@ struct ClassicHoverCardLayer: View {
                 // The card pivots on the poster's center and shrinks to poster size when it is not open
                 let ux: CGFloat = min(max((shownAnchor.midX - rect.minX) / w, 0), 1)
                 let uy: CGFloat = min(max((shownAnchor.midY - rect.minY) / cardH, 0), 1)
-                ClassicHoverPreview(item: it) { center.hide() }
+                HoverPreview(item: it) { center.hide() }
                     .frame(width: w)
-                    .background(GeometryReader { c in Color.clear.preference(key: ClassicCardHeightKey.self, value: c.size.height) })
+                    .background(GeometryReader { c in Color.clear.preference(key: CardHeightKey.self, value: c.size.height) })
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .classicThinBorder(12)
                     .shadow(color: .black.opacity(0.6), radius: 24)
@@ -1519,7 +1355,7 @@ struct ClassicHoverCardLayer: View {
                     .id(it.id)
             }
         }
-        .onPreferenceChange(ClassicCardHeightKey.self) { cardH = $0 }
+        .onPreferenceChange(CardHeightKey.self) { cardH = $0 }
         .onChange(of: center.item?.id) { _, _ in sync() }
     }
 
@@ -1555,288 +1391,6 @@ struct ClassicHoverCardLayer: View {
     }
 }
 
-/// One row in the library list view: poster, title, year, overview and watched badge.
-struct ClassicListRow: View {
-    @EnvironmentObject var emby: Emby
-    let item: Item
-    @State private var hover = false
-    var body: some View {
-        let played = emby.isPlayed(item)
-        NavigationLink(value: item) {
-            HStack(alignment: .top, spacing: 16) {
-                CachedImage(url: emby.image(item.posterId, width: 160)) { p in
-                    p.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: { Color(white: 0.15) }
-                .frame(width: 60, height: 90).clipped().cornerRadius(4)
-                .opacity(played ? 0.6 : 1)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.Name).font(.headline).lineLimit(1)
-                    if let y = item.ProductionYear { Text(String(y)).font(.subheadline).foregroundColor(.secondary) }
-                    Text(item.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
-                }
-                Spacer(minLength: 12)
-                ItemActionsButton(item: item).opacity(hover ? 1 : 0)
-                ClassicWatchBadge(item: item, played: played)
-            }
-            .padding(8)
-            .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(6)
-            .contentShape(Rectangle())
-            .onHover { hover = $0 }
-        }.buttonStyle(.plainHand)
-    }
-}
-
-/// "‹ Back" classicPill button used on detail pages and in the player.
-struct ClassicBackPill: View {
-    var compact = false
-    let action: () -> Void
-    @State private var hover = false
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: compact ? 6 : 8) {
-                Image(systemName: "chevron.left").font(.system(size: compact ? 14 : 18, weight: .bold))
-                Text("Back").font(.system(size: compact ? 14 : 16, weight: .semibold))
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, compact ? 12 : 16).padding(.vertical, compact ? 5 : 10)
-            .background(Capsule().fill(Color.black.opacity(hover ? 0.85 : 0.6)))
-            .overlay(Capsule().stroke(Color.white.opacity(hover ? 0.7 : 0.3), lineWidth: 1))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(HoverButton())
-        .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = $0 }
-        .animation(.easeOut(duration: 0.12), value: hover)
-        .keyboardShortcut("[", modifiers: .command)
-    }
-}
-
-/// Green badge: a check when the count is 0, otherwise the number.
-struct ClassicCountBadge: View {
-    let count: Int?
-    var body: some View {
-        if let n = count {
-            if n == 0 {
-                Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
-                    .frame(width: 24, height: 24).background(Circle().fill(ClassicWatchBadge.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.5), radius: 3).helpLabel("All watched")
-            } else {
-                Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
-                    .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
-                    .background(Capsule().fill(ClassicWatchBadge.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.5), radius: 3)
-                    .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
-            }
-        }
-    }
-}
-
-/// Top-right poster badge: green check when watched, unwatched-episode count for series.
-/// Small white progress ring (how much of the episode you have watched), for the corner of a thumbnail.
-struct ClassicProgressRing: View {
-    let progress: Double      // 0...1
-    var size: CGFloat = 22
-    var body: some View {
-        ZStack {
-            Circle().stroke(Color.white.opacity(0.35), lineWidth: 2.5)
-            Circle().trim(from: 0, to: CGFloat(min(1, max(0.03, progress))))
-                .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
-        .frame(width: size, height: size)
-        .shadow(color: .black.opacity(0.6), radius: 3)
-    }
-}
-
-/// Thin progress line along the bottom edge of a thumbnail (accent color, dim track).
-struct ClassicEdgeProgressBar: View {
-    let progress: Double      // 0...1
-    var body: some View {
-        GeometryReader { g in
-            ZStack(alignment: .leading) {
-                Rectangle().fill(Color.black.opacity(0.5))
-                Rectangle().fill(.tint).frame(width: g.size.width * CGFloat(min(1, max(0, progress))))
-            }
-        }.frame(height: 3)
-    }
-}
-
-struct ClassicWatchBadge: View {
-    let item: Item
-    let played: Bool
-    /// Neutral badge fill (dark, with a light ring), so "watched" doesn't compete with the accent color.
-    static let green = Color.black.opacity(0.7)
-
-    var body: some View {
-        if played {
-            Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
-                .frame(width: 24, height: 24)
-                .background(Circle().fill(Self.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
-                .shadow(color: .black.opacity(0.5), radius: 3)
-                .helpLabel("Watched")
-        } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
-            Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
-                .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
-                .background(Capsule().fill(Self.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
-                .shadow(color: .black.opacity(0.5), radius: 3)
-                .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
-        }
-    }
-}
-
-/// 1:02:03 / 12:34 style time.
-func classicTimeString(_ t: Double) -> String {
-    let s = Int(max(0, t)), h = s / 3600, m = (s % 3600) / 60, sec = s % 60
-    return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
-}
-
-/// Horizontal row with ‹ › buttons that page through items that don't fit on screen.
-/// Arrow visibility and paging use the real scroll offset of the underlying NSScrollView, so they stay
-/// correct at any window size (including full screen) and each arrow hides once that end is reached.
-struct ClassicArrowScrollRow<ID: Hashable, Content: View>: View {
-    let ids: [ID]
-    let itemWidth: CGFloat
-    var spacing: CGFloat = 18
-    var inset: CGFloat = 40
-    @ViewBuilder let content: (ID) -> Content
-    @StateObject private var finder = ClassicScrollFinder()
-    @State private var dragStart: CGFloat?
-
-    var body: some View {
-        // No scrollbar: the arrows page the row; trackpad / wheel scrolling still works.
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: spacing) {
-                ForEach(ids, id: \.self) { id in content(id).id(id) }
-            }
-            .padding(.vertical, 8)
-            .background(ClassicScrollFinderView(finder: finder))
-            // Click-and-drag to scroll with the mouse; a plain click still opens the item.
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 6)
-                    .onChanged { g in
-                        guard let sv = finder.scrollView else { return }
-                        let clip = sv.contentView
-                        if dragStart == nil { dragStart = clip.bounds.origin.x }
-                        let maxX = max(0, (sv.documentView?.frame.width ?? 0) - clip.bounds.width)
-                        let x = min(max(0, dragStart! - g.translation.width), maxX)
-                        clip.setBoundsOrigin(NSPoint(x: x, y: clip.bounds.origin.y))
-                        sv.reflectScrolledClipView(clip)
-                    }
-                    .onEnded { _ in dragStart = nil }
-            )
-        }
-        .scrollIndicators(.never)
-        .contentMargins(.horizontal, inset, for: .scrollContent)
-        .overlay(alignment: .leading) {
-            if finder.canBack {
-                arrow("chevron.left", help: "Previous") { finder.page(-1, step: itemWidth + spacing) }.padding(.leading, 6)
-            }
-        }
-        .overlay(alignment: .trailing) {
-            if finder.canFwd {
-                arrow("chevron.right", help: "Next") { finder.page(1, step: itemWidth + spacing) }.padding(.trailing, 6)
-            }
-        }
-        .animation(.easeOut(duration: 0.15), value: finder.canBack)
-        .animation(.easeOut(duration: 0.15), value: finder.canFwd)
-    }
-
-    func arrow(_ icon: String, help: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(Color.black.opacity(0.7)))
-                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                .shadow(color: .black.opacity(0.5), radius: 6)
-                .contentShape(Circle())
-        }
-        .buttonStyle(HoverButton()).helpLabel(help)
-        .transition(.opacity)
-    }
-}
-
-/// Finds the NSScrollView behind a SwiftUI ScrollView (for mouse dragging and arrow paging) and
-/// publishes whether there is more content to the left / right of what is currently visible.
-final class ClassicScrollFinder: ObservableObject {
-    weak var scrollView: NSScrollView?
-    @Published var canBack = false
-    @Published var canFwd = false
-    private var tokens: [NSObjectProtocol] = []
-
-    func attach(_ sv: NSScrollView?) {
-        guard let sv, sv !== scrollView else { return }
-        scrollView = sv
-        let nc = NotificationCenter.default
-        for t in tokens { nc.removeObserver(t) }
-        tokens = []
-        // Scrolling and window / full-screen resizes change the clip view's bounds
-        sv.contentView.postsBoundsChangedNotifications = true
-        tokens.append(nc.addObserver(forName: NSView.boundsDidChangeNotification, object: sv.contentView, queue: .main) { [weak self] _ in
-            self?.refresh()
-        })
-        // Content loading or changing size changes the document view's frame
-        if let doc = sv.documentView {
-            doc.postsFrameChangedNotifications = true
-            tokens.append(nc.addObserver(forName: NSView.frameDidChangeNotification, object: doc, queue: .main) { [weak self] _ in
-                self?.refresh()
-            })
-        }
-        refresh()
-    }
-
-    deinit { for t in tokens { NotificationCenter.default.removeObserver(t) } }
-
-    func refresh() {
-        guard let sv = scrollView, let doc = sv.documentView else { return }
-        let clip = sv.contentView
-        let ins = sv.contentInsets
-        let lo = -ins.left
-        let hi = doc.frame.width + ins.right
-        let back = clip.bounds.minX > lo + 1
-        let fwd = clip.bounds.maxX < hi - 1
-        if back != canBack { canBack = back }
-        if fwd != canFwd { canFwd = fwd }
-    }
-
-    /// Slides the row by `step` points in the given direction, stopping at either end.
-    func page(_ dir: Int, step: CGFloat) {
-        guard let sv = scrollView, let doc = sv.documentView else { return }
-        let clip = sv.contentView
-        let ins = sv.contentInsets
-        let lo = -ins.left
-        let hi = max(lo, doc.frame.width + ins.right - clip.bounds.width)
-        let x = min(max(lo, clip.bounds.origin.x + CGFloat(dir) * step), hi)
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.3
-            clip.animator().setBoundsOrigin(NSPoint(x: x, y: clip.bounds.origin.y))
-        }, completionHandler: { [weak sv] in
-            if let sv { sv.reflectScrolledClipView(sv.contentView) }
-        })
-    }
-}
-
-struct ClassicScrollFinderView: NSViewRepresentable {
-    let finder: ClassicScrollFinder
-    func makeNSView(context: Context) -> NSView {
-        let v = Probe()
-        v.finder = finder
-        DispatchQueue.main.async { finder.attach(v.enclosingScrollView) }
-        return v
-    }
-    func updateNSView(_ v: NSView, context: Context) {
-        if finder.scrollView == nil { DispatchQueue.main.async { finder.attach(v.enclosingScrollView) } }
-    }
-
-    /// Finds its scroll view once it's really in one (see ScrollFinderView.Probe).
-    final class Probe: NSView {
-        weak var finder: ClassicScrollFinder?
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            guard window != nil else { return }
-            DispatchQueue.main.async { [weak self] in self?.finder?.attach(self?.enclosingScrollView) }
-        }
-    }
-}
 
 // MARK: - Library page (header, tabs, sort, filter; choices are remembered per library)
 
@@ -1992,7 +1546,7 @@ struct ClassicLibraryView: View {
             if layout == "list" {
                 LazyVStack(spacing: 6) {
                     ForEach(items) { it in
-                        ClassicListRow(item: it).onAppear {
+                        ListRow(item: it).onAppear {
                             if it.id == items.last?.id { Task { await load(reset: false) } }
                         }
                     }
@@ -2006,7 +1560,7 @@ struct ClassicLibraryView: View {
                     }
                 }
             }
-            if loading { ClassicSpinner() }
+            if loading { Spinner() }
             else if loadFailed {
                 if items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { Task { await load(reset: true) } } }
                 else { LoadMoreFailedView { Task { await load(reset: false) } } }
@@ -2176,7 +1730,7 @@ struct ClassicDetailView: View {
         let r = playTarget.map { emby.resumeAt($0) } ?? 0
         let verb = r > 0 ? "Resume" : "Play"
         if item.isSeries, let ep = nextEp { return "\(verb) S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
-        if r > 0 { return "Resume from \(classicTimeString(r))" }
+        if r > 0 { return "Resume from \(timeString(r))" }
         return verb
     }
 
@@ -2257,19 +1811,19 @@ struct ClassicDetailView: View {
             }
             if let c = full?.CriticRating { Text("🍅 \(Int(c))%") }
             if let y = item.ProductionYear { Text(String(y)) }
-            if let t = full?.RunTimeTicks { Text(classicRuntimeText(t)) }
+            if let t = full?.RunTimeTicks { Text(runtimeText(t)) }
             if let o = full?.OfficialRating {
                 Text(o).font(.caption).padding(.horizontal, 5).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary))
             }
             if let g = full?.Genres?.first { Text(g) }
-            if let t = full?.RunTimeTicks, !simple { Text("Ends at " + classicEndsAtText(t)) }
+            if let t = full?.RunTimeTicks, !simple { Text("Ends at " + endsAtText(t)) }
         }.font(.subheadline).foregroundColor(.secondary)
     }
 
     /// Wraps onto more lines when the window is narrow, so long version names can't widen the page.
     var streamsRow: some View {
-        ClassicFlowLayout(hSpacing: 20, vSpacing: 10) {
+        FlowLayout(hSpacing: 20, vSpacing: 10) {
             if sources.count > 1 {
                 HStack(spacing: 6) {
                     Text("Version").foregroundColor(.secondary)
@@ -2441,7 +1995,7 @@ struct ClassicDetailView: View {
                     ZStack { Color(white: 0.15); Text(title) }
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
-                .overlay(alignment: .topTrailing) { ClassicCountBadge(count: unwatched(n)).padding(8) }
+                .overlay(alignment: .topTrailing) { CountBadge(count: unwatched(n)).padding(8) }
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(selected ? 1 : 0.85), lineWidth: selected ? 3 : 1))
                 .shadow(radius: 6)
                 .classicHoverLift()
@@ -2454,7 +2008,7 @@ struct ClassicDetailView: View {
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Seasons").font(.title3.bold()).padding(.horizontal, 40)
-            ClassicArrowScrollRow(ids: seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
+            ArrowScrollRow(ids: seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
         }
     }
 
@@ -2493,7 +2047,7 @@ struct ClassicDetailView: View {
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 220, height: 124).clipped()
                 .overlay(alignment: .bottomTrailing) {
-                    if pct > 0, pct < 100, !played { ClassicProgressRing(progress: pct / 100).padding(8) }
+                    if pct > 0, pct < 100, !played { ProgressRing(progress: pct / 100).padding(8) }
                 }
                 .cornerRadius(6)
                 .classicThinBorder(6)
@@ -2504,7 +2058,7 @@ struct ClassicDetailView: View {
                         Text(ep.Name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
                         if played { Image(systemName: "checkmark.circle.fill").foregroundColor(.white.opacity(0.7)) }
                         Spacer()
-                        if let t = ep.RunTimeTicks, t > 0 { Text(classicRuntimeText(t)).foregroundColor(.secondary) }
+                        if let t = ep.RunTimeTicks, t > 0 { Text(runtimeText(t)).foregroundColor(.secondary) }
                     }
                     if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).font(.callout).foregroundColor(.secondary) }
                 }
@@ -2558,7 +2112,7 @@ struct ClassicDetailView: View {
         var t = "S\(ep.ParentIndexNumber ?? 0)·E\(ep.IndexNumber ?? 0)"
         if hasProgress, let total = ep.RunTimeTicks, total > 0 {
             let left = max(0, total - (ep.UserData?.PlaybackPositionTicks ?? 0))
-            t += " · " + classicRuntimeText(left) + " left"
+            t += " · " + runtimeText(left) + " left"
         }
         return t
     }
@@ -2576,7 +2130,7 @@ struct ClassicDetailView: View {
                     .frame(minWidth: 0, maxWidth: .infinity).aspectRatio(16 / 9, contentMode: .fit)
                     .clipped()
                     .opacity(played ? 0.6 : 1)
-                    ClassicWatchBadge(item: ep, played: played).padding(6)
+                    WatchBadge(item: ep, played: played).padding(6)
                 }
                 // Episode name in the bottom-left corner of the thumbnail
                 .overlay(alignment: .bottomLeading) {
@@ -2597,13 +2151,13 @@ struct ClassicDetailView: View {
                 }
                 // White progress ring in the bottom-right corner
                 .overlay(alignment: .bottomTrailing) {
-                    if hasProgress { ClassicProgressRing(progress: pct / 100).padding(.trailing, 10).padding(.bottom, 12) }
+                    if hasProgress { ProgressRing(progress: pct / 100).padding(.trailing, 10).padding(.bottom, 12) }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .classicThinBorder(6)
                 .classicHoverLift(play: 40) { playEpisode(ep) }
-                // below the watched badge in the top-right corner
-                .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 38, leading: 6, bottom: 6, trailing: 6))
+                // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
+                .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
                     Text(ep.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
                 }
@@ -2630,8 +2184,8 @@ struct ClassicDetailView: View {
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
-                ClassicArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
-                    NavigationLink(value: ClassicPersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
+                ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
+                    NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
                 }
             }
@@ -2687,7 +2241,7 @@ struct ClassicDetailView: View {
         if !includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Included In").font(.title3.bold()).padding(.horizontal, 40)
-                ClassicArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }
+                ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }
             }
         }
     }
@@ -2708,9 +2262,9 @@ struct ClassicDetailView: View {
                         ForEach(similar) { ClassicPosterCard(item: $0) }
                     }.padding(.horizontal, 40)
                 } else if similarLayout == "list" {
-                    LazyVStack(spacing: 6) { ForEach(similar) { ClassicListRow(item: $0) } }.padding(.horizontal, 40)
+                    LazyVStack(spacing: 6) { ForEach(similar) { ListRow(item: $0) } }.padding(.horizontal, 40)
                 } else {
-                    ClassicArrowScrollRow(ids: Array(similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: similar[$0]) }
+                    ArrowScrollRow(ids: Array(similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: similar[$0]) }
                 }
             }
         }
@@ -2772,8 +2326,8 @@ struct ClassicPlayerView: View {
     @State private var playerWin = WeakWindow()   // the window this player is in
     // Remembered across episodes (each episode gets a fresh ClassicPlayerView), so closing the player still leaves full screen
     var enteredFullScreen: Bool {
-        get { ClassicPlaybackFlag.shared.enteredFullScreen }
-        nonmutating set { ClassicPlaybackFlag.shared.enteredFullScreen = newValue }
+        get { PlaybackFlag.shared.enteredFullScreen }
+        nonmutating set { PlaybackFlag.shared.enteredFullScreen = newValue }
     }
 
     static let sizes: [(String, String, Double)] = [("smaller", "Smaller", 0.032), ("small", "Small", 0.038),
@@ -2817,7 +2371,7 @@ struct ClassicPlayerView: View {
         let visible = h > 0 && (showUI || panel != nil)
         return VStack(spacing: 0) {
             HStack(spacing: 0) {
-                ClassicBackPill(compact: true) { back() }.helpLabel("Back (Esc)").padding(.leading, x)
+                BackPill(compact: true) { back() }.helpLabel("Back (Esc)").padding(.leading, x)
                 Spacer(minLength: 0)
             }.frame(height: h)
             Spacer(minLength: 0)
@@ -2913,9 +2467,9 @@ struct ClassicPlayerView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if let p = model.player {
-                    ClassicAVPlayerViewRep(player: p, onLayer: model.attach).ignoresSafeArea().padding(.top, titleBarHeight)
+                    AVPlayerViewRep(player: p, onLayer: model.attach).ignoresSafeArea().padding(.top, titleBarHeight)
                 }
-                else if model.error.isEmpty { ClassicSpinner(inPlayer: true).controlSize(.large) }
+                else if model.error.isEmpty { Spinner(inPlayer: true).controlSize(.large) }
                 if model.pipActive { classicPipPlaceholder }
 
                 subtitleLayer(geo.size).animation(.easeOut(duration: 0.2), value: showUI)
@@ -2932,7 +2486,7 @@ struct ClassicPlayerView: View {
                     .transition(.opacity)
                 }
 
-                if model.player != nil, !model.isReady, model.error.isEmpty { ClassicSpinner() }
+                if model.player != nil, !model.isReady, model.error.isEmpty { Spinner() }
 
                 if !model.error.isEmpty {
                     VStack(spacing: 12) {
@@ -2972,8 +2526,8 @@ struct ClassicPlayerView: View {
         .onKeyPress("f") { toggleFullScreen(); return .handled }
         .onKeyPress("i") { showInfo.toggle(); return .handled }
         // No screen saver / display sleep while a video is playing (windowed or full screen)
-        .onChange(of: model.playing) { _, on in ClassicKeepAwake.set(on, owner: model) }
-        .onDisappear { ClassicKeepAwake.set(false, owner: model) }
+        .onChange(of: model.playing) { _, on in KeepAwake.set(on, owner: model) }
+        .onDisappear { KeepAwake.set(false, owner: model) }
         .onKeyPress("p") { model.togglePiP(); return .handled }
         .onKeyPress("e") {
             guard item.isEpisode && episodes.count > 1 else { return .ignored }
@@ -3066,7 +2620,7 @@ struct ClassicPlayerView: View {
             VStack {
                 Spacer()
                 HStack(spacing: 8) {
-                    ClassicSpinner(inPlayer: true).controlSize(.small)
+                    Spinner(inPlayer: true).controlSize(.small)
                     Text("Loading subtitles…").font(.system(size: 14, weight: .medium))
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
@@ -3084,7 +2638,7 @@ struct ClassicPlayerView: View {
                     .font(.system(size: fs, weight: .medium))
                     .foregroundColor(color)
                     .multilineTextAlignment(.center)
-                    .modifier(ClassicSubShadow(style: subShadow, color: shade))
+                    .modifier(SubShadow(style: subShadow, color: shade))
                     .padding(.horizontal, 10).padding(.vertical, 3)
                     .background(Color.black.opacity(Self.bgs.first { $0.0 == subBg }?.2 ?? 0))
                     .cornerRadius(4)
@@ -3102,7 +2656,7 @@ struct ClassicPlayerView: View {
         HStack(spacing: 16) {
             // The classicPill that used to sit here is hidden (kept, not deleted): in full screen Esc does the job, and in a
             // window it moved to the title bar (titleBarBack, now off too). Set inPlayerBackPill to true to bring it back.
-            if Self.inPlayerBackPill { ClassicBackPill { back() }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
+            if Self.inPlayerBackPill { BackPill { back() }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
             CachedImage(url: emby.image(item.SeriesId ?? item.Id, "Logo", width: 400)) { img in
                 img.resizable().aspectRatio(contentMode: .fit)
             } placeholder: { EmptyView() }
@@ -3231,7 +2785,7 @@ struct ClassicPlayerView: View {
             .foregroundColor(checked ? accent : .white)
             .padding(.horizontal, 22).padding(.vertical, 11)
             .contentShape(Rectangle())
-        }.buttonStyle(ClassicPanelRowStyle())
+        }.buttonStyle(PanelRowStyle())
     }
 
     func sectionTitle(_ t: String) -> some View {
@@ -3493,15 +3047,16 @@ extension ClassicPlayerView {
                     Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
                         .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Capsule().fill(Color.black.opacity(0.75)))
+                .padding(.horizontal, 18).frame(height: 44)
+                .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
-                    Text("Skip Intro").font(.system(size: 16, weight: .bold)).foregroundColor(.black)
-                        .padding(.horizontal, 20).padding(.vertical, 11)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                }.buttonStyle(.plainHand)
+                    Label("Skip Intro", systemImage: "forward.fill").font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 22).frame(height: 44)
+                        .searchGlass()
+                }.buttonStyle(HoverButton())
             }
             if classicShowUpNext, let n = nextEp { classicUpNextCard(n) }
         }
@@ -3516,7 +3071,7 @@ extension ClassicPlayerView {
             CachedImage(url: emby.image(n.Id, "Primary", width: 400, plain: true)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { Color.white.opacity(0.1) }
-            .frame(width: 160, height: 90).clipped().cornerRadius(6)
+            .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
                 Text("Up next").font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
@@ -3525,14 +3080,13 @@ extension ClassicPlayerView {
                     Button { play(n) } label: {
                         Text("Play now").font(.system(size: 14, weight: .bold))
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent, lineWidth: 3))
-                    }.buttonStyle(.plainHand)
+                            .background(Capsule().fill(Color.white))
+                    }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
                         Text("Cancel").font(.system(size: 14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.15)))
-                    }.buttonStyle(.plainHand)
+                            .background(Capsule().fill(Color.white.opacity(0.15)))
+                    }.buttonStyle(HoverButton())
                 }
                 if autoNext {
                     Text("Next starts in \(classicSecsLeft)s")
@@ -3541,7 +3095,7 @@ extension ClassicPlayerView {
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.8)))
+        .glassPanel()
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
@@ -3627,7 +3181,7 @@ extension ClassicPlayerView {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(ep.IndexNumber ?? 0). \(ep.Name)").font(.system(size: 14, weight: .semibold)).lineLimit(2)
                     if let t = ep.RunTimeTicks, t > 0 {
-                        Text(classicRuntimeText(t)).font(.system(size: 12)).foregroundColor(.secondary)
+                        Text(runtimeText(t)).font(.system(size: 12)).foregroundColor(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -3636,7 +3190,7 @@ extension ClassicPlayerView {
             .padding(.horizontal, 14).padding(.vertical, 6)
             .background(current ? Color.white.opacity(0.08) : Color.clear)
             .contentShape(Rectangle())
-        }.buttonStyle(ClassicPanelRowStyle())
+        }.buttonStyle(PanelRowStyle())
     }
 
     // MARK: Chapters panel
@@ -3680,276 +3234,14 @@ extension ClassicPlayerView {
             .foregroundColor(current ? accent : .white)
             .padding(.horizontal, 18).padding(.vertical, 7)
             .contentShape(Rectangle())
-        }.buttonStyle(ClassicPanelRowStyle())
+        }.buttonStyle(PanelRowStyle())
     }
 }
 
-struct ClassicPanelRowStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(Color.white.opacity(configuration.isPressed ? 0.15 : 0))
-    }
-}
-
-struct ClassicSubShadow: ViewModifier {
-    let style: String
-    let color: Color
-    func body(content: Content) -> some View {
-        switch style {
-        case "drop":
-            content.shadow(color: color.opacity(0.9), radius: 2, x: 1.5, y: 1.5).shadow(color: color.opacity(0.6), radius: 4)
-        case "outline":
-            content.shadow(color: color, radius: 0, x: 1, y: 1).shadow(color: color, radius: 0, x: -1, y: -1)
-                .shadow(color: color, radius: 0, x: 1, y: -1).shadow(color: color, radius: 0, x: -1, y: 1)
-        case "raised":
-            content.shadow(color: color, radius: 0, x: 1, y: 2)
-        default:
-            content
-        }
-    }
-}
-
-/// AppKit video surface with no built-in controls; the SwiftUI overlay draws the UI.
-/// (SwiftUI's VideoPlayer crashes on load on this macOS version.)
-/// A plain AVPlayerLayer (picture-in-picture needs the layer). Clicks pass through to SwiftUI (click = play/pause).
-final class ClassicPlayerLayerView: NSView {
-    let playerLayer = AVPlayerLayer()
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
-        playerLayer.videoGravity = .resizeAspect
-        layer?.addSublayer(playerLayer)
-    }
-    required init?(coder: NSCoder) { fatalError() }
-    override func layout() {
-        super.layout()
-        CATransaction.begin(); CATransaction.setDisableActions(true)
-        playerLayer.frame = bounds
-        CATransaction.commit()
-    }
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-
-struct ClassicAVPlayerViewRep: NSViewRepresentable {
-    let player: AVPlayer
-    var onLayer: (AVPlayerLayer) -> Void = { _ in }
-    func makeNSView(context: Context) -> ClassicPlayerLayerView {
-        let v = ClassicPlayerLayerView()
-        v.playerLayer.player = player
-        let cb = onLayer, l = v.playerLayer
-        DispatchQueue.main.async { cb(l) }
-        return v
-    }
-    func updateNSView(_ v: ClassicPlayerLayerView, context: Context) {
-        if v.playerLayer.player !== player { v.playerLayer.player = player }
-    }
-}
-
-/// Loading spinner drawn by SwiftUI. The system ProgressView is an AppKit view that always draws on top,
-/// so a spinner on a page behind the player showed through the video.
-struct ClassicSpinner: View {
-    var inPlayer = false
-    @ObservedObject private var playback = ClassicPlaybackFlag.shared
-    @Environment(\.controlSize) private var size
-    var d: CGFloat { size == .small || size == .mini ? 16 : size == .large ? 40 : 26 }
-    var body: some View {
-        // Pages behind the player live in separate AppKit hosting views, so their spinners can show
-        // through the video: don't draw them at all while something is playing.
-        if playback.active && !inPlayer { EmptyView() } else {
-            wheel
-        }
-    }
-
-    /// Rotation comes from the clock, not a repeatForever animation: such an animation also drives the
-    /// view's removal, so the spinner never finished disappearing and stayed over the playing video.
-    var wheel: some View {
-        TimelineView(.animation) { ctx in
-            let angle = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.9) / 0.9 * 360
-            Circle()
-                .trim(from: 0.08, to: 0.8)
-                .stroke(Color.secondary, style: StrokeStyle(lineWidth: max(2, d / 9), lineCap: .round))
-                .frame(width: d, height: d)
-                .rotationEffect(.degrees(angle))
-        }
-    }
-}
-
-/// True while the video player is on screen.
-final class ClassicPlaybackFlag: ObservableObject {
-    static let shared = ClassicPlaybackFlag()
-    @Published var active = false
-    var enteredFullScreen = false
-}
-
-
-/// Holds an IOKit assertion that stops the screen saver and display sleep while any player is playing.
-/// Each player is an "owner", so the old player closing can't release the assertion the next episode just took.
-enum ClassicKeepAwake {
-    private static var id: IOPMAssertionID = 0
-    private static var owners = Set<ObjectIdentifier>()
-    static func set(_ on: Bool, owner: AnyObject) {
-        let key = ObjectIdentifier(owner)
-        if on { owners.insert(key) } else { owners.remove(key) }
-        if !owners.isEmpty, id == 0 {
-            IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
-                                        IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                                        "Cove is playing a video" as CFString, &id)
-        } else if owners.isEmpty, id != 0 {
-            IOPMAssertionRelease(id)
-            id = 0
-        }
-    }
-}
-
-/// The poster hover effect: lift 6 % with a shadow, drawn above its neighbours.
-struct ClassicHoverLift: ViewModifier {
-    var hover: Bool
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(hover ? 1.06 : 1)
-            .shadow(radius: hover ? 12 : 0)
-            .animation(.easeOut(duration: 0.15), value: hover)
-            .zIndex(hover ? 1 : 0)
-    }
-}
-
-/// ClassicHoverLift that tracks the pointer itself; optionally shows a play button on hover (as on Continue Watching).
-struct ClassicSelfHoverLift: ViewModifier {
-    var play: CGFloat = 0
-    /// When set, the play icon is a button of its own (the card around it opens the details instead)
-    var onPlay: (() -> Void)? = nil
-    @State private var hover = false
-    func body(content: Content) -> some View {
-        content
-            .overlay {
-                if hover && play > 0 {
-                    let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
-                        .shadow(radius: 6)
-                    if let onPlay {
-                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand).tip("Play")
-                    } else { icon }
-                }
-            }
-            .modifier(ClassicHoverLift(hover: hover)).onHover { hover = $0 }
-    }
-}
 
 extension View {
     /// `play`: size of the play button shown on hover (0 = none).
-    func classicHoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(ClassicSelfHoverLift(play: play, onPlay: onPlay)) }
-}
-
-/// Netflix-style expanded card shown when resting on a poster: backdrop, details and quick actions.
-struct ClassicHoverPreview: View {
-    @EnvironmentObject var emby: Emby
-    let item: Item
-    let close: () -> Void
-
-    var facts: String {
-        var f: [String] = []
-        if let y = item.ProductionYear { f.append(String(y)) }
-        if let t = item.RunTimeTicks, t > 0, !item.isSeries { f.append(classicRuntimeText(t)) }
-        if let r = item.CommunityRating { f.append(String(format: "★ %.1f", r)) }
-        return f.joined(separator: "  ·  ")
-    }
-
-    var body: some View {
-        let played = emby.isPlayed(item), fav = emby.isFav(item)
-        VStack(alignment: .leading, spacing: 10) {
-            CachedImage(url: emby.image(item.backdropId ?? item.Id, item.backdropId == nil ? "Primary" : "Backdrop", width: 640)) { img in
-                img.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: { Color(white: 0.15) }
-            .frame(width: 320, height: 180).clipped()
-            VStack(alignment: .leading, spacing: 8) {
-                Text(item.Name).font(.headline).lineLimit(2)
-                if !facts.isEmpty { Text(facts).font(.caption).foregroundColor(.secondary) }
-                if let g = item.Genres, !g.isEmpty {
-                    Text(g.prefix(3).joined(separator: " • ")).font(.caption).foregroundColor(.secondary)
-                }
-                if let o = item.Overview, !o.isEmpty {
-                    Text(o).font(.caption).lineLimit(3).foregroundColor(.white.opacity(0.85))
-                }
-                HStack(spacing: 10) {
-                    Button { close(); Task { await emby.play(item) } } label: {
-                        Label("Play", systemImage: "play.fill").font(.callout.weight(.bold))
-                            .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(Capsule().fill(Color.white))
-                    }.buttonStyle(.plainHand)
-                    circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
-                        Task { await emby.setFav(item.id, !fav, name: item.Name) }
-                    }
-                    circle(played ? "checkmark.circle.fill" : "checkmark", on: played,
-                           help: played ? "Mark as unwatched" : "Mark as watched") {
-                        Task { await emby.setPlayed(item.id, !played, name: item.Name) }
-                    }
-                }.padding(.top, 2)
-            }.padding(.horizontal, 14).padding(.bottom, 14)
-        }
-        .frame(width: 320)
-        .background(Color(white: 0.12))
-        .environment(\.colorScheme, .dark)
-        // Clicking anywhere on the card (outside its buttons) opens this item's page
-        .contentShape(Rectangle())
-        .onTapGesture { close(); emby.openRequest = item }.handCursor()
-    }
-
-    func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon).font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white))
-                .frame(width: 32, height: 32)
-                .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
-                .contentShape(Circle())
-        }.buttonStyle(.plainHand).helpLabel(help)
-    }
-}
-
-/// Lays children out left to right and wraps to a new line when the width runs out.
-struct ClassicFlowLayout: Layout {
-    var hSpacing: CGFloat = 12
-    var vSpacing: CGFloat = 8
-
-    private func rows(_ width: CGFloat, _ subviews: Subviews) -> [[(Int, CGSize)]] {
-        var rows: [[(Int, CGSize)]] = [[]]
-        var x: CGFloat = 0
-        for (i, v) in subviews.enumerated() {
-            var sz = v.sizeThatFits(.unspecified)
-            if sz.width > width { sz = v.sizeThatFits(ProposedViewSize(width: width, height: nil)) }
-            if x > 0 && x + sz.width > width { rows.append([]); x = 0 }
-            rows[rows.count - 1].append((i, sz))
-            x += sz.width + hSpacing
-        }
-        return rows
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        let r = rows(width, subviews)
-        var h: CGFloat = 0, w: CGFloat = 0
-        for row in r {
-            var rowW: CGFloat = 0, rowH: CGFloat = 0
-            for (_, sz) in row { rowW += sz.width; rowH = max(rowH, sz.height) }
-            rowW += hSpacing * CGFloat(max(0, row.count - 1))
-            w = max(w, rowW)
-            h += rowH
-        }
-        h += vSpacing * CGFloat(max(0, r.count - 1))
-        return CGSize(width: proposal.width ?? w, height: h)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var y = bounds.minY
-        for row in rows(bounds.width, subviews) {
-            var x = bounds.minX
-            let h = row.map(\.1.height).max() ?? 0
-            for (i, sz) in row {
-                subviews[i].place(at: CGPoint(x: x, y: y + (h - sz.height) / 2), proposal: ProposedViewSize(sz))
-                x += sz.width + hSpacing
-            }
-            y += h + vSpacing
-        }
-    }
+    func classicHoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(SelfHoverLift(play: play, onPlay: onPlay)) }
 }
 
 /// One letter of the Classic A–Z bar: the original look, plus a pointing hand and a light circle under the mouse.
@@ -3976,15 +3268,12 @@ struct ClassicAlphaLetter: View {
     }
 }
 
-/// "Favorite People ›" opened as a page.
-struct ClassicFavoritePeopleRef: Hashable {}
-
 /// One favorite person: poster-sized portrait and name; opens their page, heart on hover removes them.
 struct ClassicFavPersonCard: View {
     @EnvironmentObject var emby: Emby
     let p: Item
     var body: some View {
-        NavigationLink(value: ClassicPersonRef(id: p.id, name: p.Name)) {
+        NavigationLink(value: PersonRef(id: p.id, name: p.Name)) {
             VStack(spacing: 8) {
                 CachedImage(url: emby.image(p.id, width: 360)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
