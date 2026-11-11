@@ -988,6 +988,8 @@ struct SeasonDeck: View {
     let select: (Int) -> Void
     @State private var leaving: Int?
     @State private var leavingGone = false
+    @State private var arriving: Int?        // going back: the new front card, fading in over the deck
+    @State private var arrivingIn = false
     @State private var busy = false   // a move is still animating: clicks wait for it to finish
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let w: CGFloat = 150, h: CGFloat = 225
@@ -1021,6 +1023,14 @@ struct SeasonDeck: View {
             let n = leaving
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if leaving == n { leaving = nil } }
         }
+        if p < pos && !reduceMotion {
+            // Going back: the card coming to the front fades in as a copy over the deck (the inserted card's own
+            // fade did not always play)
+            arriving = numbers[p]; arrivingIn = false
+            DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.6)) { arrivingIn = true } }
+            let n = arriving
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if arriving == n { arriving = nil } }
+        }
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { select(numbers[p]) }
     }
 
@@ -1030,13 +1040,21 @@ struct SeasonDeck: View {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
                 Button { go(p) } label: { card(numbers[p], k: k) }
+                    .opacity(k == 0 && arriving != nil ? 0 : 1)   // hidden while its copy fades in
                     .buttonStyle(.plainHand)
                     .helpLabel(title(numbers[p]))
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * peek)
                     // Fades in (going back); leaves at once, as the fading copy below takes over (two fading
                     // copies of the same card overlapped into a ghost)
-                    .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                    .transition(.identity)   // the fading copies above and below do the fading
+            }
+            if let a = arriving {
+                card(a, k: 0)
+                    .scaleEffect(arrivingIn ? 1 : 1.08)
+                    .offset(x: arrivingIn ? 0 : -30)
+                    .opacity(arrivingIn ? 1 : 0)
+                    .allowsHitTesting(false)
             }
             if let l = leaving {
                 card(l, k: 0)
