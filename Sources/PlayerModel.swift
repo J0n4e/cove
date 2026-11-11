@@ -223,7 +223,13 @@ final class PlayerModel: ObservableObject {
                 .map { "\($0.domain) \($0.code)" } ?? "unknown error"
             MainActor.assumeIsolated { self?.playbackFailed(code, gen: gen) }
         }
-        let p = AVPlayer(playerItem: it)
+        let p: AVPlayer
+        if keepPlayer, let old = player {
+            old.replaceCurrentItem(with: it); p = old
+        } else {
+            p = AVPlayer(playerItem: it)
+        }
+        keepPlayer = false
         p.volume = volume
         timeObs = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { [weak self] t in
             MainActor.assumeIsolated { self?.tick(t.seconds) }
@@ -446,7 +452,28 @@ final class PlayerModel: ObservableObject {
         pip = AVPictureInPictureController(playerLayer: layer)
         pipObs = pip?.observe(\.isPictureInPictureActive, options: [.new]) { [weak self] c, _ in
             let on = c.isPictureInPictureActive
-            Task { @MainActor in self?.pipActive = on }
+            Task { @MainActor in
+                self?.pipActive = on
+                await self?.pipSubtitles(on)
+            }
+        }
+    }
+
+    /// Text subtitles are drawn by the app over the video, and picture in picture shows only the video itself.
+    /// So while it is on, the server burns the chosen subtitle into the picture; back in the window the app draws it
+    /// again (with its own style and offset).
+    private var pipBurned = false
+    /// The next stream goes into the current player instead of a new one (PiP stays open)
+    private var keepPlayer = false
+    private func pipSubtitles(_ on: Bool) async {
+        guard let emby else { return }
+        if on, let s = sub, !isImageSub(s), !(req?.burnIn ?? false) {
+            pipBurned = true
+            keepPlayer = true
+            await restart(emby) { $0.sub = s; $0.burnIn = true }
+        } else if !on, pipBurned {
+            pipBurned = false
+            await restart(emby) { $0.burnIn = false }
         }
     }
 
@@ -615,7 +642,13 @@ final class PlayerModel: ObservableObject {
         timeObs = nil
         debugTimer?.invalidate(); debugTimer = nil; pausedAt = nil
         keepAlive?.invalidate(); keepAlive = nil
-        if pip?.isPictureInPictureActive == true { pip?.stopPictureInPicture() }
-        player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
+        if keepPlayer {
+            // Switching streams while picture in picture is on: keep the same player (and with it the PiP window);
+            // start() gives it the new stream
+            obs = nil; caption = ""; resumeTarget = 0
+        } else {
+            if pip?.isPictureInPictureActive == true { pip?.stopPictureInPicture() }
+            player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
+        }
     }
 }
