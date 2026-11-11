@@ -28,14 +28,14 @@ extension EnvironmentValues {
     }
 }
 
-/// The bubble: white text on the background color chosen in Settings, solid, with a thin light edge.
+/// The bubble: white text on the background color chosen in Settings, slightly see-through, with a thin light edge.
 private struct TipBubble: View {
     let text: String
     @Environment(\.appBG) private var bg
     var body: some View {
         Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.white).lineLimit(1)
             .padding(.horizontal, 10).frame(height: 24)
-            .background(Capsule().fill(bg))
+            .background(Capsule().fill(bg.opacity(0.85)))   // a little see-through
             .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.75))
             .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
             .fixedSize()
