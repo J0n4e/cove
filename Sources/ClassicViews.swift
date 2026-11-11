@@ -1110,7 +1110,7 @@ struct ClassicProgressLine: View {
                 ClassicGlassBacking(shape: Capsule())
                 // watched part
                 Capsule()
-                    .fill(accent.opacity(0.6))   // a little see-through
+                    .fill(accent.opacity(0.42))   // see-through
                     .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.45), .clear], startPoint: .top, endPoint: .center)))
                     .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.5))
                     .padding(1)
