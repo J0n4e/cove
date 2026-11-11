@@ -2530,20 +2530,18 @@ struct ClassicDetailView: View {
                 }
                 // Episode name in the bottom-left corner of the thumbnail
                 .overlay(alignment: .bottomLeading) {
+                    // No background: a black outline keeps it readable (as on Continue Watching)
                     Text(ep.Name).font(.cv(14, weight: .semibold)).foregroundColor(.white).lineLimit(2)
-                        .shadow(color: .black.opacity(0.8), radius: 3)
+                        .classicBlackOutline()
                         .padding(.leading, 10).padding(.trailing, hasProgress ? 40 : 10)
-                        .padding(.top, 28).padding(.bottom, hasProgress ? 12 : 9)
+                        .padding(.bottom, hasProgress ? 12 : 9)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(LinearGradient(colors: [Color.clear, Color.black.opacity(0.75)],
-                                                   startPoint: .top, endPoint: .bottom))
                 }
                 // Episode number in the top-left corner
                 .overlay(alignment: .topLeading) {
                     Text(episodeInfo(ep, hasProgress: hasProgress)).font(.cv(10, weight: .semibold)).foregroundColor(.white)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
-                        .background(Capsule().fill(Color.black.opacity(0.35)))
-                        .padding(8)
+                        .classicBlackOutline()
+                        .padding(10)
                 }
                 // White progress ring in the bottom-right corner
                 .overlay(alignment: .bottomTrailing) {
