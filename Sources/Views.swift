@@ -179,6 +179,7 @@ struct RootView: View {
         .onChange(of: separatePlayer) { _, _ in
             if emby.playing != nil { emby.playing = nil; dismissWindow(id: "player") }
         }
+        .tipLayer()
     }
 }
 
@@ -997,6 +998,7 @@ struct FavoriteGridView: View {
 // MARK: - Now Playing (active sessions on the server)
 
 struct NowPlayingView: View {
+    @Environment(\.classicGlass) private var classic
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @State private var sessions: [ActiveSession] = []
@@ -1006,7 +1008,7 @@ struct NowPlayingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Now Playing").font(.title.bold())
+                    Text("Now Playing").font(classic ? .cv(22, weight: .bold) : .title.bold())
                     if !sessions.isEmpty { Text("\(sessions.count) active").foregroundColor(.secondary) }
                 }
                 if !loaded { Spinner().frame(maxWidth: .infinity).padding(60) }
@@ -1035,6 +1037,7 @@ struct NowPlayingView: View {
 }
 
 struct SessionCard: View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass card
     @EnvironmentObject var emby: Emby
     let s: ActiveSession
 
@@ -1058,9 +1061,10 @@ struct SessionCard: View {
                 CachedImage(url: emby.image(it.SeriesId ?? it.Id, width: 160)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.08) }
-                .frame(width: 64, height: 96).clipped().cornerRadius(4)
+                .frame(width: 64, height: 96).clipped().cornerRadius(classic ? 8 : 4)
+                .modifier(PersonPhotoFrame(classic: classic, radius: 8))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(it.SeriesName ?? it.Name).font(.headline).lineLimit(1)
+                    Text(it.SeriesName ?? it.Name).font(classic ? .cv(13, weight: .bold) : .headline).lineLimit(1)
                     if it.SeriesName != nil {
                         Text("S\(it.ParentIndexNumber ?? 0):E\(it.IndexNumber ?? 0) - \(it.Name)")
                             .foregroundColor(.secondary).lineLimit(1)
@@ -1070,24 +1074,34 @@ struct SessionCard: View {
                         Text("\(clock(s.PlayState?.PositionTicks)) / \(clock(it.RunTimeTicks))").monospacedDigit()
                     }.foregroundColor(.secondary)
                     Text(transcoding ? "Transcode" : "Direct play")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .font(classic ? .cv(10, weight: .semibold) : .caption.weight(.semibold))
+                        .padding(.horizontal, classic ? 10 : 7).padding(.vertical, classic ? 3 : 2)
                         .background(Capsule().fill(transcoding ? Color.orange.opacity(0.25) : Color.green.opacity(0.25)))
+                        .overlay { if classic { Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5) } }
                         .tip(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
                 }
                 Spacer(minLength: 0)
             }
             .padding(12)
             // Progress: watched position, plus how far the server has transcoded
+            if classic {
+                // Glass3D: the glass line, as on the cards
+                ClassicSessionLine(watched: dur > 0 ? min(1, pos / dur) : 0,
+                                   converted: (s.TranscodingInfo?.CompletionPercentage).map { min(1, $0 / 100) })
+                    .padding(.horizontal, 12)
+            } else {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Rectangle().fill(Color.white.opacity(0.15))
                     if let c = s.TranscodingInfo?.CompletionPercentage {
                         Rectangle().fill(Color.white.opacity(0.3)).frame(width: g.size.width * min(1, c / 100))
                     }
-                    Rectangle().fill(Color.accentColor).frame(width: dur > 0 ? g.size.width * min(1, pos / dur) : 0)
+                    Rectangle().fill(classic ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.accentColor))
+                        .opacity(classic ? 0.7 : 1)
+                        .frame(width: dur > 0 ? g.size.width * min(1, pos / dur) : 0)
                 }
             }.frame(height: 4)
+            }
             HStack(spacing: 12) {
                 Image(systemName: icon).font(.system(size: 26)).frame(width: 36)
                 VStack(alignment: .leading, spacing: 2) {
@@ -1099,8 +1113,20 @@ struct SessionCard: View {
             }
             .padding(12)
         }
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(10)
+        .modifier(SessionSurface(classic: classic))
+    }
+}
+
+/// A Now Playing card: a glass card in the Classic theme, a faint grey box otherwise.
+struct SessionSurface: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic {
+            let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+            content.background(shape.fill(Color.black.opacity(0.3))).background(ClassicGlassBacking(shape: shape)).clipShape(shape)
+        } else {
+            content.background(Color.white.opacity(0.06)).cornerRadius(10)
+        }
     }
 }
 
@@ -1168,7 +1194,42 @@ struct PersonView: View {
 
 /// Top of an actor's page (both themes): a dimmed backdrop from one of their titles, a large portrait,
 /// and the name, birth facts, title counts and biography beside it, sized to fill the width.
+/// A photo's edge (person page, Now Playing): the glass card frame in Glass3D, a faint outline otherwise.
+struct PersonPhotoFrame: ViewModifier {
+    let classic: Bool
+    var radius: CGFloat = 14
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(ClassicGlassCard(radius: radius)) }
+        else if radius == 14 { content.overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.15))) }
+        else { content }
+    }
+}
+
+/// Glass3D Now Playing progress: a slim glass capsule, how far the server converted in faint white, the watched part
+/// in see-through accent with a glow.
+struct ClassicSessionLine: View {
+    let watched: Double
+    let converted: Double?
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        let accent = Theme.accent(accentName)
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.black.opacity(0.35))
+                ClassicGlassBacking(shape: Capsule())
+                if let c = converted { Capsule().fill(Color.white.opacity(0.18)).frame(width: max(6, g.size.width * c)) }
+                Capsule().fill(accent.opacity(0.5))
+                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.4), .clear], startPoint: .top, endPoint: .center)))
+                    .frame(width: max(6, g.size.width * watched))
+                    .shadow(color: accent.opacity(0.8), radius: 4)
+            }
+        }
+        .frame(height: 6)
+    }
+}
+
 struct PersonHeader: View {
+    @Environment(\.classicGlass) private var classic   // Glass3D theme
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let id: String
@@ -1193,11 +1254,17 @@ struct PersonHeader: View {
         return f.joined(separator: " · ")
     }
 
-    func chip(_ text: String) -> some View {
-        Text(text).font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 12).padding(.vertical, 5)
-            .background(Capsule().fill(Color.white.opacity(0.12)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.15)))
+    @ViewBuilder func chip(_ text: String) -> some View {
+        if classic {
+            // Glass3D: glass like the buttons, but still (it is not a button: no hover glow)
+            Text(text).font(.cv(13, weight: .semibold)).foregroundColor(.white).padding(.horizontal, 14).frame(height: 30)
+                .modifier(ClassicClearGlass(shape: Capsule(), interactive: false))
+        } else {
+            Text(text).font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(Capsule().fill(Color.white.opacity(0.12)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.15)))
+        }
     }
 
     var body: some View {
@@ -1229,10 +1296,10 @@ struct PersonHeader: View {
                 }
                 .modifier(HoverPersonHeart(id: id, name: name))
                 .task { _ = await emby.favoritePeople() }   // knows whether this person is a favorite
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.15)))
+                .modifier(PersonPhotoFrame(classic: classic))   // Glass3D: the glass card frame
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(name).font(.system(size: 42, weight: .bold)).lineLimit(2)
+                    Text(name).font(classic ? .cv(42, weight: .bold) : .system(size: 42, weight: .bold)).lineLimit(2)
                     if !facts.isEmpty { Text(facts).font(.system(size: 15)).foregroundColor(.secondary) }
                     HStack(spacing: 8) {
                         if !loading {
@@ -1505,6 +1572,7 @@ struct Hero: View {
 
 /// The title's logo image from Emby (Apple TV style); falls back to big bold text when there is none.
 struct TitleLogo: View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: its chosen font
     @EnvironmentObject var emby: Emby
     let item: Item
     var height: CGFloat = 90
@@ -1516,7 +1584,7 @@ struct TitleLogo: View {
                     .frame(maxWidth: 420, maxHeight: height, alignment: .bottomLeading)
                     .shadow(color: .black.opacity(0.5), radius: 8)
             } else {
-                Text(item.heroTitle).font(.system(size: font, weight: .heavy)).lineLimit(2)
+                Text(item.heroTitle).font(classic ? .cv(font, weight: .heavy) : .system(size: font, weight: .heavy)).lineLimit(2)
                     .minimumScaleFactor(0.6).frame(maxWidth: 620, alignment: .leading)
                     .shadow(color: .black.opacity(0.5), radius: 8)
             }
@@ -1776,10 +1844,7 @@ struct SearchDock: View {
                     }
                 }
                 .padding(.horizontal, 18).frame(height: 44)
-                .background(Capsule().fill(Color.black.opacity(0.55)))
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
-                .shadow(color: .black.opacity(0.45), radius: 14, y: 5)
+                .searchGlass()
                 .padding(.bottom, 24)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .onAppear { DispatchQueue.main.async { focused = true } }
@@ -1814,7 +1879,11 @@ struct SearchDock: View {
 /// confirmation pill and the player's Skip Intro / Up next cards.
 struct GlassBackground<S: InsettableShape>: ViewModifier {
     let shape: S
-    func body(content: Content) -> some View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: the Play button's glass instead
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(ClassicClearGlass(shape: shape)) } else { glass(content) }
+    }
+    func glass(_ content: Content) -> some View {
         content
             .background(shape.fill(Color.black.opacity(0.55)))
             .background(.ultraThinMaterial, in: shape)
@@ -1884,15 +1953,32 @@ struct ItemActionsButton: View {
     /// A season's episodes: Watched marks them all, and shows as on only when every one is watched
     var children: [Item] = []
     static func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon).font(.system(size: 12, weight: .bold))
-                .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.black.opacity(0.6)))
-                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                .contentShape(Circle())
+        ActionCircle(icon: icon, on: on, help: help, action: action)
+    }
+
+    /// Small round action button on a card. Classic theme: the glass button ("on" shows as the filled icon).
+    struct ActionCircle: View {
+        let icon: String
+        let on: Bool
+        let help: String
+        let action: () -> Void
+        @Environment(\.classicGlass) private var classic
+        var body: some View {
+            Button(action: action) {
+                if classic {
+                    Label(help, systemImage: on && !icon.hasSuffix(".fill") ? icon + ".circle.fill" : icon)
+                        .classicGlassPill(size: 30)
+                } else {
+                    Image(systemName: icon).font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.black.opacity(0.6)))
+                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        .contentShape(Circle())
+                }
+            }
+            .buttonStyle(.plainHand).tip(help)
         }
-        .buttonStyle(.plainHand).tip(help)
     }
     var body: some View {
         let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
@@ -1965,7 +2051,25 @@ final class HoverCardCenter: ObservableObject {
         item = nil
     }
 
+    /// Scrolling with the card open: close it, so the wheel scrolls the page under it (the card would take it)
+    private var scrollMonitor: Any?
+    private func watchScroll() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] e in
+            guard let self, self.item != nil else { return e }
+            self.closeCard()
+            // Hand this tick to the page under the pointer, as the card is still in the way for it
+            if let w = e.window, let v = w.contentView?.hitTest(e.locationInWindow) {
+                var sv: NSView? = v
+                while let s = sv, !(s is NSScrollView) { sv = s.superview }
+                if let scroll = sv as? NSScrollView { scroll.scrollWheel(with: e); return nil }
+            }
+            return e
+        }
+    }
+
     private func startWatching() {
+        watchScroll()
         watchTask?.cancel()
         watchTask = Task { @MainActor in
             var away = 0
@@ -2208,10 +2312,40 @@ struct HoverBacking: ViewModifier {
 }
 
 /// Green badge: a check when the count is 0, otherwise the number.
-struct CountBadge: View {
+/// Classic badge: a check (`count` nil) or the number of unwatched episodes on a small glass pill: dark
+/// see-through fill lit a little at the top, a thin edge that catches the light. No blur or shadow, so posters stay
+/// light to scroll.
+struct TubeBadge: View {
     let count: Int?
     var body: some View {
-        if let n = count {
+        Group {
+            if let n = count {
+                Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold))
+            } else {
+                Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))
+            }
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 22)
+        .background(Capsule().fill(LinearGradient(colors: [Color(white: 0.3).opacity(0.75), Color.black.opacity(0.65)],
+                                                  startPoint: .top, endPoint: .bottom)))
+        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .white.opacity(0.3)],
+                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
+    }
+    func glyph<V: View>(_ v: V) -> some View {
+        v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+            .shadow(color: .black.opacity(0.85), radius: 1, y: 0.5)
+    }
+}
+
+struct CountBadge: View {
+    let count: Int?
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass tube badges
+    var body: some View {
+        if classic, let n = count {
+            TubeBadge(count: n == 0 ? nil : n)
+                .helpLabel(n == 0 ? "All watched" : "\(n) unwatched episode\(n == 1 ? "" : "s")")
+        } else if let n = count {
             if n == 0 {
                 Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
                     .frame(width: 24, height: 24).background(Circle().fill(WatchBadge.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
@@ -2232,15 +2366,53 @@ struct CountBadge: View {
 struct ProgressRing: View {
     let progress: Double      // 0...1
     var size: CGFloat = 22
+    /// Classic only: false draws the empty glass tube (the watched badge)
+    var filled = true
+    @Environment(\.classicGlass) private var classic   // Classic theme: a glass tube bent into a ring
+    @AppStorage("accent") private var accentName = "red"
     var body: some View {
+        if classic { tube } else { ring.shadow(color: .black.opacity(0.6), radius: 3) }
+    }
+    var trim: CGFloat { CGFloat(min(1, max(0.03, progress))) }
+    var ring: some View {
         ZStack {
             Circle().stroke(Color.white.opacity(0.35), lineWidth: 2.5)
-            Circle().trim(from: 0, to: CGFloat(min(1, max(0.03, progress))))
+            Circle().trim(from: 0, to: trim)
                 .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
         .frame(width: size, height: size)
-        .shadow(color: .black.opacity(0.6), radius: 3)
+    }
+    /// Light on a glass edge: bright at the top-left and bottom-right, fading along the sides (as the card frames).
+    static let edgeLight = LinearGradient(stops: [.init(color: .white.opacity(0.85), location: 0),
+                                                  .init(color: .white.opacity(0.12), location: 0.3),
+                                                  .init(color: .white.opacity(0.06), location: 0.5),
+                                                  .init(color: .white.opacity(0.12), location: 0.7),
+                                                  .init(color: .white.opacity(0.85), location: 1)],
+                                          startPoint: .topLeading, endPoint: .bottomTrailing)
+
+    /// A glass ring like the card frames, filled with see-through accent color as far as the progress, with a
+    /// highlight along the fill.
+    var tube: some View {
+        let w: CGFloat = 5               // tube thickness
+        let d = size + 2                 // centerline diameter
+        return ZStack {
+            // glass pane ring, as the card frames: frosted body, edges lit at the top-left and bottom-right
+            Circle().stroke(Color.white.opacity(0.14), lineWidth: w)
+            Circle().stroke(Self.edgeLight, lineWidth: 0.9).frame(width: d + w, height: d + w)
+            Circle().stroke(Self.edgeLight, lineWidth: 0.7).frame(width: d - w, height: d - w)
+            // liquid: see-through accent fill with its own highlight, rounded ends
+            if filled { Group {
+                Circle().trim(from: 0, to: trim)
+                    .stroke(Theme.accent(accentName).opacity(0.5), style: StrokeStyle(lineWidth: w - 1.2, lineCap: .round))
+                Circle().trim(from: 0, to: trim)
+                    .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                    .frame(width: d - 1.5, height: d - 1.5)
+            }.rotationEffect(.degrees(-90)) }
+        }
+        .frame(width: d, height: d)
+        .frame(width: d + w, height: d + w)
+        .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
     }
 }
 
@@ -2263,7 +2435,22 @@ struct WatchBadge: View {
     /// Neutral badge fill (dark, with a light ring), so "watched" doesn't compete with the accent color.
     static let green = Color.black.opacity(0.7)
 
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass tubes, as the progress ring
+
     var body: some View {
+        if classic { tubeBadge } else { plainBadge }
+    }
+
+    /// Watched: an empty glass tube ring around a glass check. Unwatched episodes: the count in a glass tube bent
+    /// into a capsule.
+    @ViewBuilder var tubeBadge: some View {
+        if played { TubeBadge(count: nil).helpLabel("Watched") }
+        else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
+            TubeBadge(count: n).helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
+        }
+    }
+
+    @ViewBuilder var plainBadge: some View {
         if played {
             Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
                 .frame(width: 24, height: 24)
@@ -2297,6 +2484,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
     @ViewBuilder let content: (ID) -> Content
     @StateObject private var finder = ScrollFinder()
     @State private var dragStart: CGFloat?
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass arrow buttons
 
     var body: some View {
         // No scrollbar: the arrows page the row; trackpad / wheel scrolling still works.
@@ -2339,12 +2527,17 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
 
     func arrow(_ icon: String, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(Color.black.opacity(0.7)))
-                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                .shadow(color: .black.opacity(0.5), radius: 6)
-                .contentShape(Circle())
+            if classic {
+                Label(help, systemImage: icon).classicGlassPill(size: 44)
+                    .background(Circle().fill(Color.black.opacity(0.35)))   // reads over bright posters
+            } else {
+                Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.black.opacity(0.7)))
+                    .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.5), radius: 6)
+                    .contentShape(Circle())
+            }
         }
         .buttonStyle(HoverButton()).helpLabel(help)
         .transition(.opacity)
@@ -2776,12 +2969,13 @@ struct DetailView: View {
     /// The item the big Play button acts on (next-up episode for a series).
     var playTarget: Item? { item.isSeries ? nextEp : (simple ? nil : item) }
 
+    /// Where the Play target was left off (0 = not started); when > 0 a Resume button shows beside Play.
+    var resumePoint: Double { playTarget.map { emby.resumeAt($0) } ?? 0 }
+
+    /// The Play button starts from the beginning when there is a resume point (Resume sits next to it).
     var playLabel: String {
-        let r = playTarget.map { emby.resumeAt($0) } ?? 0
-        let verb = r > 0 ? "Resume" : "Play"
-        if item.isSeries, let ep = nextEp { return "\(verb) S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
-        if r > 0 { return "Resume from \(timeString(r))" }
-        return verb
+        if item.isSeries, let ep = nextEp { return "Play S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
+        return "Play"
     }
 
     var body: some View {
@@ -2989,13 +3183,18 @@ struct DetailView: View {
         let played = emby.isPlayed(item)
         let fav = emby.isFav(item)
         return HStack(spacing: 12) {
-            Button { playNow() } label: {
+            let r = resumePoint
+            Button { playNow(from: r > 0 ? 0 : nil) } label: {
                 Label(playLabel, systemImage: "play.fill").font(.system(size: 17, weight: .semibold))
                     .padding(.horizontal, 34).frame(height: 46)
                     .background(Capsule().fill(.white)).foregroundColor(.black)
             }.buttonStyle(HoverButton())
-            if let t = playTarget, emby.resumeAt(t) > 0 {
-                glassCircle("arrow.counterclockwise", help: "Start Over") { playNow(from: 0) }
+            if r > 0 {
+                Button { playNow() } label: {
+                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").font(.system(size: 17, weight: .semibold))
+                        .padding(.horizontal, 26).frame(height: 46)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }.buttonStyle(HoverButton())
             }
             glassCircle(fav ? "checkmark" : "plus", help: fav ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await emby.setFav(item.id, !fav, name: item.Name) }
@@ -3208,12 +3407,6 @@ struct DetailView: View {
             .contentShape(Rectangle())
         }.handCursor()
         .buttonStyle(.plainHand).padding(.horizontal, 52)
-        .contextMenu {
-            Button("Play from Beginning") { playEpisode(ep, from: 0) }
-            Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
-            }
-        }
     }
 
     var episodesList: some View {
@@ -3306,12 +3499,6 @@ struct DetailView: View {
         }.handCursor()
         .buttonStyle(.plainHand)
         .hoverItemActions(ep)
-        .contextMenu {
-            Button("Play from Beginning") { playEpisode(ep, from: 0) }
-            Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
-            }
-        }
     }
 
     func episodeStill(_ ep: Item) -> some View {
@@ -3493,7 +3680,8 @@ struct ChosenPlayerView: View {
     var body: some View {
         let style = controls == "theme" ? (theme == "apple" ? "glass" : "classic") : controls
         if let t = req.trailer { TrailerPlayerView(link: t) }
-        else if style == "classic" { ClassicPlayerView(req: req) } else { PlayerView(req: req) }
+        else if style == "classic" { ClassicPlayerView(req: req) }
+        else { PlayerView(req: req).environment(\.classicGlass, false) }   // the Glass player keeps its own look in every theme
     }
 }
 
@@ -3507,6 +3695,7 @@ struct PlayerWindow: View {
             if let req = emby.playing { ChosenPlayerView(req: req, theme: "apple").id(req.id) }
         }
         .ignoresSafeArea()
+        .tipLayer()
         .onAppear {
             if emby.playing == nil || !UserDefaults.standard.bool(forKey: "separatePlayer") { dismiss(); return }
             // Let the green button and F make the player window full screen
@@ -3864,7 +4053,7 @@ struct PlayerView: View {
                 .padding(.bottom, subLift(size))
             }.frame(maxWidth: .infinity).allowsHitTesting(false)
         }
-        if !model.caption.isEmpty {
+        if !model.caption.isEmpty && !model.pipActive {   // not while the video is in picture in picture
             let fs = max(14, size.height * (Self.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045))
             let color = Self.colors.first { $0.0 == subColor }?.2 ?? .white
             let shade: Color = subColor == "black" ? .white : .black
@@ -4527,9 +4716,21 @@ extension PlayerView {
 }
 
 struct PanelRowStyle: ButtonStyle {
+    /// Classic theme: the line under the pointer lights up in the accent, as in the glass lists
+    var glass = false
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(Color.white.opacity(configuration.isPressed ? 0.15 : 0))
+        if glass { GlassRow(c: configuration) }
+        else { configuration.label.background(Color.white.opacity(configuration.isPressed ? 0.15 : 0)) }
+    }
+    struct GlassRow: View {
+        let c: ButtonStyleConfiguration
+        @AppStorage("accent") private var accentName = "red"
+        @State private var hover = false
+        var body: some View {
+            c.label
+                .background { if hover || c.isPressed { Capsule().fill(Theme.accent(accentName).opacity(c.isPressed ? 0.7 : 0.55)) } }
+                .onHover { hover = $0 }
+        }
     }
 }
 
@@ -4688,14 +4889,21 @@ struct SelfHoverLift: ViewModifier {
     /// When set, the play icon is a button of its own (the card around it opens the details instead)
     var onPlay: (() -> Void)? = nil
     @State private var hover = false
+    @Environment(\.classicGlass) private var classic   // Classic theme: the glass play button
+    @ViewBuilder var icon: some View {
+        if classic {
+            Label("Play", systemImage: "play.fill").classicGlassPill(size: play + 6)
+        } else {
+            Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white).shadow(radius: 6)
+        }
+    }
     func body(content: Content) -> some View {
         content
             .overlay {
                 if hover && play > 0 {
-                    let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
-                        .shadow(radius: 6)
                     if let onPlay {
-                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand).tip("Play")
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand)
+                            .tip(classic ? "" : "Play").accessibilityLabel("Play")   // Classic: no tooltip
                     } else { icon }
                 }
             }
@@ -4710,6 +4918,7 @@ extension View {
 
 /// Netflix-style expanded card shown when resting on a poster: backdrop, details and quick actions.
 struct HoverPreview: View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass buttons
     @EnvironmentObject var emby: Emby
     let item: Item
     let close: () -> Void
@@ -4725,10 +4934,8 @@ struct HoverPreview: View {
     var body: some View {
         let played = emby.isPlayed(item), fav = emby.isFav(item)
         VStack(alignment: .leading, spacing: 10) {
-            CachedImage(url: emby.image(item.backdropId ?? item.Id, item.backdropId == nil ? "Primary" : "Backdrop", width: 640)) { img in
-                img.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: { Color(white: 0.15) }
-            .frame(width: 320, height: 180).clipped()
+            // Classic theme: the picture fills the whole card (drawn as the background); here only room for it
+            if classic { Color.clear.frame(width: 320, height: 130) } else { picture.frame(width: 320, height: 180).clipped() }
             VStack(alignment: .leading, spacing: 8) {
                 Text(item.Name).font(.headline).lineLimit(2)
                 if !facts.isEmpty { Text(facts).font(.caption).foregroundColor(.secondary) }
@@ -4739,11 +4946,31 @@ struct HoverPreview: View {
                     Text(o).font(.caption).lineLimit(3).foregroundColor(.white.opacity(0.85))
                 }
                 HStack(spacing: 10) {
-                    Button { close(); Task { await emby.play(item) } } label: {
-                        Label("Play", systemImage: "play.fill").font(.callout.weight(.bold))
-                            .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(Capsule().fill(Color.white))
+                    // Started (movie or episode): Play starts over, Resume continues, as on the detail page
+                    let r = item.isSeries || item.isBox ? 0 : emby.resumeAt(item)
+                    Button {
+                        close()
+                        if r > 0 { emby.playing = PlayRequest(item: item, start: 0) } else { Task { await emby.play(item) } }
+                    } label: {
+                        if classic {
+                            Label("Play", systemImage: "play.fill").classicGlassPill(size: 34, iconOnly: false)
+                        } else {
+                            Label("Play", systemImage: "play.fill").font(.callout.weight(.bold))
+                                .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 6)
+                                .background(Capsule().fill(Color.white))
+                        }
                     }.buttonStyle(.plainHand)
+                    if r > 0 {
+                        Button { close(); emby.playing = PlayRequest(item: item, start: r) } label: {
+                            if classic {
+                                Label("Resume", systemImage: "arrow.uturn.forward").classicGlassPill(size: 34)   // icon only
+                            } else {
+                                Image(systemName: "arrow.uturn.forward").font(.callout.weight(.bold))
+                                    .frame(width: 30, height: 30)
+                                    .background(Circle().fill(Color.white.opacity(0.2)))
+                            }
+                        }.buttonStyle(.plainHand).helpLabel("Resume from \(timeString(r))")
+                    }
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
                         Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
@@ -4755,14 +4982,41 @@ struct HoverPreview: View {
             }.padding(.horizontal, 14).padding(.bottom, 14)
         }
         .frame(width: 320)
-        .background(Color(white: 0.12))
+        .background {
+            if classic {
+                // Whole-card picture, darkened behind the text so it reads on bright pictures
+                ZStack {
+                    picture
+                    LinearGradient(stops: [.init(color: .clear, location: 0.2),
+                                           .init(color: .black.opacity(0.55), location: 0.45),
+                                           .init(color: .black.opacity(0.8), location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                }
+            } else { Color(white: 0.12) }
+        }
         .environment(\.colorScheme, .dark)
         // Clicking anywhere on the card (outside its buttons) opens this item's page
         .contentShape(Rectangle())
         .onTapGesture { close(); emby.openRequest = item }.handCursor()
     }
 
-    func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
+    var picture: some View {
+        CachedImage(url: emby.image(item.backdropId ?? item.Id, item.backdropId == nil ? "Primary" : "Backdrop", width: 640)) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: { Color(white: 0.15) }
+    }
+
+    @ViewBuilder func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
+        if classic {
+            // Classic theme: the glass button; "on" shows as the filled icon, in white
+            Button(action: action) { Label(help, systemImage: icon).classicGlassPill(size: 34) }
+                .buttonStyle(.plainHand).helpLabel(help)
+        } else {
+            plainCircle(icon, on: on, help: help, action)
+        }
+    }
+
+    func plainCircle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white))

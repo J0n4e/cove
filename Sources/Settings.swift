@@ -172,6 +172,8 @@ func menuPicker<T: Hashable>(_ sel: Binding<T>, _ opts: [(T, String)]) -> some V
 struct GeneralSettings: View {
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("accent") private var accent = "red"
+    @AppStorage("classicFont") private var classicFont = "rounded"
+    @AppStorage("classicHover") private var classicHover = "fog"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
@@ -216,8 +218,12 @@ struct GeneralSettings: View {
 
     var body: some View {
         PrefSection(title: "Appearance") {
-            PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Classic")]) }
-            PrefNote("Classic brings back the original Cove look. Settings always use this window.")
+            PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Glass3D")]) }
+            PrefNote("Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
+            if theme == "classic" {
+                PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
+                PrefRow(label: "Hover effect") { menuPicker($classicHover, [("fog", "Fogged mirror"), ("glow", "Soft glow")]) }
+            }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }
@@ -251,8 +257,22 @@ struct HomeSettings: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
     @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     @AppStorage("showUpNextRow") private var showUpNextRow = true
+    @AppStorage("theme") private var theme = "apple"
+    @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
+    @AppStorage("classicBannerNav") private var bannerNav = "deck"
 
     var body: some View {
+        // The Classic theme's banner choices
+        if theme == "classic" {
+            PrefSection(title: "Banner") {
+                PrefRow(label: "Style") {
+                    menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
+                }
+                PrefRow(label: "Navigation") {
+                    menuPicker($bannerNav, [("deck", "Cards"), ("bullets", "Bullets")])
+                }
+            }
+        }
         PrefSection(title: "Layout") {
             PrefRow(label: "Continue Watching") { menuPicker($resumeLayout, [("row", "Row"), ("grid", "Grid")]) }
             PrefRow(label: "Other sections") { menuPicker($homeLayout, [("row", "Rows"), ("grid", "Grid")]) }
@@ -413,6 +433,7 @@ struct LibrariesSettings: View {
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
     @AppStorage("seasonLayoutTV") private var seasonLayout = "row"
+    @AppStorage("theme") private var theme = "apple"
     @AppStorage("hoverPreviewEnabled") private var hoverOn = true
     @AppStorage("hoverPreviewDelay") private var hoverDelay = 0.7
     @AppStorage("hoverZoomEnabled") private var hoverZoom = true
@@ -609,7 +630,11 @@ struct LibrariesSettings: View {
             }.disabled(!lib.onHome || !lib.visible)
             // Episode options apply to every TV library, so they show with any of them
             if lib.kind == "tvshows" {
-                PrefRow(label: "Season layout") { menuPicker($seasonLayout, [("row", "Row"), ("grid", "Grid")]) }
+                PrefRow(label: "Season layout") {
+                    // Cards exists only in the Classic theme
+                    menuPicker($seasonLayout, theme == "classic" ? [("row", "Row"), ("grid", "Grid"), ("deck", "Cards")]
+                                                                 : [("row", "Row"), ("grid", "Grid")])
+                }
                 PrefRow(label: "Episode layout") { menuPicker($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
                 PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
             }
@@ -733,7 +758,7 @@ struct PlaybackSettings: View {
     var body: some View {
         PrefSection(title: "Player") {
             PrefRow(label: "Controls look") {
-                menuPicker($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
+                menuPicker($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Glass3D")])
             }
             PrefRow(label: "Window") { Toggle("Open videos in a separate window", isOn: $separatePlayer) }
             PrefRow(label: "Clicking the video") { Toggle("Plays or pauses", isOn: $clickToPause) }

@@ -13,23 +13,19 @@ struct ClassicPillStyle: ViewModifier {
     @AppStorage("accent") private var name = "red"
     let active: Bool
     func body(content: Content) -> some View {
-        content.font(.callout.weight(.medium))
-            .foregroundColor(active ? Theme.onAccent(name) : nil)
+        content.font(.cv(12, weight: .medium))
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(active ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.1)))
-            .clipShape(Capsule())
+            .classicGlassPill()
     }
 }
 
 extension View {
-    /// Thin white outline that follows the rounded corners (posters, episode thumbnails, preview card).
-    func classicThinBorder(_ radius: CGFloat) -> some View {
-        overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.85), lineWidth: 1))
-    }
+    /// Glass card finish that follows the rounded corners (posters, episode thumbnails, preview card).
+    func classicThinBorder(_ radius: CGFloat) -> some View { modifier(ClassicGlassCard(radius: radius)) }
     func classicPill(active: Bool = false) -> some View { modifier(ClassicPillStyle(active: active)) }
     func classicOnAccent() -> some View { modifier(OnAccent()) }
     func classicCircleButton() -> some View {
-        self.font(.title3).frame(width: 44, height: 44)
+        self.font(.cv(15, weight: .regular)).frame(width: 44, height: 44)
             .background(Color.white.opacity(0.14)).clipShape(Circle())
     }
 }
@@ -43,6 +39,7 @@ func classicParseDate(_ s: String?) -> Date? {
 
 struct ClassicRootView: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("classicFont") private var classicFont = "rounded"   // Settings → General → Font
     @Environment(\.appBG) var bg
     var body: some View {
         ZStack {
@@ -60,6 +57,15 @@ struct ClassicRootView: View {
             PlaybackFlag.shared.active = id != nil
             if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
+        .dropdownLayer()   // glass lists for audio, subtitles, quality
+        .tipLayer()   // inside the settings below, so the tooltips get the Classic look and font too
+        .environment(\.classicGlass, true)
+        // Text that does not name a font follows the chosen one's design; a new font rebuilds the screens so every
+        // text picks it up
+        .fontDesign(classicFont == "rounded" ? .rounded : classicFont == "serif" ? .serif : .default)
+        .id(classicFont)
+        // No scroll bars popping up over the pages (scroll with the wheel, trackpad or the row arrows)
+        .scrollIndicators(.hidden)
     }
 }
 
@@ -82,25 +88,26 @@ struct ClassicLoginView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: 14) {
                 if showForm { form } else { serverList }
-                if !error.isEmpty { Text(error).foregroundColor(.orange).font(.caption).multilineTextAlignment(.center) }
+                if !error.isEmpty { Text(error).foregroundColor(.orange).font(.cv(10, weight: .regular)).multilineTextAlignment(.center) }
             }
             .frame(width: showForm ? 340 : 520).padding(36)
-            .background(Color.black.opacity(0.75)).cornerRadius(8)
+            .modifier(PanelSurface(classic: true))   // dark glass, as the player panels
         }
     }
 
     var serverList: some View {
         VStack(spacing: 14) {
-            Text("Select Server").font(.title.bold()).padding(.bottom, 6)
+            Text("Select Server").font(.cv(22, weight: .bold)).padding(.bottom, 6)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
                 ForEach(emby.servers) { s in serverCard(s) }
                 Button { startAdd() } label: {
                     VStack(spacing: 10) {
-                        Image(systemName: "plus").font(.system(size: 34, weight: .light))
+                        Image(systemName: "plus").font(.cv(34, weight: .light))
                             .frame(width: 150, height: 100)
-                            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [6])))
-                        Text("Add Server").font(.headline)
-                        Text(" ").font(.caption)
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6])))
+                        Text("Add Server").font(.cv(13, weight: .bold))
+                        Text(" ").font(.cv(10, weight: .regular))
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plainHand)
             }
@@ -112,21 +119,22 @@ struct ClassicLoginView: View {
         Button { open(s) } label: {
             VStack(spacing: 10) {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "server.rack").font(.system(size: 38))
+                    Image(systemName: "server.rack").font(.cv(38))
                         .frame(width: 150, height: 100)
-                        .background(Color.white.opacity(0.08)).cornerRadius(10)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
                     if s.token != nil {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(6)
                             .helpLabel("Signed in")
                     }
                 }
-                HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.caption); Text(s.name).font(.headline).lineLimit(1) }
+                HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.cv(10, weight: .regular)); Text(s.name).font(.cv(13, weight: .bold)).lineLimit(1) }
                 Text((s.user.isEmpty ? s.url : "\(s.user) · \(s.url)") + " · " + emby.kindLabel(s))
-                    .font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                    .font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
             }
             .frame(width: 150).contentShape(Rectangle())
         }
-        .buttonStyle(.plainHand).disabled(busy)
+        .buttonStyle(HoverButton()).disabled(busy)
         .contextMenu {
             Button("Edit / Sign In Again") { edit(s) }
             Button("Remove Server", role: .destructive) { emby.removeServer(s) }
@@ -137,28 +145,28 @@ struct ClassicLoginView: View {
         VStack(spacing: 14) {
             HStack {
                 if !emby.servers.isEmpty {
-                    Button { adding = false; error = "" } label: { Image(systemName: "chevron.left") }
-                        .buttonStyle(.plainHand).helpLabel("Back to servers")
+                    Button { adding = false; error = "" } label: { Label("Back", systemImage: "chevron.left").classicGlassPill(size: 34) }
+                        .buttonStyle(HoverButton()).helpLabel("Back to servers")
                 }
                 Spacer()
-                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.title.bold())
+                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.cv(22, weight: .bold))
                 Spacer()
-                if !emby.servers.isEmpty { Image(systemName: "chevron.left").hidden() }
+                if !emby.servers.isEmpty { Color.clear.frame(width: 34, height: 34) }
             }.padding(.bottom, 6)
             TextField("Name (optional, e.g. Home Jellyfin)", text: $serverLabel).focused($focus, equals: .name)
-                .onSubmit { focus = .server }
+                .onSubmit { focus = .server }.modifier(GlassField())
             TextField("Server (e.g. 192.168.1.10:8096)", text: $server).focused($focus, equals: .server)
-                .onSubmit { focus = .user }
-            TextField("Username", text: $user).focused($focus, equals: .user).onSubmit { focus = .pw }
-            SecureField("Password", text: $pw).focused($focus, equals: .pw).onSubmit(go)
+                .onSubmit { focus = .user }.modifier(GlassField())
+            TextField("Username", text: $user).focused($focus, equals: .user).onSubmit { focus = .pw }.modifier(GlassField())
+            SecureField("Password", text: $pw).focused($focus, equals: .pw).onSubmit(go).modifier(GlassField())
             Button(action: go) {
                 HStack {
                     if busy { Spinner().controlSize(.small) }
-                    Text("Sign In").bold().classicOnAccent()
-                }.frame(maxWidth: .infinity).padding(8)
-            }.buttonStyle(.borderedProminent).handCursor().disabled(busy || server.isEmpty || user.isEmpty)
+                    Text("Sign In").font(.cv(14, weight: .bold))
+                }.frame(maxWidth: .infinity).frame(height: 40).classicGlassPill()
+            }.buttonStyle(HoverButton()).disabled(busy || server.isEmpty || user.isEmpty)
+            .opacity(busy || server.isEmpty || user.isEmpty ? 0.5 : 1)
         }
-        .textFieldStyle(.roundedBorder).controlSize(.large)
         .onAppear { focus = server.isEmpty ? .server : .pw }
     }
 
@@ -198,6 +206,7 @@ struct ClassicLoginView: View {
 // MARK: - Sidebar shell + search
 
 struct ClassicHomeView: View {
+    @AppStorage("accent") private var accentName = "red"
     @State private var keepPage = false   // the search box is being cleared after opening a result
     @State private var fromSearch = false // the first page on the stack was opened from search results
     @EnvironmentObject var emby: Emby
@@ -244,31 +253,49 @@ struct ClassicHomeView: View {
 
     /// Favorites or Now Playing in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
-        if id == NavOrder.favorites {
-            Label("Favorites", systemImage: "heart.fill").foregroundStyle(.tint).modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
-        } else if id == NavOrder.nowPlaying {
-            Label("Now Playing", systemImage: "dot.radiowaves.left.and.right")
-                .foregroundStyle(.tint)
-                .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
-                .badge(activeCount)
-                .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
+        if id == NavOrder.favorites { sideRow("Favorites", "heart.fill", "favorites") }
+        else if id == NavOrder.nowPlaying { sideRow("Now Playing", "dot.radiowaves.left.and.right", "nowplaying", badge: activeCount) }
+    }
+
+    /// One sidebar line: the chosen one on an accent glass band, the one under the pointer lit softly (as the glass
+    /// lists). Clicking the chosen one again goes back to that page's start.
+    func sideRow(_ title: String, _ icon: String, _ id: String, badge: Int = 0) -> some View {
+        let on = sel == id
+        return Button { if on { popToRoot() } else { selB.wrappedValue = id } } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.cv(13)).frame(width: 18).foregroundStyle(.tint)
+                Text(title).font(.cv(13, weight: on ? .semibold : .regular)).lineLimit(1)
+                Spacer(minLength: 0)
+                if badge > 0 { Text("\(badge)").font(.cv(11, weight: .semibold)).foregroundColor(.secondary) }
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 12).frame(height: 32)
+            .background {
+                if on {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+                }
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PanelRowStyle(glass: !on))
     }
 
     var splitLayout: some View {
         NavigationSplitView {
-            List(selection: selB) {
-                Label("Home", systemImage: "house.fill").foregroundStyle(.tint).modifier(RootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
-                let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
-                ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
-                Section("My Media") {
+            // Glass rows instead of the macOS list (its selection is always the system's blue)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    sideRow("Home", "house.fill", "home")
+                    let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
+                    ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
+                    Text("MY MEDIA").font(.cv(10, weight: .semibold)).kerning(0.6).foregroundColor(.secondary)
+                        .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 2)
                     ForEach(emby.libs) { lib in
-                        if lib.visible {
-                            Label(lib.title, systemImage: icon(lib)).foregroundStyle(.tint).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
-                        }
+                        if lib.visible { sideRow(lib.title, icon(lib), lib.id) }
                         ForEach(NavOrder.after(lib.id, rows), id: \.self) { sideSection($0) }
                     }
-                }
+                }.padding(.horizontal, 8).padding(.vertical, 6)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 215, max: 280)
             .safeAreaInset(edge: .top) {
@@ -276,17 +303,17 @@ struct ClassicHomeView: View {
                     Button { emby.switchServer() } label: {
                         HStack(spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(emby.currentServerName).font(.callout.weight(.semibold)).lineLimit(1)
+                                Text(emby.currentServerName).font(.cv(12, weight: .semibold)).lineLimit(1)
                                 Text(emby.currentServer?.user.isEmpty == false ? emby.currentServer!.user : (URL(string: emby.server)?.host ?? ""))
-                                    .font(.caption2).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                                    .font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
                             }
                             Spacer(minLength: 0)
-                            Image(systemName: "chevron.up.chevron.down").font(.caption2).foregroundColor(.secondary)
+                            Image(systemName: "chevron.up.chevron.down").font(.cv(10, weight: .regular)).foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, 10).padding(.vertical, 8)
-                        .background(Color.white.opacity(0.05))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                        .cornerRadius(8).contentShape(Rectangle())
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plainHand)
                     .helpLabel("Connected to \(emby.server) — click to switch server")
@@ -296,8 +323,8 @@ struct ClassicHomeView: View {
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 12) {
                     Button { nav.showSettings = true } label: {
-                        Label("Settings", systemImage: "gearshape").font(.callout)
-                            .padding(.horizontal, 8).padding(.vertical, 8).contentShape(Rectangle())
+                        Label("Settings", systemImage: "gearshape").font(.cv(12, weight: .medium))
+                            .padding(.horizontal, 14).frame(height: 32).classicGlassPill()
                     }
                     .helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
                     Spacer()
@@ -330,6 +357,7 @@ struct ClassicHomeView: View {
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib).id(lib.id) }
                     else { Color.black }
                 }
+                .modifier(NoTopScrollEdge())
                 // A page opened from search results is the only page: no Back (deeper pages get one)
                 .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: PersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
@@ -339,6 +367,7 @@ struct ClassicHomeView: View {
             // Back button in the title bar, left of the window title, on every page
             .toolbar { ClassicTitleBarItems(back: nil) }   // top-level pages: no Back (pushed pages add their own)
             .classicHideToolbarTitle()
+            .toolbarBackground(.hidden, for: .windowToolbar)   // no separator line when pages scroll
         }
     }
 
@@ -349,13 +378,16 @@ struct ClassicHomeView: View {
         // Both the bar and the page are held to the window's width: a page that grew wider than the window
         // (e.g. Favorites) made the bar wider too, pushing its pill off screen where it couldn't be clicked.
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                // In front of the page, so nothing on a page can cover its buttons. Back sits in the bar on pushed pages.
-                ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
-                    .frame(width: geo.size.width).zIndex(1)
-                detailPane(withSearch: false)
-                    .frame(width: geo.size.width).clipped()
-            }
+            // The bar is see-through and floats over the page: pages start below it and scroll up under it.
+            // Back sits in the bar on pushed pages.
+            detailPane(withSearch: false)
+                .frame(width: geo.size.width)
+                .modifier(NoTopScrollEdge())   // no dark edge line where the bar ends
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
+                        .frame(width: geo.size.width)
+                }
+                .clipped()
         }.background(bg)
     }
 
@@ -409,12 +441,13 @@ struct ClassicHomeView: View {
         }
         // Opening a search result clears the search box and stays on the opened page
         .onChange(of: path.count) { old, new in
+            ClassicHoverCardCenter.shared.hide()   // a preview card must not stay over the page just opened
             if old == 0 && new > 0 && !query.isEmpty {
                 keepPage = true; query = ""; nav.searchOpen = false; fromSearch = true
             }
             if new == 0 { fromSearch = false }
         }
-        .onChange(of: sel) { fromSearch = false }
+        .onChange(of: sel) { fromSearch = false; ClassicHoverCardCenter.shared.hide() }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
@@ -463,6 +496,13 @@ struct ClassicTitleBarItems: ToolbarContent {
 /// Top bar layout: the row under the title bar with Back (on pushed pages) on the left,
 /// the navigation classicPill in the middle and search and Settings on the right. It stays in place on every page.
 /// Laid out side by side, so a long classicPill never covers search and Settings.
+/// macOS 26 draws an edge effect (a dark line) where a page scrolls under the top bar; hide it.
+struct NoTopScrollEdge: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26, *) { content.scrollEdgeEffectHidden(true, for: .top) } else { content }
+    }
+}
+
 struct ClassicTopNavBar: View {
     @Environment(\.appBG) var bg
     let back: (() -> Void)?
@@ -482,9 +522,8 @@ struct ClassicTopNavBar: View {
             ClassicTopNavTools().fixedSize()
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .frame(height: 36)
+        .frame(height: 44)
         .padding(.horizontal, 28).padding(.vertical, 12)
-        .background(bg)
     }
 }
 
@@ -502,14 +541,15 @@ struct ClassicTopNavButtons: View {
         } label: {
             // Small icon before each name, as in the sidebar
             HStack(spacing: 6) {
-                if labels != "names" { Image(systemName: icon).font(.system(size: labels == "icons" ? 14 : 12)) }
+                if labels != "names" { Image(systemName: icon).font(.cv(labels == "icons" ? 14 : 12)) }
                 if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
                 else if badge > 0 { Text("\(badge)") }
             }
-                .font(.callout.weight(on ? .semibold : .regular))
-                .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)   // black on a white accent
-                .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
-                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
+                .font(.cv(15, weight: on ? .semibold : .medium))
+                .foregroundColor(on ? .white : .white.opacity(0.6))
+                .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
+                .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
+                .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -532,7 +572,7 @@ struct ClassicTopNavButtons: View {
         }
     }
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             item("Home", "home", "house.fill")
             let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
             ForEach(NavOrder.top(rows), id: \.self) { section($0) }
@@ -542,7 +582,9 @@ struct ClassicTopNavButtons: View {
             }
         }
         .padding(4)
-        .background(Capsule().fill(Color.white.opacity(0.1)))
+        .frame(height: 44)
+        .classicClearGlass()
+
     }
 }
 
@@ -551,12 +593,11 @@ struct ClassicTopNavTools: View {
     var body: some View {
         HStack(spacing: 8) {
             // The search box itself floats at the bottom of the window (SearchDock)
+            // Same 44-pt glass as Back, the sections and the Play button; Settings is in the Cove menu (⌘,)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
-                Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(HoverButton(backing: true)).helpLabel("Search (S)")
-            Button { nav.showSettings = true } label: {
-                Image(systemName: "gearshape.fill").font(.system(size: 14)).padding(6).contentShape(Rectangle())
-            }.buttonStyle(HoverButton(backing: true)).helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
+                Image(systemName: "magnifyingglass").font(.cv(14, weight: .semibold))
+                    .frame(width: 44, height: 44).classicGlassPill().contentShape(Capsule())
+            }.buttonStyle(HoverButton()).accessibilityLabel("Search")
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
@@ -570,21 +611,17 @@ struct ClassicTopBackButton: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
-                Text("Back").font(.system(size: 14, weight: .semibold))
-            }
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 14).padding(.vertical, 6)
-            .background(Capsule().fill(Color.white.opacity(hover ? 0.28 : 0.18)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
+            Image(systemName: "chevron.left").font(.cv(15, weight: .semibold))
+            .frame(width: 44, height: 44)
+            .brightness(hover ? 0.1 : 0)
+            .classicGlassPill()
             .contentShape(Capsule())
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
-        .helpLabel("Back (⌘[)")
+        .accessibilityLabel("Back")
         .disabled(emby.playing != nil)
     }
 }
@@ -608,8 +645,9 @@ struct ClassicSearchBar: View {
                     }.buttonStyle(.plainHand)
                 }
             }
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(Color.white.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, 14).frame(height: 34)
+            .background(Capsule().fill(Color.black.opacity(0.35)))
+            .background(ClassicGlassBacking(shape: Capsule()))   // glass field, as the search box
             .frame(width: 280)
         }
         .padding(.horizontal, 32).padding(.vertical, 10)
@@ -627,9 +665,9 @@ struct ClassicSearchView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Results for “\(query)”").font(.title2.bold())
+                Text("Results for “\(query)”").font(.cv(17, weight: .bold))
                 if !people.isEmpty { peopleRow }
-                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.title3.bold()).padding(.top, 8) }
+                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.cv(15, weight: .bold)).padding(.top, 8) }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
                     ForEach(results) { ClassicPosterCard(item: $0) }
                 }
@@ -653,7 +691,7 @@ struct ClassicSearchView: View {
     /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("People").font(.title3.bold())
+            Text("People").font(.cv(15, weight: .bold))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(people) { p in
@@ -662,20 +700,20 @@ struct ClassicSearchView: View {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                                .classicThinBorder(12)
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
-                                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                                        Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
                                             .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
                                     }
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
                                 .classicHoverLift()
-                                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
+                                Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 150)
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
@@ -709,7 +747,7 @@ struct ClassicFavoritesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Favorites").font(.title.bold())
+                    Text("Favorites").font(.cv(22, weight: .bold))
                     if !favs.isEmpty { Text("\(favs.count) Items").foregroundColor(.secondary) }
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
@@ -721,8 +759,8 @@ struct ClassicFavoritesView: View {
                 if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
-                        Image(systemName: "heart").font(.system(size: 40)).foregroundColor(.secondary)
-                        Text("No favorites yet").font(.headline)
+                        Image(systemName: "heart").font(.cv(40)).foregroundColor(.secondary)
+                        Text("No favorites yet").font(.cv(13, weight: .bold))
                         Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 }
@@ -750,8 +788,8 @@ struct ClassicFavoritesView: View {
             // "Favorite People ›" opens all of them on their own page, like the other sections
             NavigationLink(value: FavoritePeopleRef()) {
                 HStack(spacing: 6) {
-                    Text("Favorite People").font(.title3.bold())
-                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                    Text("Favorite People").font(.cv(15, weight: .bold))
+                    Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
             if layout == "grid" {
@@ -775,8 +813,8 @@ struct ClassicFavoritesView: View {
             // Opened through the page path (like every other page), so Back shows and the top bar can leave it
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
-                    Text(title).font(.title3.bold())
-                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                    Text(title).font(.cv(15, weight: .bold))
+                    Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
@@ -805,7 +843,7 @@ struct ClassicFavoriteGridView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(title).font(.title.bold())
+                Text(title).font(.cv(22, weight: .bold))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(items.filter { emby.isFav($0) }) { ClassicPosterCard(item: $0) }
                 }
@@ -877,8 +915,8 @@ struct ClassicPersonView: View {
     func section(_ title: String, _ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title).font(.title2.bold())
-                Text("\(list.count)").font(.title3).foregroundColor(.secondary)
+                Text(title).font(.cv(17, weight: .bold))
+                Text("\(list.count)").font(.cv(15, weight: .regular)).foregroundColor(.secondary)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                 ForEach(list) { ClassicPosterCard(item: $0) }
@@ -890,6 +928,7 @@ struct ClassicPersonView: View {
 // MARK: - Home
 
 struct ClassicHomeContent: View {
+    @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @AppStorage("homeLayout") private var homeLayout = "row"
@@ -898,6 +937,7 @@ struct ClassicHomeContent: View {
     @State private var retry = 0
     @State private var rows: [Row] = []
     @State private var loading = true
+    @State private var pageH: CGFloat = .infinity
 
     var heroItems: [Item] {
         var seen = Set<String>()
@@ -914,10 +954,10 @@ struct ClassicHomeContent: View {
         let hero = heroItems
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                if !hero.isEmpty { ClassicHero(items: hero) }
+                if !hero.isEmpty { ClassicHero(items: hero, pageH: pageH) }
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(row.title).font(.title3.bold()).padding(.leading, 32)
+                        Text(row.title).font(.cv(15, weight: .bold)).padding(.leading, 32)
                         let wide = row.title == "Continue Watching"
                         // Continue Watching has its own Row / Grid choice; every other section follows Home's
                         if (wide ? resumeLayout : homeLayout) == "grid" {
@@ -946,6 +986,12 @@ struct ClassicHomeContent: View {
                 }
             }.padding(.bottom, 40)
         }
+        // The banner runs up under the floating top bar (not the inset card)
+        .ignoresSafeArea(edges: hero.isEmpty || bannerStyle == "card" ? [] : .top)
+        // Height of the whole visible page, including the part under the top bar the banner runs up into
+        .background(GeometryReader { g in
+            Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
+        }.ignoresSafeArea(edges: bannerStyle == "card" ? [] : .top))
         .background(bg)
         .task(id: "\(reloadToken)-\(retry)") { rows = await emby.loadHome(); loading = false }
     }
@@ -960,96 +1006,517 @@ extension View {
     }
 }
 
+/// A series' seasons stacked like playing cards (as the Home banner's deck): the shown season in front, the ones
+/// after it peeking out behind; glass ‹ › beside it. Changing season cross-fades the whole deck.
+struct SeasonDeck: View {
+    let numbers: [Int]
+    let selected: Int
+    let title: (Int) -> String
+    let image: (Int) -> URL?
+    let select: (Int) -> Void
+    /// Front card extras, as on the season posters: unwatched count (top right), Watched / Favorite on hover
+    let badge: (Int) -> Int?
+    let seasonItem: (Int) -> Item?
+    let episodes: (Int) -> [Item]
+    private let w: CGFloat = 280, h: CGFloat = 420
+    private let peek: CGFloat = 40
+
+    /// The deck's own position; the page's season follows it (and the deck follows the page when the season
+    /// changes elsewhere).
+    @State private var pos = -1
+    var shownPos: Int { pos >= 0 ? pos : (numbers.firstIndex(of: selected) ?? 0) }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            arrow("chevron.left", "Previous season", enabled: shownPos > 0) { go(shownPos - 1) }
+            cards
+            arrow("chevron.right", "Next season", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
+        }
+        .onAppear { pos = numbers.firstIndex(of: selected) ?? 0 }
+        .onChange(of: selected) { _, s in
+            if let i = numbers.firstIndex(of: s), i != pos { pos = i }
+        }
+    }
+
+    func arrow(_ icon: String, _ help: String, enabled: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Label(help, systemImage: icon).classicGlassPill(size: 40) }
+            .buttonStyle(HoverButton()).helpLabel(help)
+            .disabled(!enabled).opacity(enabled ? 1 : 0.35)
+    }
+
+    /// Shows season `p`: the whole deck cross-fades to its new stack.
+    func go(_ p: Int) {
+        guard p >= 0, p < numbers.count, p != shownPos else { return }
+        withAnimation(.easeInOut(duration: 0.35)) { pos = p }
+        select(numbers[p])
+    }
+
+    var cards: some View {
+        let pos = shownPos
+        let shown = min(numbers.count - pos, 4)
+        return ZStack(alignment: .leading) { stack(pos, shown) }
+            .frame(width: w + CGFloat(3) * peek, height: h, alignment: .leading)
+    }
+
+    /// One whole stack, keyed by its position: a new position replaces the stack as one piece with a plain
+    /// cross-fade (the same both ways)
+    func stack(_ pos: Int, _ shown: Int) -> some View {
+        ZStack(alignment: .leading) {
+            ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
+                let k = p - pos
+                Button { go(p) } label: {
+                    card(numbers[p], k: k)
+                        .overlay(alignment: .topTrailing) {
+                            if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
+                        }
+                }
+                .modifier(FrontActions(on: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p])))
+                    .buttonStyle(.plainHand)
+                    .accessibilityLabel(title(numbers[p]))   // no tooltip: the card shows its name
+                    .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
+                    .offset(x: CGFloat(k) * peek)
+            }
+        }
+        .id(pos)
+        .transition(.opacity)
+    }
+
+    func card(_ n: Int, k: Int) -> some View {
+        CachedImage(url: image(n)) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.cv(10, weight: .regular)) } }
+        .frame(width: w, height: h).clipped()
+        .overlay(alignment: .bottomLeading) {
+            // Only on the front card; fades with the move instead of popping in
+            Text(title(n)).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                .classicBlackOutline()
+                .padding(.horizontal, 10).padding(.bottom, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .opacity(k == 0 ? 1 : 0)
+        }
+        .cornerRadius(10)
+        .classicThinBorder(10)
+        .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+}
+
+/// The subtitle appearance panel: dark glass in the Classic theme, the plain grey panel otherwise.
+struct AppearanceSurface: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(PanelSurface(classic: true)).padding(.vertical, 24).padding(.trailing, 24) }
+        else { content.background(Color(white: 0.16).opacity(0.97)) }
+    }
+}
+
+/// A text field as a glass capsule (sign-in form).
+struct GlassField: ViewModifier {
+    func body(content: Content) -> some View {
+        content.textFieldStyle(.plain).font(.cv(13)).foregroundColor(.white)
+            .padding(.horizontal, 16).frame(height: 38)
+            .background(Capsule().fill(Color.black.opacity(0.35)))
+            .background(ClassicGlassBacking(shape: Capsule()))
+    }
+}
+
+/// Timeline preview picture: the glass card frame in the Classic theme, a white outline otherwise.
+struct PreviewFrame: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.classicThinBorder(10).shadow(color: .black.opacity(0.5), radius: 8, y: 3) }
+        else { content.overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1)) }
+    }
+}
+
+/// The time above the timeline: a dark glass capsule in the Classic theme.
+struct TimeBubble: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic {
+            content.background(Capsule().fill(Color.black.opacity(0.55))).background(ClassicGlassBacking(shape: Capsule()))
+        } else {
+            content.background(Capsule().fill(Color.black.opacity(0.7)))
+        }
+    }
+}
+
+/// Classic slider (timeline, volume): a slim glass capsule, the filled part in see-through accent with a glow, and a
+/// small white knob that shows under the pointer or while dragging.
+struct GlassSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    var onEditing: (Bool) -> Void = { _ in }
+    @AppStorage("accent") private var accentName = "red"
+    @State private var hover = false
+    @State private var dragging = false
+
+    var body: some View {
+        let accent = Theme.accent(accentName)
+        GeometryReader { g in
+            let span = max(range.upperBound - range.lowerBound, 0.000_1)
+            let frac = CGFloat(min(1, max(0, (value - range.lowerBound) / span)))
+            let thick: CGFloat = hover || dragging ? 8 : 6
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.black.opacity(0.35)).frame(height: thick)
+                ClassicGlassBacking(shape: Capsule()).frame(height: thick)
+                Capsule().fill(accent.opacity(0.55))
+                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.4), .clear], startPoint: .top, endPoint: .center)))
+                    .frame(width: max(thick, g.size.width * frac), height: thick)
+                    .shadow(color: accent.opacity(0.8), radius: 4)
+                Circle().fill(Color.white).frame(width: 14, height: 14)
+                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+                    .offset(x: g.size.width * frac - 7)
+                    .opacity(hover || dragging ? 1 : 0)
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { d in
+                    if !dragging { dragging = true; onEditing(true) }
+                    value = range.lowerBound + Double(min(1, max(0, d.location.x / max(g.size.width, 1)))) * span
+                }
+                .onEnded { _ in dragging = false; onEditing(false) })
+        }
+        .frame(height: 18)
+        .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.12), value: hover || dragging)
+    }
+}
+
+/// Top bar and switch hover: the chosen hover look (Settings) shaped like the selected section's pill, no pill itself.
+struct SectionHoverGlow: ViewModifier {
+    let on: Bool
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        content
+            .background {
+                // The chosen hover look, as the buttons
+                ClassicHoverEffect()
+                    .opacity(on && hover ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
+            .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
+    }
+}
+
+/// The playback info box: the side panel's dark glass in the Classic theme, a plain dark box otherwise.
+struct InfoSurface: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(PanelSurface(classic: true)) }
+        else { content.background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.75))) }
+    }
+}
+
+/// The player's side panel: dark glass framed like the buttons in the Classic theme, the frosted panel otherwise.
+struct PanelSurface: ViewModifier {
+    let classic: Bool
+    @Environment(\.appBG) private var bg
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        if classic {
+            content.background(shape.fill(bg.opacity(0.75))).clipShape(shape)
+                .modifier(ClassicClearGlass(shape: shape))
+                .shadow(color: .black.opacity(0.45), radius: 16, y: 6)
+        } else {
+            content.background(.ultraThinMaterial.opacity(0.95)).background(Color(white: 0.15).opacity(0.85))
+                .cornerRadius(14)
+        }
+    }
+}
+
+/// Classic progress on a card, bottom-right, styled like the glass Play button: a glass ring (dark see-through
+/// track lit from the top, light-catching rims) and the watched part in see-through accent with a shine and a glow.
+/// Drawn by hand (no system glass), so a row of cards stays smooth to scroll.
+struct ClassicProgressCircle: View {
+    let progress: Double   // 0...1
+    var size: CGFloat = 26
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        let accent = Theme.accent(accentName)
+        let w: CGFloat = 5
+        let p = CGFloat(min(1, max(0.03, progress)))
+        ZStack {
+            // glass track
+            Circle().stroke(Color.black.opacity(0.4), lineWidth: w)
+            Circle().stroke(LinearGradient(colors: [.white.opacity(0.2), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom),
+                            lineWidth: w)
+            Circle().stroke(Color.white.opacity(0.35), lineWidth: 0.5).frame(width: size + w, height: size + w)
+            Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.5).frame(width: size - w, height: size - w)
+            // watched part
+            Group {
+                Circle().trim(from: 0, to: p)
+                    .stroke(accent.opacity(0.42), style: StrokeStyle(lineWidth: w - 1, lineCap: .round))
+                    .shadow(color: accent.opacity(0.9), radius: 4)
+                    .shadow(color: accent.opacity(0.5), radius: 8)
+                Circle().trim(from: 0, to: p)
+                    .stroke(Color.white.opacity(0.45), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                    .frame(width: size + 1.5, height: size + 1.5)
+            }.rotationEffect(.degrees(-90))
+        }
+        .frame(width: size, height: size)
+        .frame(width: size + w, height: size + w)
+        .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+    }
+}
+
+/// Watched / Favorite buttons on hover (bottom right), only on the deck's front card.
+private struct FrontActions: ViewModifier {
+    let on: Bool
+    let item: Item?
+    let episodes: [Item]
+    @ViewBuilder func body(content: Content) -> some View {
+        if on { content.hoverItemActions(item, .bottomTrailing, children: episodes) } else { content }
+    }
+}
+
+/// The banner's outline: full width (cinematic, panel) or an inset card with the glass frame.
+private struct BannerShape: ViewModifier {
+    let card: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if card {
+            content.clipShape(RoundedRectangle(cornerRadius: 18)).classicThinBorder(18).padding(.horizontal, 32)
+        } else {
+            content.clipped()
+        }
+    }
+}
+
+/// Home banner, cinematic: the picture runs edge to edge up under the floating top bar, the title logo, facts,
+/// description and glass buttons sit on a dark fade at the left; glass page bullets at the bottom and glass arrows at
+/// the sides on hover.
 struct ClassicHero: View {
     @EnvironmentObject var emby: Emby
+    @Environment(\.appBG) var bg
     let items: [Item]
-    @State private var index = 0
+    var pageH: CGFloat = .infinity
+    /// Banners moved through so far (back = −1); never wraps, so each card in the deck keeps its own identity
+    @State private var pos = 0
+    var index: Int { items.isEmpty ? 0 : ((pos % items.count) + items.count) % items.count }
+    @State private var leaving: Item?       // the deck's front card while it fades away
+    @State private var busy = false
+    @State private var leavingGone = false
     @State private var hover = false
+    @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var nav = ClassicNavState.shared
+    /// Settings → General → Home banner: "cinematic" (edge to edge), "panel" (text on a glass panel) or "card"
+    /// (an inset glass-framed card)
+    @AppStorage("classicBannerStyle") private var style = "cinematic"
+    /// Settings → General → Banner navigation: "deck" (cards, bottom right) or "bullets" (bottom center)
+    @AppStorage("classicBannerNav") private var bannerNav = "deck"
+    /// The whole visible page, so the rows (Continue Watching…) start just below it and show once you scroll
+    var bannerH: CGFloat { pageH.isFinite ? max(pageH, 360) : max(width * 9 / 16, 520) }
 
-    func meta(_ item: Item) -> [String] {
-        var m: [String] = []
+    func meta(_ item: Item) -> String {
+        var m: [String] = [item.isEpisode || item.isSeries ? "TV Show" : "Movie"]
+        m += (item.Genres ?? []).prefix(2)
         if let y = item.ProductionYear { m.append(String(y)) }
-        if let t = item.RunTimeTicks, t > 0 { m.append(runtimeText(t)) }
-        if let g = item.Genres?.first { m.append(g) }
-        return m
+        return m.joined(separator: " · ")
+    }
+
+    /// Shows banner `i` (any integer; wraps). One back steps back; anything else moves forward through the deck.
+    func go(_ i: Int) {
+        let n = items.count
+        guard n > 0, !busy else { return }
+        if !reduceMotion {
+            busy = true   // clicks during a move wait for it to finish
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { busy = false }
+        }
+        let d = (((i - index) % n) + n) % n
+        let back = d == n - 1 && n > 2
+        // Moving forward: keep the front card on screen as a copy and fade it away over the deck
+        if !back && d > 0 && n > 1 && !reduceMotion {
+            leaving = items[(index + 1) % n]
+            leavingGone = false
+            DispatchQueue.main.async {
+                withAnimation(.easeInOut(duration: 0.7)) { leavingGone = true }
+            }
+            let id = leaving?.id
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if leaving?.id == id { leaving = nil } }
+        }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { pos += back ? -1 : d }
     }
 
     var body: some View {
         let item = items[index % items.count]
         ZStack(alignment: .bottomLeading) {
-            Color.clear.frame(maxWidth: .infinity).frame(height: 440)
-                .overlay { ClassicBackdrop(id: item.backdropId ?? item.Id) }.clipped()
-                .id("b" + item.id).transition(.opacity)
-            VStack(alignment: .leading, spacing: 14) {
-                Text(item.heroTitle).font(.system(size: 52, weight: .black)).lineLimit(2).classicBlackOutline(2)
-                if item.SeriesName != nil {
-                    Text("S\(item.ParentIndexNumber ?? 0)·E\(item.IndexNumber ?? 0)  \(item.Name)")
-                        .font(.headline).foregroundColor(.white).classicBlackOutline()
-                }
-                HStack(spacing: 12) {
-                    ForEach(meta(item), id: \.self) { Text($0) }
-                    if let r = item.CommunityRating {
-                        HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
-                            .foregroundColor(.yellow)
-                    }
-                }.font(.subheadline).foregroundColor(.white).classicBlackOutline()
-                Text(item.Overview ?? "").font(.body).lineLimit(3).frame(maxWidth: 620, alignment: .leading)
-                    .foregroundColor(.white).classicBlackOutline()
-                HStack(spacing: 12) {
-                    Button { Task { await emby.play(item) } } label: {
-                        Label("Play", systemImage: "play.fill").font(.system(size: 16, weight: .bold))
-                            .padding(.horizontal, 26).frame(height: 44)
-                            .background(.white).foregroundColor(.black).cornerRadius(6)
-                    }.buttonStyle(HoverButton())
-                    NavigationLink(value: item) {
-                        Label("More Info", systemImage: "info.circle").font(.system(size: 16, weight: .bold))
-                            .padding(.horizontal, 22).frame(height: 44)
-                            .background(Color.gray.opacity(0.55)).foregroundColor(.white).cornerRadius(6)
-                    }.buttonStyle(HoverButton())
-                    Spacer()
-                    HStack(spacing: 6) {
-                        ForEach(items.indices, id: \.self) { i in
-                            let on = i == index % items.count
-                            Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { index = i } } label: {
-                                Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.4)))
-                                    .frame(width: on ? 22 : 8, height: 4)
-                                    .overlay(Capsule().stroke(Color.black, lineWidth: 1))
-                                    .shadow(color: .black.opacity(0.7), radius: 3)
-                                    .contentShape(Rectangle().inset(by: -6))
-                            }
-                            .buttonStyle(HoverButton())
-                            .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
-                            .accessibilityAddTraits(on ? .isSelected : [])
-                        }
-                    }
-                }
+            Color.clear.frame(maxWidth: .infinity).frame(height: bannerH)
+                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: min(Int(width * 2), 2560)) }.clipped()   // Retina-sharp
+                // The new picture fades in over the old one, which stays solid underneath until it is covered (both
+                // half see-through at once made the banner dim mid-change)
+                .id("b" + item.id)
+                .transition(.asymmetric(insertion: .opacity,
+                                        removal: .opacity.animation(.linear(duration: 0.05).delay(0.7))))
+                .zIndex(Double(pos))
+            fades.zIndex(Double(pos) + 0.5)
+            Group {
+                if style == "panel" {
+                    info(item).padding(24)
+                        .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: 22, style: .continuous)))
+                        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black.opacity(0.35)))
+                } else { info(item) }
             }
-            .padding(.horizontal, 44).padding(.vertical, 36)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .id("t" + item.id).transition(.opacity)
+            .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, 56)
+            // Old text fades out quickly, then the new text fades in (they overlapped mid-change)
+            .id("t" + item.id)
+            .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.4).delay(0.3)),
+                                    removal: .opacity.animation(.easeIn(duration: 0.25))))
+            .zIndex(Double(pos) + 0.6)
+            // The coming banners as a deck of cards, bottom right (above the changing picture and text)
+            Group {
+                if items.count > 1 {
+                    if bannerNav == "bullets" {
+                        thumbs.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
+                    } else {
+                        deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                            .padding(.trailing, 44).padding(.bottom, 56)
+                    }
+                }
+            }.zIndex(Double(pos) + 1)
         }
-        .frame(height: 440)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .padding(.horizontal, 32)
+        .animation(.easeOut(duration: 0.15), value: hover)
+        .frame(height: style == "card" ? max(bannerH - 24, 340) : bannerH)
+        .modifier(BannerShape(card: style == "card"))
         .foregroundColor(.white)
+        .background(GeometryReader { g in
+            Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
+        })
         .onHover { hover = $0 }
-        .onChange(of: nav.bannerNudge) { _, n in   // ← → keys
-            guard let n, !items.isEmpty else { return }
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { index = (index + n.dir + items.count) % items.count }
-        }
-        // Next banner every 8 s, but not under the pointer, not during playback and not with Reduce Motion
-        .task(id: "\(hover)-\(playback.active)") {
-            guard !hover, !playback.active, !reduceMotion else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 8_000_000_000)
-                if Task.isCancelled { break }
-                withAnimation(.easeInOut(duration: 1.0)) { index += 1 }
-            }
+        .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
+        // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
+        .task(id: "\(pos)-\(hover)-\(playback.active)") {
+            guard !hover, !playback.active, !reduceMotion, items.count > 1 else { return }
+            try? await Task.sleep(nanoseconds: 9_000_000_000)
+            if !Task.isCancelled { go(index + 1) }
         }
     }
+
+    /// Dark fades so the text reads: from the left and into the page (cinematic), only at the bottom (panel: the
+    /// glass panel carries the text), or inside the card.
+    @ViewBuilder var fades: some View {
+        if style != "panel" {
+            LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
+                           startPoint: .leading, endPoint: .trailing)
+        }
+        if style == "card" {
+            LinearGradient(stops: [.init(color: .clear, location: 0.5), .init(color: .black.opacity(0.6), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+        } else {
+            LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
+                                   .init(color: bg, location: 1)], startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    func info(_ item: Item) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if item.isEpisode {
+                Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").font(.cv(13, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+            TitleLogo(item: item, height: style == "cinematic" ? 110 : 90, font: style == "cinematic" ? 56 : 46)
+            HStack(spacing: 10) {
+                Text(meta(item))
+                if let r = item.CommunityRating {
+                    HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
+                }
+            }.font(.cv(15, weight: .medium)).foregroundColor(.white.opacity(0.9))
+            Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
+                .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
+            HStack(spacing: 12) {
+                Button { Task { await emby.play(item) } } label: {
+                    Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
+                        .classicGlassPill(size: 46, iconOnly: false)
+                }.buttonStyle(HoverButton())
+                let fav = emby.isFav(item)
+                Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
+                    Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "checkmark" : "plus")
+                        .classicGlassPill(size: 46)
+                }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
+                NavigationLink(value: item) {
+                    Label("More Info", systemImage: "info").classicGlassPill(size: 46)
+                }.buttonStyle(HoverButton()).helpLabel("More Info")
+            }.padding(.top, 6)
+        }
+        .frame(maxWidth: 520, alignment: .leading)
+    }
+
+    /// The coming banners stacked like playing cards: the next one in front, the ones after it peeking out behind, each a
+    /// little smaller, further right and dimmer. Moving on, the front card fades away (growing slightly) and the one
+    /// beneath slides up into its place. Clicking a card shows that banner.
+    var deck: some View {
+        let shown = min(items.count - 1, 4)
+        return ZStack(alignment: .leading) {
+            // Drawn back to front, so the next banner's card ends up on top
+            ForEach(Array(((pos + 1)..<(pos + 1 + shown)).reversed()), id: \.self) { p in
+                let k = p - pos - 1
+                let i = ((p % items.count) + items.count) % items.count
+                Button { go(i) } label: { deckCard(items[i], k: k) }
+                    .buttonStyle(.plainHand)
+                    .accessibilityLabel(items[i].heroTitle)   // no tooltip: the card shows its title
+                    .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
+                    .offset(x: CGFloat(k) * 26)
+                    // The front card leaves at once (its fading copy takes over; two fading copies overlapped into a
+                    // ghost); a card at the back fades in or out instead of popping
+                    .transition(.asymmetric(insertion: .opacity, removal: k == 0 ? .identity : .opacity))
+            }
+            // Moving forward: the card that was in front, drawn over the deck, fading away (growing slightly and
+            // drifting left) while the one beneath takes its place
+            if let l = leaving {
+                deckCard(l, k: 0)
+                    .scaleEffect(leavingGone ? 1.08 : 1)
+                    .offset(x: leavingGone ? -30 : 0)
+                    .opacity(leavingGone ? 0 : 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(width: deckW + CGFloat(shown - 1) * 26, height: deckW * 9 / 16, alignment: .leading)
+    }
+
+    private let deckW: CGFloat = 300
+
+    func deckCard(_ it: Item, k: Int) -> some View {
+        CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: { Color(white: 0.15) }
+        .frame(width: deckW, height: deckW * 9 / 16).clipped()
+        .overlay(alignment: .bottomLeading) {
+            // No background: a black outline, as the other cards
+            Text(it.heroTitle).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                .classicBlackOutline()
+                .padding(.horizontal, 10).padding(.bottom, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .opacity(k == 0 ? 1 : 0)
+        }
+        .cornerRadius(12)
+        .classicThinBorder(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+
+    /// Page bullets: small glass pills; the current one stretches longer and is lit.
+    var thumbs: some View {
+        HStack(spacing: 8) {
+            ForEach(items.indices, id: \.self) { i in
+                let on = i == index % items.count
+                Button { go(i) } label: {
+                    Capsule().fill(Color.white.opacity(on ? 0.85 : 0.25))
+                        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.15)],
+                                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
+                        .frame(width: on ? 26 : 9, height: 9)
+                        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                        .contentShape(Rectangle().inset(by: -6))
+                }
+                .buttonStyle(HoverButton())
+                .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: index)
+    }
+
 }
 
 /// Landscape card for the Continue Watching row: still image, accent progress bar, time left.
@@ -1090,37 +1557,34 @@ struct ClassicResumeCard: View {
                 CachedImage(url: imageURL) { p in
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.15); Text(item.heroTitle).font(.caption).padding(6) }
+                    ZStack { Color(white: 0.15); Text(item.heroTitle).font(.cv(10, weight: .regular)).padding(6) }
                 }
                 .frame(width: 260, height: 146).clipped()
                 // Title, bottom-left
                 .overlay(alignment: .bottomLeading) {
+                    // No background: a black outline keeps it readable
                     Text(item.heroTitle)
-                        .font(.callout.weight(.semibold)).foregroundColor(.white).lineLimit(1)
-                        .shadow(color: .black.opacity(0.8), radius: 3)
-                        .padding(.leading, 10).padding(.trailing, 40).padding(.top, 28).padding(.bottom, 10)
+                        .font(.cv(12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                        .classicBlackOutline()
+                        .padding(.leading, 10).padding(.trailing, 44).padding(.bottom, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
                 }
                 // Series info (S3·E3 · 42m left), top-left
                 .overlay(alignment: .topLeading) {
                     if let subtitle {
-                        Text(subtitle).font(.caption2.weight(.semibold)).foregroundColor(.white)
-                            .padding(.horizontal, 7).padding(.vertical, 3)
-                            .background(Capsule().fill(Color.black.opacity(0.35)))
-                            .padding(8)
+                        Text(subtitle).font(.cv(10, weight: .semibold)).foregroundColor(.white)
+                            .classicBlackOutline().padding(10)
                     }
                 }
-                // White progress ring, bottom-right
+                // How far you got, bottom-right
                 .overlay(alignment: .bottomTrailing) {
-                    if progress > 0 && progress < 1 { ProgressRing(progress: progress).padding(.trailing, 10).padding(.bottom, 10) }
+                    if progress > 0 && progress < 1 { ClassicProgressCircle(progress: progress).padding(8) }
                 }
                 // Play button: resumes playback; clicking anywhere else on the card opens the page
                 .overlay {
                     if hover {
                         Button { Task { await emby.play(item) } } label: {
-                            Image(systemName: "play.circle.fill").font(.system(size: 40)).foregroundColor(.white)
-                                .shadow(radius: 6)
+                            Label("Resume", systemImage: "play.fill").classicGlassPill(size: 46)
                         }.buttonStyle(.plainHand).accessibilityLabel("Resume")
                     }
                 }
@@ -1176,7 +1640,7 @@ struct ClassicPosterCard: View {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
                         p.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        ZStack { Color(white: 0.15); Text(item.Name).font(.caption).padding(6) }
+                        ZStack { Color(white: 0.15); Text(item.Name).font(.cv(10, weight: .regular)).padding(6) }
                     }
                     .frame(width: 150, height: 225).clipped()
                     .opacity(played ? 0.6 : 1)
@@ -1184,7 +1648,7 @@ struct ClassicPosterCard: View {
                 }
                 .overlay(alignment: .topLeading) {
                     if emby.isFav(item) && !inFavorites {
-                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                        Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
                             .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
                     }
                 }
@@ -1222,8 +1686,8 @@ struct ClassicPosterCard: View {
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
-                        if showTitle { Text(item.Name).font(.callout.weight(.semibold)).lineLimit(1) }
-                        if showYear { Text(item.yearText).font(.caption).foregroundColor(.secondary) }
+                        if showTitle { Text(item.Name).font(.cv(12, weight: .semibold)).lineLimit(1) }
+                        if showYear { Text(item.yearText).font(.cv(10, weight: .regular)).foregroundColor(.secondary) }
                     }
                     .multilineTextAlignment(centered ? .center : .leading)
                     .frame(width: 150, alignment: centered ? .center : .leading)
@@ -1287,7 +1751,25 @@ final class ClassicHoverCardCenter: ObservableObject {
         item = nil
     }
 
+    /// Scrolling with the card open: close it, so the wheel scrolls the page under it (the card would take it)
+    private var scrollMonitor: Any?
+    private func watchScroll() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] e in
+            guard let self, self.item != nil else { return e }
+            self.closeCard()
+            // Hand this tick to the page under the pointer, as the card is still in the way for it
+            if let w = e.window, let v = w.contentView?.hitTest(e.locationInWindow) {
+                var sv: NSView? = v
+                while let s = sv, !(s is NSScrollView) { sv = s.superview }
+                if let scroll = sv as? NSScrollView { scroll.scrollWheel(with: e); return nil }
+            }
+            return e
+        }
+    }
+
     private func startWatching() {
+        watchScroll()
         watchTask?.cancel()
         watchTask = Task { @MainActor in
             var away = 0
@@ -1462,29 +1944,34 @@ struct ClassicLibraryView: View {
     }
 
     var alphaBar: some View {
+        // Letters on a slim glass strip, as the top bar's sections
         VStack(spacing: 1) {
             ForEach(classicAlphaLetters, id: \.self) { l in
                 ClassicAlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l }
             }
-        }.padding(.trailing, 22)   // clear of the window's scroll bar
+        }
+        .padding(.vertical, 6).padding(.horizontal, 3)
+        .background(Capsule().fill(Color.black.opacity(0.3)))
+        .background(ClassicGlassBacking(shape: Capsule()))
+        .padding(.trailing, 14)
     }
 
     var header: some View {
         VStack(spacing: 16) {
             ZStack {
-                HStack { Text(lib.title).font(.title2.bold()); Spacer() }
+                HStack { Text(lib.title).font(.cv(17, weight: .bold)); Spacer() }
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
                         Button { tab = i } label: {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
-                                .font(.callout.weight(.medium))
-                                .padding(.horizontal, 14).padding(.vertical, 7)
-                                .background(tab == i ? Color.white.opacity(0.28) : Color.clear)
-                                .clipShape(Capsule())
+                                .font(.cv(12, weight: .medium))
+                                .padding(.horizontal, 16).frame(height: 36)
+                                .classicSelectedPill(tab == i)
+                        .modifier(SectionHoverGlow(on: !(tab == i)))   // accent glow on hover, as the top bar
                                 .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
-                }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+                }.padding(4).frame(height: 44).classicClearGlass()
             }
             if tab != 2 { controls }
         }
@@ -1494,50 +1981,50 @@ struct ClassicLibraryView: View {
         HStack(spacing: 10) {
             Text("\(total) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { if let f = items.first { await emby.play(f) } } } label: {
-                Label("Play", systemImage: "play.fill").classicPill()
-            }.buttonStyle(.plainHand)
+                Label("Play", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+            }.buttonStyle(HoverButton())
             Button { Task { await shuffle() } } label: {
-                Label("Shuffle", systemImage: "shuffle").classicPill()
-            }.buttonStyle(.plainHand)
-            Menu {
-                Picker("Sort by", selection: $sort) {
-                    Text("Recently Added").tag("latest")
-                    Text("Name").tag("name")
-                    Text("Release Date").tag("release")
-                    Text("Rating").tag("top")
-                }.pickerStyle(.inline)
-                Picker("Order", selection: $desc) {
-                    Text("Ascending").tag(false)
-                    Text("Descending").tag(true)
-                }.pickerStyle(.inline)
-            } label: {
-                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").classicPill()
-            }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            Menu {
-                Picker("Status", selection: $watch) {
-                    Text("All").tag("all")
-                    Text("Unwatched").tag("unwatched")
-                    Text("Watched").tag("watched")
-                }.pickerStyle(.inline)
-                Picker("Genre", selection: $genre) {
-                    Text("All Genres").tag("")
-                    ForEach(genres, id: \.self) { Text($0).tag($0) }
-                }.pickerStyle(.inline)
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle").classicPill(active: filtered)
-            }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                Label("Shuffle", systemImage: "shuffle").classicGlassPill(size: 44, iconOnly: false)
+            }.buttonStyle(HoverButton())
+            // Sort, filter and More open the glass list (not the macOS menu)
+            GlassListButton(list: {
+                let sorts = [("latest", "Recently Added"), ("name", "Name"), ("release", "Release Date"), ("top", "Rating")]
+                let opts = ["Sort by"] + sorts.map(\.1) + ["Order", "Ascending", "Descending"]
+                var ck: Set<Int> = [desc ? 7 : 6]
+                if let i = sorts.firstIndex(where: { $0.0 == sort }) { ck.insert(i + 1) }
+                return (opts, ck, [0, 5], { i in
+                    if (1...4).contains(i) { sort = sorts[i - 1].0 } else if i == 6 { desc = false } else if i == 7 { desc = true }
+                })
+            }) {
+                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").classicGlassPill(size: 44, iconOnly: false)
+            }.helpLabel("Sort")
+            GlassListButton(list: {
+                let status = [("all", "All"), ("unwatched", "Unwatched"), ("watched", "Watched")]
+                let opts = ["Status"] + status.map(\.1) + ["Genre", "All Genres"] + genres
+                var ck: Set<Int> = []
+                if let i = status.firstIndex(where: { $0.0 == watch }) { ck.insert(i + 1) }
+                ck.insert(genre.isEmpty ? 5 : (genres.firstIndex(of: genre).map { $0 + 6 } ?? 5))
+                return (opts, ck, [0, 4], { i in
+                    if (1...3).contains(i) { watch = status[i - 1].0 }
+                    else if i == 5 { genre = "" } else if i >= 6 { genre = genres[i - 6] }
+                })
+            }) {
+                Label("Filter", systemImage: filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    .classicGlassPill(size: 44)
+            }.helpLabel("Filter")
             if !genre.isEmpty {
-                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicPill(active: true) }.buttonStyle(.plainHand)
+                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicGlassPill(size: 44, iconOnly: false) }
+                    .buttonStyle(HoverButton()).helpLabel("Clear genre")
             }
             layoutToggle
-            Menu {
-                if canGroup {
-                    Toggle("Group by Collection", isOn: $groupCol)
-                    Divider()
-                }
-                Button("Refresh") { Task { await load(reset: true) } }
-            } label: { Image(systemName: "ellipsis").classicPill() }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            GlassListButton(list: {
+                let opts = (canGroup ? ["Group by Collection"] : []) + ["Refresh"]
+                return (opts, canGroup && groupCol ? [0] : [], [], { i in
+                    if canGroup && i == 0 { groupCol.toggle() } else { Task { await load(reset: true) } }
+                })
+            }) {
+                Label("More", systemImage: "ellipsis").classicGlassPill(size: 44)
+            }.helpLabel("More")
         }
     }
 
@@ -1573,24 +2060,28 @@ struct ClassicLibraryView: View {
         HStack(spacing: 0) {
             ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { layout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
-                        .frame(width: 30, height: 26)
-                        .background(layout == m.0 ? Color.white.opacity(0.28) : Color.clear)
+                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .classicSelectedPill(layout == m.0)
+                        .modifier(SectionHoverGlow(on: !(layout == m.0)))   // accent glow on hover, as the top bar
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+        }.padding(4).frame(height: 44).classicClearGlass()
     }
 
     var genreGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
             ForEach(genres, id: \.self) { g in
                 Button { genre = g; tab = 0 } label: {
-                    Text(g).font(.headline).frame(maxWidth: .infinity, minHeight: 70)
-                        .background(Color.white.opacity(0.1)).cornerRadius(8)
-                }.buttonStyle(.plainHand)
+                    // Glass tiles, as the buttons
+                    Text(g).font(.cv(13, weight: .bold)).foregroundColor(.white).frame(maxWidth: .infinity, minHeight: 70)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                        .contentShape(RoundedRectangle(cornerRadius: 14))
+                }.buttonStyle(HoverButton())
             }
         }
     }
@@ -1634,16 +2125,17 @@ struct ClassicCastTile: View {
             CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: big ? 44 : 30)).foregroundColor(.secondary) }
+                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(big ? 44 : 30)).foregroundColor(.secondary) }
             }
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
+            .classicThinBorder(big ? 10 : 44)   // glass tube edge and sheen, as the cards
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
                 if emby.isPersonFav(p.Id) {
-                    Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                    Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
                         .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
                 }
             }
@@ -1659,8 +2151,8 @@ struct ClassicCastTile: View {
             }
             .onHover { hover = $0 }
             .classicHoverLift()   // grows a little under the pointer, like posters
-            Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
-            Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+            Text(p.Name).font(.cv(big ? 12 : 10, weight: .semibold)).lineLimit(1)
+            Text(p.Role ?? p.`Type` ?? "").font(.cv(10)).foregroundColor(.secondary).lineLimit(1)
         }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
 }
@@ -1680,7 +2172,9 @@ struct ClassicDetailView: View {
     @AppStorage("subLang") private var prefSubLang = "english"
     /// First entry of the Subtitles menu: the preferred language when that setting is on, otherwise Off.
     var defaultSubLabel: String { subAlwaysOn ? prefSubLang.capitalized : "Off" }
-    @AppStorage("episodeLayout") private var epLayout = "list"
+    // Shared with Settings → Libraries → Episode layout and the Glass theme: "row", "grid" or "list"
+    @AppStorage("episodeLayoutTV") private var epLayout = "row"
+    @AppStorage("seasonLayoutTV") private var seasonLayout = "row"   // Settings → Libraries → Season layout
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
     @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
     @State private var similar: [Item] = []
@@ -1726,18 +2220,24 @@ struct ClassicDetailView: View {
     /// The item the big Play button acts on (next-up episode for a series).
     var playTarget: Item? { item.isSeries ? nextEp : (simple ? nil : item) }
 
+    /// Where the Play target was left off (0 = not started); when > 0 a Resume button shows beside Play.
+    var resumePoint: Double { playTarget.map { emby.resumeAt($0) } ?? 0 }
+
+    /// The Play button starts from the beginning when there is a resume point (Resume sits next to it).
     var playLabel: String {
-        let r = playTarget.map { emby.resumeAt($0) } ?? 0
-        let verb = r > 0 ? "Resume" : "Play"
-        if item.isSeries, let ep = nextEp { return "\(verb) S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
-        if r > 0 { return "Resume from \(timeString(r))" }
-        return verb
+        if item.isSeries, let ep = nextEp { return "Play S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
+        return "Play"
     }
+
+    /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
+    /// Decided by the setting alone (not by the seasons, which load a moment later), so the page never shows the
+    /// old header first
+    var bigBanner: Bool { item.isSeries && seasonLayout == "deck" }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                header
+                if bigBanner { showBanner } else { header }
                 if item.isSeries { episodesList }
                 if item.isBox { boxGrid }
                 castSection.task { _ = await emby.favoritePeople() }   // hearts on the cast photos
@@ -1746,15 +2246,19 @@ struct ClassicDetailView: View {
                 similarSection
             }.padding(.bottom, 50)
         }
+        .ignoresSafeArea(edges: bigBanner ? .top : [])   // the banner runs up under the floating top bar
+        .background(GeometryReader { g in
+            Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
+        }.ignoresSafeArea(edges: .top))
         .background(alignment: .top) {
-            ZStack {
+            if !bigBanner { ZStack {
                 // Fill the page width without growing it: a filled image sized by its own width made the whole
                 // page wider than the window (pushing the Top bar's Search and Settings off screen)
                 Color.clear.frame(height: 520)
                     .overlay { ClassicBackdrop(id: item.backdropId ?? item.Id) }
                     .clipped().opacity(0.35)
                 LinearGradient(colors: [Color.clear, bg], startPoint: .top, endPoint: .bottom)
-            }.frame(height: 520)
+            }.frame(height: 520) }
         }
         .background(bg)
         .task {
@@ -1780,25 +2284,85 @@ struct ClassicDetailView: View {
         .classicHideToolbarTitle()
     }
 
+    @State private var pageH: CGFloat = 800
+
+    /// The show as a banner the size of the page (as Home's): backdrop edge to edge, title logo, facts, description
+    /// and buttons on a dark fade at the left, the season deck bottom right.
+    var showBanner: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color.clear.frame(maxWidth: .infinity).frame(height: max(pageH, 420))
+                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: 2560) }.clipped()
+            LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
+                           startPoint: .leading, endPoint: .trailing)
+            LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
+                                   .init(color: bg, location: 1)], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 14) {
+                TitleLogo(item: item, height: 110, font: 56)
+                meta
+                buttons
+                Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
+                    .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
+            }
+            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 600)
+            if seasonNumbers.count > 1 {
+                SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
+                           title: { seasonTitle($0) },
+                           image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
+                           select: { season = $0 },
+                       badge: { unwatched($0) },
+                       seasonItem: { n in seasonItems.first { ($0.IndexNumber ?? 0) == n } },
+                       episodes: { n in kids.filter { ($0.ParentIndexNumber ?? 0) == n } })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 44).padding(.bottom, 56)
+                    .transition(.opacity)
+            }
+        }
+        .frame(height: max(pageH, 420))
+        .foregroundColor(.white)
+    }
+
     // Header: poster + info + pickers + buttons
     var header: some View {
+        let deck = item.isSeries && seasonLayout == "deck" && seasonNumbers.count > 1
+        return headerBody
+            .padding(.trailing, deck ? 520 : 0)   // the text stays clear of the deck
+            .frame(maxWidth: .infinity, alignment: .leading)   // full page width, so the deck reaches the corner
+            .overlay(alignment: .bottomTrailing) {
+                // Series, Settings → Season layout → Cards: the seasons as a deck of cards, as on the Home banner;
+                // the front season is the one whose episodes are listed below
+                if item.isSeries, seasonLayout == "deck", seasonNumbers.count > 1 {
+                    SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
+                               title: { seasonTitle($0) },
+                               image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
+                               select: { season = $0 },
+                       badge: { unwatched($0) },
+                       seasonItem: { n in seasonItems.first { ($0.IndexNumber ?? 0) == n } },
+                       episodes: { n in kids.filter { ($0.ParentIndexNumber ?? 0) == n } })
+                    .padding(.trailing, 40)   // in line with the episodes' right edge
+                }
+            }
+    }
+
+    var headerBody: some View {
         HStack(alignment: .top, spacing: 28) {
             CachedImage(url: emby.image(item.id, width: 500)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
             .frame(width: item.isEpisode ? 320 : 220, height: item.isEpisode ? 180 : 330)
-            .clipped().cornerRadius(10).shadow(color: .black.opacity(0.5), radius: 16, y: 8)
+            .clipped().cornerRadius(10)
+            .classicThinBorder(10)   // glass tube edge and sheen, as the cards
+            .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             VStack(alignment: .leading, spacing: 14) {
-                Text(item.Name).font(.system(size: 46, weight: .black))
+                Text(item.Name).font(.cv(46, weight: .black))
                 meta
                 if !simple { streamsRow }
                 buttons
-                if let tag = full?.Taglines?.first { Text(tag).font(.headline) }
+                if let tag = full?.Taglines?.first { Text(tag).font(.cv(13, weight: .bold)) }
                 Text(item.Overview ?? "").frame(maxWidth: 760, alignment: .leading)
                 let directors = (full?.People ?? []).filter { $0.`Type` == "Director" }.map { $0.Name }
                 if !directors.isEmpty {
                     (Text("Director: ").foregroundColor(.secondary) + Text(directors.joined(separator: ", ")).bold())
-                        .font(.callout)
+                        .font(.cv(12, weight: .regular))
                 }
             }
         }.padding(.horizontal, 40).padding(.top, 40)
@@ -1813,25 +2377,22 @@ struct ClassicDetailView: View {
             if let y = item.ProductionYear { Text(String(y)) }
             if let t = full?.RunTimeTicks { Text(runtimeText(t)) }
             if let o = full?.OfficialRating {
-                Text(o).font(.caption).padding(.horizontal, 5).padding(.vertical, 1)
+                Text(o).font(.cv(10, weight: .regular)).padding(.horizontal, 5).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary))
             }
             if let g = full?.Genres?.first { Text(g) }
             if let t = full?.RunTimeTicks, !simple { Text("Ends at " + endsAtText(t)) }
-        }.font(.subheadline).foregroundColor(.secondary)
+        }.font(.cv(11, weight: .regular)).foregroundColor(.secondary)
     }
 
     /// Wraps onto more lines when the window is narrow, so long version names can't widen the page.
     var streamsRow: some View {
         FlowLayout(hSpacing: 20, vSpacing: 10) {
             if sources.count > 1 {
-                HStack(spacing: 6) {
-                    Text("Version").foregroundColor(.secondary)
-                    Picker("", selection: $srcIdx) {
-                        ForEach(sources.indices, id: \.self) { Text(sources[$0].Name ?? sources[$0].Path ?? "Version \($0 + 1)").tag($0) }
-                    }
-                    .pickerStyle(.menu).labelsHidden()
-                    .frame(maxWidth: 320)   // long file names are cut with "…"
+                labeled("Version") {
+                    GlassPicker(selection: $srcIdx, options: sources.indices.map {
+                        ($0, sources[$0].Name ?? sources[$0].Path ?? "Version \($0 + 1)")
+                    }, maxWidth: 320)   // long file names are cut with "…"
                 }
             }
             if let v = streams("Video").first {
@@ -1839,60 +2400,57 @@ struct ClassicDetailView: View {
             }
             if !streams("Audio").isEmpty {
                 labeled("Audio") {
-                    Picker("", selection: $audioIdx) {
-                        ForEach(streams("Audio")) { Text($0.DisplayTitle ?? "Track \($0.Index)").tag($0.Index) }
-                    }
+                    GlassPicker(selection: $audioIdx,
+                                options: streams("Audio").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
                 }
             }
             labeled("Subtitles") {
-                Picker("", selection: $subIdx) {
-                    Text("Off").tag(-1)
-                    ForEach(streams("Subtitle")) { Text($0.DisplayTitle ?? "Track \($0.Index)").tag($0.Index) }
-                }
+                GlassPicker(selection: $subIdx,
+                            options: [(-1, "Off")] + streams("Subtitle").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
             }
             labeled("Quality") {
-                Picker("", selection: $quality) {
-                    Text("Original").tag(0)
-                    Text("1080p · 8 Mbps").tag(8_000_000)
-                    Text("720p · 4 Mbps").tag(4_000_000)
-                    Text("480p · 1.5 Mbps").tag(1_500_000)
-                }
+                GlassPicker(selection: $quality, options: [(0, "Original"), (8_000_000, "1080p · 8 Mbps"),
+                                                           (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }
         }
-        .font(.callout)
+        .font(.cv(12, weight: .regular))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     func labeled<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Text(title).foregroundColor(.secondary)
-            content().pickerStyle(.menu).labelsHidden().fixedSize()
+            content()
         }
     }
 
     var buttons: some View {
         let played = emby.isPlayed(item)
+        let fav = emby.isFav(item)
+        // All the same size and shape: 44-pt glass pills
         return HStack(spacing: 10) {
-            Button { playNow() } label: {
-                Label(playLabel, systemImage: "play.fill").bold()
-                    .padding(.horizontal, 24).frame(height: 44)
-                    .background(.white).foregroundColor(.black).clipShape(Capsule())
-            }.buttonStyle(HoverButton())
-            if let t = playTarget, emby.resumeAt(t) > 0 {
-                Button { playNow(from: 0) } label: { Label("Start Over", systemImage: "arrow.counterclockwise").classicPill() }
-                    .buttonStyle(HoverButton())
+            let r = resumePoint
+            Button { playNow(from: r > 0 ? 0 : nil) } label: {
+                Label(playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+            }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? playLabel + " from the beginning" : playLabel)
+            if r > 0 {
+                Button { playNow() } label: {
+                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
+                }.buttonStyle(HoverButton())
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
-                Button { Trailer.open(u, item: item, emby: emby) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(HoverButton())
+                Button { Trailer.open(u, item: item, emby: emby) } label: {
+                    Label("Trailer", systemImage: "film").classicGlassPill(size: 44)
+                }.buttonStyle(HoverButton()).helpLabel("Trailer")
             }
             Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
-                if played { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).classicCircleButton() }
-                else { Image(systemName: "checkmark.circle").classicCircleButton() }
+                Label(played ? "Watched" : "Mark as Watched", systemImage: played ? "checkmark.circle.fill" : "checkmark.circle")
+                    .classicGlassPill(size: 44)
             }.buttonStyle(HoverButton()).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
-            Button { Task { await emby.setFav(item.id, !emby.isFav(item), name: item.Name) } } label: {
-                if emby.isFav(item) { Image(systemName: "heart.fill").foregroundStyle(.tint).classicCircleButton() }
-                else { Image(systemName: "heart").classicCircleButton() }
-            }.buttonStyle(HoverButton()).helpLabel("Favorite")
+            Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
+                Label(fav ? "Favorite" : "Add to Favorites", systemImage: fav ? "heart.fill" : "heart")
+                    .classicGlassPill(size: 44)
+            }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
         }
     }
 
@@ -1996,19 +2554,28 @@ struct ClassicDetailView: View {
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
                 .overlay(alignment: .topTrailing) { CountBadge(count: unwatched(n)).padding(8) }
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(selected ? 1 : 0.85), lineWidth: selected ? 3 : 1))
+                .classicThinBorder(8)   // glass card, as the posters
+                .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint, lineWidth: 2) } }
                 .shadow(radius: 6)
                 .classicHoverLift()
                 .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
-                Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
+                Text(title).font(.cv(13, weight: .regular)).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plainHand)
     }
 
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Seasons").font(.title3.bold()).padding(.horizontal, 40)
-            ArrowScrollRow(ids: seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
+            Text("Seasons").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
+            if seasonLayout == "grid" {
+                // All seasons at once, wrapped onto as many lines as needed
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
+                          alignment: .leading, spacing: 18) {
+                    ForEach(seasonNumbers, id: \.self) { n in seasonPoster(n) }
+                }.padding(.horizontal, 40).padding(.vertical, 8)
+            } else {
+                ArrowScrollRow(ids: seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
+            }
         }
     }
 
@@ -2016,20 +2583,18 @@ struct ClassicDetailView: View {
         let multi: Bool = seasonNumbers.count > 1
         let heading: String = multi ? seasonTitle(currentSeason) : "Episodes"
         return HStack(spacing: 16) {
-            Text(heading).font(.title3.bold())
+            Text(heading).font(.cv(15, weight: .bold))
             if canFilterWatched {
                 Button(showAllEps ? "Hide watched" : "Show all") { showAllEps.toggle() }
-                    .buttonStyle(.plainHand).font(.callout.weight(.semibold)).foregroundStyle(.tint)
+                    .buttonStyle(.plainHand).font(.cv(12, weight: .semibold)).foregroundStyle(.tint)
             }
             Spacer()
             episodeLayoutToggle
             if !epLangs.isEmpty {
                 Text("Subtitles").foregroundColor(.secondary)
-                Picker("", selection: $epSubLang) {
-                    Text(defaultSubLabel).tag("")
-                    if subAlwaysOn { Text("Off").tag("off") }
-                    ForEach(epLangs, id: \.code) { l in Text(l.name).tag(l.code) }
-                }.labelsHidden().fixedSize()
+                GlassPicker(selection: $epSubLang,
+                            options: [("", defaultSubLabel)] + (subAlwaysOn ? [("off", "Off")] : [])
+                                + epLangs.map { ($0.code, $0.name) })
             }
         }.padding(.horizontal, 40).padding(.top, 10)
     }
@@ -2040,14 +2605,14 @@ struct ClassicDetailView: View {
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
-                Text("\(ep.IndexNumber ?? 0)").font(.system(size: 26, weight: .semibold))
+                Text("\(ep.IndexNumber ?? 0)").font(.cv(26, weight: .semibold))
                     .foregroundColor(.secondary).frame(width: 40)
                 CachedImage(url: emby.image(ep.id, width: 480, plain: true)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 220, height: 124).clipped()
                 .overlay(alignment: .bottomTrailing) {
-                    if pct > 0, pct < 100, !played { ProgressRing(progress: pct / 100).padding(8) }
+                    if pct > 0, pct < 100, !played { ClassicProgressCircle(progress: pct / 100).padding(6) }
                 }
                 .cornerRadius(6)
                 .classicThinBorder(6)
@@ -2055,12 +2620,12 @@ struct ClassicDetailView: View {
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(ep.Name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                        Text(ep.Name).font(.cv(16, weight: .semibold)).lineLimit(1)
                         if played { Image(systemName: "checkmark.circle.fill").foregroundColor(.white.opacity(0.7)) }
                         Spacer()
                         if let t = ep.RunTimeTicks, t > 0 { Text(runtimeText(t)).foregroundColor(.secondary) }
                     }
-                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).font(.callout).foregroundColor(.secondary) }
+                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).font(.cv(12, weight: .regular)).foregroundColor(.secondary) }
                 }
             }
             .padding(.vertical, 14)
@@ -2068,42 +2633,47 @@ struct ClassicDetailView: View {
             .contentShape(Rectangle())
         }.handCursor()
         .buttonStyle(.plainHand).padding(.horizontal, 40)
-        .contextMenu {
-            Button("Play from Beginning") { playEpisode(ep, from: 0) }
-            Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
-            }
-        }
     }
 
     var episodesList: some View {
         let eps: [Item] = shownEpisodes
         return VStack(alignment: .leading, spacing: 12) {
-            if seasonNumbers.count > 1 { seasonRow }
+            if seasonNumbers.count > 1 && seasonLayout != "deck" { seasonRow }   // the deck sits in the header instead
             episodesHeader
-            if epLayout == "grid" {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
-                    ForEach(eps) { ep in episodeTile(ep) }
-                }.padding(.horizontal, 40)
-            } else {
-                ForEach(eps) { ep in episodeRow(ep) }
+            // A new season's episodes cross-fade in as one block (cards sliding and resizing one by one looked glitchy)
+            Group {
+                if epLayout == "row" {
+                    // One line that scrolls sideways
+                    ArrowScrollRow(ids: eps.map { $0.id }, itemWidth: 300, spacing: 18) { id in
+                        if let ep = eps.first(where: { $0.id == id }) { episodeTile(ep).frame(width: 300) }
+                    }
+                } else if epLayout == "grid" {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
+                        ForEach(eps) { ep in episodeTile(ep) }
+                    }.padding(.horizontal, 40)
+                } else {
+                    VStack(alignment: .leading, spacing: 12) { ForEach(eps) { ep in episodeRow(ep) } }
+                }
             }
+            .id(currentSeason)
+            .transition(.opacity)
         }
     }
 
     var episodeLayoutToggle: some View {
         HStack(spacing: 0) {
-            ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
+            ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { epLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
-                        .frame(width: 30, height: 26)
-                        .background(epLayout == m.0 ? Color.white.opacity(0.28) : Color.clear)
+                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .classicSelectedPill(epLayout == m.0)
+                        .modifier(SectionHoverGlow(on: !(epLayout == m.0)))   // accent glow on hover, as the top bar
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
-                }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
+                }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+        }.padding(4).frame(height: 44).classicClearGlass()
     }
 
 
@@ -2134,24 +2704,22 @@ struct ClassicDetailView: View {
                 }
                 // Episode name in the bottom-left corner of the thumbnail
                 .overlay(alignment: .bottomLeading) {
-                    Text(ep.Name).font(.system(size: 14, weight: .semibold)).foregroundColor(.white).lineLimit(2)
-                        .shadow(color: .black.opacity(0.8), radius: 3)
-                        .padding(.leading, 10).padding(.trailing, hasProgress ? 40 : 10)
-                        .padding(.top, 28).padding(.bottom, hasProgress ? 12 : 9)
+                    // No background: a black outline keeps it readable (as on Continue Watching)
+                    Text(ep.Name).font(.cv(14, weight: .semibold)).foregroundColor(.white).lineLimit(2)
+                        .classicBlackOutline()
+                        .padding(.leading, 10).padding(.trailing, hasProgress ? 44 : 10)
+                        .padding(.bottom, 9)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(LinearGradient(colors: [Color.clear, Color.black.opacity(0.75)],
-                                                   startPoint: .top, endPoint: .bottom))
                 }
                 // Episode number in the top-left corner
                 .overlay(alignment: .topLeading) {
-                    Text(episodeInfo(ep, hasProgress: hasProgress)).font(.caption2.weight(.semibold)).foregroundColor(.white)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
-                        .background(Capsule().fill(Color.black.opacity(0.35)))
-                        .padding(8)
+                    Text(episodeInfo(ep, hasProgress: hasProgress)).font(.cv(10, weight: .semibold)).foregroundColor(.white)
+                        .classicBlackOutline()
+                        .padding(10)
                 }
-                // White progress ring in the bottom-right corner
+                // How far you got, bottom-right
                 .overlay(alignment: .bottomTrailing) {
-                    if hasProgress { ProgressRing(progress: pct / 100).padding(.trailing, 10).padding(.bottom, 12) }
+                    if hasProgress { ClassicProgressCircle(progress: pct / 100).padding(8) }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .classicThinBorder(6)
@@ -2159,17 +2727,11 @@ struct ClassicDetailView: View {
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
-                    Text(ep.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
+                    Text(ep.Overview ?? "").font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(2)
                 }
             }.contentShape(Rectangle())
         }.handCursor()
         .buttonStyle(.plainHand)
-        .contextMenu {
-            Button("Play from Beginning") { playEpisode(ep, from: 0) }
-            Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
-            }
-        }
     }
 
     var boxGrid: some View {
@@ -2183,7 +2745,7 @@ struct ClassicDetailView: View {
         let people = Array((full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
+                Text("Cast & Crew").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
@@ -2209,7 +2771,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var aboutSection: some View {
         if let f = full {
             VStack(alignment: .leading, spacing: 16) {
-                Text("About").font(.title3.bold())
+                Text("About").font(.cv(15, weight: .bold))
                 if let d = classicParseDate(f.UserData?.LastPlayedDate) {
                     aboutRow("Date Last Played", d.formatted(date: .abbreviated, time: .shortened))
                 }
@@ -2240,7 +2802,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var includedInSection: some View {
         if !includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Included In").font(.title3.bold()).padding(.horizontal, 40)
+                Text("Included In").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }
             }
         }
@@ -2250,7 +2812,7 @@ struct ClassicDetailView: View {
         if !similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("More Like This").font(.title3.bold())
+                    Text("More Like This").font(.cv(15, weight: .bold))
                     Spacer()
                     similarLayoutToggle
                 }.padding(.horizontal, 40)
@@ -2274,15 +2836,16 @@ struct ClassicDetailView: View {
         HStack(spacing: 0) {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { similarLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
-                        .frame(width: 30, height: 26)
-                        .background(similarLayout == m.0 ? Color.white.opacity(0.28) : Color.clear)
+                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .classicSelectedPill(similarLayout == m.0)
+                        .modifier(SectionHoverGlow(on: !(similarLayout == m.0)))   // accent glow on hover, as the top bar
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+        }.padding(4).frame(height: 44).classicClearGlass()
     }
 }
 
@@ -2292,6 +2855,9 @@ struct ClassicPlayerView: View {
     @EnvironmentObject var emby: Emby
     @StateObject private var model = PlayerModel()
     let req: PlayRequest
+    /// Classic theme: glass buttons. These controls can also be picked under the Glass theme (Settings →
+    /// Playback → Player controls); there they keep their plain look.
+    @Environment(\.classicGlass) private var classic
 
     enum Panel { case subtitles, appearance, chapters, episodes }
     @State private var panel: Panel?
@@ -2491,7 +3057,7 @@ struct ClassicPlayerView: View {
                 if !model.error.isEmpty {
                     VStack(spacing: 12) {
                         Text(model.error).multilineTextAlignment(.center).frame(maxWidth: 420)
-                        Button("Retry with transcoding") { Task { await model.retryTranscoded(emby) } }
+                        retryButton
                     }
                 }
 
@@ -2621,21 +3187,21 @@ struct ClassicPlayerView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     Spinner(inPlayer: true).controlSize(.small)
-                    Text("Loading subtitles…").font(.system(size: 14, weight: .medium))
+                    Text("Loading subtitles…").font(.cv(14, weight: .medium))
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Capsule().fill(Color.black.opacity(0.6)))
                 .padding(.bottom, subLift(size))
             }.frame(maxWidth: .infinity).allowsHitTesting(false)
         }
-        if !model.caption.isEmpty {
+        if !model.caption.isEmpty && !model.pipActive {   // not while the video is in picture in picture
             let fs = max(14, size.height * (Self.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045))
             let color = Self.colors.first { $0.0 == subColor }?.2 ?? .white
             let shade: Color = subColor == "black" ? .white : .black
             VStack {
                 Spacer()
                 Text(model.caption)
-                    .font(.system(size: fs, weight: .medium))
+                    .font(.cv(fs, weight: .medium))
                     .foregroundColor(color)
                     .multilineTextAlignment(.center)
                     .modifier(SubShadow(style: subShadow, color: shade))
@@ -2656,21 +3222,45 @@ struct ClassicPlayerView: View {
         HStack(spacing: 16) {
             // The classicPill that used to sit here is hidden (kept, not deleted): in full screen Esc does the job, and in a
             // window it moved to the title bar (titleBarBack, now off too). Set inPlayerBackPill to true to bring it back.
-            if Self.inPlayerBackPill { BackPill { back() }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
+            if Self.inPlayerBackPill {
+                Group {
+                    if classic {
+                        Button { back() } label: { Label("Back", systemImage: "chevron.left").classicGlassPill(size: 44) }
+                            .buttonStyle(HoverButton()).keyboardShortcut("[", modifiers: .command)
+                    } else { BackPill { back() } }
+                }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)")
+            }
             CachedImage(url: emby.image(item.SeriesId ?? item.Id, "Logo", width: 400)) { img in
                 img.resizable().aspectRatio(contentMode: .fit)
             } placeholder: { EmptyView() }
             .frame(maxWidth: 160, maxHeight: 40, alignment: .leading)
             Spacer()
-            Slider(value: $model.volume, in: 0...1).frame(width: 160).tint(.white).controlSize(.small).handCursor()
-            Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
-                Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 18))
-            }.buttonStyle(HoverButton(backing: true))
+            Group {
+                if classic { GlassSlider(value: Binding(get: { Double(model.volume) }, set: { model.volume = Float($0) }), range: 0...1) }
+                else { Slider(value: $model.volume, in: 0...1).tint(.white).controlSize(.small) }
+            }.frame(width: 160).handCursor()
+            iconButton(model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 18) {
+                model.volume = model.volume > 0 ? 0 : 1
+            }.helpLabel(model.volume == 0 ? "Unmute" : "Mute")
         }
         .padding(.horizontal, 20).padding(.top, 14)
     }
 
     // MARK: Bottom bar
+
+    /// The timeline: the glass slider in the Classic theme, the standard one otherwise.
+    @ViewBuilder var timeline: some View {
+        let pos = Binding(get: { scrubbing ? scrub : model.time }, set: { scrub = $0 })
+        let edit: (Bool) -> Void = { editing in
+            if editing { scrub = model.time; scrubbing = true }
+            else { model.seek(to: scrub); scrubbing = false }
+        }
+        if classic {
+            GlassSlider(value: pos, range: 0...max(model.duration, 1), onEditing: edit)
+        } else {
+            Slider(value: pos, in: 0...max(model.duration, 1), onEditingChanged: edit).tint(accent).controlSize(.small)
+        }
+    }
 
     var episodeLine: String? {
         guard item.isEpisode else { return nil }
@@ -2681,8 +3271,8 @@ struct ClassicPlayerView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
-                    if let l = episodeLine { Text(l).font(.system(size: 16, weight: .medium)).opacity(0.85) }
-                    Text(item.heroTitle).font(.system(size: 28, weight: .bold))
+                    if let l = episodeLine { Text(l).font(.cv(16, weight: .medium)).opacity(0.85) }
+                    Text(item.heroTitle).font(.cv(28, weight: .bold))
                 }
                 Spacer()
                 HStack(spacing: 26) {
@@ -2692,13 +3282,8 @@ struct ClassicPlayerView: View {
                 }
             }
 
-            Slider(value: Binding(get: { scrubbing ? scrub : model.time },
-                                  set: { scrub = $0 }),
-                   in: 0...max(model.duration, 1)) { editing in
-                if editing { scrub = model.time; scrubbing = true }
-                else { model.seek(to: scrub); scrubbing = false }
-            }
-            .tint(accent).controlSize(.small).handCursor()
+            timeline
+            .handCursor()
             .background(GeometryReader { g in
                 Color.clear.onAppear { sliderW = g.size.width }.onChange(of: g.size.width) { _, w in sliderW = w }
             })
@@ -2712,18 +3297,23 @@ struct ClassicPlayerView: View {
                 Spacer()
                 Text("-\(fmt(max(0, model.duration - (scrubbing ? scrub : model.time))))  /  \(endClock)")
             }
-            .font(.system(size: 14).monospacedDigit()).opacity(0.85)
+            .font(.cv(14).monospacedDigit()).opacity(0.85)
 
             HStack(spacing: 30) {
                 iconButton("backward.end.fill", size: 18) { if let p = prevEp { play(p) } else { model.seek(to: 0) } }
                     .helpLabel("Previous")
                 iconButton("gobackward.\(skipSecs)", size: 22) { model.skip(-Double(skipSecs)) }.helpLabel("Back \(skipSecs) seconds")
                 Button { model.togglePlay(); poke() } label: {
-                    Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.black)
-                        .frame(width: 56, height: 56)
-                        .background(Circle().fill(Color.white))
-                        .contentShape(Circle())
+                    if classic {
+                        Label(model.playing ? "Pause" : "Play", systemImage: model.playing ? "pause.fill" : "play.fill")
+                            .classicGlassPill(size: 60)
+                    } else {
+                        Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.cv(22, weight: .bold))
+                            .foregroundColor(.black)
+                            .frame(width: 56, height: 56)
+                            .background(Circle().fill(Color.white))
+                            .contentShape(Circle())
+                    }
                 }.buttonStyle(HoverButton()).helpLabel(model.playing ? "Pause (Space)" : "Play (Space)")
                 iconButton("goforward.\(skipSecs)", size: 22) { model.skip(Double(skipSecs)) }.helpLabel("Forward \(skipSecs) seconds")
                 iconButton("forward.end.fill", size: 18) { if let n = nextEp { play(n) } }
@@ -2739,9 +3329,21 @@ struct ClassicPlayerView: View {
         .padding(.horizontal, 34).padding(.bottom, 24)
     }
 
-    func iconButton(_ name: String, size: CGFloat = 22, on: Bool = false, _ action: @escaping () -> Void) -> some View {
+    @ViewBuilder func iconButton(_ name: String, size: CGFloat = 22, on: Bool = false, _ action: @escaping () -> Void) -> some View {
+        if classic {
+            // Glass button; an open panel shows as a brighter icon
+            Button { action(); poke() } label: {
+                Label(name, systemImage: name).classicGlassPill(size: size + 24).opacity(on ? 1 : 0.92)
+                    .overlay { if on { Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1) } }
+            }.buttonStyle(HoverButton())
+        } else {
+            plainIconButton(name, size: size, on: on, action)
+        }
+    }
+
+    func plainIconButton(_ name: String, size: CGFloat, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button { action(); poke() } label: {
-            Image(systemName: name).font(.system(size: size, weight: .medium))
+            Image(systemName: name).font(.cv(size, weight: .medium))
                 .frame(width: size + 12, height: size + 12)
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
@@ -2754,9 +3356,16 @@ struct ClassicPlayerView: View {
     @ViewBuilder var panelLayer: some View {
         switch panel {
         case .subtitles:
-            HStack { Spacer(); mediaPanel }
-                .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+            if classic {
+                // Right above its button (top right of the controls), growing from it
+                VStack { Spacer(); HStack { Spacer(); mediaPanel } }
+                    .padding(.top, 84).padding(.bottom, 196).padding(.trailing, 30)
+                    .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
+            } else {
+                HStack { Spacer(); mediaPanel }
+                    .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
         case .appearance:
             HStack { Spacer(); appearancePanel }.transition(.move(edge: .trailing))
         case .episodes:
@@ -2771,26 +3380,50 @@ struct ClassicPlayerView: View {
         }
     }
 
+    @ViewBuilder var resetAppearanceButton: some View {
+        let reset = { subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10 }
+        if classic {
+            Button(action: reset) {
+                Text("Reset to Default").font(.cv(13, weight: .semibold)).padding(.horizontal, 16).frame(height: 34).classicGlassPill()
+            }.buttonStyle(HoverButton())
+        } else {
+            Button("Reset to Default", action: reset)
+        }
+    }
+
+    @ViewBuilder var retryButton: some View {
+        if classic {
+            Button { Task { await model.retryTranscoded(emby) } } label: {
+                Label("Retry with transcoding", systemImage: "arrow.clockwise").classicGlassPill(size: 40, iconOnly: false)
+            }.buttonStyle(HoverButton())
+        } else {
+            Button("Retry with transcoding") { Task { await model.retryTranscoded(emby) } }
+        }
+    }
+
     func row(_ icon: String, _ title: String, sub: String? = nil, checked: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 18) {
-                Image(systemName: icon).font(.system(size: 18)).frame(width: 26)
+            HStack(spacing: classic ? 12 : 18) {
+                Image(systemName: icon).font(.cv(classic ? 14 : 18)).frame(width: classic ? 20 : 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 16))
-                    if let sub { Text(sub).font(.system(size: 13)).foregroundColor(.secondary) }
+                    Text(title).font(.cv(classic ? 13 : 16, weight: classic ? .medium : .regular)).lineLimit(1)
+                    if let sub { Text(sub).font(.cv(classic ? 11 : 13)).foregroundColor(.secondary) }
                 }
                 Spacer()
-                if checked { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)) }
+                if checked { Image(systemName: "checkmark").font(.cv(classic ? 12 : 15, weight: .semibold)) }
             }
-            .foregroundColor(checked ? accent : .white)
-            .padding(.horizontal, 22).padding(.vertical, 11)
+            .foregroundColor(classic ? .white : (checked ? accent : .white))
+            .padding(.horizontal, classic ? 12 : 22).padding(.vertical, classic ? 7 : 11)
             .contentShape(Rectangle())
-        }.buttonStyle(PanelRowStyle())
+        }
+        .buttonStyle(PanelRowStyle(glass: classic))
+        .padding(.horizontal, classic ? 6 : 0)
     }
 
     func sectionTitle(_ t: String) -> some View {
-        Text(t).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
-            .padding(.horizontal, 22).padding(.top, 10).padding(.bottom, 4)
+        Text(classic ? t.uppercased() : t).font(.cv(classic ? 10 : 13, weight: .semibold)).foregroundColor(.secondary)
+            .kerning(classic ? 0.6 : 0)
+            .padding(.horizontal, classic ? 18 : 22).padding(.top, classic ? 8 : 10).padding(.bottom, 4)
     }
 
     func panelDivider() -> some View { Divider().padding(.horizontal, 18).padding(.vertical, 6) }
@@ -2807,10 +3440,10 @@ struct ClassicPlayerView: View {
                     }
                 }
                 HStack(spacing: 18) {
-                    Image(systemName: "timer").font(.system(size: 18)).frame(width: 26)
+                    Image(systemName: "timer").font(.cv(18)).frame(width: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Subtitle Offset").font(.system(size: 16))
-                        Text("\(model.subOffset) ms").font(.system(size: 13)).foregroundColor(.secondary)
+                        Text("Subtitle Offset").font(.cv(16))
+                        Text("\(model.subOffset) ms").font(.cv(13)).foregroundColor(.secondary)
                     }
                     Spacer()
                     Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plainHand)
@@ -2820,8 +3453,8 @@ struct ClassicPlayerView: View {
                     Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms later")
                 }
-                .font(.system(size: 18))
-                .padding(.horizontal, 22).padding(.vertical, 9)
+                .font(.cv(classic ? 14 : 18))
+                .padding(.horizontal, classic ? 18 : 22).padding(.vertical, classic ? 6 : 9)
                 row("textformat.size", "Subtitle Appearance") { withAnimation { panel = .appearance } }
 
                 if model.audioStreams.count > 0 {
@@ -2846,29 +3479,43 @@ struct ClassicPlayerView: View {
                     ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0] as [Float], id: \.self) { r in
                         let on = model.speed == r
                         Button { model.setSpeed(r) } label: {
-                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.system(size: 14, weight: .semibold))
-                                .frame(maxWidth: .infinity).frame(height: 36)
-                                .foregroundColor(on ? .black : .white)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
+                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.cv(classic ? 12 : 14, weight: .semibold))
+                                .frame(maxWidth: .infinity).frame(height: classic ? 28 : 36)
+                                .foregroundColor(classic || !on ? .white : .black)
+                                .background {
+                                    if classic {
+                                        // glass pills; the chosen speed lit in the accent
+                                        Capsule().fill(on ? accent.opacity(0.55) : Color.white.opacity(0.06))
+                                            .overlay(Capsule().strokeBorder(Color.white.opacity(on ? 0.4 : 0.15), lineWidth: 0.75))
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1))
+                                    }
+                                }
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plainHand).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
                     }
                 }
-                .padding(.horizontal, 22).padding(.bottom, 6)
+                .padding(.horizontal, classic ? 18 : 22).padding(.bottom, 6)
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, classic ? 8 : 12)
         }
-        .frame(width: 340)
-        .background(.ultraThinMaterial.opacity(0.95))
-        .background(Color(white: 0.15).opacity(0.85))
-        .cornerRadius(14)
+        .frame(width: classic ? 290 : 340)
+        .frame(maxHeight: classic ? 440 : .infinity)
+        .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}   // keep taps inside the panel
     }
 
-    func dropdown<T: Hashable>(_ label: String, _ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
+    @ViewBuilder func dropdown<T: Hashable>(_ label: String, _ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
+        if classic {
+            // Classic: the glass pill and glass list
+            VStack(alignment: .leading, spacing: 6) {
+                Text(label).font(.cv(12, weight: .medium)).foregroundColor(.white.opacity(0.75))
+                GlassPicker(selection: sel, options: opts, maxWidth: 300)
+            }
+        } else {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.system(size: 15)).foregroundColor(.white.opacity(0.85))
+            Text(label).font(.cv(15)).foregroundColor(.white.opacity(0.85))
             Menu {
                 ForEach(opts, id: \.0) { o in
                     Button { sel.wrappedValue = o.0 } label: {
@@ -2877,9 +3524,9 @@ struct ClassicPlayerView: View {
                 }
             } label: {
                 HStack {
-                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").font(.system(size: 16))
+                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").font(.cv(16))
                     Spacer()
-                    Image(systemName: "chevron.down").font(.system(size: 13, weight: .bold))
+                    Image(systemName: "chevron.down").font(.cv(13, weight: .bold))
                 }
                 .padding(.horizontal, 14).padding(.vertical, 11)
                 .background(Color.white.opacity(0.1)).cornerRadius(6)
@@ -2887,14 +3534,15 @@ struct ClassicPlayerView: View {
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).handCursor()
         }
+        }
     }
 
     var appearancePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 20) {
-                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.system(size: 18, weight: .semibold)) }
+                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.cv(18, weight: .semibold)) }
                     .buttonStyle(.plainHand)
-                Text("Subtitle Appearance").font(.system(size: 18, weight: .bold))
+                Text("Subtitle Appearance").font(.cv(18, weight: .bold))
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
             ScrollView {
@@ -2903,22 +3551,20 @@ struct ClassicPlayerView: View {
                     dropdown("Text color", $subColor, Self.colors.map { ($0.0, $0.1) })
                     dropdown("Drop shadow", $subShadow, Self.shadows)
                     dropdown("Background color", $subBg, Self.bgs.map { ($0.0, $0.1) })
-                    Text("Subtitle Position").font(.system(size: 20, weight: .bold)).padding(.top, 8)
+                    Text("Subtitle Position").font(.cv(20, weight: .bold)).padding(.top, 8)
                     VStack(alignment: .leading, spacing: 8) {
                         dropdown("Bottom Edge Position", $subBottom, [0, 5, 10, 15, 20, 25, 30].map { (Double($0), "\($0)%") })
                         Text("Set the vertical position of the subtitles relative to the bottom of the screen.")
-                            .font(.system(size: 13)).foregroundColor(.secondary)
+                            .font(.cv(13)).foregroundColor(.secondary)
                     }
-                    Button("Reset to Default") {
-                        subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10
-                    }.padding(.top, 6)
+                    resetAppearanceButton.padding(.top, 6)
                 }
                 .padding(.horizontal, 28).padding(.bottom, 28)
             }
         }
-        .frame(width: 400)
+        .frame(width: classic ? 340 : 400)
         .frame(maxHeight: .infinity)
-        .background(Color(white: 0.16).opacity(0.97))
+        .modifier(AppearanceSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
@@ -2965,7 +3611,7 @@ extension ClassicPlayerView {
     }
 
     func classicMenuIcon(_ name: String, on: Bool) -> some View {
-        Image(systemName: name).font(.system(size: 18, weight: .medium))
+        Image(systemName: name).font(.cv(18, weight: .medium))
             .frame(width: 30, height: 30)
             .foregroundColor(on ? accent : .white)
             .contentShape(Rectangle())
@@ -2981,8 +3627,24 @@ extension ClassicPlayerView {
                     }
                 }.helpLabel("Episodes (E)")
             }
-            if !model.subStreams.isEmpty { classicSubtitleMenu }
-            classicQualityMenu
+            if classic {
+                // Glass buttons opening the glass list, as the other controls
+                if !model.subStreams.isEmpty {
+                    let subs = [nil] + model.subStreams.map { Optional($0.Index) }
+                    GlassMenuButton(icon: "captions.bubble", on: model.sub != nil,
+                                    options: ["Off"] + model.subStreams.map { $0.DisplayTitle ?? "Track \($0.Index)" },
+                                    selected: subs.firstIndex(of: model.sub) ?? 0) { i in
+                        Task { await model.setSub(emby, subs[i]) }
+                    }.accessibilityLabel("Subtitles")
+                }
+                GlassMenuButton(icon: "dial.medium", on: model.quality != 0, options: Self.qualities.map(\.1),
+                                selected: Self.qualities.firstIndex { $0.0 == model.quality } ?? 0) { i in
+                    Task { await model.setQuality(emby, Self.qualities[i].0) }
+                }.accessibilityLabel("Video quality")
+            } else {
+                if !model.subStreams.isEmpty { classicSubtitleMenu }
+                classicQualityMenu
+            }
             if !model.chapterList.isEmpty {
                 iconButton("list.bullet.rectangle", size: 18, on: panel == .chapters) {
                     withAnimation(.easeOut(duration: 0.2)) { panel = panel == .chapters ? nil : .chapters }
@@ -2998,8 +3660,8 @@ extension ClassicPlayerView {
 
     var classicPipPlaceholder: some View {
         VStack(spacing: 10) {
-            Image(systemName: "pip").font(.system(size: 44))
-            Text("Playing in picture in picture").font(.system(size: 16, weight: .medium))
+            Image(systemName: "pip").font(.cv(44))
+            Text("Playing in picture in picture").font(.cv(16, weight: .medium))
         }.opacity(0.6).allowsHitTesting(false)
     }
 
@@ -3014,12 +3676,12 @@ extension ClassicPlayerView {
             VStack(spacing: 4) {
                 if let img {
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
-                        .frame(width: w).cornerRadius(6)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1))
+                        .frame(width: w).cornerRadius(classic ? 10 : 6)
+                        .modifier(PreviewFrame(classic: classic))
                 }
-                Text(fmt(t)).font(.system(size: 13, weight: .semibold).monospacedDigit())
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Capsule().fill(Color.black.opacity(0.7)))
+                Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit())
+                    .padding(.horizontal, classic ? 10 : 6).padding(.vertical, classic ? 4 : 2)
+                    .modifier(TimeBubble(classic: classic))
             }
             .frame(width: w)
             .offset(x: min(max(0, x - w / 2), max(0, sliderW - w)), y: -26)
@@ -3043,16 +3705,16 @@ extension ClassicPlayerView {
             if model.skippedIntro {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
-                    Text("Intro skipped").font(.system(size: 15, weight: .semibold))
+                    Text("Intro skipped").font(.cv(15, weight: .semibold))
                     Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
-                        .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
+                        .font(.cv(15, weight: .semibold)).foregroundColor(accent)
                 }
                 .padding(.horizontal, 18).frame(height: 44)
                 .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
-                    Label("Skip Intro", systemImage: "forward.fill").font(.system(size: 16, weight: .semibold))
+                    Label("Skip Intro", systemImage: "forward.fill").font(.cv(16, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 22).frame(height: 44)
                         .searchGlass()
@@ -3073,24 +3735,24 @@ extension ClassicPlayerView {
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+                Text("Up next").font(.cv(12, weight: .semibold)).foregroundColor(.secondary)
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
-                    .font(.system(size: 15, weight: .semibold)).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
+                    .font(.cv(15, weight: .semibold)).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
-                        Text("Play now").font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(Capsule().fill(Color.white))
+                        Text("Play now").font(.cv(14, weight: .semibold))
+                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .classicGlassPill()
                     }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
-                        Text("Cancel").font(.system(size: 14, weight: .semibold))
+                        Text("Cancel").font(.cv(14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(Capsule().fill(Color.white.opacity(0.15)))
+                            .classicGlassPill()
                     }.buttonStyle(HoverButton())
                 }
                 if autoNext {
                     Text("Next starts in \(classicSecsLeft)s")
-                        .font(.system(size: 11)).foregroundColor(.secondary)
+                        .font(.cv(11)).foregroundColor(.secondary)
                 }
             }
         }
@@ -3106,7 +3768,7 @@ extension ClassicPlayerView {
         VStack {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Playback info").font(.system(size: 13, weight: .bold))
+                    Text("Playback info").font(.cv(13, weight: .bold))
                     ForEach(Array(infoLines.enumerated()), id: \.offset) { _, l in
                         HStack(alignment: .top, spacing: 10) {
                             Text(l.0).foregroundColor(.white.opacity(0.6)).frame(width: 120, alignment: .leading)
@@ -3114,9 +3776,9 @@ extension ClassicPlayerView {
                         }
                     }
                 }
-                .font(.system(size: 12).monospacedDigit())
+                .font(.cv(12).monospacedDigit())
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.75)))
+                .modifier(InfoSurface(classic: classic))
                 Spacer()
             }
             Spacer()
@@ -3132,12 +3794,16 @@ extension ClassicPlayerView {
         let list = episodes.filter { ($0.ParentIndexNumber ?? 0) == pickerSeason }
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Episodes").font(.system(size: 18, weight: .bold))
+                Text("Episodes").font(.cv(18, weight: .bold))
                 Spacer()
                 if seasons.count > 1 {
-                    Picker("", selection: $pickerSeason) {
-                        ForEach(seasons, id: \.self) { n in Text(n == 0 ? "Specials" : "Season \(n)").tag(n) }
-                    }.labelsHidden().fixedSize()
+                    if classic {
+                        GlassPicker(selection: $pickerSeason, options: seasons.map { ($0, $0 == 0 ? "Specials" : "Season \($0)") })
+                    } else {
+                        Picker("", selection: $pickerSeason) {
+                            ForEach(seasons, id: \.self) { n in Text(n == 0 ? "Specials" : "Season \(n)").tag(n) }
+                        }.labelsHidden().fixedSize()
+                    }
                 }
             }.padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
             ScrollViewReader { proxy in
@@ -3150,9 +3816,7 @@ extension ClassicPlayerView {
             }
         }
         .frame(width: 400)
-        .background(.ultraThinMaterial.opacity(0.95))
-        .background(Color(white: 0.15).opacity(0.85))
-        .cornerRadius(14)
+        .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
@@ -3168,29 +3832,33 @@ extension ClassicPlayerView {
                 .frame(width: 120, height: 68).clipped().cornerRadius(5)
                 .overlay {
                     if current {
-                        Image(systemName: "speaker.wave.2.fill").font(.system(size: 18)).foregroundColor(.white)
+                        Image(systemName: "speaker.wave.2.fill").font(.cv(18)).foregroundColor(.white)
                             .padding(6).background(Circle().fill(Color.black.opacity(0.6)))
                     }
                 }
                 .overlay(alignment: .topTrailing) {
                     if played && !current {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 14))
+                        Image(systemName: "checkmark.circle.fill").font(.cv(14))
                             .foregroundColor(.white).shadow(radius: 2).padding(4)
                     }
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").font(.cv(14, weight: .semibold)).lineLimit(2)
                     if let t = ep.RunTimeTicks, t > 0 {
-                        Text(runtimeText(t)).font(.system(size: 12)).foregroundColor(.secondary)
+                        Text(runtimeText(t)).font(.cv(12)).foregroundColor(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
             }
-            .foregroundColor(current ? accent : .white)
+            .foregroundColor(classic || !current ? .white : accent)
             .padding(.horizontal, 14).padding(.vertical, 6)
-            .background(current ? Color.white.opacity(0.08) : Color.clear)
+            .background {
+                // Classic: the playing one on an accent glass band, as the chosen line in the glass lists
+                if classic && current { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(accent.opacity(0.4)) }
+                else if current { Color.white.opacity(0.08) }
+            }
             .contentShape(Rectangle())
-        }.buttonStyle(PanelRowStyle())
+        }.buttonStyle(PanelRowStyle(glass: classic)).padding(.horizontal, classic ? 6 : 0)
     }
 
     // MARK: Chapters panel
@@ -3207,9 +3875,7 @@ extension ClassicPlayerView {
             }.padding(.vertical, 12)
         }
         .frame(width: 380)
-        .background(.ultraThinMaterial.opacity(0.95))
-        .background(Color(white: 0.15).opacity(0.85))
-        .cornerRadius(14)
+        .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
@@ -3226,15 +3892,18 @@ extension ClassicPlayerView {
                 }
                 .frame(width: 112, height: 63).clipped().cornerRadius(5)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(c.Name ?? "Chapter \(i + 1)").font(.system(size: 15)).lineLimit(2)
-                    Text(fmt(c.start)).font(.system(size: 13).monospacedDigit()).foregroundColor(.secondary)
+                    Text(c.Name ?? "Chapter \(i + 1)").font(.cv(15)).lineLimit(2)
+                    Text(fmt(c.start)).font(.cv(13).monospacedDigit()).foregroundColor(.secondary)
                 }
                 Spacer()
             }
-            .foregroundColor(current ? accent : .white)
-            .padding(.horizontal, 18).padding(.vertical, 7)
+            .foregroundColor(classic || !current ? .white : accent)
+            .padding(.horizontal, classic ? 12 : 18).padding(.vertical, 7)
+            .background {
+                if classic && current { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(accent.opacity(0.4)) }
+            }
             .contentShape(Rectangle())
-        }.buttonStyle(PanelRowStyle())
+        }.buttonStyle(PanelRowStyle(glass: classic)).padding(.horizontal, classic ? 6 : 0)
     }
 }
 
@@ -3250,13 +3919,19 @@ struct ClassicAlphaLetter: View {
     let on: Bool
     let action: () -> Void
     @State private var hover = false
+    @AppStorage("accent") private var accentName = "red"
     var body: some View {
         Button(action: action) {
-            Text(l).font(.system(size: 11, weight: .bold))
-                .frame(width: 22, height: 16)
-                .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : hover ? AnyShapeStyle(Color.primary) : AnyShapeStyle(Color.secondary))
-                .background(on ? Color.white.opacity(0.15) : hover ? Color.white.opacity(0.1) : Color.clear)
-                .clipShape(Circle())
+            // The chosen letter lit in the accent, the one under the pointer softly
+            Text(l).font(.cv(11, weight: .bold))
+                .frame(width: 20, height: 18)
+                .foregroundColor(on || hover ? .white : .white.opacity(0.55))
+                .background {
+                    if on || hover {
+                        Circle().fill(Theme.accent(accentName).opacity(on ? 0.6 : 0.3))
+                            .overlay(Circle().strokeBorder(Color.white.opacity(on ? 0.4 : 0.2), lineWidth: 0.5))
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
@@ -3264,7 +3939,7 @@ struct ClassicAlphaLetter: View {
             hover = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
+        .accessibilityLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")   // no tooltip
     }
 }
 
@@ -3278,13 +3953,13 @@ struct ClassicFavPersonCard: View {
                 CachedImage(url: emby.image(p.id, width: 360)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+                .classicThinBorder(12)
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
-                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
+                Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)
             }.frame(width: 150)
         }.buttonStyle(.plainHand)
     }
@@ -3300,7 +3975,7 @@ struct ClassicFavoritePeopleView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Favorite People").font(.title.bold())
+                Text("Favorite People").font(.cv(22, weight: .bold))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(people.filter { emby.isFav($0) }) { ClassicFavPersonCard(p: $0) }
                 }
@@ -3315,3 +3990,4 @@ struct ClassicFavoritePeopleView: View {
         .onChange(of: emby.favRevision) { Task { people = await emby.favoritePeople() } }
     }
 }
+
