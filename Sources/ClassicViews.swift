@@ -1808,7 +1808,9 @@ struct ClassicDetailView: View {
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
             .frame(width: item.isEpisode ? 320 : 220, height: item.isEpisode ? 180 : 330)
-            .clipped().cornerRadius(10).shadow(color: .black.opacity(0.5), radius: 16, y: 8)
+            .clipped().cornerRadius(10)
+            .classicThinBorder(10)   // glass tube edge and sheen, as the cards
+            .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             VStack(alignment: .leading, spacing: 14) {
                 Text(item.Name).font(.system(size: 46, weight: .black))
                 meta
