@@ -391,6 +391,10 @@ struct ClassicHomeView: View {
                                               home: { goHome() },
                                               back: { goBack() },
                                               banner: { d in
+                                                  // A show page with the season deck: ← → move through the seasons
+                                                  if !path.isEmpty && nav.seasonDecksShown > 0 {
+                                                      nav.seasonNudge = .init(dir: d); return true
+                                                  }
                                                   guard sel == "home" && path.isEmpty && query.isEmpty else { return false }
                                                   nav.bannerNudge = .init(dir: d); return true
                                               })
@@ -451,6 +455,8 @@ final class ClassicNavState: ObservableObject {
     /// Goes up to put the cursor in the search field (the S key)
     @Published var focusSearch = 0
     @Published var bannerNudge: NavState.Nudge?   // ← → on Home
+    @Published var seasonNudge: NavState.Nudge?   // ← → on a show page with the season deck
+    var seasonDecksShown = 0                      // season decks on screen (the top page's)
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
@@ -989,6 +995,7 @@ struct SeasonDeck: View {
     @State private var leaving: Int?
     @State private var leavingGone = false
     @State private var busy = false   // a move is still animating: clicks wait for it to finish
+    @ObservedObject private var nav = ClassicNavState.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let w: CGFloat = 150, h: CGFloat = 225
     private let peek: CGFloat = 22
@@ -1001,6 +1008,10 @@ struct SeasonDeck: View {
             cards
             arrow("chevron.right", "Next season", enabled: pos < numbers.count - 1) { go(pos + 1) }
         }
+        // ← → keys while this page is on top
+        .onAppear { nav.seasonDecksShown += 1 }
+        .onDisappear { nav.seasonDecksShown -= 1 }
+        .onChange(of: nav.seasonNudge) { _, n in if let n { go(pos + n.dir) } }
     }
 
     func arrow(_ icon: String, _ help: String, enabled: Bool, _ action: @escaping () -> Void) -> some View {
