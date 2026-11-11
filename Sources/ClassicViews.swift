@@ -1096,7 +1096,7 @@ struct PanelSurface: ViewModifier {
 }
 
 /// Classic progress on a card: a slim rounded line along the bottom, a see-through glass track with the watched part
-/// in the accent color, lit along its top and softly glowing.
+/// in the accent color, lit along its top and softly glowing, with a black outline like the cards' text.
 struct ClassicProgressLine: View {
     let progress: Double   // 0...1
     @AppStorage("accent") private var accentName = "red"
@@ -1114,6 +1114,9 @@ struct ClassicProgressLine: View {
             }
         }
         .frame(height: 4)
+        // Black outline, as the text on the cards
+        .padding(1)
+        .background(Capsule().fill(Color.black))
     }
 }
 
