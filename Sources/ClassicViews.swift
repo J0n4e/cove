@@ -1095,6 +1095,28 @@ struct PanelSurface: ViewModifier {
     }
 }
 
+/// Classic progress on a card: a slim rounded line along the bottom, a see-through glass track with the watched part
+/// in the accent color, lit along its top and softly glowing.
+struct ClassicProgressLine: View {
+    let progress: Double   // 0...1
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        let accent = Theme.accent(accentName)
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.black.opacity(0.45))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 0.5))
+                Capsule()
+                    .fill(LinearGradient(colors: [accent.opacity(0.95), accent], startPoint: .top, endPoint: .bottom))
+                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.45), .clear], startPoint: .top, endPoint: .center)))
+                    .frame(width: max(4, g.size.width * CGFloat(min(1, max(0, progress)))))
+                    .shadow(color: accent.opacity(0.7), radius: 3)
+            }
+        }
+        .frame(height: 4)
+    }
+}
+
 /// Watched / Favorite buttons on hover (bottom right), only on the deck's front card.
 private struct FrontActions: ViewModifier {
     let on: Bool
@@ -1399,7 +1421,7 @@ struct ClassicResumeCard: View {
                     Text(item.heroTitle)
                         .font(.cv(12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
                         .classicBlackOutline()
-                        .padding(.leading, 10).padding(.trailing, 40).padding(.bottom, 10)
+                        .padding(.horizontal, 10).padding(.bottom, progress > 0 && progress < 1 ? 18 : 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 // Series info (S3·E3 · 42m left), top-left
@@ -1409,9 +1431,9 @@ struct ClassicResumeCard: View {
                             .classicBlackOutline().padding(10)
                     }
                 }
-                // White progress ring, bottom-right
-                .overlay(alignment: .bottomTrailing) {
-                    if progress > 0 && progress < 1 { ProgressRing(progress: progress).padding(.trailing, 10).padding(.bottom, 10) }
+                // How far you got: a slim glowing line along the bottom
+                .overlay(alignment: .bottom) {
+                    if progress > 0 && progress < 1 { ClassicProgressLine(progress: progress).padding(.horizontal, 10).padding(.bottom, 8) }
                 }
                 // Play button: resumes playback; clicking anywhere else on the card opens the page
                 .overlay {
@@ -2438,8 +2460,8 @@ struct ClassicDetailView: View {
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 220, height: 124).clipped()
-                .overlay(alignment: .bottomTrailing) {
-                    if pct > 0, pct < 100, !played { ProgressRing(progress: pct / 100).padding(8) }
+                .overlay(alignment: .bottom) {
+                    if pct > 0, pct < 100, !played { ClassicProgressLine(progress: pct / 100).padding(.horizontal, 8).padding(.bottom, 6) }
                 }
                 .cornerRadius(6)
                 .classicThinBorder(6)
@@ -2533,8 +2555,8 @@ struct ClassicDetailView: View {
                     // No background: a black outline keeps it readable (as on Continue Watching)
                     Text(ep.Name).font(.cv(14, weight: .semibold)).foregroundColor(.white).lineLimit(2)
                         .classicBlackOutline()
-                        .padding(.leading, 10).padding(.trailing, hasProgress ? 40 : 10)
-                        .padding(.bottom, hasProgress ? 12 : 9)
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, hasProgress ? 18 : 9)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 // Episode number in the top-left corner
@@ -2543,9 +2565,9 @@ struct ClassicDetailView: View {
                         .classicBlackOutline()
                         .padding(10)
                 }
-                // White progress ring in the bottom-right corner
-                .overlay(alignment: .bottomTrailing) {
-                    if hasProgress { ProgressRing(progress: pct / 100).padding(.trailing, 10).padding(.bottom, 12) }
+                // How far you got: a slim glowing line along the bottom
+                .overlay(alignment: .bottom) {
+                    if hasProgress { ClassicProgressLine(progress: pct / 100).padding(.horizontal, 10).padding(.bottom, 8) }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .classicThinBorder(6)
