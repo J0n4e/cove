@@ -147,7 +147,7 @@ struct ClassicGlassCard: ViewModifier {
                                                                .init(color: .white.opacity(0.15 * lit), location: 0.75),
                                                                .init(color: .white.opacity(0.08 * lit), location: 0.875),
                                                                .init(color: .white.opacity(0.15 * lit), location: 1)],
-                                                       center: .center, angle: .degrees(90)), lineWidth: 1.2)
+                                                       center: .center, angle: .zero), lineWidth: 1.2)   // 45° = bottom-right, 225° = top-left
                 }
                 .clipShape(shape)
                 .allowsHitTesting(false)
