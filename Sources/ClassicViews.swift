@@ -1074,6 +1074,33 @@ struct SeasonDeck: View {
     }
 }
 
+/// A choice (audio, subtitles, quality…) as a glass pill showing the current value; the list opens on click.
+struct GlassPicker<T: Hashable>: View {
+    @Binding var selection: T
+    let options: [(T, String)]
+    var maxWidth: CGFloat = 260
+    var body: some View {
+        Menu {
+            Picker("", selection: $selection) {
+                ForEach(options.indices, id: \.self) { i in Text(options[i].1).tag(options[i].0) }
+            }.pickerStyle(.inline).labelsHidden()
+        } label: {
+            HStack(spacing: 6) {
+                Text(options.first { $0.0 == selection }?.1 ?? "—").lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: maxWidth - 44, alignment: .leading)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold)).opacity(0.7)
+            }
+            .foregroundStyle(.white)
+        }
+        .menuStyle(.button).buttonStyle(.plain)   // plain label: white text, no accent tint
+        .menuIndicator(.hidden).fixedSize(horizontal: false, vertical: true)
+        .font(.system(size: 13, weight: .medium))
+        .padding(.horizontal, 14).frame(height: 32)
+        .classicGlassPill()
+        .fixedSize()
+    }
+}
+
 /// Watched / Favorite buttons on hover (bottom right), only on the deck's front card.
 private struct FrontActions: ViewModifier {
     let on: Bool
@@ -2194,13 +2221,10 @@ struct ClassicDetailView: View {
     var streamsRow: some View {
         FlowLayout(hSpacing: 20, vSpacing: 10) {
             if sources.count > 1 {
-                HStack(spacing: 6) {
-                    Text("Version").foregroundColor(.secondary)
-                    Picker("", selection: $srcIdx) {
-                        ForEach(sources.indices, id: \.self) { Text(sources[$0].Name ?? sources[$0].Path ?? "Version \($0 + 1)").tag($0) }
-                    }
-                    .pickerStyle(.menu).labelsHidden()
-                    .frame(maxWidth: 320)   // long file names are cut with "…"
+                labeled("Version") {
+                    GlassPicker(selection: $srcIdx, options: sources.indices.map {
+                        ($0, sources[$0].Name ?? sources[$0].Path ?? "Version \($0 + 1)")
+                    }, maxWidth: 320)   // long file names are cut with "…"
                 }
             }
             if let v = streams("Video").first {
@@ -2208,24 +2232,17 @@ struct ClassicDetailView: View {
             }
             if !streams("Audio").isEmpty {
                 labeled("Audio") {
-                    Picker("", selection: $audioIdx) {
-                        ForEach(streams("Audio")) { Text($0.DisplayTitle ?? "Track \($0.Index)").tag($0.Index) }
-                    }
+                    GlassPicker(selection: $audioIdx,
+                                options: streams("Audio").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
                 }
             }
             labeled("Subtitles") {
-                Picker("", selection: $subIdx) {
-                    Text("Off").tag(-1)
-                    ForEach(streams("Subtitle")) { Text($0.DisplayTitle ?? "Track \($0.Index)").tag($0.Index) }
-                }
+                GlassPicker(selection: $subIdx,
+                            options: [(-1, "Off")] + streams("Subtitle").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
             }
             labeled("Quality") {
-                Picker("", selection: $quality) {
-                    Text("Original").tag(0)
-                    Text("1080p · 8 Mbps").tag(8_000_000)
-                    Text("720p · 4 Mbps").tag(4_000_000)
-                    Text("480p · 1.5 Mbps").tag(1_500_000)
-                }
+                GlassPicker(selection: $quality, options: [(0, "Original"), (8_000_000, "1080p · 8 Mbps"),
+                                                           (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }
         }
         .font(.callout)
@@ -2233,9 +2250,9 @@ struct ClassicDetailView: View {
     }
 
     func labeled<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Text(title).foregroundColor(.secondary)
-            content().pickerStyle(.menu).labelsHidden().fixedSize()
+            content()
         }
     }
 
@@ -2407,11 +2424,9 @@ struct ClassicDetailView: View {
             episodeLayoutToggle
             if !epLangs.isEmpty {
                 Text("Subtitles").foregroundColor(.secondary)
-                Picker("", selection: $epSubLang) {
-                    Text(defaultSubLabel).tag("")
-                    if subAlwaysOn { Text("Off").tag("off") }
-                    ForEach(epLangs, id: \.code) { l in Text(l.name).tag(l.code) }
-                }.labelsHidden().fixedSize()
+                GlassPicker(selection: $epSubLang,
+                            options: [("", defaultSubLabel)] + (subAlwaysOn ? [("off", "Off")] : [])
+                                + epLangs.map { ($0.code, $0.name) })
             }
         }.padding(.horizontal, 40).padding(.top, 10)
     }
