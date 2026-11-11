@@ -996,13 +996,21 @@ struct SeasonDeck: View {
     private let w: CGFloat = 150, h: CGFloat = 225
     private let peek: CGFloat = 22
 
-    var pos: Int { numbers.firstIndex(of: selected) ?? 0 }
+    /// The deck's own position, animated here as on the Home deck. The page's season follows it (and the deck
+    /// follows the page when the season changes elsewhere). Animating through the page's season made the whole
+    /// page animate with the cards, so going back stuttered.
+    @State private var pos = -1
+    var shownPos: Int { pos >= 0 ? pos : (numbers.firstIndex(of: selected) ?? 0) }
 
     var body: some View {
         HStack(spacing: 12) {
-            arrow("chevron.left", "Previous season", enabled: pos > 0) { go(pos - 1) }
+            arrow("chevron.left", "Previous season", enabled: shownPos > 0) { go(shownPos - 1) }
             cards
-            arrow("chevron.right", "Next season", enabled: pos < numbers.count - 1) { go(pos + 1) }
+            arrow("chevron.right", "Next season", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
+        }
+        .onAppear { pos = numbers.firstIndex(of: selected) ?? 0 }
+        .onChange(of: selected) { _, s in
+            if let i = numbers.firstIndex(of: s), i != pos { pos = i }
         }
     }
 
@@ -1013,29 +1021,32 @@ struct SeasonDeck: View {
     }
 
     func go(_ p: Int) {
+        let pos = shownPos
         guard !busy, p >= 0, p < numbers.count, p != pos else { return }
         if !reduceMotion {
             busy = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { busy = false }
         }
         if p > pos && !reduceMotion {
-            leaving = selected; leavingGone = false
+            leaving = numbers[pos]; leavingGone = false
             DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.6)) { leavingGone = true } }
             let n = leaving
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if leaving == n { leaving = nil } }
         }
         if p < pos && !reduceMotion {
-            // Going back: the card coming to the front fades in as a copy over the deck (the inserted card's own
-            // fade did not always play)
+            // Going back: the new front card fades in as a copy over the deck (an inserted card does not fade here)
             arriving = numbers[p]; arrivingIn = false
             DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.6)) { arrivingIn = true } }
             let n = arriving
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if arriving == n { arriving = nil } }
         }
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { select(numbers[p]) }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { self.pos = p }
+        // The page's season (episode list) changes on its own, outside the cards' animation
+        select(numbers[p])
     }
 
     var cards: some View {
+        let pos = shownPos
         let shown = min(numbers.count - pos, 4)
         return ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
