@@ -1763,10 +1763,13 @@ struct SearchDock: View {
             if open {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold)).foregroundColor(.secondary)
-                    TextField("Search movies, shows, people", text: $query).textFieldStyle(.plain)
+                    // Typing counts only while the box is open: after closing, the field could hold on to the
+                    // keyboard while sliding away, and typing then opened search results
+                    TextField("Search movies, shows, people", text: Binding(get: { query }, set: { if open { query = $0 } }))
+                        .textFieldStyle(.plain)
                         .font(.system(size: 15)).frame(width: 320)
                         .focused($focused)
-                        .onExitCommand { query = ""; open = false }   // Esc closes it
+                        .onExitCommand { close() }   // Esc closes it
                     if !query.isEmpty {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
                             .buttonStyle(.plainHand)
@@ -1785,6 +1788,44 @@ struct SearchDock: View {
         .frame(maxWidth: .infinity)
         .animation(.spring(duration: 0.35), value: open)
         .onChange(of: focusTick) { focused = true }
+        // However it closes (Esc, the search button): let go of the keyboard. The text field kept it while
+        // sliding away, so typing afterwards still went into the search and opened results.
+        .onChange(of: open) { _, on in if !on { release() } }
+    }
+
+    func close() {
+        query = ""
+        open = false
+        release()
+    }
+
+    func release() {
+        focused = false
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        // Again once the slide-away animation is over, in case the field took the keyboard back meanwhile
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            guard !open, let w = NSApp.keyWindow, w.firstResponder is NSText else { return }
+            w.makeFirstResponder(nil)
+        }
+    }
+}
+
+/// The search box's glass look (dark tint over blur, thin light edge, soft shadow), shared by the
+/// confirmation pill and the player's Skip Intro / Up next cards.
+struct GlassBackground<S: InsettableShape>: ViewModifier {
+    let shape: S
+    func body(content: Content) -> some View {
+        content
+            .background(shape.fill(Color.black.opacity(0.55)))
+            .background(.ultraThinMaterial, in: shape)
+            .overlay(shape.strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+            .shadow(color: .black.opacity(0.45), radius: 14, y: 5)
+    }
+}
+extension View {
+    func searchGlass() -> some View { modifier(GlassBackground(shape: Capsule())) }
+    func glassPanel(_ radius: CGFloat = 16) -> some View {
+        modifier(GlassBackground(shape: RoundedRectangle(cornerRadius: radius, style: .continuous)))
     }
 }
 
@@ -1798,11 +1839,8 @@ struct ToastOverlay: View {
             if let t = emby.toast {
                 Label(t.text, systemImage: t.icon)
                     .font(.system(size: 14, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                    .padding(.horizontal, 18).padding(.vertical, 10)
-                    .background(Capsule().fill(Color.black.opacity(0.55)))
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay(Capsule().stroke(Color.white.opacity(0.15)))
-                    .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
+                    .padding(.horizontal, 18).frame(height: 44)
+                    .searchGlass()
                     .padding(.bottom, raised ? 80 : 28)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .id(t.id)
@@ -4297,15 +4335,16 @@ extension PlayerView {
                     Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
                         .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Capsule().fill(Color.black.opacity(0.75)))
+                .padding(.horizontal, 18).frame(height: 44)
+                .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
-                    Text("Skip Intro").font(.system(size: 16, weight: .bold)).foregroundColor(.black)
-                        .padding(.horizontal, 20).padding(.vertical, 11)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                }.buttonStyle(.plainHand)
+                    Label("Skip Intro", systemImage: "forward.fill").font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 22).frame(height: 44)
+                        .searchGlass()
+                }.buttonStyle(HoverButton())
             }
             if showUpNext, let n = nextEp { upNextCard(n) }
         }
@@ -4320,7 +4359,7 @@ extension PlayerView {
             CachedImage(url: emby.image(n.Id, "Primary", width: 400, plain: true)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { Color.white.opacity(0.1) }
-            .frame(width: 160, height: 90).clipped().cornerRadius(6)
+            .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
                 Text("Up next").font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
@@ -4329,14 +4368,13 @@ extension PlayerView {
                     Button { play(n) } label: {
                         Text("Play now").font(.system(size: 14, weight: .bold))
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent, lineWidth: 3))
-                    }.buttonStyle(.plainHand)
+                            .background(Capsule().fill(Color.white))
+                    }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
                         Text("Cancel").font(.system(size: 14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.15)))
-                    }.buttonStyle(.plainHand)
+                            .background(Capsule().fill(Color.white.opacity(0.15)))
+                    }.buttonStyle(HoverButton())
                 }
                 if autoNext {
                     Text("Next starts in \(secsLeft)s")
@@ -4345,7 +4383,7 @@ extension PlayerView {
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.8)))
+        .glassPanel()
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }

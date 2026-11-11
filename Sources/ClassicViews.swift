@@ -3047,15 +3047,16 @@ extension ClassicPlayerView {
                     Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
                         .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Capsule().fill(Color.black.opacity(0.75)))
+                .padding(.horizontal, 18).frame(height: 44)
+                .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
-                    Text("Skip Intro").font(.system(size: 16, weight: .bold)).foregroundColor(.black)
-                        .padding(.horizontal, 20).padding(.vertical, 11)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
-                }.buttonStyle(.plainHand)
+                    Label("Skip Intro", systemImage: "forward.fill").font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 22).frame(height: 44)
+                        .searchGlass()
+                }.buttonStyle(HoverButton())
             }
             if classicShowUpNext, let n = nextEp { classicUpNextCard(n) }
         }
@@ -3070,7 +3071,7 @@ extension ClassicPlayerView {
             CachedImage(url: emby.image(n.Id, "Primary", width: 400, plain: true)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { Color.white.opacity(0.1) }
-            .frame(width: 160, height: 90).clipped().cornerRadius(6)
+            .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
                 Text("Up next").font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
@@ -3079,14 +3080,13 @@ extension ClassicPlayerView {
                     Button { play(n) } label: {
                         Text("Play now").font(.system(size: 14, weight: .bold))
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent, lineWidth: 3))
-                    }.buttonStyle(.plainHand)
+                            .background(Capsule().fill(Color.white))
+                    }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
                         Text("Cancel").font(.system(size: 14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.15)))
-                    }.buttonStyle(.plainHand)
+                            .background(Capsule().fill(Color.white.opacity(0.15)))
+                    }.buttonStyle(HoverButton())
                 }
                 if autoNext {
                     Text("Next starts in \(classicSecsLeft)s")
@@ -3095,7 +3095,7 @@ extension ClassicPlayerView {
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.8)))
+        .glassPanel()
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
     }
