@@ -989,6 +989,7 @@ struct SeasonDeck: View {
     @State private var leaving: Int?
     @State private var leavingGone = false
     @State private var busy = false   // a move is still animating: clicks wait for it to finish
+    @State private var hover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let w: CGFloat = 150, h: CGFloat = 225
     private let peek: CGFloat = 22
@@ -996,17 +997,20 @@ struct SeasonDeck: View {
     var pos: Int { numbers.firstIndex(of: selected) ?? 0 }
 
     var body: some View {
+        // ‹ › fade in while the pointer is on the deck, as the Home banner's arrows
         HStack(spacing: 12) {
             arrow("chevron.left", "Previous season", enabled: pos > 0) { go(pos - 1) }
             cards
             arrow("chevron.right", "Next season", enabled: pos < numbers.count - 1) { go(pos + 1) }
         }
+        .contentShape(Rectangle())
+        .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
     }
 
     func arrow(_ icon: String, _ help: String, enabled: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) { Label(help, systemImage: icon).classicGlassPill(size: 40) }
             .buttonStyle(HoverButton()).helpLabel(help)
-            .disabled(!enabled).opacity(enabled ? 1 : 0.35)
+            .disabled(!enabled || !hover).opacity(hover ? (enabled ? 1 : 0.35) : 0)
     }
 
     func go(_ p: Int) {
