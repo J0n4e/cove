@@ -906,6 +906,7 @@ struct ClassicHomeContent: View {
     @State private var retry = 0
     @State private var rows: [Row] = []
     @State private var loading = true
+    @State private var pageH: CGFloat = .infinity
 
     var heroItems: [Item] {
         var seen = Set<String>()
@@ -922,7 +923,7 @@ struct ClassicHomeContent: View {
         let hero = heroItems
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                if !hero.isEmpty { ClassicHero(items: hero) }
+                if !hero.isEmpty { ClassicHero(items: hero, pageH: pageH) }
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         Text(row.title).font(.title3.bold()).padding(.leading, 32)
@@ -954,6 +955,10 @@ struct ClassicHomeContent: View {
                 }
             }.padding(.bottom, 40)
         }
+        .ignoresSafeArea(edges: hero.isEmpty ? [] : .top)   // the banner runs up under the floating top bar
+        .background(GeometryReader { g in
+            Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
+        })
         .background(bg)
         .task(id: "\(reloadToken)-\(retry)") { rows = await emby.loadHome(); loading = false }
     }
@@ -968,91 +973,114 @@ extension View {
     }
 }
 
+/// Home banner, cinematic: the picture runs edge to edge up under the floating top bar, the title logo, facts,
+/// description and glass buttons sit on a dark fade at the left, and the coming banners are a row of small glass
+/// thumbnails at the bottom (the current one lit).
 struct ClassicHero: View {
     @EnvironmentObject var emby: Emby
+    @Environment(\.appBG) var bg
     let items: [Item]
+    /// Height of the visible page; the banner never grows past it
+    var pageH: CGFloat = .infinity
     @State private var index = 0
     @State private var hover = false
+    @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var nav = ClassicNavState.shared
+    var bannerH: CGFloat { min(max(width * 9 / 16, 460), 860, max(pageH - 40, 380)) }
 
-    func meta(_ item: Item) -> [String] {
-        var m: [String] = []
+    func meta(_ item: Item) -> String {
+        var m: [String] = [item.isEpisode || item.isSeries ? "TV Show" : "Movie"]
+        m += (item.Genres ?? []).prefix(2)
         if let y = item.ProductionYear { m.append(String(y)) }
-        if let t = item.RunTimeTicks, t > 0 { m.append(runtimeText(t)) }
-        if let g = item.Genres?.first { m.append(g) }
-        return m
+        return m.joined(separator: " · ")
+    }
+
+    func go(_ i: Int) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { index = (i + items.count) % items.count }
     }
 
     var body: some View {
         let item = items[index % items.count]
         ZStack(alignment: .bottomLeading) {
-            Color.clear.frame(maxWidth: .infinity).frame(height: 440)
+            Color.clear.frame(maxWidth: .infinity).frame(height: bannerH)
                 .overlay { ClassicBackdrop(id: item.backdropId ?? item.Id) }.clipped()
                 .id("b" + item.id).transition(.opacity)
-            VStack(alignment: .leading, spacing: 14) {
-                Text(item.heroTitle).font(.system(size: 52, weight: .black)).lineLimit(2).classicBlackOutline(2)
-                if item.SeriesName != nil {
-                    Text("S\(item.ParentIndexNumber ?? 0)·E\(item.IndexNumber ?? 0)  \(item.Name)")
-                        .font(.headline).foregroundColor(.white).classicBlackOutline()
+            // Dark fade from the left (behind the text) and into the page at the bottom
+            LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
+                           startPoint: .leading, endPoint: .trailing)
+            LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
+                                   .init(color: bg, location: 1)], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 12) {
+                if item.isEpisode {
+                    Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.85))
                 }
-                HStack(spacing: 12) {
-                    ForEach(meta(item), id: \.self) { Text($0) }
+                TitleLogo(item: item, height: 110, font: 56)
+                HStack(spacing: 10) {
+                    Text(meta(item))
                     if let r = item.CommunityRating {
                         HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
-                            .foregroundColor(.yellow)
                     }
-                }.font(.subheadline).foregroundColor(.white).classicBlackOutline()
-                Text(item.Overview ?? "").font(.body).lineLimit(3).frame(maxWidth: 620, alignment: .leading)
-                    .foregroundColor(.white).classicBlackOutline()
+                }.font(.system(size: 15, weight: .medium)).foregroundColor(.white.opacity(0.9))
+                Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
+                    .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
                 HStack(spacing: 12) {
                     Button { Task { await emby.play(item) } } label: {
-                        Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+                        Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
+                            .classicGlassPill(size: 46, iconOnly: false)
                     }.buttonStyle(HoverButton())
+                    let fav = emby.isFav(item)
+                    Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
+                        Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "checkmark" : "plus")
+                            .classicGlassPill(size: 46)
+                    }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
                     NavigationLink(value: item) {
-                        Label("More Info", systemImage: "info.circle").classicGlassPill(size: 44)
+                        Label("More Info", systemImage: "info").classicGlassPill(size: 46)
                     }.buttonStyle(HoverButton()).helpLabel("More Info")
-                    Spacer()
-                    HStack(spacing: 6) {
-                        ForEach(items.indices, id: \.self) { i in
-                            let on = i == index % items.count
-                            Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { index = i } } label: {
-                                Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.4)))
-                                    .frame(width: on ? 22 : 8, height: 4)
-                                    .overlay(Capsule().stroke(Color.black, lineWidth: 1))
-                                    .shadow(color: .black.opacity(0.7), radius: 3)
-                                    .contentShape(Rectangle().inset(by: -6))
-                            }
-                            .buttonStyle(HoverButton())
-                            .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
-                            .accessibilityAddTraits(on ? .isSelected : [])
-                        }
-                    }
-                }
+                }.padding(.top, 6)
             }
-            .padding(.horizontal, 44).padding(.vertical, 36)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 44).padding(.bottom, items.count > 1 ? 104 : 48)
             .id("t" + item.id).transition(.opacity)
+            if items.count > 1 { thumbs.frame(maxWidth: .infinity).padding(.bottom, 26) }
         }
-        .frame(height: 440)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .padding(.horizontal, 32)
+        .frame(height: bannerH)
+        .clipped()
         .foregroundColor(.white)
+        .background(GeometryReader { g in
+            Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
+        })
         .onHover { hover = $0 }
-        .onChange(of: nav.bannerNudge) { _, n in   // ← → keys
-            guard let n, !items.isEmpty else { return }
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { index = (index + n.dir + items.count) % items.count }
+        .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
+        // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
+        .task(id: "\(index)-\(hover)-\(playback.active)") {
+            guard !hover, !playback.active, !reduceMotion, items.count > 1 else { return }
+            try? await Task.sleep(nanoseconds: 9_000_000_000)
+            if !Task.isCancelled { go(index + 1) }
         }
-        // Next banner every 8 s, but not under the pointer, not during playback and not with Reduce Motion
-        .task(id: "\(hover)-\(playback.active)") {
-            guard !hover, !playback.active, !reduceMotion else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 8_000_000_000)
-                if Task.isCancelled { break }
-                withAnimation(.easeInOut(duration: 1.0)) { index += 1 }
+    }
+
+    /// The banners as small glass thumbnails; the current one is lit and a little bigger.
+    var thumbs: some View {
+        HStack(spacing: 10) {
+            ForEach(items.indices, id: \.self) { i in
+                let on = i == index % items.count
+                Button { go(i) } label: {
+                    CachedImage(url: emby.image(items[i].backdropId ?? items[i].Id, "Backdrop", width: 240)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: { Color(white: 0.15) }
+                    .frame(width: on ? 104 : 84, height: on ? 58 : 47).clipped()
+                    .cornerRadius(6)
+                    .opacity(on ? 1 : 0.55)
+                    .classicThinBorder(6)
+                }
+                .buttonStyle(.plainHand)
+                .helpLabel(items[i].heroTitle)
+                .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
+        .animation(.easeOut(duration: 0.25), value: index)
     }
 }
 
