@@ -1842,11 +1842,16 @@ struct ClassicLibraryView: View {
     }
 
     var alphaBar: some View {
+        // Letters on a slim glass strip, as the top bar's sections
         VStack(spacing: 1) {
             ForEach(classicAlphaLetters, id: \.self) { l in
                 ClassicAlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l }
             }
-        }.padding(.trailing, 22)   // clear of the window's scroll bar
+        }
+        .padding(.vertical, 6).padding(.horizontal, 3)
+        .background(Capsule().fill(Color.black.opacity(0.3)))
+        .background(ClassicGlassBacking(shape: Capsule()))
+        .padding(.trailing, 14)
     }
 
     var header: some View {
@@ -3789,13 +3794,19 @@ struct ClassicAlphaLetter: View {
     let on: Bool
     let action: () -> Void
     @State private var hover = false
+    @AppStorage("accent") private var accentName = "red"
     var body: some View {
         Button(action: action) {
+            // The chosen letter lit in the accent, the one under the pointer softly
             Text(l).font(.cv(11, weight: .bold))
-                .frame(width: 22, height: 16)
-                .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : hover ? AnyShapeStyle(Color.primary) : AnyShapeStyle(Color.secondary))
-                .background(on ? Color.white.opacity(0.15) : hover ? Color.white.opacity(0.1) : Color.clear)
-                .clipShape(Circle())
+                .frame(width: 20, height: 18)
+                .foregroundColor(on || hover ? .white : .white.opacity(0.55))
+                .background {
+                    if on || hover {
+                        Circle().fill(Theme.accent(accentName).opacity(on ? 0.6 : 0.3))
+                            .overlay(Circle().strokeBorder(Color.white.opacity(on ? 0.4 : 0.2), lineWidth: 0.5))
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
