@@ -2339,16 +2339,12 @@ struct ProgressRing: View {
         .frame(width: size, height: size)
     }
     /// Light on a glass edge: bright at the top-left and bottom-right, fading along the sides (as the card frames).
-    static let edgeLight = AngularGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
-                                                   .init(color: .white.opacity(0.85), location: 0.125),
-                                                   .init(color: .white.opacity(0.12), location: 0.25),
-                                                   .init(color: .white.opacity(0.06), location: 0.375),
-                                                   .init(color: .white.opacity(0.12), location: 0.5),
-                                                   .init(color: .white.opacity(0.85), location: 0.625),
-                                                   .init(color: .white.opacity(0.12), location: 0.75),
-                                                   .init(color: .white.opacity(0.06), location: 0.875),
-                                                   .init(color: .white.opacity(0.12), location: 1)],
-                                           center: .center, angle: .zero)
+    static let edgeLight = LinearGradient(stops: [.init(color: .white.opacity(0.85), location: 0),
+                                                  .init(color: .white.opacity(0.12), location: 0.3),
+                                                  .init(color: .white.opacity(0.06), location: 0.5),
+                                                  .init(color: .white.opacity(0.12), location: 0.7),
+                                                  .init(color: .white.opacity(0.85), location: 1)],
+                                          startPoint: .topLeading, endPoint: .bottomTrailing)
 
     /// A glass ring like the card frames, filled with see-through accent color as far as the progress, with a
     /// highlight along the fill.

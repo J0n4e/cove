@@ -142,19 +142,14 @@ struct ClassicGlassCard: ViewModifier {
                     shape.strokeBorder(Color.white.opacity(bevel), lineWidth: 4)
                     shape.strokeBorder(Color.white.opacity(bevel), lineWidth: 2)
                     // edge light: bright at the top-left and bottom-right corners, fading along the sides
-                    shape.strokeBorder(AngularGradient(stops: [.init(color: .white.opacity(0.15 * lit), location: 0),
-                                                               .init(color: .white.opacity(0.9 * lit), location: 0.125),
-                                                               .init(color: .white.opacity(0.15 * lit), location: 0.25),
-                                                               .init(color: .white.opacity(0.08 * lit), location: 0.375),
-                                                               .init(color: .white.opacity(0.15 * lit), location: 0.5),
-                                                               .init(color: .white.opacity(0.9 * lit), location: 0.625),
-                                                               .init(color: .white.opacity(0.15 * lit), location: 0.75),
-                                                               .init(color: .white.opacity(0.08 * lit), location: 0.875),
-                                                               .init(color: .white.opacity(0.15 * lit), location: 1)],
-                                                       center: .center, angle: .zero), lineWidth: 1.2)   // 45° = bottom-right, 225° = top-left
+                    shape.strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.9 * lit), location: 0),
+                                                              .init(color: .white.opacity(0.12 * lit), location: 0.3),
+                                                              .init(color: .white.opacity(0.06 * lit), location: 0.5),
+                                                              .init(color: .white.opacity(0.12 * lit), location: 0.7),
+                                                              .init(color: .white.opacity(0.9 * lit), location: 1)],
+                                                      startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.2)
                 }
                 .clipShape(shape)
-                .drawingGroup()   // one flat layer per card, drawn on the GPU
                 .allowsHitTesting(false)
             }
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
