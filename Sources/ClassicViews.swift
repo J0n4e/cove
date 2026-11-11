@@ -349,13 +349,15 @@ struct ClassicHomeView: View {
         // Both the bar and the page are held to the window's width: a page that grew wider than the window
         // (e.g. Favorites) made the bar wider too, pushing its pill off screen where it couldn't be clicked.
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                // In front of the page, so nothing on a page can cover its buttons. Back sits in the bar on pushed pages.
-                ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
-                    .frame(width: geo.size.width).zIndex(1)
-                detailPane(withSearch: false)
-                    .frame(width: geo.size.width).clipped()
-            }
+            // The bar is see-through and floats over the page: pages start below it and scroll up under it.
+            // Back sits in the bar on pushed pages.
+            detailPane(withSearch: false)
+                .frame(width: geo.size.width)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
+                        .frame(width: geo.size.width)
+                }
+                .clipped()
         }.background(bg)
     }
 
@@ -484,7 +486,6 @@ struct ClassicTopNavBar: View {
         }
         .frame(height: 44)
         .padding(.horizontal, 28).padding(.vertical, 12)
-        .background(bg)
     }
 }
 
