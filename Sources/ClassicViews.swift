@@ -2005,7 +2005,8 @@ struct ClassicDetailView: View {
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
                 .overlay(alignment: .topTrailing) { CountBadge(count: unwatched(n)).padding(8) }
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(selected ? 1 : 0.85), lineWidth: selected ? 3 : 1))
+                .classicThinBorder(8)   // glass card, as the posters
+                .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint, lineWidth: 2) } }
                 .shadow(radius: 6)
                 .classicHoverLift()
                 .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })

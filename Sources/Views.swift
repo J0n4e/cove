@@ -2210,10 +2210,43 @@ struct HoverBacking: ViewModifier {
 }
 
 /// Green badge: a check when the count is 0, otherwise the number.
-struct CountBadge: View {
+/// Classic badge: a check (`count` nil) in an empty glass tube ring, or a number in a glass tube bent into a
+/// capsule; the check and number are drawn as glass too (white lit from above, fine dark edge).
+struct TubeBadge: View {
     let count: Int?
     var body: some View {
         if let n = count {
+            glyph(Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)))
+                .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 26)
+                .overlay {
+                    ZStack {
+                        Capsule().stroke(Color.white.opacity(0.12), lineWidth: 5)
+                        Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1).padding(0.75)
+                        Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.6).padding(-2.5)
+                        Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.6).padding(2.5)
+                    }
+                }
+                .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
+        } else {
+            ProgressRing(progress: 1, filled: false)
+                .overlay { glyph(Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))) }
+        }
+    }
+    func glyph<V: View>(_ v: V) -> some View {
+        v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.6)], startPoint: .top, endPoint: .bottom))
+            .shadow(color: .black.opacity(0.8), radius: 0.5, y: 0.5)
+            .shadow(color: .black.opacity(0.5), radius: 2)
+    }
+}
+
+struct CountBadge: View {
+    let count: Int?
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass tube badges
+    var body: some View {
+        if classic, let n = count {
+            TubeBadge(count: n == 0 ? nil : n)
+                .helpLabel(n == 0 ? "All watched" : "\(n) unwatched episode\(n == 1 ? "" : "s")")
+        } else if let n = count {
             if n == 0 {
                 Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
                     .frame(width: 24, height: 24).background(Circle().fill(WatchBadge.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
@@ -2306,31 +2339,10 @@ struct WatchBadge: View {
     /// Watched: an empty glass tube ring around a glass check. Unwatched episodes: the count in a glass tube bent
     /// into a capsule.
     @ViewBuilder var tubeBadge: some View {
-        if played {
-            ProgressRing(progress: 1, filled: false)
-                .overlay { glassGlyph(Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))) }
-                .helpLabel("Watched")
-        } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
-            glassGlyph(Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)))
-                .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 26)
-                .overlay {
-                    ZStack {
-                        Capsule().stroke(Color.white.opacity(0.12), lineWidth: 5)
-                        Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1).padding(0.75)
-                        Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.6).padding(-2.5)
-                        Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.6).padding(2.5)
-                    }
-                }
-                .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
-                .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
+        if played { TubeBadge(count: nil).helpLabel("Watched") }
+        else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
+            TubeBadge(count: n).helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
         }
-    }
-
-    /// A check or number drawn as glass: white lit from above, fading lower down, with a fine dark edge.
-    func glassGlyph<V: View>(_ v: V) -> some View {
-        v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.6)], startPoint: .top, endPoint: .bottom))
-            .shadow(color: .black.opacity(0.8), radius: 0.5, y: 0.5)
-            .shadow(color: .black.opacity(0.5), radius: 2)
     }
 
     @ViewBuilder var plainBadge: some View {
