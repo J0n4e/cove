@@ -1001,6 +1001,8 @@ struct ClassicHero: View {
     /// Banners moved through so far (back = −1); never wraps, so each card in the deck keeps its own identity
     @State private var pos = 0
     var index: Int { items.isEmpty ? 0 : ((pos % items.count) + items.count) % items.count }
+    @State private var leaving: Item?       // the deck's front card while it fades away
+    @State private var leavingGone = false
     @State private var hover = false
     @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1024,7 +1026,18 @@ struct ClassicHero: View {
         let n = items.count
         guard n > 0 else { return }
         let d = (((i - index) % n) + n) % n
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { pos += (d == n - 1 && n > 2) ? -1 : d }
+        let back = d == n - 1 && n > 2
+        // Moving forward: keep the front card on screen as a copy and fade it away over the deck
+        if !back && d > 0 && n > 1 && !reduceMotion {
+            leaving = items[(index + 1) % n]
+            leavingGone = false
+            DispatchQueue.main.async {
+                withAnimation(.easeInOut(duration: 0.7)) { leavingGone = true }
+            }
+            let id = leaving?.id
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if leaving?.id == id { leaving = nil } }
+        }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { pos += back ? -1 : d }
     }
 
     var body: some View {
@@ -1121,42 +1134,50 @@ struct ClassicHero: View {
     /// beneath slides up into its place. Clicking a card shows that banner.
     var deck: some View {
         let shown = min(items.count - 1, 4)
-        let w: CGFloat = 300, h: CGFloat = w * 9 / 16
         return ZStack(alignment: .leading) {
-            // Drawn back to front, so the current card ends up on top
+            // Drawn back to front, so the next banner's card ends up on top
             ForEach(Array(((pos + 1)..<(pos + 1 + shown)).reversed()), id: \.self) { p in
                 let k = p - pos - 1
                 let i = ((p % items.count) + items.count) % items.count
-                let it = items[i]
-                Button { go(i) } label: {
-                    CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: { Color(white: 0.15) }
-                    .frame(width: w, height: h).clipped()
-                    .overlay(alignment: .bottomLeading) {
-                        if k == 0 {
-                            Text(it.heroTitle).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 14)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
-                        }
-                    }
-                    .cornerRadius(12)
-                    .classicThinBorder(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
-                    .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
-                }
-                .buttonStyle(.plainHand)
-                .helpLabel(it.heroTitle)
-                .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
-                .offset(x: CGFloat(k) * 26)
-                // By position in the deck: a card leaving the front (moving forward) stays on top while it fades
-                .zIndex(Double(-p))
-                .transition(.asymmetric(insertion: .opacity,
-                                        removal: .opacity.combined(with: .scale(scale: 1.08)).combined(with: .offset(x: -30))))
+                Button { go(i) } label: { deckCard(items[i], k: k) }
+                    .buttonStyle(.plainHand)
+                    .helpLabel(items[i].heroTitle)
+                    .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
+                    .offset(x: CGFloat(k) * 26)
+                    .transition(.opacity)
+            }
+            // Moving forward: the card that was in front, drawn over the deck, fading away (growing slightly and
+            // drifting left) while the one beneath takes its place
+            if let l = leaving {
+                deckCard(l, k: 0)
+                    .scaleEffect(leavingGone ? 1.08 : 1)
+                    .offset(x: leavingGone ? -30 : 0)
+                    .opacity(leavingGone ? 0 : 1)
+                    .allowsHitTesting(false)
             }
         }
-        .frame(width: w + CGFloat(shown - 1) * 26, height: h, alignment: .leading)
+        .frame(width: deckW + CGFloat(shown - 1) * 26, height: deckW * 9 / 16, alignment: .leading)
+    }
+
+    private let deckW: CGFloat = 300
+
+    func deckCard(_ it: Item, k: Int) -> some View {
+        CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: { Color(white: 0.15) }
+        .frame(width: deckW, height: deckW * 9 / 16).clipped()
+        .overlay(alignment: .bottomLeading) {
+            if k == 0 {
+                Text(it.heroTitle).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+            }
+        }
+        .cornerRadius(12)
+        .classicThinBorder(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
 
     /// Page bullets: small glass pills; the current one stretches longer and is lit.
