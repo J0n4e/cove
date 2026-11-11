@@ -980,7 +980,7 @@ extension View {
 }
 
 /// A series' seasons stacked like playing cards (as the Home banner's deck): the shown season in front, the ones
-/// after it peeking out behind; glass ‹ › beside it. No transition effects: the deck changes at once.
+/// after it peeking out behind; glass ‹ › beside it. Changing season cross-fades the whole deck.
 struct SeasonDeck: View {
     let numbers: [Int]
     let selected: Int
@@ -1013,17 +1013,24 @@ struct SeasonDeck: View {
             .disabled(!enabled).opacity(enabled ? 1 : 0.35)
     }
 
-    /// Shows season `p` at once (no animation).
+    /// Shows season `p`: the whole deck cross-fades to its new stack.
     func go(_ p: Int) {
         guard p >= 0, p < numbers.count, p != shownPos else { return }
-        pos = p
+        withAnimation(.easeInOut(duration: 0.35)) { pos = p }
         select(numbers[p])
     }
 
     var cards: some View {
         let pos = shownPos
         let shown = min(numbers.count - pos, 4)
-        return ZStack(alignment: .leading) {
+        return ZStack(alignment: .leading) { stack(pos, shown) }
+            .frame(width: w + CGFloat(3) * peek, height: h, alignment: .leading)
+    }
+
+    /// One whole stack, keyed by its position: a new position replaces the stack as one piece with a plain
+    /// cross-fade (the same both ways)
+    func stack(_ pos: Int, _ shown: Int) -> some View {
+        ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
                 Button { go(p) } label: { card(numbers[p], k: k) }
@@ -1033,8 +1040,8 @@ struct SeasonDeck: View {
                     .offset(x: CGFloat(k) * peek)
             }
         }
-        .frame(width: w + CGFloat(3) * peek, height: h, alignment: .leading)
-        .transaction { $0.animation = nil }   // no effects: the deck changes at once
+        .id(pos)
+        .transition(.opacity)
     }
 
     func card(_ n: Int, k: Int) -> some View {
