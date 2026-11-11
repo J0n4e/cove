@@ -117,35 +117,42 @@ struct ClassicGlassBacking<S: Shape>: View {
     }
 }
 
-/// Cards as glass: a glass sheen over the top of the picture and a glass tube running round the edge.
+/// Cards framed as a pane of glass: light catches the edge at the top-left and bottom-right corners (fading along
+/// the sides), the edge itself looks frosted (a soft light bevel just inside it), and a faint sheen lies over the
+/// top. Under the mouse the edge lights up and the card gives off a soft accent glow.
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
+        let accent = Theme.accent(accentName)
+        let lit = hover ? 1.0 : 0.7
         return content
             .overlay {
                 ZStack {
-                    // glass sheen over the upper part
-                    shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.18), location: 0),
-                                                      .init(color: .white.opacity(0.04), location: 0.35),
-                                                      .init(color: .clear, location: 0.5)],
+                    // faint sheen over the upper part
+                    shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
+                                                      .init(color: .clear, location: 0.4)],
                                               startPoint: .top, endPoint: .bottom))
-                    // rim: a clear glass tube (as the progress ring) running round the edge: faint body, light outer
-                    // and inner walls, a highlight along it
-                    let w: CGFloat = 5
-                    // under the mouse the tube fills with see-through accent, as the progress ring
-                    shape.strokeBorder(hover ? Theme.accent(accentName).opacity(0.5) : Color.white.opacity(0.12), lineWidth: w)
-                    shape.strokeBorder(Color.white.opacity(0.5), lineWidth: 0.6)
-                    RoundedRectangle(cornerRadius: max(radius - w, 0), style: .circular)
-                        .strokeBorder(Color.white.opacity(0.3), lineWidth: 0.6).padding(w - 0.6)
-                    RoundedRectangle(cornerRadius: max(radius - 1.8, 0), style: .circular)
-                        .strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.2), .white.opacity(0.4)],
-                                                     startPoint: .top, endPoint: .bottom), lineWidth: 1).padding(1.8)
+                    // frosted bevel: soft light just inside the edge
+                    shape.strokeBorder(Color.white.opacity(hover ? 0.22 : 0.14), lineWidth: 6).blur(radius: 4)
+                    // edge light: bright at the top-left and bottom-right corners, fading along the sides
+                    shape.strokeBorder(AngularGradient(stops: [.init(color: .white.opacity(0.15 * lit), location: 0),
+                                                               .init(color: .white.opacity(0.9 * lit), location: 0.125),
+                                                               .init(color: .white.opacity(0.15 * lit), location: 0.25),
+                                                               .init(color: .white.opacity(0.08 * lit), location: 0.375),
+                                                               .init(color: .white.opacity(0.15 * lit), location: 0.5),
+                                                               .init(color: .white.opacity(0.9 * lit), location: 0.625),
+                                                               .init(color: .white.opacity(0.15 * lit), location: 0.75),
+                                                               .init(color: .white.opacity(0.08 * lit), location: 0.875),
+                                                               .init(color: .white.opacity(0.15 * lit), location: 1)],
+                                                       center: .center, angle: .degrees(90)), lineWidth: 1.2)
                 }
+                .clipShape(shape)
                 .allowsHitTesting(false)
             }
+            .shadow(color: accent.opacity(hover ? 0.45 : 0), radius: 14)
             .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
     }
 }
