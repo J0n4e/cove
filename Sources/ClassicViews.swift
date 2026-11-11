@@ -571,7 +571,7 @@ struct ClassicTopNavTools: View {
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold))
                     .frame(width: 44, height: 44).classicGlassPill().contentShape(Capsule())
-            }.buttonStyle(HoverButton()).helpLabel("Search (S)")
+            }.buttonStyle(HoverButton()).accessibilityLabel("Search")
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
@@ -595,7 +595,7 @@ struct ClassicTopBackButton: View {
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
         .onHover { hover = $0 }
         .keyboardShortcut("[", modifiers: .command)
-        .helpLabel("Back (⌘[)")
+        .accessibilityLabel("Back")
         .disabled(emby.playing != nil)
     }
 }
@@ -2247,7 +2247,7 @@ struct ClassicDetailView: View {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {
                 Label(playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
-            }.buttonStyle(HoverButton()).helpLabel(r > 0 ? playLabel + " from the beginning" : playLabel)
+            }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? playLabel + " from the beginning" : playLabel)
             if r > 0 {
                 Button { playNow() } label: {
                     Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)

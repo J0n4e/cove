@@ -4842,7 +4842,8 @@ struct SelfHoverLift: ViewModifier {
             .overlay {
                 if hover && play > 0 {
                     if let onPlay {
-                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand).tip("Play")
+                        Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand)
+                            .tip(classic ? "" : "Play").accessibilityLabel("Play")   // Classic: no tooltip
                     } else { icon }
                 }
             }
