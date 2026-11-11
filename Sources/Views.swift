@@ -2436,6 +2436,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
     @ViewBuilder let content: (ID) -> Content
     @StateObject private var finder = ScrollFinder()
     @State private var dragStart: CGFloat?
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass arrow buttons
 
     var body: some View {
         // No scrollbar: the arrows page the row; trackpad / wheel scrolling still works.
@@ -2478,12 +2479,17 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
 
     func arrow(_ icon: String, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(Color.black.opacity(0.7)))
-                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                .shadow(color: .black.opacity(0.5), radius: 6)
-                .contentShape(Circle())
+            if classic {
+                Label(help, systemImage: icon).classicGlassPill(size: 44)
+                    .background(Circle().fill(Color.black.opacity(0.35)))   // reads over bright posters
+            } else {
+                Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.black.opacity(0.7)))
+                    .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.5), radius: 6)
+                    .contentShape(Circle())
+            }
         }
         .buttonStyle(HoverButton()).helpLabel(help)
         .transition(.opacity)
