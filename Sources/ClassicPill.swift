@@ -117,7 +117,7 @@ struct ClassicGlassBacking<S: Shape>: View {
     }
 }
 
-/// Cards as glass: a glass sheen over the top of the picture and a light-catching rim.
+/// Cards as glass: a glass sheen over the top of the picture and a glass tube running round the edge.
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
     func body(content: Content) -> some View {
@@ -130,10 +130,16 @@ struct ClassicGlassCard: ViewModifier {
                                                       .init(color: .white.opacity(0.04), location: 0.35),
                                                       .init(color: .clear, location: 0.5)],
                                               startPoint: .top, endPoint: .bottom))
-                    // rim: bright at the top, dimmer down the sides, lit again at the bottom
-                    shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.15), .white.opacity(0.4)],
-                                                      startPoint: .top, endPoint: .bottom), lineWidth: 1)
-                    shape.strokeBorder(Color.black.opacity(0.35), lineWidth: 0.5).padding(1)
+                    // rim: a clear glass tube (as the progress ring) running round the edge: faint body, light outer
+                    // and inner walls, a highlight along it
+                    let w: CGFloat = 5
+                    shape.strokeBorder(Color.white.opacity(0.12), lineWidth: w)
+                    shape.strokeBorder(Color.white.opacity(0.5), lineWidth: 0.6)
+                    RoundedRectangle(cornerRadius: max(radius - w, 0), style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.3), lineWidth: 0.6).padding(w - 0.6)
+                    RoundedRectangle(cornerRadius: max(radius - 1.8, 0), style: .continuous)
+                        .strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.2), .white.opacity(0.4)],
+                                                     startPoint: .top, endPoint: .bottom), lineWidth: 1).padding(1.8)
                 }
                 .allowsHitTesting(false)
             }
