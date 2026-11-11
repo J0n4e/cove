@@ -1867,7 +1867,7 @@ struct ClassicDetailView: View {
     var buttons: some View {
         let played = emby.isPlayed(item)
         let fav = emby.isFav(item)
-        // All the same size and shape: a 44-pt glass circle with the icon; the title slides out on hover
+        // All the same size and shape: 44-pt glass pills
         return HStack(spacing: 10) {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {

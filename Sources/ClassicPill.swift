@@ -1,7 +1,7 @@
 import SwiftUI
 
 // Classic theme pills, copied from the reference "Play S7:E21" button and tinted with the accent from Settings:
-// flat frosted glass (the page shows through, blurred), crisp hairline rim and fine light lines at the top and the
+// flat frosted glass that fades from left to right until almost clear, crisp hairline rim and fine light lines at the top and the
 // bottom.
 
 /// The glass behind a Classic pill.
@@ -12,12 +12,12 @@ struct ClassicGlassPill: View {
         GeometryReader { g in
             let w = g.size.width, h = g.size.height
             ZStack {
-                // frosted glass: the page shows through, blurred
-                Capsule().fill(.ultraThinMaterial)
-                // thin dark accent tint
-                Capsule().fill(Color.black.opacity(0.3))
-                Capsule().fill(LinearGradient(colors: [accent.opacity(0.3), accent.opacity(0.2)],
-                                              startPoint: .top, endPoint: .bottom))
+                // frosted, dark accent-tinted glass on the left, fading to almost clear on the right
+                Group {
+                    Capsule().fill(.ultraThinMaterial).opacity(0.6)
+                    Capsule().fill(Color.black.opacity(0.25))
+                    Capsule().fill(accent.opacity(0.35))
+                }.mask(Capsule().fill(LinearGradient(colors: [.black, .black.opacity(0.05)], startPoint: .leading, endPoint: .trailing)))
                 // light lines: a fine white one at the top, a bright accent one at the bottom
                 Capsule().fill(LinearGradient(colors: [.clear, .white.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing))
                     .frame(width: w * 0.6, height: 1).position(x: w / 2, y: 1)
@@ -38,49 +38,23 @@ struct ClassicGlassPill: View {
     }
 }
 
-/// True while the pointer is on a Classic pill.
-private struct PillHoverKey: EnvironmentKey { static let defaultValue = false }
-extension EnvironmentValues {
-    var pillHover: Bool {
-        get { self[PillHoverKey.self] }
-        set { self[PillHoverKey.self] = newValue }
-    }
-}
-
-/// Classic pills show only their icon; the title slides out while the pointer is on the pill.
-struct ClassicHoverLabelStyle: LabelStyle {
-    @Environment(\.pillHover) private var hover
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: hover ? 6 : 0) {
-            configuration.icon
-            configuration.title.fixedSize().frame(maxWidth: hover ? nil : 0, alignment: .leading).clipped()
-                .opacity(hover ? 1 : 0)
-        }
-    }
-}
-
-/// White label on accent glass; a Label inside shows just its icon until the pointer is on the pill.
+/// White label on accent glass.
 struct ClassicGlassPillStyle: ViewModifier {
-    /// Set: the pill is this tall and, with only its icon showing, a circle of this size.
+    /// Set: the pill is this tall.
     var size: CGFloat? = nil
-    @State private var hover = false
     func body(content: Content) -> some View {
-        sized(content)
-            .labelStyle(ClassicHoverLabelStyle())
-            .environment(\.pillHover, hover)
-            .foregroundColor(.white).background(ClassicGlassPill())
-            .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+        sized(content).foregroundColor(.white).background(ClassicGlassPill())
     }
     @ViewBuilder func sized(_ content: Content) -> some View {
         if let size {
             content.font(.system(size: size * 0.36, weight: .medium))
-                .padding(.horizontal, hover ? size * 0.38 : 0)
+                .padding(.horizontal, size * 0.38)
                 .frame(minWidth: size, minHeight: size, maxHeight: size)
         } else { content }
     }
 }
 
 extension View {
-    /// Classic pill look: white label on accent glass, title shown on hover.
+    /// Classic pill look: white label on accent glass.
     func classicGlassPill(size: CGFloat? = nil) -> some View { modifier(ClassicGlassPillStyle(size: size)) }
 }
