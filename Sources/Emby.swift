@@ -577,6 +577,12 @@ final class Emby: ObservableObject {
         d.removeObject(forKey: "token"); d.removeObject(forKey: "uid")
     }
 
+    /// Turns a server answer into Cove's data away from the main thread: a big answer (a library page,
+    /// every episode of a long series) used to freeze the window for a moment while it was read.
+    nonisolated static func decodeOffMain<T: Decodable>(_ type: T.Type, _ data: Data) async throws -> T {
+        try JSONDecoder().decode(type, from: data)
+    }
+
     func get<T: Decodable>(_ path: String, _ q: [String: String] = [:]) async throws -> T {
         var q = q
         // The server leaves the year out unless asked; posters show it under the title
@@ -598,7 +604,7 @@ final class Emby: ObservableObject {
             case 401: checkSession(); throw URLError(.userAuthenticationRequired)
             default: throw URLError(.badServerResponse)
             }
-            v = try JSONDecoder().decode(T.self, from: data)
+            v = try await Self.decodeOffMain(T.self, data)
             if lastFailure != nil { lastFailure = nil }
         } catch {
             if !(error is CancellationError) && (error as? URLError)?.code != .cancelled {

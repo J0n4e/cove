@@ -359,8 +359,10 @@ final class PlayerModel: ObservableObject {
     }
 
     private func tick(_ t: Double) {
-        if t.isFinite { time = t }
-        if let d = player?.currentItem?.duration.seconds, d.isFinite, d > 0 { duration = d }
+        // Published only when the shown second changes (the clock, the progress bar, Up next count in seconds):
+        // setting it on every 0.2 s tick redrew the whole player 5 times a second. Seeks set it directly.
+        if t.isFinite, Int(t) != Int(time) || abs(t - time) >= 1 { time = t }
+        if let d = player?.currentItem?.duration.seconds, d.isFinite, d > 0, d != duration { duration = d }
         let isPlaying = (player?.rate ?? 0) > 0
         if isPlaying != playing {
             playing = isPlaying
