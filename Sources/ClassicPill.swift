@@ -45,11 +45,9 @@ struct ClassicGlassPillStyle: ViewModifier {
     @AppStorage("accent") private var accentName = "red"
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26, *) {
-            // System glass: lenses the page behind it, with light catching the edges and reacting to the pointer;
-            // the accent tints it from the left, fading to clear on the right
+            // System glass, untinted: lenses the page behind it, with light catching the edges and reacting to the
+            // pointer
             sized(content).foregroundColor(.white)
-                .background(Capsule().fill(LinearGradient(colors: [accent.opacity(0.1), accent.opacity(0.0)],
-                                                          startPoint: .leading, endPoint: .trailing)))
                 .glassEffect(.clear.interactive(), in: Capsule())   // the clearest glass
         } else {
             sized(content).foregroundColor(.white).background(ClassicGlassPill())
