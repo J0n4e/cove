@@ -1872,7 +1872,7 @@ struct ClassicDetailView: View {
         return HStack(spacing: 10) {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {
-                Label(playLabel, systemImage: "play.fill").font(.system(size: 15, weight: .bold))
+                Label(playLabel, systemImage: "play.fill").font(.system(size: 17, weight: .regular))
                     .padding(.horizontal, 24).frame(height: 44)
                     .classicGlassPill()
             }.buttonStyle(HoverButton())
