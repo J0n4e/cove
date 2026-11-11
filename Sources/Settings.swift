@@ -615,7 +615,9 @@ struct LibrariesSettings: View {
             }.disabled(!lib.onHome || !lib.visible)
             // Episode options apply to every TV library, so they show with any of them
             if lib.kind == "tvshows" {
-                PrefRow(label: "Season layout") { menuPicker($seasonLayout, [("row", "Row"), ("grid", "Grid")]) }
+                PrefRow(label: "Season layout") {
+                    menuPicker($seasonLayout, [("row", "Row"), ("grid", "Grid"), ("deck", "Cards (Classic)")])
+                }
                 PrefRow(label: "Episode layout") { menuPicker($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
                 PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
             }

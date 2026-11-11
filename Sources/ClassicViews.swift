@@ -978,25 +978,27 @@ extension View {
     }
 }
 
-/// A series' coming episodes stacked like playing cards (as the Home banner's deck): the next one in front, the
-/// ones after it peeking out behind. Clicking the front card plays it; clicking one behind brings it to the front,
-/// the cards before it fading away.
-struct EpisodeDeck: View {
-    @EnvironmentObject var emby: Emby
-    let items: [Item]
-    let play: (Item) -> Void
-    @State private var pos = 0
-    @State private var leaving: Item?
+/// A series' seasons stacked like playing cards (as the Home banner's deck): the shown season in front, the ones
+/// after it peeking out behind; glass ‹ › beside it. Moving forward the front card fades away over the deck.
+struct SeasonDeck: View {
+    let numbers: [Int]
+    let selected: Int
+    let title: (Int) -> String
+    let image: (Int) -> URL?
+    let select: (Int) -> Void
+    @State private var leaving: Int?
     @State private var leavingGone = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let w: CGFloat = 280
+    private let w: CGFloat = 150, h: CGFloat = 225
+    private let peek: CGFloat = 22
+
+    var pos: Int { numbers.firstIndex(of: selected) ?? 0 }
 
     var body: some View {
-        // Glass ‹ › beside the deck (not over the pictures)
         HStack(spacing: 12) {
-            arrow("chevron.left", "Previous episode", enabled: pos > 0) { step(-1) }
+            arrow("chevron.left", "Previous season", enabled: pos > 0) { go(pos - 1) }
             cards
-            arrow("chevron.right", "Next episode", enabled: pos < items.count - 1) { step(1) }
+            arrow("chevron.right", "Next season", enabled: pos < numbers.count - 1) { go(pos + 1) }
         }
     }
 
@@ -1006,22 +1008,27 @@ struct EpisodeDeck: View {
             .disabled(!enabled).opacity(enabled ? 1 : 0.35)
     }
 
-    func step(_ d: Int) {
-        let p = pos + d
-        guard p >= 0, p < items.count else { return }
-        if d > 0 { bring(p) } else { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { pos = p } }
+    func go(_ p: Int) {
+        guard p >= 0, p < numbers.count, p != pos else { return }
+        if p > pos && !reduceMotion {
+            leaving = selected; leavingGone = false
+            DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.6)) { leavingGone = true } }
+            let n = leaving
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if leaving == n { leaving = nil } }
+        }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { select(numbers[p]) }
     }
 
     var cards: some View {
-        let shown = min(items.count - pos, 4)
+        let shown = min(numbers.count - pos, 4)
         return ZStack(alignment: .leading) {
-            ForEach(Array((pos..<(pos + max(shown, 0))).reversed()), id: \.self) { p in
+            ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
-                Button { k == 0 ? play(items[p]) : bring(p) } label: { card(items[p], k: k) }
+                Button { go(p) } label: { card(numbers[p], k: k) }
                     .buttonStyle(.plainHand)
-                    .helpLabel(k == 0 ? "Play " + label(items[p]) : label(items[p]))
+                    .helpLabel(title(numbers[p]))
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
-                    .offset(x: CGFloat(k) * 26)
+                    .offset(x: CGFloat(k) * peek)
                     .transition(.opacity)
             }
             if let l = leaving {
@@ -1032,45 +1039,25 @@ struct EpisodeDeck: View {
                     .allowsHitTesting(false)
             }
         }
-        .frame(width: w + CGFloat(max(shown, 1) - 1) * 26, height: w * 9 / 16, alignment: .leading)
+        .frame(width: w + CGFloat(3) * peek, height: h, alignment: .leading)
     }
 
-    func label(_ ep: Item) -> String { "S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0) · \(ep.Name)" }
-
-    /// Card `p` comes to the front; the front card fades away over the deck.
-    func bring(_ p: Int) {
-        if !reduceMotion {
-            leaving = items[pos]; leavingGone = false
-            DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.6)) { leavingGone = true } }
-            let id = leaving?.id
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if leaving?.id == id { leaving = nil } }
-        }
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { pos = p }
-    }
-
-    func card(_ ep: Item, k: Int) -> some View {
-        CachedImage(url: emby.image(ep.Id, width: 520, plain: true)) { img in
+    func card(_ n: Int, k: Int) -> some View {
+        CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
-        } placeholder: { Color(white: 0.15) }
-        .frame(width: w, height: w * 9 / 16).clipped()
+        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.caption) } }
+        .frame(width: w, height: h).clipped()
         .overlay(alignment: .bottomLeading) {
             if k == 0 {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Up next · S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)")
-                        .font(.system(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.8))
-                    Text(ep.Name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom))
+                Text(title(n)).font(.system(size: 13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                    .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom))
             }
         }
-        .overlay { if k == 0 { Image(systemName: "play.fill").font(.system(size: 22)).foregroundColor(.white.opacity(0.9))
-            .shadow(color: .black.opacity(0.6), radius: 4) } }
-        .cornerRadius(12)
-        .classicThinBorder(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
+        .cornerRadius(10)
+        .classicThinBorder(10)
+        .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
 }
@@ -2060,19 +2047,17 @@ struct ClassicDetailView: View {
         .classicHideToolbarTitle()
     }
 
-    /// Series: the episodes coming up, from the next one to watch
-    var upcoming: [Item] {
-        guard let n = nextEp, let i = kids.firstIndex(where: { $0.id == n.id }) else { return [] }
-        return Array(kids[i...].prefix(8))
-    }
-
     // Header: poster + info + pickers + buttons
     var header: some View {
         headerBody
             .overlay(alignment: .bottomTrailing) {
-                // Series: the coming episodes as a deck of cards, as on the Home banner
-                if item.isSeries, upcoming.count > 1 {
-                    EpisodeDeck(items: upcoming) { playEpisode($0) }.padding(.trailing, 20)
+                // Series, Settings → Season layout → Cards: the seasons as a deck of cards, as on the Home banner;
+                // the front season is the one whose episodes are listed below
+                if item.isSeries, seasonLayout == "deck", seasonNumbers.count > 1 {
+                    SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
+                               title: { seasonTitle($0) },
+                               image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
+                               select: { season = $0 })
                 }
             }
     }
@@ -2384,7 +2369,7 @@ struct ClassicDetailView: View {
     var episodesList: some View {
         let eps: [Item] = shownEpisodes
         return VStack(alignment: .leading, spacing: 12) {
-            if seasonNumbers.count > 1 { seasonRow }
+            if seasonNumbers.count > 1 && seasonLayout != "deck" { seasonRow }   // the deck sits in the header instead
             episodesHeader
             if epLayout == "grid" {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
