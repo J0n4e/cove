@@ -330,6 +330,7 @@ struct ClassicHomeView: View {
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib).id(lib.id) }
                     else { Color.black }
                 }
+                .modifier(NoTopScrollEdge())
                 // A page opened from search results is the only page: no Back (deeper pages get one)
                 .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: PersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
@@ -339,6 +340,7 @@ struct ClassicHomeView: View {
             // Back button in the title bar, left of the window title, on every page
             .toolbar { ClassicTitleBarItems(back: nil) }   // top-level pages: no Back (pushed pages add their own)
             .classicHideToolbarTitle()
+            .toolbarBackground(.hidden, for: .windowToolbar)   // no separator line when pages scroll
         }
     }
 
