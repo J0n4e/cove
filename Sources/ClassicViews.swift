@@ -1095,8 +1095,9 @@ struct PanelSurface: ViewModifier {
     }
 }
 
-/// Classic progress on a card: a slim rounded line along the bottom, a see-through glass track with the watched part
-/// in the accent color, lit along its top and softly glowing, with a black outline like the cards' text.
+/// Classic progress on a card, styled like the glass Play button: a slim glass capsule (dark see-through fill lit
+/// from the top, light-catching rim), the watched part in the accent color with a shine along its top. Drawn by hand
+/// (no system glass), so a row of cards stays smooth to scroll.
 struct ClassicProgressLine: View {
     let progress: Double   // 0...1
     @AppStorage("accent") private var accentName = "red"
@@ -1104,19 +1105,20 @@ struct ClassicProgressLine: View {
         let accent = Theme.accent(accentName)
         GeometryReader { g in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.black.opacity(0.45))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 0.5))
+                // glass track
+                Capsule().fill(Color.black.opacity(0.4))
+                ClassicGlassBacking(shape: Capsule())
+                // watched part
                 Capsule()
-                    .fill(LinearGradient(colors: [accent.opacity(0.95), accent], startPoint: .top, endPoint: .bottom))
-                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.45), .clear], startPoint: .top, endPoint: .center)))
-                    .frame(width: max(4, g.size.width * CGFloat(min(1, max(0, progress)))))
-                    .shadow(color: accent.opacity(0.7), radius: 3)
+                    .fill(accent.opacity(0.9))
+                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.5), .clear], startPoint: .top, endPoint: .center)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.5))
+                    .padding(1)
+                    .frame(width: max(7, g.size.width * CGFloat(min(1, max(0, progress)))))
             }
         }
-        .frame(height: 4)
-        // Black outline, as the text on the cards
-        .padding(1)
-        .background(Capsule().fill(Color.black))
+        .frame(height: 7)
+        .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
     }
 }
 
