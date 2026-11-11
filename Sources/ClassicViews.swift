@@ -992,8 +992,29 @@ struct EpisodeDeck: View {
     private let w: CGFloat = 280
 
     var body: some View {
+        // Glass ‹ › beside the deck (not over the pictures)
+        HStack(spacing: 12) {
+            arrow("chevron.left", "Previous episode", enabled: pos > 0) { step(-1) }
+            cards
+            arrow("chevron.right", "Next episode", enabled: pos < items.count - 1) { step(1) }
+        }
+    }
+
+    func arrow(_ icon: String, _ help: String, enabled: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Label(help, systemImage: icon).classicGlassPill(size: 40) }
+            .buttonStyle(HoverButton()).helpLabel(help)
+            .disabled(!enabled).opacity(enabled ? 1 : 0.35)
+    }
+
+    func step(_ d: Int) {
+        let p = pos + d
+        guard p >= 0, p < items.count else { return }
+        if d > 0 { bring(p) } else { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { pos = p } }
+    }
+
+    var cards: some View {
         let shown = min(items.count - pos, 4)
-        ZStack(alignment: .leading) {
+        return ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + max(shown, 0))).reversed()), id: \.self) { p in
                 let k = p - pos
                 Button { k == 0 ? play(items[p]) : bring(p) } label: { card(items[p], k: k) }
@@ -2051,7 +2072,7 @@ struct ClassicDetailView: View {
             .overlay(alignment: .bottomTrailing) {
                 // Series: the coming episodes as a deck of cards, as on the Home banner
                 if item.isSeries, upcoming.count > 1 {
-                    EpisodeDeck(items: upcoming) { playEpisode($0) }.padding(.trailing, 44)
+                    EpisodeDeck(items: upcoming) { playEpisode($0) }.padding(.trailing, 20)
                 }
             }
     }
