@@ -987,8 +987,9 @@ struct ClassicHero: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var nav = ClassicNavState.shared
-    /// The picture's own 16:9 shape at the window's width, so nothing of it is cut off
-    var bannerH: CGFloat { width * 9 / 16 }
+    /// Same sizing as the Glass banner: the picture's 16:9 shape at the window's width, 460–900 pt, and never
+    /// taller than the visible page
+    var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900, max(pageH - 20, 360)) }
 
     func meta(_ item: Item) -> String {
         var m: [String] = [item.isEpisode || item.isSeries ? "TV Show" : "Movie"]
