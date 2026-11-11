@@ -2245,16 +2245,25 @@ struct HoverBacking: ViewModifier {
 }
 
 /// Green badge: a check when the count is 0, otherwise the number.
-/// Classic badge: just a check (`count` nil) or the number of unwatched episodes, drawn as glass (white lit from
-/// above, fine dark edge), without a ring or capsule around it, so posters stay light to scroll.
+/// Classic badge: a check (`count` nil) or the number of unwatched episodes on a small glass pill: dark
+/// see-through fill lit a little at the top, a thin edge that catches the light. No blur or shadow, so posters stay
+/// light to scroll.
 struct TubeBadge: View {
     let count: Int?
     var body: some View {
-        if let n = count {
-            glyph(Text(n > 99 ? "99+" : "\(n)").font(.system(size: 14, weight: .bold)))
-        } else {
-            glyph(Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy)))
+        Group {
+            if let n = count {
+                Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold))
+            } else {
+                Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))
+            }
         }
+        .foregroundColor(.white)
+        .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 22)
+        .background(Capsule().fill(LinearGradient(colors: [Color(white: 0.3).opacity(0.75), Color.black.opacity(0.65)],
+                                                  startPoint: .top, endPoint: .bottom)))
+        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .white.opacity(0.3)],
+                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
     }
     func glyph<V: View>(_ v: V) -> some View {
         v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.75)], startPoint: .top, endPoint: .bottom))
