@@ -217,8 +217,8 @@ struct GeneralSettings: View {
 
     var body: some View {
         PrefSection(title: "Appearance") {
-            PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Classic")]) }
-            PrefNote("Classic brings back the original Cove look. Settings always use this window.")
+            PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Glass3D")]) }
+            PrefNote("Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
             if theme == "classic" {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
             }
@@ -756,7 +756,7 @@ struct PlaybackSettings: View {
     var body: some View {
         PrefSection(title: "Player") {
             PrefRow(label: "Controls look") {
-                menuPicker($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Classic")])
+                menuPicker($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Glass3D")])
             }
             PrefRow(label: "Window") { Toggle("Open videos in a separate window", isOn: $separatePlayer) }
             PrefRow(label: "Clicking the video") { Toggle("Plays or pauses", isOn: $clickToPause) }
