@@ -508,7 +508,7 @@ struct ClassicTopNavButtons: View {
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
                 .padding(.horizontal, labels == "names" ? 18 : 14).frame(height: 36)
-                .background { if on { ClassicGlassPill() } }
+                .classicSelectedGlass(on)
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -995,14 +995,10 @@ struct ClassicHero: View {
                     .foregroundColor(.white).classicBlackOutline()
                 HStack(spacing: 12) {
                     Button { Task { await emby.play(item) } } label: {
-                        Label("Play", systemImage: "play.fill").font(.system(size: 16, weight: .bold))
-                            .padding(.horizontal, 26).frame(height: 44)
-                            .background(.white).foregroundColor(.black).cornerRadius(6)
+                        Label("Play", systemImage: "play.fill").classicGlassPill(size: 44)
                     }.buttonStyle(HoverButton())
                     NavigationLink(value: item) {
-                        Label("More Info", systemImage: "info.circle").font(.system(size: 16, weight: .bold))
-                            .padding(.horizontal, 22).frame(height: 44)
-                            .background(Color.gray.opacity(0.55)).foregroundColor(.white).cornerRadius(6)
+                        Label("More Info", systemImage: "info.circle").classicGlassPill(size: 44)
                     }.buttonStyle(HoverButton())
                     Spacer()
                     HStack(spacing: 6) {
@@ -1474,7 +1470,7 @@ struct ClassicLibraryView: View {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
                                 .font(.callout.weight(.medium))
                                 .padding(.horizontal, 14).padding(.vertical, 7)
-                                .background { if tab == i { ClassicGlassPill() } }
+                                .classicSelectedGlass(tab == i)
                                 .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
@@ -1569,7 +1565,7 @@ struct ClassicLibraryView: View {
                 Button { layout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 30, height: 26)
-                        .background { if layout == m.0 { ClassicGlassPill() } }
+                        .classicSelectedGlass(layout == m.0)
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -2090,7 +2086,7 @@ struct ClassicDetailView: View {
                 Button { epLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 30, height: 26)
-                        .background { if epLayout == m.0 { ClassicGlassPill() } }
+                        .classicSelectedGlass(epLayout == m.0)
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -2263,7 +2259,7 @@ struct ClassicDetailView: View {
                 Button { similarLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 30, height: 26)
-                        .background { if similarLayout == m.0 { ClassicGlassPill() } }
+                        .classicSelectedGlass(similarLayout == m.0)
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())

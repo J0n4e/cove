@@ -84,6 +84,10 @@ extension EnvironmentValues {
 
 extension View {
     func classicClearGlass() -> some View { modifier(ClassicClearGlass(shape: Capsule())) }
+    /// The selected option of a strip of choices (top bar sections, view switches): Play-button glass.
+    @ViewBuilder func classicSelectedGlass(_ on: Bool) -> some View {
+        if on { modifier(ClassicClearGlass(shape: Capsule())) } else { self }
+    }
     /// Classic pill look: white label on accent glass.
     func classicGlassPill(size: CGFloat? = nil) -> some View { modifier(ClassicGlassPillStyle(size: size)) }
 }
