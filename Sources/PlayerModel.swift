@@ -163,18 +163,10 @@ final class PlayerModel: ObservableObject {
         if sourceIsHEVC { dlog("HEVC source (\(sourceIsHDR ? "HDR" : "SDR"), screen \(Self.screenIsHDR ? "HDR" : "SDR")): \(passHEVC ? "fMP4 pass-through" : "converted")") }
         let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
                                                 hevc: passHEVC, maxWidth: Self.screenWidth)
-        guard let serverURL = resolved else {
+        guard let u = resolved else {
             if current() { error = "Couldn't get a stream from the server." }
             return
         }
-        var u = serverURL
-        // Picture in picture: the same stream, plus the subtitle lines as a track macOS draws (PiPSubtitles.swift)
-        if req.nativeSub, !pipCues.isEmpty,
-           let local = await PiPSubtitleServer.shared.playlist(for: u, cues: pipCues, duration: duration > 0 ? duration : 0,
-                                                              shift: Double(subOffset) / 1000) {
-            u = local
-        }
-        guard current() else { return }
         let method = u.absoluteString.contains("Static=true") ? "DirectPlay" : "Transcode"
         let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u,
                                   server: emby.server, token: emby.token)
@@ -203,14 +195,6 @@ final class PlayerModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.isReady = true
-                    // Picture in picture: switch on the subtitle track the stream now carries
-                    if self.req?.nativeSub == true, let g = try? await i.asset.loadMediaSelectionGroup(for: .legible) {
-                        // The app's own track (not closed captions or macOS's automatic transcription)
-                        // (macOS names it by its language, "und" → "Unknown language", not by the name it was given)
-                        let pick = g.options.first { $0.extendedLanguageTag == "und" }
-                            ?? g.options.first { $0.mediaType == .subtitle && !$0.displayName.contains("Transcribed") }
-                        i.select(pick, in: g)
-                    }
                     if self.resumeTarget > 0 {
                         let t = self.resumeTarget; self.resumeTarget = 0
                         // Safety net in case the early seek was not applied: exact seek now
@@ -239,13 +223,7 @@ final class PlayerModel: ObservableObject {
                 .map { "\($0.domain) \($0.code)" } ?? "unknown error"
             MainActor.assumeIsolated { self?.playbackFailed(code, gen: gen) }
         }
-        let p: AVPlayer
-        if keepPlayer, let old = player {
-            old.replaceCurrentItem(with: it); p = old
-        } else {
-            p = AVPlayer(playerItem: it)
-        }
-        keepPlayer = false
+        let p = AVPlayer(playerItem: it)
         p.volume = volume
         timeObs = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { [weak self] t in
             MainActor.assumeIsolated { self?.tick(t.seconds) }
@@ -468,34 +446,7 @@ final class PlayerModel: ObservableObject {
         pip = AVPictureInPictureController(playerLayer: layer)
         pipObs = pip?.observe(\.isPictureInPictureActive, options: [.new]) { [weak self] c, _ in
             let on = c.isPictureInPictureActive
-            Task { @MainActor in
-                self?.pipActive = on
-                await self?.pipSubtitles(on)
-            }
-        }
-    }
-
-    /// Text subtitles are drawn by the app over the video, and picture in picture shows only the video itself.
-    /// So while it is on, the stream is played with the app's subtitle lines as a track macOS draws
-    /// (PiPSubtitles.swift); back in the window the app draws them again (with its own style).
-    private var pipBurned = false
-    /// The next stream goes into the current player instead of a new one (PiP stays open)
-    private var keepPlayer = false
-    private var pipCues: [Cue] = []
-    private func pipSubtitles(_ on: Bool) async {
-        guard let emby else { return }
-        if on, let s = sub, !isImageSub(s), !(req?.burnIn ?? false) {
-            pipBurned = true
-            keepPlayer = true
-            pipCues = cues   // the lines the app draws, handed to the PiP stream as a subtitle track
-            // The subtitle as a track in the stream, which macOS draws itself (also in the PiP window)
-            await restart(emby) { $0.sub = s; $0.burnIn = true; $0.nativeSub = true }
-        } else if !on, pipBurned {
-            // Swapping the stream makes PiP report "off" for a moment: only switch back once it really stays off
-            try? await Task.sleep(for: .seconds(1.5))
-            guard pip?.isPictureInPictureActive != true, pipBurned else { return }
-            pipBurned = false
-            await restart(emby) { $0.burnIn = false; $0.nativeSub = false }
+            Task { @MainActor in self?.pipActive = on }
         }
     }
 
@@ -664,13 +615,7 @@ final class PlayerModel: ObservableObject {
         timeObs = nil
         debugTimer?.invalidate(); debugTimer = nil; pausedAt = nil
         keepAlive?.invalidate(); keepAlive = nil
-        if keepPlayer {
-            // Switching streams while picture in picture is on: keep the same player (and with it the PiP window);
-            // start() gives it the new stream
-            obs = nil; caption = ""; resumeTarget = 0
-        } else {
-            if pip?.isPictureInPictureActive == true { pip?.stopPictureInPicture() }
-            player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
-        }
+        if pip?.isPictureInPictureActive == true { pip?.stopPictureInPicture() }
+        player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
     }
 }

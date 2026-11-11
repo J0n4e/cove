@@ -61,7 +61,6 @@ struct PlayRequest: Identifiable {
     var start: Double? = nil      // seconds to resume from
     var noSub = false             // user chose "Off": don't auto-load the preferred language
     var burnIn = false            // subtitle couldn't be read as text: have the server burn it in
-    var nativeSub = false         // picture in picture: the app adds its subtitle lines as a track macOS draws
     var trailer: URL? = nil       // a YouTube trailer of the item, played with YouTube's player instead
     var id: String { item.id }
     var transcode: Bool { audio != nil || sub != nil || maxBitrate != nil }
@@ -1188,7 +1187,7 @@ final class Emby: ObservableObject {
             }
             if let t = src["TranscodingUrl"] as? String {
                 // (no width cap when a 4K HEVC video may pass through unchanged: the cap would force a conversion)
-                let capped = Self.capConversion(Self.fixSubtitle(t, req.nativeSub ? nil : req.sub), maxWidth: hevc ? nil : maxWidth,
+                let capped = Self.capConversion(Self.fixSubtitle(t, req.sub), maxWidth: hevc ? nil : maxWidth,
                                                 maxBitrate: req.maxBitrate ?? Self.defaultConversionBitrate)
                 return absolute(capped, noCopy: reencode)
             }
