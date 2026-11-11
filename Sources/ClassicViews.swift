@@ -1470,12 +1470,12 @@ struct ClassicLibraryView: View {
                         Button { tab = i } label: {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
                                 .font(.callout.weight(.medium))
-                                .padding(.horizontal, 14).padding(.vertical, 7)
+                                .padding(.horizontal, 16).frame(height: 36)
                                 .classicSelectedGlass(tab == i)
                                 .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
-                }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+                }.padding(4).frame(height: 44).classicClearGlass()
             }
             if tab != 2 { controls }
         }
@@ -1485,11 +1485,11 @@ struct ClassicLibraryView: View {
         HStack(spacing: 10) {
             Text("\(total) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { if let f = items.first { await emby.play(f) } } } label: {
-                Label("Play", systemImage: "play.fill").classicPill()
-            }.buttonStyle(.plainHand)
+                Label("Play", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+            }.buttonStyle(HoverButton())
             Button { Task { await shuffle() } } label: {
-                Label("Shuffle", systemImage: "shuffle").classicPill()
-            }.buttonStyle(.plainHand)
+                Label("Shuffle", systemImage: "shuffle").classicGlassPill(size: 44, iconOnly: false)
+            }.buttonStyle(HoverButton())
             Menu {
                 Picker("Sort by", selection: $sort) {
                     Text("Recently Added").tag("latest")
@@ -1502,8 +1502,9 @@ struct ClassicLibraryView: View {
                     Text("Descending").tag(true)
                 }.pickerStyle(.inline)
             } label: {
-                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").classicPill()
+                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up")
             }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .classicGlassPill(size: 44, iconOnly: false).helpLabel("Sort")
             Menu {
                 Picker("Status", selection: $watch) {
                     Text("All").tag("all")
@@ -1515,10 +1516,12 @@ struct ClassicLibraryView: View {
                     ForEach(genres, id: \.self) { Text($0).tag($0) }
                 }.pickerStyle(.inline)
             } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle").classicPill(active: filtered)
+                Image(systemName: filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
             }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .classicGlassPill(size: 44).helpLabel("Filter")
             if !genre.isEmpty {
-                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicPill(active: true) }.buttonStyle(.plainHand)
+                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicGlassPill(size: 44, iconOnly: false) }
+                    .buttonStyle(HoverButton()).helpLabel("Clear genre")
             }
             layoutToggle
             Menu {
@@ -1527,8 +1530,9 @@ struct ClassicLibraryView: View {
                     Divider()
                 }
                 Button("Refresh") { Task { await load(reset: true) } }
-            } label: { Image(systemName: "ellipsis").classicPill() }
+            } label: { Image(systemName: "ellipsis") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .classicGlassPill(size: 44).helpLabel("More")
         }
     }
 
@@ -1565,14 +1569,14 @@ struct ClassicLibraryView: View {
             ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { layout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
-                        .frame(width: 30, height: 26)
+                        .frame(width: 36, height: 36)
                         .classicSelectedGlass(layout == m.0)
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+        }.padding(4).frame(height: 44).classicClearGlass()
     }
 
     var genreGrid: some View {
@@ -2086,14 +2090,14 @@ struct ClassicDetailView: View {
             ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { epLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
-                        .frame(width: 30, height: 26)
+                        .frame(width: 36, height: 36)
                         .classicSelectedGlass(epLayout == m.0)
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+        }.padding(4).frame(height: 44).classicClearGlass()
     }
 
 
@@ -2259,14 +2263,14 @@ struct ClassicDetailView: View {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { similarLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
-                        .frame(width: 30, height: 26)
+                        .frame(width: 36, height: 36)
                         .classicSelectedGlass(similarLayout == m.0)
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(3).background(Color.white.opacity(0.1)).clipShape(Capsule())
+        }.padding(4).frame(height: 44).classicClearGlass()
     }
 }
 
