@@ -120,6 +120,8 @@ struct ClassicGlassBacking<S: Shape>: View {
 /// Cards as glass: a glass sheen over the top of the picture and a glass tube running round the edge.
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
+    @AppStorage("accent") private var accentName = "red"
+    @State private var hover = false
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
         return content
@@ -133,7 +135,8 @@ struct ClassicGlassCard: ViewModifier {
                     // rim: a clear glass tube (as the progress ring) running round the edge: faint body, light outer
                     // and inner walls, a highlight along it
                     let w: CGFloat = 5
-                    shape.strokeBorder(Color.white.opacity(0.12), lineWidth: w)
+                    // under the mouse the tube fills with see-through accent, as the progress ring
+                    shape.strokeBorder(hover ? Theme.accent(accentName).opacity(0.5) : Color.white.opacity(0.12), lineWidth: w)
                     shape.strokeBorder(Color.white.opacity(0.5), lineWidth: 0.6)
                     RoundedRectangle(cornerRadius: max(radius - w, 0), style: .circular)
                         .strokeBorder(Color.white.opacity(0.3), lineWidth: 0.6).padding(w - 0.6)
@@ -143,6 +146,7 @@ struct ClassicGlassCard: ViewModifier {
                 }
                 .allowsHitTesting(false)
             }
+            .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
     }
 }
 
