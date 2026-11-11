@@ -49,10 +49,8 @@ struct ClassicGlassPillStyle: ViewModifier {
         styled(content)
             .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
     }
-    /// Under the mouse the glass mists over like a fogged bathroom mirror (try-out).
-    var hoverTint: some View {
-        FoggedGlass(shape: Capsule()).opacity(hover ? 1 : 0)
-    }
+    /// Under the mouse: Settings → General → Hover effect (fogged mirror or soft accent glow).
+    var hoverTint: some View { ClassicHoverEffect().opacity(hover ? 1 : 0) }
     @ViewBuilder func styled(_ content: Content) -> some View {
         if #available(macOS 26, *) {
             // System glass, untinted: lenses the page behind it, with light catching the edges and reacting to the
@@ -142,6 +140,22 @@ struct ClassicGlassCard: ViewModifier {
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
             .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
             .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+    }
+}
+
+/// The Glass3D hover look, as chosen in Settings → General → Hover effect.
+struct ClassicHoverEffect: View {
+    @AppStorage("classicHover") private var style = "fog"   // "fog" or "glow"
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        if style == "glow" {
+            Capsule()
+                .fill(RadialGradient(colors: [Theme.accent(accentName).opacity(0.5), Theme.accent(accentName).opacity(0.12)],
+                                     center: .bottom, startRadius: 2, endRadius: 50))
+                .blur(radius: 6)
+        } else {
+            FoggedGlass(shape: Capsule())
+        }
     }
 }
 

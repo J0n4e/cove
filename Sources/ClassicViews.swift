@@ -1184,15 +1184,15 @@ struct GlassSlider: View {
     }
 }
 
-/// Top bar and switch hover (try-out): a fogged-mirror patch shaped like the selected section's pill, no pill itself.
+/// Top bar and switch hover: the chosen hover look (Settings) shaped like the selected section's pill, no pill itself.
 struct SectionHoverGlow: ViewModifier {
     let on: Bool
     @State private var hover = false
     func body(content: Content) -> some View {
         content
             .background {
-                // Fogged-mirror hover, as the buttons (try-out)
-                FoggedGlass(shape: Capsule())
+                // The chosen hover look, as the buttons
+                ClassicHoverEffect()
                     .opacity(on && hover ? 1 : 0)
                     .allowsHitTesting(false)
             }

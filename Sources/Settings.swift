@@ -173,6 +173,7 @@ struct GeneralSettings: View {
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("accent") private var accent = "red"
     @AppStorage("classicFont") private var classicFont = "rounded"
+    @AppStorage("classicHover") private var classicHover = "fog"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
@@ -221,6 +222,7 @@ struct GeneralSettings: View {
             PrefNote("Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
             if theme == "classic" {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
+                PrefRow(label: "Hover effect") { menuPicker($classicHover, [("fog", "Fogged mirror"), ("glow", "Soft glow")]) }
             }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
