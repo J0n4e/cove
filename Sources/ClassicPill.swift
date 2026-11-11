@@ -4,7 +4,7 @@ import SwiftUI
 // flat frosted glass that fades from left to right until almost clear, crisp hairline rim and fine light lines at the top and the
 // bottom.
 
-/// The glass behind a Classic pill.
+/// The glass behind a Classic pill on macOS before 26 (drawn by hand).
 struct ClassicGlassPill: View {
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
@@ -42,9 +42,20 @@ struct ClassicGlassPill: View {
 struct ClassicGlassPillStyle: ViewModifier {
     /// Set: the pill is this tall.
     var size: CGFloat? = nil
-    func body(content: Content) -> some View {
-        sized(content).foregroundColor(.white).background(ClassicGlassPill())
+    @AppStorage("accent") private var accentName = "red"
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26, *) {
+            // System glass: lenses the page behind it, with light catching the edges and reacting to the pointer;
+            // the accent tints it from the left, fading to clear on the right
+            sized(content).foregroundColor(.white)
+                .background(Capsule().fill(LinearGradient(colors: [accent.opacity(0.35), accent.opacity(0.02)],
+                                                          startPoint: .leading, endPoint: .trailing)))
+                .glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            sized(content).foregroundColor(.white).background(ClassicGlassPill())
+        }
     }
+    private var accent: Color { Theme.accent(accentName) }
     @ViewBuilder func sized(_ content: Content) -> some View {
         if let size {
             content.font(.system(size: size * 0.36, weight: .medium))
