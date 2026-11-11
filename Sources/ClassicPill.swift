@@ -40,7 +40,7 @@ struct ClassicGlassPill: View {
 
 /// White label on accent glass.
 struct ClassicGlassPillStyle: ViewModifier {
-    /// Set: the pill is this tall.
+    /// Set: an icon-only circle of this size.
     var size: CGFloat? = nil
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
@@ -65,9 +65,9 @@ struct ClassicGlassPillStyle: ViewModifier {
     private var accent: Color { Theme.accent(accentName) }
     @ViewBuilder func sized(_ content: Content) -> some View {
         if let size {
-            content.font(.system(size: size * 0.36, weight: .medium))
-                .padding(.horizontal, size * 0.38)
-                .frame(minWidth: size, minHeight: size, maxHeight: size)
+            // Sized buttons show only their icon, in a circle; the title is the tooltip
+            content.labelStyle(.iconOnly).font(.system(size: size * 0.36, weight: .medium))
+                .frame(width: size, height: size)
         } else { content }
     }
 }

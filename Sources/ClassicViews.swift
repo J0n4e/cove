@@ -997,10 +997,10 @@ struct ClassicHero: View {
                 HStack(spacing: 12) {
                     Button { Task { await emby.play(item) } } label: {
                         Label("Play", systemImage: "play.fill").classicGlassPill(size: 44)
-                    }.buttonStyle(HoverButton())
+                    }.buttonStyle(HoverButton()).helpLabel(emby.resumeAt(item) > 0 ? "Resume" : "Play")
                     NavigationLink(value: item) {
                         Label("More Info", systemImage: "info.circle").classicGlassPill(size: 44)
-                    }.buttonStyle(HoverButton())
+                    }.buttonStyle(HoverButton()).helpLabel("More Info")
                     Spacer()
                     HStack(spacing: 6) {
                         ForEach(items.indices, id: \.self) { i in
@@ -1870,16 +1870,16 @@ struct ClassicDetailView: View {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {
                 Label(playLabel, systemImage: "play.fill").classicGlassPill(size: 44)
-            }.buttonStyle(HoverButton())
+            }.buttonStyle(HoverButton()).helpLabel(r > 0 ? playLabel + " from the beginning" : playLabel)
             if r > 0 {
                 Button { playNow() } label: {
                     Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44)
-                }.buttonStyle(HoverButton())
+                }.buttonStyle(HoverButton()).helpLabel("Resume from \(timeString(r))")
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44)
-                }.buttonStyle(HoverButton())
+                }.buttonStyle(HoverButton()).helpLabel("Trailer")
             }
             Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
                 Label(played ? "Watched" : "Mark as Watched", systemImage: played ? "checkmark.circle.fill" : "checkmark.circle")

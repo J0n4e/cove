@@ -15,10 +15,35 @@ extension View {
 private struct HoverTip: ViewModifier {
     let text: String
     @State private var hover = false
+    @State private var shown = false
+    @Environment(\.classicGlass) private var classic   // Classic theme: a glass bubble instead of the AppKit tooltip
     func body(content: Content) -> some View {
-        content
-            .overlay { if hover && !text.isEmpty { ToolTipView(text: text) } }
-            .onHover { hover = $0 }
+        if classic {
+            content
+                .overlay(alignment: .bottom) {
+                    if shown && !text.isEmpty {
+                        Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.white).lineLimit(1)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .classicClearGlass()
+                            .fixedSize()
+                            .alignmentGuide(.bottom) { d in d[.top] - 8 }   // just below the control
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+                    }
+                }
+                .zIndex(shown ? 1 : 0)
+                .onHover { hover = $0; if !$0 { shown = false } }
+                // Shows after the pointer rests a moment, as a system tooltip does
+                .task(id: hover) {
+                    guard hover else { return }
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    if !Task.isCancelled { withAnimation(.easeOut(duration: 0.15)) { shown = true } }
+                }
+        } else {
+            content
+                .overlay { if hover && !text.isEmpty { ToolTipView(text: text) } }
+                .onHover { hover = $0 }
+        }
     }
 }
 
