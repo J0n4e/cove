@@ -2234,27 +2234,45 @@ struct CountBadge: View {
 struct ProgressRing: View {
     let progress: Double      // 0...1
     var size: CGFloat = 22
-    @Environment(\.classicGlass) private var classic   // Classic theme: on a disc, as the tooltips
-    @Environment(\.appBG) private var bg
+    @Environment(\.classicGlass) private var classic   // Classic theme: a glass tube bent into a ring
+    @AppStorage("accent") private var accentName = "red"
     var body: some View {
-        if classic {
-            ring(size - 6)
-                .frame(width: size + 6, height: size + 6)
-                .background(Circle().fill(bg.opacity(0.85)))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.75))
-                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-        } else {
-            ring(size).shadow(color: .black.opacity(0.6), radius: 3)
-        }
+        if classic { tube } else { ring.shadow(color: .black.opacity(0.6), radius: 3) }
     }
-    func ring(_ d: CGFloat) -> some View {
+    var trim: CGFloat { CGFloat(min(1, max(0.03, progress))) }
+    var ring: some View {
         ZStack {
             Circle().stroke(Color.white.opacity(0.35), lineWidth: 2.5)
-            Circle().trim(from: 0, to: CGFloat(min(1, max(0.03, progress))))
+            Circle().trim(from: 0, to: trim)
                 .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
+        .frame(width: size, height: size)
+    }
+    /// A clear glass straw bent into a circle, filled with the accent color as far as the progress: the tube's
+    /// edges are thin light lines, and a highlight runs along the inside of the tube and of the fill.
+    var tube: some View {
+        let w: CGFloat = 5               // tube thickness
+        let d = size + 2                 // centerline diameter
+        let accent = Theme.accent(accentName)
+        return ZStack {
+            // empty glass tube: faint body, light outer and inner walls, a highlight along it
+            Circle().stroke(Color.white.opacity(0.12), lineWidth: w)
+            Circle().stroke(Color.white.opacity(0.45), lineWidth: 0.6).frame(width: d + w, height: d + w)
+            Circle().stroke(Color.white.opacity(0.3), lineWidth: 0.6).frame(width: d - w, height: d - w)
+            Circle().stroke(Color.white.opacity(0.25), lineWidth: 1).frame(width: d - 1.5, height: d - 1.5)
+            // liquid: accent fill with its own highlight, rounded ends
+            Group {
+                Circle().trim(from: 0, to: trim)
+                    .stroke(accent, style: StrokeStyle(lineWidth: w - 1.2, lineCap: .round))
+                Circle().trim(from: 0, to: trim)
+                    .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                    .frame(width: d - 1.5, height: d - 1.5)
+            }.rotationEffect(.degrees(-90))
+        }
         .frame(width: d, height: d)
+        .frame(width: d + w, height: d + w)
+        .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
     }
 }
 
