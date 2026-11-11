@@ -97,9 +97,11 @@ struct ClassicGlassPillStyle: ViewModifier {
 /// before 26.
 struct ClassicClearGlass<S: Shape>: ViewModifier {
     let shape: S
+    /// false: still glass that does not react to the pointer (labels, not buttons)
+    var interactive = true
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26, *) {
-            content.background(ClassicGlassBacking(shape: shape)).glassEffect(.clear.interactive(), in: shape)
+            content.background(ClassicGlassBacking(shape: shape)).glassEffect(interactive ? .clear.interactive() : .clear, in: shape)
         }
         else { content.background(shape.fill(Color.white.opacity(0.1))) }
     }

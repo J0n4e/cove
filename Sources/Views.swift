@@ -1222,8 +1222,9 @@ struct PersonHeader: View {
 
     @ViewBuilder func chip(_ text: String) -> some View {
         if classic {
-            // Glass3D: the glass pill, as the buttons
-            Text(text).font(.cv(13, weight: .semibold)).padding(.horizontal, 14).frame(height: 30).classicGlassPill()
+            // Glass3D: glass like the buttons, but still (it is not a button: no hover glow)
+            Text(text).font(.cv(13, weight: .semibold)).foregroundColor(.white).padding(.horizontal, 14).frame(height: 30)
+                .modifier(ClassicClearGlass(shape: Capsule(), interactive: false))
         } else {
             Text(text).font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, 12).padding(.vertical, 5)
