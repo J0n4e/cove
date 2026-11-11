@@ -32,13 +32,24 @@ extension EnvironmentValues {
 private struct TipBubble: View {
     let text: String
     @Environment(\.appBG) private var bg
+    @Environment(\.classicGlass) private var classic   // Classic theme: the same glass as the buttons
     var body: some View {
-        Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.white).lineLimit(1)
-            .padding(.horizontal, 10).frame(height: 24)
-            .background(Capsule().fill(bg.opacity(0.85)))   // a little see-through
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.75))
-            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-            .fixedSize()
+        if classic {
+            // Glass pill like the buttons, over a dark tint so the text always reads
+            Text(text).font(.system(size: 12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                .padding(.horizontal, 12).frame(height: 28)
+                .background(Capsule().fill(bg.opacity(0.6)))
+                .classicClearGlass()
+                .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+                .fixedSize()
+        } else {
+            Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.white).lineLimit(1)
+                .padding(.horizontal, 10).frame(height: 24)
+                .background(Capsule().fill(bg.opacity(0.85)))   // a little see-through
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.75))
+                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+                .fixedSize()
+        }
     }
 }
 
@@ -51,7 +62,7 @@ private struct TipLayer: View {
                 let below = t.frame.maxY + 8 + 24 <= g.size.height
                 TipBubble(text: t.text)
                     .position(x: min(max(t.frame.midX, 80), max(g.size.width - 80, 80)),
-                              y: below ? t.frame.maxY + 8 + 12 : t.frame.minY - 8 - 12)
+                              y: below ? t.frame.maxY + 8 + 14 : t.frame.minY - 8 - 14)
                     .transition(.opacity)
             }
         }

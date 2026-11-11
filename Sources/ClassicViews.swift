@@ -56,12 +56,12 @@ struct ClassicRootView: View {
             PlaybackFlag.shared.active = id != nil
             if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
+        .tipLayer()   // inside the settings below, so the tooltips get the Classic look and font too
         .environment(\.classicGlass, true)
         // Rounded system font: soft like the glass pills and rounded corners, still very readable
         .fontDesign(.rounded)
         // No scroll bars popping up over the pages (scroll with the wheel, trackpad or the row arrows)
         .scrollIndicators(.hidden)
-        .tipLayer()
     }
 }
 
