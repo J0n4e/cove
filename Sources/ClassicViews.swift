@@ -1043,9 +1043,10 @@ struct ClassicHero: View {
             }
             .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, 56)
             .id("t" + item.id).transition(.opacity)
-            // The coming banners as a deck of cards, right side, middle
+            // The coming banners as a deck of cards, bottom right
             if items.count > 1 {
-                deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing).padding(.trailing, 90)
+                deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 44).padding(.bottom, 56)
             }
         }
         .overlay { if hover && items.count > 1 { sideArrows } }
@@ -1115,16 +1116,16 @@ struct ClassicHero: View {
         .frame(maxWidth: 520, alignment: .leading)
     }
 
-    /// The banners stacked like playing cards: the current one in front, the next ones peeking out behind it, each a
+    /// The coming banners stacked like playing cards: the next one in front, the ones after it peeking out behind, each a
     /// little smaller, further right and dimmer. Moving on, the front card fades away (growing slightly) and the one
     /// beneath slides up into its place. Clicking a card shows that banner.
     var deck: some View {
-        let shown = min(items.count, 4)
+        let shown = min(items.count - 1, 4)
         let w: CGFloat = 300, h: CGFloat = w * 9 / 16
         return ZStack(alignment: .leading) {
             // Drawn back to front, so the current card ends up on top
-            ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
-                let k = p - pos
+            ForEach(Array(((pos + 1)..<(pos + 1 + shown)).reversed()), id: \.self) { p in
+                let k = p - pos - 1
                 let i = ((p % items.count) + items.count) % items.count
                 let it = items[i]
                 Button { go(i) } label: {
