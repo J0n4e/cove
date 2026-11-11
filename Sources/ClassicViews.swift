@@ -3223,24 +3223,27 @@ struct ClassicPlayerView: View {
 
     func row(_ icon: String, _ title: String, sub: String? = nil, checked: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 18) {
-                Image(systemName: icon).font(.cv(18)).frame(width: 26)
+            HStack(spacing: classic ? 12 : 18) {
+                Image(systemName: icon).font(.cv(classic ? 14 : 18)).frame(width: classic ? 20 : 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.cv(16))
-                    if let sub { Text(sub).font(.cv(13)).foregroundColor(.secondary) }
+                    Text(title).font(.cv(classic ? 13 : 16, weight: classic ? .medium : .regular)).lineLimit(1)
+                    if let sub { Text(sub).font(.cv(classic ? 11 : 13)).foregroundColor(.secondary) }
                 }
                 Spacer()
-                if checked { Image(systemName: "checkmark").font(.cv(15, weight: .semibold)) }
+                if checked { Image(systemName: "checkmark").font(.cv(classic ? 12 : 15, weight: .semibold)) }
             }
-            .foregroundColor(checked ? accent : .white)
-            .padding(.horizontal, 22).padding(.vertical, 11)
+            .foregroundColor(classic ? .white : (checked ? accent : .white))
+            .padding(.horizontal, classic ? 12 : 22).padding(.vertical, classic ? 7 : 11)
             .contentShape(Rectangle())
-        }.buttonStyle(PanelRowStyle())
+        }
+        .buttonStyle(PanelRowStyle(glass: classic))
+        .padding(.horizontal, classic ? 6 : 0)
     }
 
     func sectionTitle(_ t: String) -> some View {
-        Text(t).font(.cv(13, weight: .semibold)).foregroundColor(.secondary)
-            .padding(.horizontal, 22).padding(.top, 10).padding(.bottom, 4)
+        Text(classic ? t.uppercased() : t).font(.cv(classic ? 10 : 13, weight: .semibold)).foregroundColor(.secondary)
+            .kerning(classic ? 0.6 : 0)
+            .padding(.horizontal, classic ? 18 : 22).padding(.top, classic ? 8 : 10).padding(.bottom, 4)
     }
 
     func panelDivider() -> some View { Divider().padding(.horizontal, 18).padding(.vertical, 6) }
@@ -3270,8 +3273,8 @@ struct ClassicPlayerView: View {
                     Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms later")
                 }
-                .font(.cv(18))
-                .padding(.horizontal, 22).padding(.vertical, 9)
+                .font(.cv(classic ? 14 : 18))
+                .padding(.horizontal, classic ? 18 : 22).padding(.vertical, classic ? 6 : 9)
                 row("textformat.size", "Subtitle Appearance") { withAnimation { panel = .appearance } }
 
                 if model.audioStreams.count > 0 {
@@ -3296,19 +3299,28 @@ struct ClassicPlayerView: View {
                     ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0] as [Float], id: \.self) { r in
                         let on = model.speed == r
                         Button { model.setSpeed(r) } label: {
-                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.cv(14, weight: .semibold))
-                                .frame(maxWidth: .infinity).frame(height: 36)
-                                .foregroundColor(on ? .black : .white)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
+                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.cv(classic ? 12 : 14, weight: .semibold))
+                                .frame(maxWidth: .infinity).frame(height: classic ? 28 : 36)
+                                .foregroundColor(classic || !on ? .white : .black)
+                                .background {
+                                    if classic {
+                                        // glass pills; the chosen speed lit in the accent
+                                        Capsule().fill(on ? accent.opacity(0.55) : Color.white.opacity(0.06))
+                                            .overlay(Capsule().strokeBorder(Color.white.opacity(on ? 0.4 : 0.15), lineWidth: 0.75))
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1))
+                                    }
+                                }
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plainHand).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
                     }
                 }
-                .padding(.horizontal, 22).padding(.bottom, 6)
+                .padding(.horizontal, classic ? 18 : 22).padding(.bottom, 6)
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, classic ? 8 : 12)
         }
-        .frame(width: 340)
+        .frame(width: classic ? 290 : 340)
+        .frame(maxHeight: classic ? 440 : .infinity)
         .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}   // keep taps inside the panel

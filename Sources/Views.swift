@@ -4650,9 +4650,21 @@ extension PlayerView {
 }
 
 struct PanelRowStyle: ButtonStyle {
+    /// Classic theme: the line under the pointer lights up in the accent, as in the glass lists
+    var glass = false
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(Color.white.opacity(configuration.isPressed ? 0.15 : 0))
+        if glass { GlassRow(c: configuration) }
+        else { configuration.label.background(Color.white.opacity(configuration.isPressed ? 0.15 : 0)) }
+    }
+    struct GlassRow: View {
+        let c: ButtonStyleConfiguration
+        @AppStorage("accent") private var accentName = "red"
+        @State private var hover = false
+        var body: some View {
+            c.label
+                .background { if hover || c.isPressed { Capsule().fill(Theme.accent(accentName).opacity(c.isPressed ? 0.7 : 0.55)) } }
+                .onHover { hover = $0 }
+        }
     }
 }
 
