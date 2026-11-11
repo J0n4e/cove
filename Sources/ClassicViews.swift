@@ -20,10 +20,8 @@ struct ClassicPillStyle: ViewModifier {
 }
 
 extension View {
-    /// Thin white outline that follows the rounded corners (posters, episode thumbnails, preview card).
-    func classicThinBorder(_ radius: CGFloat) -> some View {
-        overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.85), lineWidth: 1))
-    }
+    /// Glass card finish that follows the rounded corners (posters, episode thumbnails, preview card).
+    func classicThinBorder(_ radius: CGFloat) -> some View { modifier(ClassicGlassCard(radius: radius)) }
     func classicPill(active: Bool = false) -> some View { modifier(ClassicPillStyle(active: active)) }
     func classicOnAccent() -> some View { modifier(OnAccent()) }
     func classicCircleButton() -> some View {

@@ -117,6 +117,40 @@ struct ClassicGlassBacking<S: Shape>: View {
     }
 }
 
+/// Cards as glass: a glass sheen over the top of the picture, a light-catching rim, and under the mouse the accent
+/// rising from the bottom edge like the buttons' flame.
+struct ClassicGlassCard: ViewModifier {
+    let radius: CGFloat
+    @AppStorage("accent") private var accentName = "red"
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let accent = Theme.accent(accentName)
+        return content
+            .overlay {
+                ZStack {
+                    // glass sheen over the upper part
+                    shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.18), location: 0),
+                                                      .init(color: .white.opacity(0.04), location: 0.35),
+                                                      .init(color: .clear, location: 0.5)],
+                                              startPoint: .top, endPoint: .bottom))
+                    // accent flame from the bottom under the mouse
+                    shape.fill(LinearGradient(stops: [.init(color: accent.opacity(0.55), location: 0),
+                                                      .init(color: accent.opacity(0.15), location: 0.3),
+                                                      .init(color: .clear, location: 0.55)],
+                                              startPoint: .bottom, endPoint: .top))
+                        .opacity(hover ? 1 : 0)
+                    // rim: bright at the top, dimmer down the sides, lit again at the bottom
+                    shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.15), .white.opacity(0.4)],
+                                                      startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                    shape.strokeBorder(Color.black.opacity(0.35), lineWidth: 0.5).padding(1)
+                }
+                .allowsHitTesting(false)
+            }
+            .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+    }
+}
+
 /// True inside the Classic theme: the shared search box and info pill use the Classic glass.
 private struct ClassicGlassKey: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {
