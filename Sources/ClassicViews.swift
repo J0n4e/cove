@@ -1857,49 +1857,45 @@ struct ClassicLibraryView: View {
             Button { Task { await shuffle() } } label: {
                 Label("Shuffle", systemImage: "shuffle").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
-            Menu {
-                Picker("Sort by", selection: $sort) {
-                    Text("Recently Added").tag("latest")
-                    Text("Name").tag("name")
-                    Text("Release Date").tag("release")
-                    Text("Rating").tag("top")
-                }.pickerStyle(.inline)
-                Picker("Order", selection: $desc) {
-                    Text("Ascending").tag(false)
-                    Text("Descending").tag(true)
-                }.pickerStyle(.inline)
-            } label: {
-                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up")
-            }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            .classicGlassPill(size: 44, iconOnly: false).helpLabel("Sort")
-            Menu {
-                Picker("Status", selection: $watch) {
-                    Text("All").tag("all")
-                    Text("Unwatched").tag("unwatched")
-                    Text("Watched").tag("watched")
-                }.pickerStyle(.inline)
-                Picker("Genre", selection: $genre) {
-                    Text("All Genres").tag("")
-                    ForEach(genres, id: \.self) { Text($0).tag($0) }
-                }.pickerStyle(.inline)
-            } label: {
-                Image(systemName: filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-            }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            .classicGlassPill(size: 44).helpLabel("Filter")
+            // Sort, filter and More open the glass list (not the macOS menu)
+            GlassListButton(list: {
+                let sorts = [("latest", "Recently Added"), ("name", "Name"), ("release", "Release Date"), ("top", "Rating")]
+                let opts = ["Sort by"] + sorts.map(\.1) + ["Order", "Ascending", "Descending"]
+                var ck: Set<Int> = [desc ? 7 : 6]
+                if let i = sorts.firstIndex(where: { $0.0 == sort }) { ck.insert(i + 1) }
+                return (opts, ck, [0, 5], { i in
+                    if (1...4).contains(i) { sort = sorts[i - 1].0 } else if i == 6 { desc = false } else if i == 7 { desc = true }
+                })
+            }) {
+                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").classicGlassPill(size: 44, iconOnly: false)
+            }.helpLabel("Sort")
+            GlassListButton(list: {
+                let status = [("all", "All"), ("unwatched", "Unwatched"), ("watched", "Watched")]
+                let opts = ["Status"] + status.map(\.1) + ["Genre", "All Genres"] + genres
+                var ck: Set<Int> = []
+                if let i = status.firstIndex(where: { $0.0 == watch }) { ck.insert(i + 1) }
+                ck.insert(genre.isEmpty ? 5 : (genres.firstIndex(of: genre).map { $0 + 6 } ?? 5))
+                return (opts, ck, [0, 4], { i in
+                    if (1...3).contains(i) { watch = status[i - 1].0 }
+                    else if i == 5 { genre = "" } else if i >= 6 { genre = genres[i - 6] }
+                })
+            }) {
+                Label("Filter", systemImage: filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    .classicGlassPill(size: 44)
+            }.helpLabel("Filter")
             if !genre.isEmpty {
                 Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicGlassPill(size: 44, iconOnly: false) }
                     .buttonStyle(HoverButton()).helpLabel("Clear genre")
             }
             layoutToggle
-            Menu {
-                if canGroup {
-                    Toggle("Group by Collection", isOn: $groupCol)
-                    Divider()
-                }
-                Button("Refresh") { Task { await load(reset: true) } }
-            } label: { Image(systemName: "ellipsis") }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            .classicGlassPill(size: 44).helpLabel("More")
+            GlassListButton(list: {
+                let opts = (canGroup ? ["Group by Collection"] : []) + ["Refresh"]
+                return (opts, canGroup && groupCol ? [0] : [], [], { i in
+                    if canGroup && i == 0 { groupCol.toggle() } else { Task { await load(reset: true) } }
+                })
+            }) {
+                Label("More", systemImage: "ellipsis").classicGlassPill(size: 44)
+            }.helpLabel("More")
         }
     }
 

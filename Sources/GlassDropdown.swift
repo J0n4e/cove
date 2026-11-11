@@ -11,6 +11,10 @@ final class DropdownCenter: ObservableObject {
         let options: [String]
         let selected: Int
         let pick: (Int) -> Void
+        /// Several ticked lines (sort field and order, status and genre…); `selected` is ignored when set
+        var checked: Set<Int>? = nil
+        /// Lines that are small section titles, not choices
+        var headers: Set<Int> = []
     }
     @Published var list: List?
     func close() { list = nil }
@@ -61,10 +65,15 @@ private struct DropdownLayer: View {
         return ScrollView {
             VStack(spacing: 0) {
                 ForEach(l.options.indices, id: \.self) { i in
+                    if l.headers.contains(i) {
+                        Text(l.options[i].uppercased()).font(.cv(10, weight: .semibold)).kerning(0.6)
+                            .foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12).padding(.top, i == 0 ? 4 : 10).padding(.bottom, 2)
+                    } else {
                     Button { l.pick(i); center.close() } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark").font(.cv(11, weight: .bold))
-                                .opacity(i == l.selected ? 1 : 0)
+                                .opacity((l.checked?.contains(i) ?? (i == l.selected)) ? 1 : 0)
                             Text(l.options[i]).font(.cv(13, weight: .medium)).lineLimit(1)
                             Spacer(minLength: 0)
                         }
@@ -77,6 +86,7 @@ private struct DropdownLayer: View {
                     }
                     .buttonStyle(.plain)
                     .onHover { hover = $0 ? i : (hover == i ? nil : hover) }
+                    }
                 }
             }
             .padding(6)
@@ -161,6 +171,30 @@ struct GlassMenuButton: View {
             Label(icon, systemImage: icon).classicGlassPill(size: size)
                 .overlay { if on { Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1) } }
         }
+        .buttonStyle(HoverButton())
+        .background(GeometryReader { g in
+            Color.clear
+                .onAppear { frame = g.frame(in: .named("dropdownLayer")) }
+                .onChange(of: g.frame(in: .named("dropdownLayer"))) { _, f in frame = f }
+        })
+    }
+}
+
+/// Any label (a glass pill or button) that opens the glass list; `list` builds it when clicked.
+struct GlassListButton<L: View>: View {
+    let list: () -> (options: [String], checked: Set<Int>, headers: Set<Int>, pick: (Int) -> Void)
+    @ViewBuilder let label: () -> L
+    @Environment(\.dropdownCenter) private var center
+    @State private var frame: CGRect = .zero
+
+    var body: some View {
+        Button {
+            guard let center else { return }
+            if center.list != nil { center.close(); return }
+            let l = list()
+            center.list = .init(anchor: frame, options: l.options, selected: -1, pick: l.pick,
+                                checked: l.checked, headers: l.headers)
+        } label: { label() }
         .buttonStyle(HoverButton())
         .background(GeometryReader { g in
             Color.clear
