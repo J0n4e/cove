@@ -59,6 +59,8 @@ struct ClassicRootView: View {
         .environment(\.classicGlass, true)
         // Rounded system font: soft like the glass pills and rounded corners, still very readable
         .fontDesign(.rounded)
+        // No scroll bars popping up over the pages (scroll with the wheel, trackpad or the row arrows)
+        .scrollIndicators(.hidden)
         .tipLayer()
     }
 }
@@ -1082,8 +1084,6 @@ struct ClassicHero: View {
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
-        .padding(.horizontal, 12).frame(height: 26)
-        .classicClearGlass()
         .animation(.easeOut(duration: 0.25), value: index)
     }
 
