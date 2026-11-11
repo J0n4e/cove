@@ -121,7 +121,7 @@ struct ClassicGlassBacking<S: Shape>: View {
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
         return content
             .overlay {
                 ZStack {
@@ -135,9 +135,9 @@ struct ClassicGlassCard: ViewModifier {
                     let w: CGFloat = 5
                     shape.strokeBorder(Color.white.opacity(0.12), lineWidth: w)
                     shape.strokeBorder(Color.white.opacity(0.5), lineWidth: 0.6)
-                    RoundedRectangle(cornerRadius: max(radius - w, 0), style: .continuous)
+                    RoundedRectangle(cornerRadius: max(radius - w, 0), style: .circular)
                         .strokeBorder(Color.white.opacity(0.3), lineWidth: 0.6).padding(w - 0.6)
-                    RoundedRectangle(cornerRadius: max(radius - 1.8, 0), style: .continuous)
+                    RoundedRectangle(cornerRadius: max(radius - 1.8, 0), style: .circular)
                         .strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.2), .white.opacity(0.4)],
                                                      startPoint: .top, endPoint: .bottom), lineWidth: 1).padding(1.8)
                 }
