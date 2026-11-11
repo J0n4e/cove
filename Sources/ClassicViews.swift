@@ -1123,8 +1123,7 @@ struct ClassicResumeCard: View {
                 .overlay {
                     if hover {
                         Button { Task { await emby.play(item) } } label: {
-                            Image(systemName: "play.circle.fill").font(.system(size: 40)).foregroundColor(.white)
-                                .shadow(radius: 6)
+                            Label("Resume", systemImage: "play.fill").classicGlassPill(size: 46)
                         }.buttonStyle(.plainHand).accessibilityLabel("Resume")
                     }
                 }

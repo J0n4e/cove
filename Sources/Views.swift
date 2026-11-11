@@ -4715,12 +4715,18 @@ struct SelfHoverLift: ViewModifier {
     /// When set, the play icon is a button of its own (the card around it opens the details instead)
     var onPlay: (() -> Void)? = nil
     @State private var hover = false
+    @Environment(\.classicGlass) private var classic   // Classic theme: the glass play button
+    @ViewBuilder var icon: some View {
+        if classic {
+            Label("Play", systemImage: "play.fill").classicGlassPill(size: play + 6)
+        } else {
+            Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white).shadow(radius: 6)
+        }
+    }
     func body(content: Content) -> some View {
         content
             .overlay {
                 if hover && play > 0 {
-                    let icon = Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white)
-                        .shadow(radius: 6)
                     if let onPlay {
                         Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand).tip("Play")
                     } else { icon }
