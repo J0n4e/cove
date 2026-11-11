@@ -1110,11 +1110,13 @@ struct ClassicProgressLine: View {
                 ClassicGlassBacking(shape: Capsule())
                 // watched part
                 Capsule()
-                    .fill(accent.opacity(0.9))
-                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.5), .clear], startPoint: .top, endPoint: .center)))
+                    .fill(accent.opacity(0.6))   // a little see-through
+                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.45), .clear], startPoint: .top, endPoint: .center)))
                     .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.5))
                     .padding(1)
                     .frame(width: max(7, g.size.width * CGFloat(min(1, max(0, progress)))))
+                    .shadow(color: accent.opacity(0.9), radius: 4)   // glow
+                    .shadow(color: accent.opacity(0.5), radius: 8)
             }
         }
         .frame(height: 7)
