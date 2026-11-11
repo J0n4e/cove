@@ -2357,7 +2357,7 @@ struct ProgressRing: View {
         let d = size + 2                 // centerline diameter
         return ZStack {
             // glass pane ring, as the card frames: frosted body, edges lit at the top-left and bottom-right
-            Circle().stroke(Color.white.opacity(0.14), lineWidth: w).blur(radius: 0.8)
+            Circle().stroke(Color.white.opacity(0.14), lineWidth: w)
             Circle().stroke(Self.edgeLight, lineWidth: 0.9).frame(width: d + w, height: d + w)
             Circle().stroke(Self.edgeLight, lineWidth: 0.7).frame(width: d - w, height: d - w)
             // liquid: see-through accent fill with its own highlight, rounded ends

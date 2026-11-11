@@ -135,8 +135,12 @@ struct ClassicGlassCard: ViewModifier {
                     shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
                                                       .init(color: .clear, location: 0.4)],
                                               startPoint: .top, endPoint: .bottom))
-                    // frosted bevel: soft light just inside the edge
-                    shape.strokeBorder(Color.white.opacity(hover ? 0.22 : 0.14), lineWidth: 6).blur(radius: 4)
+                    // frosted bevel: soft light just inside the edge, as stacked strokes (a blur per card made
+                    // scrolling drag)
+                    let bevel = hover ? 0.08 : 0.05
+                    shape.strokeBorder(Color.white.opacity(bevel), lineWidth: 7)
+                    shape.strokeBorder(Color.white.opacity(bevel), lineWidth: 4)
+                    shape.strokeBorder(Color.white.opacity(bevel), lineWidth: 2)
                     // edge light: bright at the top-left and bottom-right corners, fading along the sides
                     shape.strokeBorder(AngularGradient(stops: [.init(color: .white.opacity(0.15 * lit), location: 0),
                                                                .init(color: .white.opacity(0.9 * lit), location: 0.125),
@@ -150,9 +154,11 @@ struct ClassicGlassCard: ViewModifier {
                                                        center: .center, angle: .zero), lineWidth: 1.2)   // 45° = bottom-right, 225° = top-left
                 }
                 .clipShape(shape)
+                .drawingGroup()   // one flat layer per card, drawn on the GPU
                 .allowsHitTesting(false)
             }
-            .shadow(color: accent.opacity(hover ? 0.45 : 0), radius: 14)
+            // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
+            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
             .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
     }
 }
