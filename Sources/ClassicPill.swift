@@ -49,24 +49,13 @@ struct ClassicGlassPillStyle: ViewModifier {
         styled(content)
             .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
     }
-    /// Under the mouse the accent rises from the bottom like a flame and fades out before the top.
+    /// Under the mouse a soft accent glow (as the top bar's sections), brightest at the bottom; the flame it replaces
+    /// is kept in git history (try-out).
     var hoverTint: some View {
-        GeometryReader { g in
-            ZStack {
-                Capsule().fill(LinearGradient(stops: [.init(color: accent.opacity(0.75), location: 0),
-                                                      .init(color: accent.opacity(0.3), location: 0.45),
-                                                      .init(color: .clear, location: 0.85)],
-                                              startPoint: .bottom, endPoint: .top))
-                // bright core at the base of the flame
-                Ellipse().fill(RadialGradient(colors: [Color.white.opacity(0.35), accent.opacity(0.5), .clear],
-                                              center: .center, startRadius: 0, endRadius: g.size.width * 0.35))
-                    .frame(width: g.size.width * 0.7, height: g.size.height * 0.8)
-                    .position(x: g.size.width / 2, y: g.size.height)
-                    .blur(radius: 4)
-            }
-            .clipShape(Capsule())
-        }
-        .opacity(hover ? 1 : 0)
+        Capsule()
+            .fill(RadialGradient(colors: [accent.opacity(0.5), accent.opacity(0.12)], center: .bottom, startRadius: 2, endRadius: 50))
+            .blur(radius: 6)
+            .opacity(hover ? 1 : 0)
     }
     @ViewBuilder func styled(_ content: Content) -> some View {
         if #available(macOS 26, *) {
