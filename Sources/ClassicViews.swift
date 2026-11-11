@@ -1099,6 +1099,70 @@ struct GlassField: ViewModifier {
     }
 }
 
+/// Timeline preview picture: the glass card frame in the Classic theme, a white outline otherwise.
+struct PreviewFrame: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.classicThinBorder(10).shadow(color: .black.opacity(0.5), radius: 8, y: 3) }
+        else { content.overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1)) }
+    }
+}
+
+/// The time above the timeline: a dark glass capsule in the Classic theme.
+struct TimeBubble: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic {
+            content.background(Capsule().fill(Color.black.opacity(0.55))).background(ClassicGlassBacking(shape: Capsule()))
+        } else {
+            content.background(Capsule().fill(Color.black.opacity(0.7)))
+        }
+    }
+}
+
+/// Classic slider (timeline, volume): a slim glass capsule, the filled part in see-through accent with a glow, and a
+/// small white knob that shows under the pointer or while dragging.
+struct GlassSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    var onEditing: (Bool) -> Void = { _ in }
+    @AppStorage("accent") private var accentName = "red"
+    @State private var hover = false
+    @State private var dragging = false
+
+    var body: some View {
+        let accent = Theme.accent(accentName)
+        GeometryReader { g in
+            let span = max(range.upperBound - range.lowerBound, 0.000_1)
+            let frac = CGFloat(min(1, max(0, (value - range.lowerBound) / span)))
+            let thick: CGFloat = hover || dragging ? 8 : 6
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.black.opacity(0.35)).frame(height: thick)
+                ClassicGlassBacking(shape: Capsule()).frame(height: thick)
+                Capsule().fill(accent.opacity(0.55))
+                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.4), .clear], startPoint: .top, endPoint: .center)))
+                    .frame(width: max(thick, g.size.width * frac), height: thick)
+                    .shadow(color: accent.opacity(0.8), radius: 4)
+                Circle().fill(Color.white).frame(width: 14, height: 14)
+                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+                    .offset(x: g.size.width * frac - 7)
+                    .opacity(hover || dragging ? 1 : 0)
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { d in
+                    if !dragging { dragging = true; onEditing(true) }
+                    value = range.lowerBound + Double(min(1, max(0, d.location.x / max(g.size.width, 1)))) * span
+                }
+                .onEnded { _ in dragging = false; onEditing(false) })
+        }
+        .frame(height: 18)
+        .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.12), value: hover || dragging)
+    }
+}
+
 /// The playback info box: the side panel's dark glass in the Classic theme, a plain dark box otherwise.
 struct InfoSurface: ViewModifier {
     let classic: Bool
@@ -3129,7 +3193,10 @@ struct ClassicPlayerView: View {
             } placeholder: { EmptyView() }
             .frame(maxWidth: 160, maxHeight: 40, alignment: .leading)
             Spacer()
-            Slider(value: $model.volume, in: 0...1).frame(width: 160).tint(.white).controlSize(.small).handCursor()
+            Group {
+                if classic { GlassSlider(value: Binding(get: { Double(model.volume) }, set: { model.volume = Float($0) }), range: 0...1) }
+                else { Slider(value: $model.volume, in: 0...1).tint(.white).controlSize(.small) }
+            }.frame(width: 160).handCursor()
             iconButton(model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 18) {
                 model.volume = model.volume > 0 ? 0 : 1
             }.helpLabel(model.volume == 0 ? "Unmute" : "Mute")
@@ -3138,6 +3205,20 @@ struct ClassicPlayerView: View {
     }
 
     // MARK: Bottom bar
+
+    /// The timeline: the glass slider in the Classic theme, the standard one otherwise.
+    @ViewBuilder var timeline: some View {
+        let pos = Binding(get: { scrubbing ? scrub : model.time }, set: { scrub = $0 })
+        let edit: (Bool) -> Void = { editing in
+            if editing { scrub = model.time; scrubbing = true }
+            else { model.seek(to: scrub); scrubbing = false }
+        }
+        if classic {
+            GlassSlider(value: pos, range: 0...max(model.duration, 1), onEditing: edit)
+        } else {
+            Slider(value: pos, in: 0...max(model.duration, 1), onEditingChanged: edit).tint(accent).controlSize(.small)
+        }
+    }
 
     var episodeLine: String? {
         guard item.isEpisode else { return nil }
@@ -3159,13 +3240,8 @@ struct ClassicPlayerView: View {
                 }
             }
 
-            Slider(value: Binding(get: { scrubbing ? scrub : model.time },
-                                  set: { scrub = $0 }),
-                   in: 0...max(model.duration, 1)) { editing in
-                if editing { scrub = model.time; scrubbing = true }
-                else { model.seek(to: scrub); scrubbing = false }
-            }
-            .tint(accent).controlSize(.small).handCursor()
+            timeline
+            .handCursor()
             .background(GeometryReader { g in
                 Color.clear.onAppear { sliderW = g.size.width }.onChange(of: g.size.width) { _, w in sliderW = w }
             })
@@ -3558,12 +3634,12 @@ extension ClassicPlayerView {
             VStack(spacing: 4) {
                 if let img {
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
-                        .frame(width: w).cornerRadius(6)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1))
+                        .frame(width: w).cornerRadius(classic ? 10 : 6)
+                        .modifier(PreviewFrame(classic: classic))
                 }
                 Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit())
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Capsule().fill(Color.black.opacity(0.7)))
+                    .padding(.horizontal, classic ? 10 : 6).padding(.vertical, classic ? 4 : 2)
+                    .modifier(TimeBubble(classic: classic))
             }
             .frame(width: w)
             .offset(x: min(max(0, x - w / 2), max(0, sliderW - w)), y: -26)
@@ -3732,11 +3808,15 @@ extension ClassicPlayerView {
                 }
                 Spacer(minLength: 0)
             }
-            .foregroundColor(current ? accent : .white)
+            .foregroundColor(classic || !current ? .white : accent)
             .padding(.horizontal, 14).padding(.vertical, 6)
-            .background(current ? Color.white.opacity(0.08) : Color.clear)
+            .background {
+                // Classic: the playing one on an accent glass band, as the chosen line in the glass lists
+                if classic && current { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(accent.opacity(0.4)) }
+                else if current { Color.white.opacity(0.08) }
+            }
             .contentShape(Rectangle())
-        }.buttonStyle(PanelRowStyle())
+        }.buttonStyle(PanelRowStyle(glass: classic)).padding(.horizontal, classic ? 6 : 0)
     }
 
     // MARK: Chapters panel
@@ -3775,10 +3855,13 @@ extension ClassicPlayerView {
                 }
                 Spacer()
             }
-            .foregroundColor(current ? accent : .white)
-            .padding(.horizontal, 18).padding(.vertical, 7)
+            .foregroundColor(classic || !current ? .white : accent)
+            .padding(.horizontal, classic ? 12 : 18).padding(.vertical, 7)
+            .background {
+                if classic && current { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(accent.opacity(0.4)) }
+            }
             .contentShape(Rectangle())
-        }.buttonStyle(PanelRowStyle())
+        }.buttonStyle(PanelRowStyle(glass: classic)).padding(.horizontal, classic ? 6 : 0)
     }
 }
 
