@@ -2288,6 +2288,7 @@ struct ProgressRing: View {
     /// Classic only: false draws the empty glass tube (the watched badge)
     var filled = true
     @Environment(\.classicGlass) private var classic   // Classic theme: a glass tube bent into a ring
+    @AppStorage("accent") private var accentName = "red"
     var body: some View {
         if classic { tube } else { ring.shadow(color: .black.opacity(0.6), radius: 3) }
     }
@@ -2301,7 +2302,7 @@ struct ProgressRing: View {
         }
         .frame(width: size, height: size)
     }
-    /// A clear glass straw bent into a circle, filled with a see-through white as far as the progress: the tube's
+    /// A clear glass straw bent into a circle, filled with see-through accent color as far as the progress: the tube's
     /// edges are thin light lines, and a highlight runs along the inside of the tube and of the fill.
     var tube: some View {
         let w: CGFloat = 5               // tube thickness
@@ -2312,10 +2313,10 @@ struct ProgressRing: View {
             Circle().stroke(Color.white.opacity(0.45), lineWidth: 0.6).frame(width: d + w, height: d + w)
             Circle().stroke(Color.white.opacity(0.3), lineWidth: 0.6).frame(width: d - w, height: d - w)
             Circle().stroke(Color.white.opacity(0.25), lineWidth: 1).frame(width: d - 1.5, height: d - 1.5)
-            // liquid: see-through white fill with its own highlight, rounded ends
+            // liquid: see-through accent fill with its own highlight, rounded ends
             if filled { Group {
                 Circle().trim(from: 0, to: trim)
-                    .stroke(Color.white.opacity(0.4), style: StrokeStyle(lineWidth: w - 1.2, lineCap: .round))
+                    .stroke(Theme.accent(accentName).opacity(0.5), style: StrokeStyle(lineWidth: w - 1.2, lineCap: .round))
                 Circle().trim(from: 0, to: trim)
                     .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, lineCap: .round))
                     .frame(width: d - 1.5, height: d - 1.5)
