@@ -91,7 +91,7 @@ struct ClassicLoginView: View {
                 if !error.isEmpty { Text(error).foregroundColor(.orange).font(.cv(10, weight: .regular)).multilineTextAlignment(.center) }
             }
             .frame(width: showForm ? 340 : 520).padding(36)
-            .background(Color.black.opacity(0.75)).cornerRadius(8)
+            .modifier(PanelSurface(classic: true))   // dark glass, as the player panels
         }
     }
 
@@ -104,7 +104,8 @@ struct ClassicLoginView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "plus").font(.cv(34, weight: .light))
                             .frame(width: 150, height: 100)
-                            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [6])))
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6])))
                         Text("Add Server").font(.cv(13, weight: .bold))
                         Text(" ").font(.cv(10, weight: .regular))
                     }.contentShape(Rectangle())
@@ -120,7 +121,8 @@ struct ClassicLoginView: View {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "server.rack").font(.cv(38))
                         .frame(width: 150, height: 100)
-                        .background(Color.white.opacity(0.08)).cornerRadius(10)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
                     if s.token != nil {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(6)
                             .helpLabel("Signed in")
@@ -132,7 +134,7 @@ struct ClassicLoginView: View {
             }
             .frame(width: 150).contentShape(Rectangle())
         }
-        .buttonStyle(.plainHand).disabled(busy)
+        .buttonStyle(HoverButton()).disabled(busy)
         .contextMenu {
             Button("Edit / Sign In Again") { edit(s) }
             Button("Remove Server", role: .destructive) { emby.removeServer(s) }
@@ -143,28 +145,28 @@ struct ClassicLoginView: View {
         VStack(spacing: 14) {
             HStack {
                 if !emby.servers.isEmpty {
-                    Button { adding = false; error = "" } label: { Image(systemName: "chevron.left") }
-                        .buttonStyle(.plainHand).helpLabel("Back to servers")
+                    Button { adding = false; error = "" } label: { Label("Back", systemImage: "chevron.left").classicGlassPill(size: 34) }
+                        .buttonStyle(HoverButton()).helpLabel("Back to servers")
                 }
                 Spacer()
                 Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.cv(22, weight: .bold))
                 Spacer()
-                if !emby.servers.isEmpty { Image(systemName: "chevron.left").hidden() }
+                if !emby.servers.isEmpty { Color.clear.frame(width: 34, height: 34) }
             }.padding(.bottom, 6)
             TextField("Name (optional, e.g. Home Jellyfin)", text: $serverLabel).focused($focus, equals: .name)
-                .onSubmit { focus = .server }
+                .onSubmit { focus = .server }.modifier(GlassField())
             TextField("Server (e.g. 192.168.1.10:8096)", text: $server).focused($focus, equals: .server)
-                .onSubmit { focus = .user }
-            TextField("Username", text: $user).focused($focus, equals: .user).onSubmit { focus = .pw }
-            SecureField("Password", text: $pw).focused($focus, equals: .pw).onSubmit(go)
+                .onSubmit { focus = .user }.modifier(GlassField())
+            TextField("Username", text: $user).focused($focus, equals: .user).onSubmit { focus = .pw }.modifier(GlassField())
+            SecureField("Password", text: $pw).focused($focus, equals: .pw).onSubmit(go).modifier(GlassField())
             Button(action: go) {
                 HStack {
                     if busy { Spinner().controlSize(.small) }
-                    Text("Sign In").bold().classicOnAccent()
-                }.frame(maxWidth: .infinity).padding(8)
-            }.buttonStyle(.borderedProminent).handCursor().disabled(busy || server.isEmpty || user.isEmpty)
+                    Text("Sign In").font(.cv(14, weight: .bold))
+                }.frame(maxWidth: .infinity).frame(height: 40).classicGlassPill()
+            }.buttonStyle(HoverButton()).disabled(busy || server.isEmpty || user.isEmpty)
+            .opacity(busy || server.isEmpty || user.isEmpty ? 0.5 : 1)
         }
-        .textFieldStyle(.roundedBorder).controlSize(.large)
         .onAppear { focus = server.isEmpty ? .server : .pw }
     }
 
@@ -1084,6 +1086,16 @@ struct AppearanceSurface: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if classic { content.modifier(PanelSurface(classic: true)).padding(.vertical, 24).padding(.trailing, 24) }
         else { content.background(Color(white: 0.16).opacity(0.97)) }
+    }
+}
+
+/// A text field as a glass capsule (sign-in form).
+struct GlassField: ViewModifier {
+    func body(content: Content) -> some View {
+        content.textFieldStyle(.plain).font(.cv(13)).foregroundColor(.white)
+            .padding(.horizontal, 16).frame(height: 38)
+            .background(Capsule().fill(Color.black.opacity(0.35)))
+            .background(ClassicGlassBacking(shape: Capsule()))
     }
 }
 
