@@ -996,8 +996,8 @@ struct ClassicHero: View {
                     .foregroundColor(.white).classicBlackOutline()
                 HStack(spacing: 12) {
                     Button { Task { await emby.play(item) } } label: {
-                        Label("Play", systemImage: "play.fill").classicGlassPill(size: 44)
-                    }.buttonStyle(HoverButton()).helpLabel(emby.resumeAt(item) > 0 ? "Resume" : "Play")
+                        Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+                    }.buttonStyle(HoverButton())
                     NavigationLink(value: item) {
                         Label("More Info", systemImage: "info.circle").classicGlassPill(size: 44)
                     }.buttonStyle(HoverButton()).helpLabel("More Info")
@@ -1869,12 +1869,12 @@ struct ClassicDetailView: View {
         return HStack(spacing: 10) {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {
-                Label(playLabel, systemImage: "play.fill").classicGlassPill(size: 44)
+                Label(playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton()).helpLabel(r > 0 ? playLabel + " from the beginning" : playLabel)
             if r > 0 {
                 Button { playNow() } label: {
-                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44)
-                }.buttonStyle(HoverButton()).helpLabel("Resume from \(timeString(r))")
+                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
+                }.buttonStyle(HoverButton())
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {

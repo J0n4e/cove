@@ -20,15 +20,18 @@ private struct HoverTip: ViewModifier {
     func body(content: Content) -> some View {
         if classic {
             content
-                .overlay(alignment: .bottom) {
+                .overlay {
                     if shown && !text.isEmpty {
-                        Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.white).lineLimit(1)
-                            .padding(.horizontal, 10).padding(.vertical, 5)
-                            .classicClearGlass()
-                            .fixedSize()
-                            .alignmentGuide(.bottom) { d in d[.top] - 8 }   // just below the control
-                            .allowsHitTesting(false)
-                            .transition(.opacity)
+                        // Centered just below the control, never over it
+                        GeometryReader { g in
+                            Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.white).lineLimit(1)
+                                .padding(.horizontal, 10).frame(height: 24)
+                                .classicClearGlass()
+                                .fixedSize()
+                                .position(x: g.size.width / 2, y: g.size.height + 8 + 12)
+                        }
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
                     }
                 }
                 .zIndex(shown ? 1 : 0)

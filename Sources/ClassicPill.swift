@@ -40,8 +40,9 @@ struct ClassicGlassPill: View {
 
 /// White label on accent glass.
 struct ClassicGlassPillStyle: ViewModifier {
-    /// Set: an icon-only circle of this size.
+    /// Set: this tall; with `iconOnly` a circle showing just the icon (the title is the tooltip).
     var size: CGFloat? = nil
+    var iconOnly = true
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     func body(content: Content) -> some View {
@@ -64,10 +65,13 @@ struct ClassicGlassPillStyle: ViewModifier {
     }
     private var accent: Color { Theme.accent(accentName) }
     @ViewBuilder func sized(_ content: Content) -> some View {
-        if let size {
-            // Sized buttons show only their icon, in a circle; the title is the tooltip
+        if let size, iconOnly {
             content.labelStyle(.iconOnly).font(.system(size: size * 0.36, weight: .medium))
                 .frame(width: size, height: size)
+        } else if let size {
+            content.font(.system(size: size * 0.36, weight: .medium))
+                .padding(.horizontal, size * 0.38)
+                .frame(minWidth: size, minHeight: size, maxHeight: size)
         } else { content }
     }
 }
@@ -116,5 +120,7 @@ extension View {
         if on { modifier(ClassicClearGlass(shape: Capsule())) } else { self }
     }
     /// Classic pill look: white label on accent glass.
-    func classicGlassPill(size: CGFloat? = nil) -> some View { modifier(ClassicGlassPillStyle(size: size)) }
+    func classicGlassPill(size: CGFloat? = nil, iconOnly: Bool = true) -> some View {
+        modifier(ClassicGlassPillStyle(size: size, iconOnly: iconOnly))
+    }
 }
