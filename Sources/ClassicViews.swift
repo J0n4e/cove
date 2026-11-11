@@ -56,6 +56,7 @@ struct ClassicRootView: View {
             PlaybackFlag.shared.active = id != nil
             if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
+        .dropdownLayer()   // glass lists for audio, subtitles, quality
         .tipLayer()   // inside the settings below, so the tooltips get the Classic look and font too
         .environment(\.classicGlass, true)
         // Rounded system font: soft like the glass pills and rounded corners, still very readable
@@ -1071,33 +1072,6 @@ struct SeasonDeck: View {
         .classicThinBorder(10)
         .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
-    }
-}
-
-/// A choice (audio, subtitles, quality…) as a glass pill showing the current value; the list opens on click.
-struct GlassPicker<T: Hashable>: View {
-    @Binding var selection: T
-    let options: [(T, String)]
-    var maxWidth: CGFloat = 260
-    var body: some View {
-        Menu {
-            Picker("", selection: $selection) {
-                ForEach(options.indices, id: \.self) { i in Text(options[i].1).tag(options[i].0) }
-            }.pickerStyle(.inline).labelsHidden()
-        } label: {
-            HStack(spacing: 6) {
-                Text(options.first { $0.0 == selection }?.1 ?? "—").lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: maxWidth - 44, alignment: .leading)
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold)).opacity(0.7)
-            }
-            .foregroundStyle(.white)
-        }
-        .menuStyle(.button).buttonStyle(.plain)   // plain label: white text, no accent tint
-        .menuIndicator(.hidden).fixedSize(horizontal: false, vertical: true)
-        .font(.system(size: 13, weight: .medium))
-        .padding(.horizontal, 14).frame(height: 32)
-        .classicGlassPill()
-        .fixedSize()
     }
 }
 
