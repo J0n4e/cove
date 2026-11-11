@@ -177,6 +177,7 @@ struct GeneralSettings: View {
     @AppStorage("topBarLabels") private var topBarLabels = "both"
     @AppStorage("homeLayout") private var homeLayout = "row"
     @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
+    @AppStorage("classicBannerNav") private var bannerNav = "deck"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -222,6 +223,9 @@ struct GeneralSettings: View {
             if theme == "classic" {
                 PrefRow(label: "Home banner") {
                     menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
+                }
+                PrefRow(label: "Banner navigation") {
+                    menuPicker($bannerNav, [("deck", "Cards"), ("bullets", "Bullets")])
                 }
             }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }

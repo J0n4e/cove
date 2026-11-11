@@ -1095,6 +1095,8 @@ struct ClassicHero: View {
     /// Settings → General → Home banner: "cinematic" (edge to edge), "panel" (text on a glass panel) or "card"
     /// (an inset glass-framed card)
     @AppStorage("classicBannerStyle") private var style = "cinematic"
+    /// Settings → General → Banner navigation: "deck" (cards, bottom right) or "bullets" (bottom center)
+    @AppStorage("classicBannerNav") private var bannerNav = "deck"
     /// The whole visible page, so the rows (Continue Watching…) start just below it and show once you scroll
     var bannerH: CGFloat { pageH.isFinite ? max(pageH, 360) : max(width * 9 / 16, 520) }
 
@@ -1142,8 +1144,12 @@ struct ClassicHero: View {
             .id("t" + item.id).transition(.opacity)
             // The coming banners as a deck of cards, bottom right
             if items.count > 1 {
-                deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.trailing, 44).padding(.bottom, 56)
+                if bannerNav == "bullets" {
+                    thumbs.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
+                } else {
+                    deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .padding(.trailing, 44).padding(.bottom, 56)
+                }
             }
         }
         .overlay { if hover && items.count > 1 { sideArrows } }
