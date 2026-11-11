@@ -4793,6 +4793,7 @@ extension View {
 
 /// Netflix-style expanded card shown when resting on a poster: backdrop, details and quick actions.
 struct HoverPreview: View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass buttons
     @EnvironmentObject var emby: Emby
     let item: Item
     let close: () -> Void
@@ -4823,9 +4824,13 @@ struct HoverPreview: View {
                 }
                 HStack(spacing: 10) {
                     Button { close(); Task { await emby.play(item) } } label: {
-                        Label("Play", systemImage: "play.fill").font(.callout.weight(.bold))
-                            .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(Capsule().fill(Color.white))
+                        if classic {
+                            Label("Play", systemImage: "play.fill").classicGlassPill(size: 34, iconOnly: false)
+                        } else {
+                            Label("Play", systemImage: "play.fill").font(.callout.weight(.bold))
+                                .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 6)
+                                .background(Capsule().fill(Color.white))
+                        }
                     }.buttonStyle(.plainHand)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
                         Task { await emby.setFav(item.id, !fav, name: item.Name) }
@@ -4845,7 +4850,17 @@ struct HoverPreview: View {
         .onTapGesture { close(); emby.openRequest = item }.handCursor()
     }
 
-    func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
+    @ViewBuilder func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
+        if classic {
+            // Classic theme: the glass button; "on" shows as the filled icon, in white
+            Button(action: action) { Label(help, systemImage: icon).classicGlassPill(size: 34) }
+                .buttonStyle(.plainHand).helpLabel(help)
+        } else {
+            plainCircle(icon, on: on, help: help, action)
+        }
+    }
+
+    func plainCircle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white))

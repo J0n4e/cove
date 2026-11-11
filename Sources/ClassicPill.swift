@@ -121,6 +121,7 @@ struct ClassicGlassBacking<S: Shape>: View {
 /// rising from the bottom edge like the buttons' flame.
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
+    var flame = true
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     func body(content: Content) -> some View {
@@ -139,7 +140,7 @@ struct ClassicGlassCard: ViewModifier {
                                                       .init(color: accent.opacity(0.15), location: 0.3),
                                                       .init(color: .clear, location: 0.55)],
                                               startPoint: .bottom, endPoint: .top))
-                        .opacity(hover ? 1 : 0)
+                        .opacity(hover && flame ? 1 : 0)
                     // rim: bright at the top, dimmer down the sides, lit again at the bottom
                     shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.15), .white.opacity(0.4)],
                                                       startPoint: .top, endPoint: .bottom), lineWidth: 1)
