@@ -529,8 +529,10 @@ final class Emby: ObservableObject {
         updateImageAuth()      // didSet doesn't run inside init
     }
 
+    /// The server lists Cove under Devices / Activity with this version: the installed app's own number
+    /// (e.g. 1.15.12), so it is always current after an update. "1.0" only when run without an app bundle.
     var authHeader: String {
-        "MediaBrowser Client=\"Cove\", Device=\"Mac\", DeviceId=\"\(deviceId)\", Version=\"1.0\""
+        "MediaBrowser Client=\"Cove\", Device=\"Mac\", DeviceId=\"\(deviceId)\", Version=\"\(AppVersion.number)\""
     }
 
     /// `name`: what to call the server in the list; empty uses the name the server reports.

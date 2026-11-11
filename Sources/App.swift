@@ -94,6 +94,11 @@ enum AppVersion {
         if let v = i?["CoveVersion"] as? String, !v.isEmpty { return pretty(v) }
         return "dev"
     }
+    /// Plain version number for the server ("1.15.12"); "1.0" when run from Xcode / swift run.
+    static var number: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        return v.isEmpty ? "1.0" : v
+    }
     static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
     /// "v0.4Beta" -> "v0.4 Beta"
     static func pretty(_ v: String) -> String {
