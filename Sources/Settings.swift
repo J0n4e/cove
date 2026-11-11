@@ -176,6 +176,7 @@ struct GeneralSettings: View {
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
     @AppStorage("homeLayout") private var homeLayout = "row"
+    @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -218,6 +219,11 @@ struct GeneralSettings: View {
         PrefSection(title: "Appearance") {
             PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Classic")]) }
             PrefNote("Classic brings back the original Cove look. Settings always use this window.")
+            if theme == "classic" {
+                PrefRow(label: "Home banner") {
+                    menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
+                }
+            }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }

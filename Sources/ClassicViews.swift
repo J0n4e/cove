@@ -900,6 +900,7 @@ struct ClassicPersonView: View {
 // MARK: - Home
 
 struct ClassicHomeContent: View {
+    @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @AppStorage("homeLayout") private var homeLayout = "row"
@@ -957,7 +958,8 @@ struct ClassicHomeContent: View {
                 }
             }.padding(.bottom, 40)
         }
-        .ignoresSafeArea(edges: hero.isEmpty ? [] : .top)   // the banner runs up under the floating top bar
+        // The banner runs up under the floating top bar (not the inset card)
+        .ignoresSafeArea(edges: hero.isEmpty || bannerStyle == "card" ? [] : .top)
         .background(GeometryReader { g in
             Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
         })
@@ -975,6 +977,18 @@ extension View {
     }
 }
 
+/// The banner's outline: full width (cinematic, panel) or an inset card with the glass frame.
+private struct BannerShape: ViewModifier {
+    let card: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if card {
+            content.clipShape(RoundedRectangle(cornerRadius: 18)).classicThinBorder(18).padding(.horizontal, 32)
+        } else {
+            content.clipped()
+        }
+    }
+}
+
 /// Home banner, cinematic: the picture runs edge to edge up under the floating top bar, the title logo, facts,
 /// description and glass buttons sit on a dark fade at the left; glass page bullets at the bottom and glass arrows at
 /// the sides on hover.
@@ -989,6 +1003,9 @@ struct ClassicHero: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var nav = ClassicNavState.shared
+    /// Settings → General → Home banner: "cinematic" (edge to edge), "panel" (text on a glass panel) or "card"
+    /// (an inset glass-framed card)
+    @AppStorage("classicBannerStyle") private var style = "cinematic"
     /// Same sizing as the Glass banner: the picture's 16:9 shape at the window's width, 460–900 pt, and never
     /// taller than the visible page
     var bannerH: CGFloat { min(max(width * 9 / 16, 460), 900, max(pageH - 20, 360)) }
@@ -1010,48 +1027,22 @@ struct ClassicHero: View {
             Color.clear.frame(maxWidth: .infinity).frame(height: bannerH)
                 .overlay { Backdrop(id: item.backdropId ?? item.Id, width: min(Int(width * 2), 2560)) }.clipped()   // Retina-sharp
                 .id("b" + item.id).transition(.opacity)
-            // Dark fade from the left (behind the text) and into the page at the bottom
-            LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
-                           startPoint: .leading, endPoint: .trailing)
-            LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
-                                   .init(color: bg, location: 1)], startPoint: .top, endPoint: .bottom)
-            VStack(alignment: .leading, spacing: 12) {
-                if item.isEpisode {
-                    Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.85))
-                }
-                TitleLogo(item: item, height: 110, font: 56)
-                HStack(spacing: 10) {
-                    Text(meta(item))
-                    if let r = item.CommunityRating {
-                        HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
-                    }
-                }.font(.system(size: 15, weight: .medium)).foregroundColor(.white.opacity(0.9))
-                Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
-                    .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
-                HStack(spacing: 12) {
-                    Button { Task { await emby.play(item) } } label: {
-                        Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
-                            .classicGlassPill(size: 46, iconOnly: false)
-                    }.buttonStyle(HoverButton())
-                    let fav = emby.isFav(item)
-                    Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
-                        Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "checkmark" : "plus")
-                            .classicGlassPill(size: 46)
-                    }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
-                    NavigationLink(value: item) {
-                        Label("More Info", systemImage: "info").classicGlassPill(size: 46)
-                    }.buttonStyle(HoverButton()).helpLabel("More Info")
-                }.padding(.top, 6)
+            fades
+            Group {
+                if style == "panel" {
+                    info(item).padding(24)
+                        .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: 22, style: .continuous)))
+                        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black.opacity(0.35)))
+                } else { info(item) }
             }
-            .padding(.leading, 80).padding(.bottom, items.count > 1 ? 72 : 48)
+            .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, items.count > 1 ? 72 : 48)
             .id("t" + item.id).transition(.opacity)
             if items.count > 1 { thumbs.frame(maxWidth: .infinity).padding(.bottom, 26) }
         }
         .overlay { if hover && items.count > 1 { sideArrows } }
         .animation(.easeOut(duration: 0.15), value: hover)
-        .frame(height: bannerH)
-        .clipped()
+        .frame(height: style == "card" ? min(bannerH, 560) : bannerH)
+        .modifier(BannerShape(card: style == "card"))
         .foregroundColor(.white)
         .background(GeometryReader { g in
             Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
@@ -1064,6 +1055,55 @@ struct ClassicHero: View {
             try? await Task.sleep(nanoseconds: 9_000_000_000)
             if !Task.isCancelled { go(index + 1) }
         }
+    }
+
+    /// Dark fades so the text reads: from the left and into the page (cinematic), only at the bottom (panel: the
+    /// glass panel carries the text), or inside the card.
+    @ViewBuilder var fades: some View {
+        if style != "panel" {
+            LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
+                           startPoint: .leading, endPoint: .trailing)
+        }
+        if style == "card" {
+            LinearGradient(stops: [.init(color: .clear, location: 0.5), .init(color: .black.opacity(0.6), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+        } else {
+            LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
+                                   .init(color: bg, location: 1)], startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    func info(_ item: Item) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if item.isEpisode {
+                Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+            TitleLogo(item: item, height: style == "cinematic" ? 110 : 90, font: style == "cinematic" ? 56 : 46)
+            HStack(spacing: 10) {
+                Text(meta(item))
+                if let r = item.CommunityRating {
+                    HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
+                }
+            }.font(.system(size: 15, weight: .medium)).foregroundColor(.white.opacity(0.9))
+            Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
+                .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
+            HStack(spacing: 12) {
+                Button { Task { await emby.play(item) } } label: {
+                    Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
+                        .classicGlassPill(size: 46, iconOnly: false)
+                }.buttonStyle(HoverButton())
+                let fav = emby.isFav(item)
+                Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
+                    Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "checkmark" : "plus")
+                        .classicGlassPill(size: 46)
+                }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
+                NavigationLink(value: item) {
+                    Label("More Info", systemImage: "info").classicGlassPill(size: 46)
+                }.buttonStyle(HoverButton()).helpLabel("More Info")
+            }.padding(.top, 6)
+        }
+        .frame(maxWidth: 520, alignment: .leading)
     }
 
     /// Page bullets: small glass pills; the current one stretches longer and is lit.
