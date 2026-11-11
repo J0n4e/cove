@@ -176,8 +176,6 @@ struct GeneralSettings: View {
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
     @AppStorage("homeLayout") private var homeLayout = "row"
-    @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
-    @AppStorage("classicBannerNav") private var bannerNav = "deck"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
         HStack(spacing: 14) {
@@ -220,14 +218,6 @@ struct GeneralSettings: View {
         PrefSection(title: "Appearance") {
             PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Classic")]) }
             PrefNote("Classic brings back the original Cove look. Settings always use this window.")
-            if theme == "classic" {
-                PrefRow(label: "Home banner") {
-                    menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
-                }
-                PrefRow(label: "Banner navigation") {
-                    menuPicker($bannerNav, [("deck", "Cards"), ("bullets", "Bullets")])
-                }
-            }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }
@@ -261,8 +251,22 @@ struct HomeSettings: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
     @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     @AppStorage("showUpNextRow") private var showUpNextRow = true
+    @AppStorage("theme") private var theme = "apple"
+    @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
+    @AppStorage("classicBannerNav") private var bannerNav = "deck"
 
     var body: some View {
+        // The Classic theme's banner choices
+        if theme == "classic" {
+            PrefSection(title: "Banner") {
+                PrefRow(label: "Style") {
+                    menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
+                }
+                PrefRow(label: "Navigation") {
+                    menuPicker($bannerNav, [("deck", "Cards"), ("bullets", "Bullets")])
+                }
+            }
+        }
         PrefSection(title: "Layout") {
             PrefRow(label: "Continue Watching") { menuPicker($resumeLayout, [("row", "Row"), ("grid", "Grid")]) }
             PrefRow(label: "Other sections") { menuPicker($homeLayout, [("row", "Rows"), ("grid", "Grid")]) }
