@@ -14,10 +14,8 @@ struct ClassicPillStyle: ViewModifier {
     let active: Bool
     func body(content: Content) -> some View {
         content.font(.callout.weight(.medium))
-            .foregroundColor(active ? Theme.onAccent(name) : nil)
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(active ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.1)))
-            .clipShape(Capsule())
+            .classicGlassPill()
     }
 }
 
@@ -507,9 +505,9 @@ struct ClassicTopNavButtons: View {
                 else if badge > 0 { Text("\(badge)") }
             }
                 .font(.callout.weight(on ? .semibold : .regular))
-                .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)   // black on a white accent
+                .foregroundColor(on ? .white : .secondary)
                 .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
-                .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))
+                .background { if on { ClassicGlassPill() } }
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -574,10 +572,9 @@ struct ClassicTopBackButton: View {
                 Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
                 Text("Back").font(.system(size: 14, weight: .semibold))
             }
-            .foregroundStyle(Color.white)
             .padding(.horizontal, 14).padding(.vertical, 6)
-            .background(Capsule().fill(Color.white.opacity(hover ? 0.28 : 0.18)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
+            .brightness(hover ? 0.1 : 0)
+            .classicGlassPill()
             .contentShape(Capsule())
         }
         .buttonStyle(HoverButton())
@@ -1479,8 +1476,7 @@ struct ClassicLibraryView: View {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
                                 .font(.callout.weight(.medium))
                                 .padding(.horizontal, 14).padding(.vertical, 7)
-                                .background(tab == i ? Color.white.opacity(0.28) : Color.clear)
-                                .clipShape(Capsule())
+                                .background { if tab == i { ClassicGlassPill() } }
                                 .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
@@ -1575,7 +1571,7 @@ struct ClassicLibraryView: View {
                 Button { layout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 30, height: 26)
-                        .background(layout == m.0 ? Color.white.opacity(0.28) : Color.clear)
+                        .background { if layout == m.0 { ClassicGlassPill() } }
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -1876,9 +1872,9 @@ struct ClassicDetailView: View {
         return HStack(spacing: 10) {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {
-                Label(playLabel, systemImage: "play.fill").bold()
+                Label(playLabel, systemImage: "play.fill").font(.system(size: 15, weight: .medium))
                     .padding(.horizontal, 24).frame(height: 44)
-                    .background(.white).foregroundColor(.black).clipShape(Capsule())
+                    .classicGlassPill()
             }.buttonStyle(HoverButton())
             if r > 0 {
                 Button { playNow() } label: { Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicPill() }
@@ -2093,7 +2089,7 @@ struct ClassicDetailView: View {
                 Button { epLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 30, height: 26)
-                        .background(epLayout == m.0 ? Color.white.opacity(0.28) : Color.clear)
+                        .background { if epLayout == m.0 { ClassicGlassPill() } }
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -2266,7 +2262,7 @@ struct ClassicDetailView: View {
                 Button { similarLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 30, height: 26)
-                        .background(similarLayout == m.0 ? Color.white.opacity(0.28) : Color.clear)
+                        .background { if similarLayout == m.0 { ClassicGlassPill() } }
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -3068,14 +3064,14 @@ extension ClassicPlayerView {
                     .font(.system(size: 15, weight: .semibold)).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
-                        Text("Play now").font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(Capsule().fill(Color.white))
+                        Text("Play now").font(.system(size: 14, weight: .semibold))
+                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .classicGlassPill()
                     }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
                         Text("Cancel").font(.system(size: 14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
-                            .background(Capsule().fill(Color.white.opacity(0.15)))
+                            .classicGlassPill()
                     }.buttonStyle(HoverButton())
                 }
                 if autoNext {
