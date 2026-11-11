@@ -2049,7 +2049,10 @@ struct ClassicDetailView: View {
 
     // Header: poster + info + pickers + buttons
     var header: some View {
-        headerBody
+        let deck = item.isSeries && seasonLayout == "deck" && seasonNumbers.count > 1
+        return headerBody
+            .padding(.trailing, deck ? 340 : 0)   // the text stays clear of the deck
+            .frame(maxWidth: .infinity, alignment: .leading)   // full page width, so the deck reaches the corner
             .overlay(alignment: .bottomTrailing) {
                 // Series, Settings → Season layout → Cards: the seasons as a deck of cards, as on the Home banner;
                 // the front season is the one whose episodes are listed below
@@ -2058,6 +2061,7 @@ struct ClassicDetailView: View {
                                title: { seasonTitle($0) },
                                image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
                                select: { season = $0 })
+                    .padding(.trailing, 40)   // in line with the episodes' right edge
                 }
             }
     }
