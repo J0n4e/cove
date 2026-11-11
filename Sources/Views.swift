@@ -4946,7 +4946,12 @@ struct HoverPreview: View {
                     Text(o).font(.caption).lineLimit(3).foregroundColor(.white.opacity(0.85))
                 }
                 HStack(spacing: 10) {
-                    Button { close(); Task { await emby.play(item) } } label: {
+                    // Started (movie or episode): Play starts over, Resume continues, as on the detail page
+                    let r = item.isSeries || item.isBox ? 0 : emby.resumeAt(item)
+                    Button {
+                        close()
+                        if r > 0 { emby.playing = PlayRequest(item: item, start: 0) } else { Task { await emby.play(item) } }
+                    } label: {
                         if classic {
                             Label("Play", systemImage: "play.fill").classicGlassPill(size: 34, iconOnly: false)
                         } else {
@@ -4955,6 +4960,17 @@ struct HoverPreview: View {
                                 .background(Capsule().fill(Color.white))
                         }
                     }.buttonStyle(.plainHand)
+                    if r > 0 {
+                        Button { close(); emby.playing = PlayRequest(item: item, start: r) } label: {
+                            if classic {
+                                Label("Resume", systemImage: "arrow.uturn.forward").classicGlassPill(size: 34, iconOnly: false)
+                            } else {
+                                Label("Resume", systemImage: "arrow.uturn.forward").font(.callout.weight(.bold))
+                                    .padding(.horizontal, 14).padding(.vertical, 6)
+                                    .background(Capsule().fill(Color.white.opacity(0.2)))
+                            }
+                        }.buttonStyle(.plainHand).helpLabel("Resume from \(timeString(r))")
+                    }
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
                         Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
