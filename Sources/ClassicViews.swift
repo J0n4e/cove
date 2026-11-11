@@ -416,12 +416,13 @@ struct ClassicHomeView: View {
         }
         // Opening a search result clears the search box and stays on the opened page
         .onChange(of: path.count) { old, new in
+            ClassicHoverCardCenter.shared.hide()   // a preview card must not stay over the page just opened
             if old == 0 && new > 0 && !query.isEmpty {
                 keepPage = true; query = ""; nav.searchOpen = false; fromSearch = true
             }
             if new == 0 { fromSearch = false }
         }
-        .onChange(of: sel) { fromSearch = false }
+        .onChange(of: sel) { fromSearch = false; ClassicHoverCardCenter.shared.hide() }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
@@ -1047,7 +1048,9 @@ struct SeasonDeck: View {
                     .offset(x: CGFloat(k) * peek)
                     // Fades in (going back); leaves at once, as the fading copy below takes over (two fading
                     // copies of the same card overlapped into a ghost)
-                    .transition(.identity)   // the fading copies above and below do the fading
+                    // The front card leaves at once (its fading copy takes over); a card at the back fades in or out
+                    // instead of popping
+                    .transition(.asymmetric(insertion: .opacity, removal: k == 0 ? .identity : .opacity))
             }
             if let a = arriving {
                 card(a, k: 0)
@@ -1274,9 +1277,9 @@ struct ClassicHero: View {
                     .helpLabel(items[i].heroTitle)
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * 26)
-                    // Fades in; leaves at once, as the fading copy below takes over (two fading copies overlapped
-                    // into a ghost)
-                    .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                    // The front card leaves at once (its fading copy takes over; two fading copies overlapped into a
+                    // ghost); a card at the back fades in or out instead of popping
+                    .transition(.asymmetric(insertion: .opacity, removal: k == 0 ? .identity : .opacity))
             }
             // Moving forward: the card that was in front, drawn over the deck, fading away (growing slightly and
             // drifting left) while the one beneath takes its place
@@ -3713,3 +3716,4 @@ struct ClassicFavoritePeopleView: View {
         .onChange(of: emby.favRevision) { Task { people = await emby.favoritePeople() } }
     }
 }
+
