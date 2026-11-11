@@ -4963,11 +4963,11 @@ struct HoverPreview: View {
                     if r > 0 {
                         Button { close(); emby.playing = PlayRequest(item: item, start: r) } label: {
                             if classic {
-                                Label("Resume", systemImage: "arrow.uturn.forward").classicGlassPill(size: 34, iconOnly: false)
+                                Label("Resume", systemImage: "arrow.uturn.forward").classicGlassPill(size: 34)   // icon only
                             } else {
-                                Label("Resume", systemImage: "arrow.uturn.forward").font(.callout.weight(.bold))
-                                    .padding(.horizontal, 14).padding(.vertical, 6)
-                                    .background(Capsule().fill(Color.white.opacity(0.2)))
+                                Image(systemName: "arrow.uturn.forward").font(.callout.weight(.bold))
+                                    .frame(width: 30, height: 30)
+                                    .background(Circle().fill(Color.white.opacity(0.2)))
                             }
                         }.buttonStyle(.plainHand).helpLabel("Resume from \(timeString(r))")
                     }
