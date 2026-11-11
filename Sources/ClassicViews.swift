@@ -1288,7 +1288,25 @@ final class ClassicHoverCardCenter: ObservableObject {
         item = nil
     }
 
+    /// Scrolling with the card open: close it, so the wheel scrolls the page under it (the card would take it)
+    private var scrollMonitor: Any?
+    private func watchScroll() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] e in
+            guard let self, self.item != nil else { return e }
+            self.closeCard()
+            // Hand this tick to the page under the pointer, as the card is still in the way for it
+            if let w = e.window, let v = w.contentView?.hitTest(e.locationInWindow) {
+                var sv: NSView? = v
+                while let s = sv, !(s is NSScrollView) { sv = s.superview }
+                if let scroll = sv as? NSScrollView { scroll.scrollWheel(with: e); return nil }
+            }
+            return e
+        }
+    }
+
     private func startWatching() {
+        watchScroll()
         watchTask?.cancel()
         watchTask = Task { @MainActor in
             var away = 0
