@@ -1950,7 +1950,7 @@ final class HoverCardCenter: ObservableObject {
     }
 }
 
-private struct CardHeightKey: PreferenceKey {
+struct CardHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 340
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
