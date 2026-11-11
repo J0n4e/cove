@@ -1078,6 +1078,15 @@ struct SeasonDeck: View {
     }
 }
 
+/// The playback info box: the side panel's dark glass in the Classic theme, a plain dark box otherwise.
+struct InfoSurface: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(PanelSurface(classic: true)) }
+        else { content.background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.75))) }
+    }
+}
+
 /// The player's side panel: dark glass framed like the buttons in the Classic theme, the frosted panel otherwise.
 struct PanelSurface: ViewModifier {
     let classic: Bool
@@ -3204,9 +3213,16 @@ struct ClassicPlayerView: View {
     @ViewBuilder var panelLayer: some View {
         switch panel {
         case .subtitles:
-            HStack { Spacer(); mediaPanel }
-                .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+            if classic {
+                // Right above its button (top right of the controls), growing from it
+                VStack { Spacer(); HStack { Spacer(); mediaPanel } }
+                    .padding(.top, 84).padding(.bottom, 196).padding(.trailing, 30)
+                    .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
+            } else {
+                HStack { Spacer(); mediaPanel }
+                    .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
         case .appearance:
             HStack { Spacer(); appearancePanel }.transition(.move(edge: .trailing))
         case .episodes:
@@ -3592,7 +3608,7 @@ extension ClassicPlayerView {
                 }
                 .font(.cv(12).monospacedDigit())
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.75)))
+                .modifier(InfoSurface(classic: classic))
                 Spacer()
             }
             Spacer()
