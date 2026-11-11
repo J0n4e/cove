@@ -2776,12 +2776,13 @@ struct DetailView: View {
     /// The item the big Play button acts on (next-up episode for a series).
     var playTarget: Item? { item.isSeries ? nextEp : (simple ? nil : item) }
 
+    /// Where the Play target was left off (0 = not started); when > 0 a Resume button shows beside Play.
+    var resumePoint: Double { playTarget.map { emby.resumeAt($0) } ?? 0 }
+
+    /// The Play button starts from the beginning when there is a resume point (Resume sits next to it).
     var playLabel: String {
-        let r = playTarget.map { emby.resumeAt($0) } ?? 0
-        let verb = r > 0 ? "Resume" : "Play"
-        if item.isSeries, let ep = nextEp { return "\(verb) S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
-        if r > 0 { return "Resume from \(timeString(r))" }
-        return verb
+        if item.isSeries, let ep = nextEp { return "Play S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
+        return "Play"
     }
 
     var body: some View {
@@ -2989,13 +2990,18 @@ struct DetailView: View {
         let played = emby.isPlayed(item)
         let fav = emby.isFav(item)
         return HStack(spacing: 12) {
-            Button { playNow() } label: {
+            let r = resumePoint
+            Button { playNow(from: r > 0 ? 0 : nil) } label: {
                 Label(playLabel, systemImage: "play.fill").font(.system(size: 17, weight: .semibold))
                     .padding(.horizontal, 34).frame(height: 46)
                     .background(Capsule().fill(.white)).foregroundColor(.black)
             }.buttonStyle(HoverButton())
-            if let t = playTarget, emby.resumeAt(t) > 0 {
-                glassCircle("arrow.counterclockwise", help: "Start Over") { playNow(from: 0) }
+            if r > 0 {
+                Button { playNow() } label: {
+                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").font(.system(size: 17, weight: .semibold))
+                        .padding(.horizontal, 26).frame(height: 46)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }.buttonStyle(HoverButton())
             }
             glassCircle(fav ? "checkmark" : "plus", help: fav ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await emby.setFav(item.id, !fav, name: item.Name) }
@@ -3208,12 +3214,6 @@ struct DetailView: View {
             .contentShape(Rectangle())
         }.handCursor()
         .buttonStyle(.plainHand).padding(.horizontal, 52)
-        .contextMenu {
-            Button("Play from Beginning") { playEpisode(ep, from: 0) }
-            Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
-            }
-        }
     }
 
     var episodesList: some View {
@@ -3306,12 +3306,6 @@ struct DetailView: View {
         }.handCursor()
         .buttonStyle(.plainHand)
         .hoverItemActions(ep)
-        .contextMenu {
-            Button("Play from Beginning") { playEpisode(ep, from: 0) }
-            Button(played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(ep.id, !played, name: ep.Name) }
-            }
-        }
     }
 
     func episodeStill(_ ep: Item) -> some View {
