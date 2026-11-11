@@ -1776,10 +1776,7 @@ struct SearchDock: View {
                     }
                 }
                 .padding(.horizontal, 18).frame(height: 44)
-                .background(Capsule().fill(Color.black.opacity(0.55)))
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
-                .shadow(color: .black.opacity(0.45), radius: 14, y: 5)
+                .searchGlass()
                 .padding(.bottom, 24)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .onAppear { DispatchQueue.main.async { focused = true } }
@@ -1814,7 +1811,11 @@ struct SearchDock: View {
 /// confirmation pill and the player's Skip Intro / Up next cards.
 struct GlassBackground<S: InsettableShape>: ViewModifier {
     let shape: S
-    func body(content: Content) -> some View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: the Play button's glass instead
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(ClassicClearGlass(shape: shape)) } else { glass(content) }
+    }
+    func glass(_ content: Content) -> some View {
         content
             .background(shape.fill(Color.black.opacity(0.55)))
             .background(.ultraThinMaterial, in: shape)

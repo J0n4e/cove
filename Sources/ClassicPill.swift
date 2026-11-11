@@ -63,16 +63,27 @@ struct ClassicGlassPillStyle: ViewModifier {
     }
 }
 
-/// Clear glass behind a group of controls (the top bar's sections); a faint fill on macOS before 26.
-struct ClassicClearGlass: ViewModifier {
+/// Play-button glass behind any shape (the top bar's sections, search box, info pill); a faint fill on macOS
+/// before 26.
+struct ClassicClearGlass<S: Shape>: ViewModifier {
+    let shape: S
     @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 26, *) { content.glassEffect(.clear, in: Capsule()) }
-        else { content.background(Capsule().fill(Color.white.opacity(0.1))) }
+        if #available(macOS 26, *) { content.glassEffect(.clear.interactive(), in: shape) }
+        else { content.background(shape.fill(Color.white.opacity(0.1))) }
+    }
+}
+
+/// True inside the Classic theme: the shared search box and info pill use the Classic glass.
+private struct ClassicGlassKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var classicGlass: Bool {
+        get { self[ClassicGlassKey.self] }
+        set { self[ClassicGlassKey.self] = newValue }
     }
 }
 
 extension View {
-    func classicClearGlass() -> some View { modifier(ClassicClearGlass()) }
+    func classicClearGlass() -> some View { modifier(ClassicClearGlass(shape: Capsule())) }
     /// Classic pill look: white label on accent glass.
     func classicGlassPill(size: CGFloat? = nil) -> some View { modifier(ClassicGlassPillStyle(size: size)) }
 }

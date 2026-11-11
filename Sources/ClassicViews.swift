@@ -58,6 +58,7 @@ struct ClassicRootView: View {
             PlaybackFlag.shared.active = id != nil
             if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
+        .environment(\.classicGlass, true)
     }
 }
 
@@ -568,8 +569,8 @@ struct ClassicTopBackButton: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            Label("Back", systemImage: "chevron.left").font(.system(size: 14, weight: .semibold))
-            .padding(.horizontal, 16).frame(height: 44)
+            Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+            .frame(width: 44, height: 44)
             .brightness(hover ? 0.1 : 0)
             .classicGlassPill()
             .contentShape(Capsule())
