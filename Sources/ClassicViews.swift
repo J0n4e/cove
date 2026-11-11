@@ -1150,7 +1150,8 @@ struct ClassicHero: View {
                 .helpLabel(it.heroTitle)
                 .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                 .offset(x: CGFloat(k) * 26)
-                .zIndex(Double(shown - k))
+                // By position in the deck: a card leaving the front (moving forward) stays on top while it fades
+                .zIndex(Double(-p))
                 .transition(.asymmetric(insertion: .opacity,
                                         removal: .opacity.combined(with: .scale(scale: 1.08)).combined(with: .offset(x: -30))))
             }
