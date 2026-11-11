@@ -179,6 +179,7 @@ struct RootView: View {
         .onChange(of: separatePlayer) { _, _ in
             if emby.playing != nil { emby.playing = nil; dismissWindow(id: "player") }
         }
+        .tipLayer()
     }
 }
 
@@ -3502,6 +3503,7 @@ struct PlayerWindow: View {
             if let req = emby.playing { ChosenPlayerView(req: req, theme: "apple").id(req.id) }
         }
         .ignoresSafeArea()
+        .tipLayer()
         .onAppear {
             if emby.playing == nil || !UserDefaults.standard.bool(forKey: "separatePlayer") { dismiss(); return }
             // Let the green button and F make the player window full screen

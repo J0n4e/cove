@@ -59,6 +59,7 @@ struct ClassicRootView: View {
             if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
         .environment(\.classicGlass, true)
+        .tipLayer()
     }
 }
 
