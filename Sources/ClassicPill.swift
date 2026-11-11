@@ -170,14 +170,21 @@ struct FoggedGlass<S: Shape>: View {
             let w = g.size.width, h = g.size.height
             ZStack {
                 shape.fill(.ultraThinMaterial)                       // frosted: what is behind goes soft
-                shape.fill(Color.white.opacity(0.14))                // milky haze
-                // uneven mist patches
-                Ellipse().fill(Color.white.opacity(0.22)).frame(width: w * 0.55, height: h * 0.9)
-                    .position(x: w * 0.3, y: h * 0.75).blur(radius: 6)
-                Ellipse().fill(Color.white.opacity(0.16)).frame(width: w * 0.45, height: h * 0.7)
-                    .position(x: w * 0.75, y: h * 0.6).blur(radius: 7)
-                Ellipse().fill(Color.white.opacity(0.10)).frame(width: w * 0.35, height: h * 0.5)
-                    .position(x: w * 0.55, y: h * 0.2).blur(radius: 5)
+                shape.fill(Color.white.opacity(0.08))                // thin milky haze
+                // uneven mist: thick clouds in some places, almost clear in others, heavier low down
+                Ellipse().fill(Color.white.opacity(0.32)).frame(width: w * 0.42, height: h * 1.0)
+                    .position(x: w * 0.18, y: h * 0.85).blur(radius: 5)
+                Ellipse().fill(Color.white.opacity(0.26)).frame(width: w * 0.30, height: h * 0.8)
+                    .position(x: w * 0.62, y: h * 0.95).blur(radius: 4)
+                Ellipse().fill(Color.white.opacity(0.20)).frame(width: w * 0.22, height: h * 0.6)
+                    .position(x: w * 0.88, y: h * 0.45).blur(radius: 4)
+                Ellipse().fill(Color.white.opacity(0.14)).frame(width: w * 0.28, height: h * 0.45)
+                    .position(x: w * 0.42, y: h * 0.15).blur(radius: 5)
+                Circle().fill(Color.white.opacity(0.22)).frame(width: h * 0.35)
+                    .position(x: w * 0.75, y: h * 0.3).blur(radius: 2)
+                // clearer streaks wiped through the fog
+                Capsule().fill(Color.black.opacity(0.18)).frame(width: w * 0.5, height: h * 0.14)
+                    .rotationEffect(.degrees(-8)).position(x: w * 0.5, y: h * 0.5).blur(radius: 3)
                 shape.fill(accent.opacity(0.12))                     // a breath of the accent
                 shape.fill(LinearGradient(colors: [.clear, .white.opacity(0.08)], startPoint: .top, endPoint: .bottom))
             }
