@@ -568,10 +568,7 @@ struct ClassicTopBackButton: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
-                Text("Back").font(.system(size: 14, weight: .semibold))
-            }
+            Label("Back", systemImage: "chevron.left").font(.system(size: 14, weight: .semibold))
             .padding(.horizontal, 14).padding(.vertical, 6)
             .brightness(hover ? 0.1 : 0)
             .classicGlassPill()
