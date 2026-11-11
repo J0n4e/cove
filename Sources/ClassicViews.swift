@@ -1120,9 +1120,10 @@ struct ClassicHero: View {
     /// beneath slides up into its place. Clicking a card shows that banner.
     var deck: some View {
         let shown = min(items.count, 4)
-        let w: CGFloat = 260, h: CGFloat = w * 9 / 16
+        let w: CGFloat = 300, h: CGFloat = w * 9 / 16
         return ZStack(alignment: .leading) {
-            ForEach(pos..<(pos + shown), id: \.self) { p in
+            // Drawn back to front, so the current card ends up on top
+            ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
                 let i = ((p % items.count) + items.count) % items.count
                 let it = items[i]
@@ -1146,14 +1147,14 @@ struct ClassicHero: View {
                 }
                 .buttonStyle(.plainHand)
                 .helpLabel(it.heroTitle)
-                .scaleEffect(1 - CGFloat(k) * 0.07, anchor: .leading)
-                .offset(x: CGFloat(k) * 34)
+                .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
+                .offset(x: CGFloat(k) * 26)
                 .zIndex(Double(shown - k))
                 .transition(.asymmetric(insertion: .opacity,
                                         removal: .opacity.combined(with: .scale(scale: 1.08)).combined(with: .offset(x: -30))))
             }
         }
-        .frame(width: w + CGFloat(shown - 1) * 34, height: h, alignment: .leading)
+        .frame(width: w + CGFloat(shown - 1) * 26, height: h, alignment: .leading)
     }
 
     /// Page bullets: small glass pills; the current one stretches longer and is lit.
