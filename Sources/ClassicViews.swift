@@ -480,7 +480,7 @@ struct ClassicTopNavBar: View {
             ClassicTopNavTools().fixedSize()
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .frame(height: 36)
+        .frame(height: 44)
         .padding(.horizontal, 28).padding(.vertical, 12)
         .background(bg)
     }
@@ -506,7 +506,7 @@ struct ClassicTopNavButtons: View {
             }
                 .font(.callout.weight(on ? .semibold : .regular))
                 .foregroundColor(on ? .white : .secondary)
-                .padding(.horizontal, labels == "names" ? 18 : 14).padding(.vertical, 6)
+                .padding(.horizontal, labels == "names" ? 18 : 14).frame(height: 36)
                 .background { if on { ClassicGlassPill() } }
                 .contentShape(Capsule())
         }
@@ -540,7 +540,7 @@ struct ClassicTopNavButtons: View {
             }
         }
         .padding(4)
-        .frame(height: 36)
+        .frame(height: 44)
         .classicClearGlass()
     }
 }
@@ -550,10 +550,10 @@ struct ClassicTopNavTools: View {
     var body: some View {
         HStack(spacing: 8) {
             // The search box itself floats at the bottom of the window (SearchDock)
-            // Same 36-pt glass as Back and the sections; Settings is in the Cove menu (⌘,)
+            // Same 44-pt glass as Back, the sections and the Play button; Settings is in the Cove menu (⌘,)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold))
-                    .frame(width: 36, height: 36).classicGlassPill().contentShape(Capsule())
+                    .frame(width: 44, height: 44).classicGlassPill().contentShape(Capsule())
             }.buttonStyle(HoverButton()).helpLabel("Search (S)")
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
@@ -569,7 +569,7 @@ struct ClassicTopBackButton: View {
     var body: some View {
         Button(action: action) {
             Label("Back", systemImage: "chevron.left").font(.system(size: 14, weight: .semibold))
-            .padding(.horizontal, 14).frame(height: 36)
+            .padding(.horizontal, 16).frame(height: 44)
             .brightness(hover ? 0.1 : 0)
             .classicGlassPill()
             .contentShape(Capsule())
