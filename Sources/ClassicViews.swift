@@ -3020,7 +3020,7 @@ struct ClassicPlayerView: View {
                 .padding(.bottom, subLift(size))
             }.frame(maxWidth: .infinity).allowsHitTesting(false)
         }
-        if !model.caption.isEmpty {
+        if !model.caption.isEmpty && !model.pipActive {   // not while the video is in picture in picture
             let fs = max(14, size.height * (Self.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045))
             let color = Self.colors.first { $0.0 == subColor }?.2 ?? .white
             let shade: Color = subColor == "black" ? .white : .black
