@@ -172,6 +172,7 @@ func menuPicker<T: Hashable>(_ sel: Binding<T>, _ opts: [(T, String)]) -> some V
 struct GeneralSettings: View {
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("accent") private var accent = "red"
+    @AppStorage("classicFont") private var classicFont = "rounded"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
@@ -218,6 +219,9 @@ struct GeneralSettings: View {
         PrefSection(title: "Appearance") {
             PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Classic")]) }
             PrefNote("Classic brings back the original Cove look. Settings always use this window.")
+            if theme == "classic" {
+                PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
+            }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }

@@ -13,7 +13,7 @@ struct ClassicPillStyle: ViewModifier {
     @AppStorage("accent") private var name = "red"
     let active: Bool
     func body(content: Content) -> some View {
-        content.font(.callout.weight(.medium))
+        content.font(.cv(12, weight: .medium))
             .padding(.horizontal, 14).padding(.vertical, 8)
             .classicGlassPill()
     }
@@ -25,7 +25,7 @@ extension View {
     func classicPill(active: Bool = false) -> some View { modifier(ClassicPillStyle(active: active)) }
     func classicOnAccent() -> some View { modifier(OnAccent()) }
     func classicCircleButton() -> some View {
-        self.font(.title3).frame(width: 44, height: 44)
+        self.font(.cv(15, weight: .regular)).frame(width: 44, height: 44)
             .background(Color.white.opacity(0.14)).clipShape(Circle())
     }
 }
@@ -39,6 +39,7 @@ func classicParseDate(_ s: String?) -> Date? {
 
 struct ClassicRootView: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("classicFont") private var classicFont = "rounded"   // Settings → General → Font
     @Environment(\.appBG) var bg
     var body: some View {
         ZStack {
@@ -59,8 +60,10 @@ struct ClassicRootView: View {
         .dropdownLayer()   // glass lists for audio, subtitles, quality
         .tipLayer()   // inside the settings below, so the tooltips get the Classic look and font too
         .environment(\.classicGlass, true)
-        // Rounded system font: soft like the glass pills and rounded corners, still very readable
-        .fontDesign(.rounded)
+        // Text that does not name a font follows the chosen one's design; a new font rebuilds the screens so every
+        // text picks it up
+        .fontDesign(classicFont == "rounded" ? .rounded : classicFont == "serif" ? .serif : .default)
+        .id(classicFont)
         // No scroll bars popping up over the pages (scroll with the wheel, trackpad or the row arrows)
         .scrollIndicators(.hidden)
     }
@@ -85,7 +88,7 @@ struct ClassicLoginView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: 14) {
                 if showForm { form } else { serverList }
-                if !error.isEmpty { Text(error).foregroundColor(.orange).font(.caption).multilineTextAlignment(.center) }
+                if !error.isEmpty { Text(error).foregroundColor(.orange).font(.cv(10, weight: .regular)).multilineTextAlignment(.center) }
             }
             .frame(width: showForm ? 340 : 520).padding(36)
             .background(Color.black.opacity(0.75)).cornerRadius(8)
@@ -94,16 +97,16 @@ struct ClassicLoginView: View {
 
     var serverList: some View {
         VStack(spacing: 14) {
-            Text("Select Server").font(.title.bold()).padding(.bottom, 6)
+            Text("Select Server").font(.cv(22, weight: .bold)).padding(.bottom, 6)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
                 ForEach(emby.servers) { s in serverCard(s) }
                 Button { startAdd() } label: {
                     VStack(spacing: 10) {
-                        Image(systemName: "plus").font(.system(size: 34, weight: .light))
+                        Image(systemName: "plus").font(.cv(34, weight: .light))
                             .frame(width: 150, height: 100)
                             .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [6])))
-                        Text("Add Server").font(.headline)
-                        Text(" ").font(.caption)
+                        Text("Add Server").font(.cv(13, weight: .bold))
+                        Text(" ").font(.cv(10, weight: .regular))
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plainHand)
             }
@@ -115,7 +118,7 @@ struct ClassicLoginView: View {
         Button { open(s) } label: {
             VStack(spacing: 10) {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "server.rack").font(.system(size: 38))
+                    Image(systemName: "server.rack").font(.cv(38))
                         .frame(width: 150, height: 100)
                         .background(Color.white.opacity(0.08)).cornerRadius(10)
                     if s.token != nil {
@@ -123,9 +126,9 @@ struct ClassicLoginView: View {
                             .helpLabel("Signed in")
                     }
                 }
-                HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.caption); Text(s.name).font(.headline).lineLimit(1) }
+                HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.cv(10, weight: .regular)); Text(s.name).font(.cv(13, weight: .bold)).lineLimit(1) }
                 Text((s.user.isEmpty ? s.url : "\(s.user) · \(s.url)") + " · " + emby.kindLabel(s))
-                    .font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                    .font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
             }
             .frame(width: 150).contentShape(Rectangle())
         }
@@ -144,7 +147,7 @@ struct ClassicLoginView: View {
                         .buttonStyle(.plainHand).helpLabel("Back to servers")
                 }
                 Spacer()
-                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.title.bold())
+                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.cv(22, weight: .bold))
                 Spacer()
                 if !emby.servers.isEmpty { Image(systemName: "chevron.left").hidden() }
             }.padding(.bottom, 6)
@@ -279,12 +282,12 @@ struct ClassicHomeView: View {
                     Button { emby.switchServer() } label: {
                         HStack(spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(emby.currentServerName).font(.callout.weight(.semibold)).lineLimit(1)
+                                Text(emby.currentServerName).font(.cv(12, weight: .semibold)).lineLimit(1)
                                 Text(emby.currentServer?.user.isEmpty == false ? emby.currentServer!.user : (URL(string: emby.server)?.host ?? ""))
-                                    .font(.caption2).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                                    .font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
                             }
                             Spacer(minLength: 0)
-                            Image(systemName: "chevron.up.chevron.down").font(.caption2).foregroundColor(.secondary)
+                            Image(systemName: "chevron.up.chevron.down").font(.cv(10, weight: .regular)).foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 10).padding(.vertical, 8)
                         .background(Color.white.opacity(0.05))
@@ -299,7 +302,7 @@ struct ClassicHomeView: View {
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 12) {
                     Button { nav.showSettings = true } label: {
-                        Label("Settings", systemImage: "gearshape").font(.callout)
+                        Label("Settings", systemImage: "gearshape").font(.cv(12, weight: .regular))
                             .padding(.horizontal, 8).padding(.vertical, 8).contentShape(Rectangle())
                     }
                     .helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
@@ -517,11 +520,11 @@ struct ClassicTopNavButtons: View {
         } label: {
             // Small icon before each name, as in the sidebar
             HStack(spacing: 6) {
-                if labels != "names" { Image(systemName: icon).font(.system(size: labels == "icons" ? 14 : 12)) }
+                if labels != "names" { Image(systemName: icon).font(.cv(labels == "icons" ? 14 : 12)) }
                 if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
                 else if badge > 0 { Text("\(badge)") }
             }
-                .font(.system(size: 15, weight: on ? .semibold : .medium))
+                .font(.cv(15, weight: on ? .semibold : .medium))
                 .foregroundColor(on ? .white : .white.opacity(0.6))
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
@@ -570,7 +573,7 @@ struct ClassicTopNavTools: View {
             // The search box itself floats at the bottom of the window (SearchDock)
             // Same 44-pt glass as Back, the sections and the Play button; Settings is in the Cove menu (⌘,)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
-                Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .semibold))
+                Image(systemName: "magnifyingglass").font(.cv(14, weight: .semibold))
                     .frame(width: 44, height: 44).classicGlassPill().contentShape(Capsule())
             }.buttonStyle(HoverButton()).accessibilityLabel("Search")
         }
@@ -586,7 +589,7 @@ struct ClassicTopBackButton: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+            Image(systemName: "chevron.left").font(.cv(15, weight: .semibold))
             .frame(width: 44, height: 44)
             .brightness(hover ? 0.1 : 0)
             .classicGlassPill()
@@ -639,9 +642,9 @@ struct ClassicSearchView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Results for “\(query)”").font(.title2.bold())
+                Text("Results for “\(query)”").font(.cv(17, weight: .bold))
                 if !people.isEmpty { peopleRow }
-                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.title3.bold()).padding(.top, 8) }
+                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.cv(15, weight: .bold)).padding(.top, 8) }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
                     ForEach(results) { ClassicPosterCard(item: $0) }
                 }
@@ -665,7 +668,7 @@ struct ClassicSearchView: View {
     /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("People").font(.title3.bold())
+            Text("People").font(.cv(15, weight: .bold))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(people) { p in
@@ -674,20 +677,20 @@ struct ClassicSearchView: View {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
-                                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                                        Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
                                             .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
                                     }
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
                                 .classicHoverLift()
-                                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
+                                Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 150)
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
@@ -721,7 +724,7 @@ struct ClassicFavoritesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Favorites").font(.title.bold())
+                    Text("Favorites").font(.cv(22, weight: .bold))
                     if !favs.isEmpty { Text("\(favs.count) Items").foregroundColor(.secondary) }
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
@@ -733,8 +736,8 @@ struct ClassicFavoritesView: View {
                 if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
-                        Image(systemName: "heart").font(.system(size: 40)).foregroundColor(.secondary)
-                        Text("No favorites yet").font(.headline)
+                        Image(systemName: "heart").font(.cv(40)).foregroundColor(.secondary)
+                        Text("No favorites yet").font(.cv(13, weight: .bold))
                         Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 }
@@ -762,8 +765,8 @@ struct ClassicFavoritesView: View {
             // "Favorite People ›" opens all of them on their own page, like the other sections
             NavigationLink(value: FavoritePeopleRef()) {
                 HStack(spacing: 6) {
-                    Text("Favorite People").font(.title3.bold())
-                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                    Text("Favorite People").font(.cv(15, weight: .bold))
+                    Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
             if layout == "grid" {
@@ -787,8 +790,8 @@ struct ClassicFavoritesView: View {
             // Opened through the page path (like every other page), so Back shows and the top bar can leave it
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
-                    Text(title).font(.title3.bold())
-                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                    Text(title).font(.cv(15, weight: .bold))
+                    Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
@@ -817,7 +820,7 @@ struct ClassicFavoriteGridView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(title).font(.title.bold())
+                Text(title).font(.cv(22, weight: .bold))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(items.filter { emby.isFav($0) }) { ClassicPosterCard(item: $0) }
                 }
@@ -889,8 +892,8 @@ struct ClassicPersonView: View {
     func section(_ title: String, _ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title).font(.title2.bold())
-                Text("\(list.count)").font(.title3).foregroundColor(.secondary)
+                Text(title).font(.cv(17, weight: .bold))
+                Text("\(list.count)").font(.cv(15, weight: .regular)).foregroundColor(.secondary)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                 ForEach(list) { ClassicPosterCard(item: $0) }
@@ -931,7 +934,7 @@ struct ClassicHomeContent: View {
                 if !hero.isEmpty { ClassicHero(items: hero, pageH: pageH) }
                 ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(row.title).font(.title3.bold()).padding(.leading, 32)
+                        Text(row.title).font(.cv(15, weight: .bold)).padding(.leading, 32)
                         let wide = row.title == "Continue Watching"
                         // Continue Watching has its own Row / Grid choice; every other section follows Home's
                         if (wide ? resumeLayout : homeLayout) == "grid" {
@@ -1058,11 +1061,11 @@ struct SeasonDeck: View {
     func card(_ n: Int, k: Int) -> some View {
         CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
-        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.caption) } }
+        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.cv(10, weight: .regular)) } }
         .frame(width: w, height: h).clipped()
         .overlay(alignment: .bottomLeading) {
             // Only on the front card; fades with the move instead of popping in
-            Text(title(n)).font(.system(size: 13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+            Text(title(n)).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
                 .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom))
@@ -1227,7 +1230,7 @@ struct ClassicHero: View {
     func info(_ item: Item) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if item.isEpisode {
-                Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").font(.system(size: 13, weight: .semibold))
+                Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").font(.cv(13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
             }
             TitleLogo(item: item, height: style == "cinematic" ? 110 : 90, font: style == "cinematic" ? 56 : 46)
@@ -1236,8 +1239,8 @@ struct ClassicHero: View {
                 if let r = item.CommunityRating {
                     HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
                 }
-            }.font(.system(size: 15, weight: .medium)).foregroundColor(.white.opacity(0.9))
-            Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
+            }.font(.cv(15, weight: .medium)).foregroundColor(.white.opacity(0.9))
+            Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
                 .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
             HStack(spacing: 12) {
                 Button { Task { await emby.play(item) } } label: {
@@ -1297,7 +1300,7 @@ struct ClassicHero: View {
         } placeholder: { Color(white: 0.15) }
         .frame(width: deckW, height: deckW * 9 / 16).clipped()
         .overlay(alignment: .bottomLeading) {
-            Text(it.heroTitle).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+            Text(it.heroTitle).font(.cv(13, weight: .semibold)).lineLimit(1)
                 .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
@@ -1370,13 +1373,13 @@ struct ClassicResumeCard: View {
                 CachedImage(url: imageURL) { p in
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.15); Text(item.heroTitle).font(.caption).padding(6) }
+                    ZStack { Color(white: 0.15); Text(item.heroTitle).font(.cv(10, weight: .regular)).padding(6) }
                 }
                 .frame(width: 260, height: 146).clipped()
                 // Title, bottom-left
                 .overlay(alignment: .bottomLeading) {
                     Text(item.heroTitle)
-                        .font(.callout.weight(.semibold)).foregroundColor(.white).lineLimit(1)
+                        .font(.cv(12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
                         .shadow(color: .black.opacity(0.8), radius: 3)
                         .padding(.leading, 10).padding(.trailing, 40).padding(.top, 28).padding(.bottom, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1452,7 +1455,7 @@ struct ClassicPosterCard: View {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
                         p.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        ZStack { Color(white: 0.15); Text(item.Name).font(.caption).padding(6) }
+                        ZStack { Color(white: 0.15); Text(item.Name).font(.cv(10, weight: .regular)).padding(6) }
                     }
                     .frame(width: 150, height: 225).clipped()
                     .opacity(played ? 0.6 : 1)
@@ -1460,7 +1463,7 @@ struct ClassicPosterCard: View {
                 }
                 .overlay(alignment: .topLeading) {
                     if emby.isFav(item) && !inFavorites {
-                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                        Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
                             .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
                     }
                 }
@@ -1498,8 +1501,8 @@ struct ClassicPosterCard: View {
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
-                        if showTitle { Text(item.Name).font(.callout.weight(.semibold)).lineLimit(1) }
-                        if showYear { Text(item.yearText).font(.caption).foregroundColor(.secondary) }
+                        if showTitle { Text(item.Name).font(.cv(12, weight: .semibold)).lineLimit(1) }
+                        if showYear { Text(item.yearText).font(.cv(10, weight: .regular)).foregroundColor(.secondary) }
                     }
                     .multilineTextAlignment(centered ? .center : .leading)
                     .frame(width: 150, alignment: centered ? .center : .leading)
@@ -1766,12 +1769,12 @@ struct ClassicLibraryView: View {
     var header: some View {
         VStack(spacing: 16) {
             ZStack {
-                HStack { Text(lib.title).font(.title2.bold()); Spacer() }
+                HStack { Text(lib.title).font(.cv(17, weight: .bold)); Spacer() }
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
                         Button { tab = i } label: {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
-                                .font(.callout.weight(.medium))
+                                .font(.cv(12, weight: .medium))
                                 .padding(.horizontal, 16).frame(height: 36)
                                 .classicSelectedPill(tab == i)
                                 .foregroundColor(tab == i ? .white : .secondary)
@@ -1870,7 +1873,7 @@ struct ClassicLibraryView: View {
         HStack(spacing: 0) {
             ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { layout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(layout == m.0)
                         .foregroundColor(layout == m.0 ? .white : .secondary)
@@ -1885,7 +1888,7 @@ struct ClassicLibraryView: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
             ForEach(genres, id: \.self) { g in
                 Button { genre = g; tab = 0 } label: {
-                    Text(g).font(.headline).frame(maxWidth: .infinity, minHeight: 70)
+                    Text(g).font(.cv(13, weight: .bold)).frame(maxWidth: .infinity, minHeight: 70)
                         .background(Color.white.opacity(0.1)).cornerRadius(8)
                 }.buttonStyle(.plainHand)
             }
@@ -1931,7 +1934,7 @@ struct ClassicCastTile: View {
             CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: big ? 44 : 30)).foregroundColor(.secondary) }
+                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(big ? 44 : 30)).foregroundColor(.secondary) }
             }
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
@@ -1941,7 +1944,7 @@ struct ClassicCastTile: View {
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
                 if emby.isPersonFav(p.Id) {
-                    Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                    Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
                         .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
                 }
             }
@@ -1957,8 +1960,8 @@ struct ClassicCastTile: View {
             }
             .onHover { hover = $0 }
             .classicHoverLift()   // grows a little under the pointer, like posters
-            Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
-            Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+            Text(p.Name).font(.cv(big ? 12 : 10, weight: .semibold)).lineLimit(1)
+            Text(p.Role ?? p.`Type` ?? "").font(.cv(10)).foregroundColor(.secondary).lineLimit(1)
         }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
 }
@@ -2106,7 +2109,7 @@ struct ClassicDetailView: View {
                 TitleLogo(item: item, height: 110, font: 56)
                 meta
                 buttons
-                Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
+                Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
             .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 600)
@@ -2159,16 +2162,16 @@ struct ClassicDetailView: View {
             .classicThinBorder(10)   // glass tube edge and sheen, as the cards
             .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             VStack(alignment: .leading, spacing: 14) {
-                Text(item.Name).font(.system(size: 46, weight: .black))
+                Text(item.Name).font(.cv(46, weight: .black))
                 meta
                 if !simple { streamsRow }
                 buttons
-                if let tag = full?.Taglines?.first { Text(tag).font(.headline) }
+                if let tag = full?.Taglines?.first { Text(tag).font(.cv(13, weight: .bold)) }
                 Text(item.Overview ?? "").frame(maxWidth: 760, alignment: .leading)
                 let directors = (full?.People ?? []).filter { $0.`Type` == "Director" }.map { $0.Name }
                 if !directors.isEmpty {
                     (Text("Director: ").foregroundColor(.secondary) + Text(directors.joined(separator: ", ")).bold())
-                        .font(.callout)
+                        .font(.cv(12, weight: .regular))
                 }
             }
         }.padding(.horizontal, 40).padding(.top, 40)
@@ -2183,12 +2186,12 @@ struct ClassicDetailView: View {
             if let y = item.ProductionYear { Text(String(y)) }
             if let t = full?.RunTimeTicks { Text(runtimeText(t)) }
             if let o = full?.OfficialRating {
-                Text(o).font(.caption).padding(.horizontal, 5).padding(.vertical, 1)
+                Text(o).font(.cv(10, weight: .regular)).padding(.horizontal, 5).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary))
             }
             if let g = full?.Genres?.first { Text(g) }
             if let t = full?.RunTimeTicks, !simple { Text("Ends at " + endsAtText(t)) }
-        }.font(.subheadline).foregroundColor(.secondary)
+        }.font(.cv(11, weight: .regular)).foregroundColor(.secondary)
     }
 
     /// Wraps onto more lines when the window is narrow, so long version names can't widen the page.
@@ -2219,7 +2222,7 @@ struct ClassicDetailView: View {
                                                            (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }
         }
-        .font(.callout)
+        .font(.cv(12, weight: .regular))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -2365,14 +2368,14 @@ struct ClassicDetailView: View {
                 .shadow(radius: 6)
                 .classicHoverLift()
                 .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
-                Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
+                Text(title).font(.cv(13, weight: .regular)).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plainHand)
     }
 
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Seasons").font(.title3.bold()).padding(.horizontal, 40)
+            Text("Seasons").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
             if seasonLayout == "grid" {
                 // All seasons at once, wrapped onto as many lines as needed
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
@@ -2389,10 +2392,10 @@ struct ClassicDetailView: View {
         let multi: Bool = seasonNumbers.count > 1
         let heading: String = multi ? seasonTitle(currentSeason) : "Episodes"
         return HStack(spacing: 16) {
-            Text(heading).font(.title3.bold())
+            Text(heading).font(.cv(15, weight: .bold))
             if canFilterWatched {
                 Button(showAllEps ? "Hide watched" : "Show all") { showAllEps.toggle() }
-                    .buttonStyle(.plainHand).font(.callout.weight(.semibold)).foregroundStyle(.tint)
+                    .buttonStyle(.plainHand).font(.cv(12, weight: .semibold)).foregroundStyle(.tint)
             }
             Spacer()
             episodeLayoutToggle
@@ -2411,7 +2414,7 @@ struct ClassicDetailView: View {
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
-                Text("\(ep.IndexNumber ?? 0)").font(.system(size: 26, weight: .semibold))
+                Text("\(ep.IndexNumber ?? 0)").font(.cv(26, weight: .semibold))
                     .foregroundColor(.secondary).frame(width: 40)
                 CachedImage(url: emby.image(ep.id, width: 480, plain: true)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
@@ -2426,12 +2429,12 @@ struct ClassicDetailView: View {
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(ep.Name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                        Text(ep.Name).font(.cv(16, weight: .semibold)).lineLimit(1)
                         if played { Image(systemName: "checkmark.circle.fill").foregroundColor(.white.opacity(0.7)) }
                         Spacer()
                         if let t = ep.RunTimeTicks, t > 0 { Text(runtimeText(t)).foregroundColor(.secondary) }
                     }
-                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).font(.callout).foregroundColor(.secondary) }
+                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).font(.cv(12, weight: .regular)).foregroundColor(.secondary) }
                 }
             }
             .padding(.vertical, 14)
@@ -2470,7 +2473,7 @@ struct ClassicDetailView: View {
         HStack(spacing: 0) {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { epLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(epLayout == m.0)
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
@@ -2509,7 +2512,7 @@ struct ClassicDetailView: View {
                 }
                 // Episode name in the bottom-left corner of the thumbnail
                 .overlay(alignment: .bottomLeading) {
-                    Text(ep.Name).font(.system(size: 14, weight: .semibold)).foregroundColor(.white).lineLimit(2)
+                    Text(ep.Name).font(.cv(14, weight: .semibold)).foregroundColor(.white).lineLimit(2)
                         .shadow(color: .black.opacity(0.8), radius: 3)
                         .padding(.leading, 10).padding(.trailing, hasProgress ? 40 : 10)
                         .padding(.top, 28).padding(.bottom, hasProgress ? 12 : 9)
@@ -2519,7 +2522,7 @@ struct ClassicDetailView: View {
                 }
                 // Episode number in the top-left corner
                 .overlay(alignment: .topLeading) {
-                    Text(episodeInfo(ep, hasProgress: hasProgress)).font(.caption2.weight(.semibold)).foregroundColor(.white)
+                    Text(episodeInfo(ep, hasProgress: hasProgress)).font(.cv(10, weight: .semibold)).foregroundColor(.white)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Capsule().fill(Color.black.opacity(0.35)))
                         .padding(8)
@@ -2534,7 +2537,7 @@ struct ClassicDetailView: View {
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
-                    Text(ep.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
+                    Text(ep.Overview ?? "").font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(2)
                 }
             }.contentShape(Rectangle())
         }.handCursor()
@@ -2552,7 +2555,7 @@ struct ClassicDetailView: View {
         let people = Array((full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Cast & Crew").font(.title3.bold()).padding(.horizontal, 40)
+                Text("Cast & Crew").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
@@ -2578,7 +2581,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var aboutSection: some View {
         if let f = full {
             VStack(alignment: .leading, spacing: 16) {
-                Text("About").font(.title3.bold())
+                Text("About").font(.cv(15, weight: .bold))
                 if let d = classicParseDate(f.UserData?.LastPlayedDate) {
                     aboutRow("Date Last Played", d.formatted(date: .abbreviated, time: .shortened))
                 }
@@ -2609,7 +2612,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var includedInSection: some View {
         if !includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Included In").font(.title3.bold()).padding(.horizontal, 40)
+                Text("Included In").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }
             }
         }
@@ -2619,7 +2622,7 @@ struct ClassicDetailView: View {
         if !similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("More Like This").font(.title3.bold())
+                    Text("More Like This").font(.cv(15, weight: .bold))
                     Spacer()
                     similarLayoutToggle
                 }.padding(.horizontal, 40)
@@ -2643,7 +2646,7 @@ struct ClassicDetailView: View {
         HStack(spacing: 0) {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { similarLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(similarLayout == m.0)
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
@@ -2993,7 +2996,7 @@ struct ClassicPlayerView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     Spinner(inPlayer: true).controlSize(.small)
-                    Text("Loading subtitles…").font(.system(size: 14, weight: .medium))
+                    Text("Loading subtitles…").font(.cv(14, weight: .medium))
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Capsule().fill(Color.black.opacity(0.6)))
@@ -3007,7 +3010,7 @@ struct ClassicPlayerView: View {
             VStack {
                 Spacer()
                 Text(model.caption)
-                    .font(.system(size: fs, weight: .medium))
+                    .font(.cv(fs, weight: .medium))
                     .foregroundColor(color)
                     .multilineTextAlignment(.center)
                     .modifier(SubShadow(style: subShadow, color: shade))
@@ -3060,8 +3063,8 @@ struct ClassicPlayerView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
-                    if let l = episodeLine { Text(l).font(.system(size: 16, weight: .medium)).opacity(0.85) }
-                    Text(item.heroTitle).font(.system(size: 28, weight: .bold))
+                    if let l = episodeLine { Text(l).font(.cv(16, weight: .medium)).opacity(0.85) }
+                    Text(item.heroTitle).font(.cv(28, weight: .bold))
                 }
                 Spacer()
                 HStack(spacing: 26) {
@@ -3091,7 +3094,7 @@ struct ClassicPlayerView: View {
                 Spacer()
                 Text("-\(fmt(max(0, model.duration - (scrubbing ? scrub : model.time))))  /  \(endClock)")
             }
-            .font(.system(size: 14).monospacedDigit()).opacity(0.85)
+            .font(.cv(14).monospacedDigit()).opacity(0.85)
 
             HStack(spacing: 30) {
                 iconButton("backward.end.fill", size: 18) { if let p = prevEp { play(p) } else { model.seek(to: 0) } }
@@ -3102,7 +3105,7 @@ struct ClassicPlayerView: View {
                         Label(model.playing ? "Pause" : "Play", systemImage: model.playing ? "pause.fill" : "play.fill")
                             .classicGlassPill(size: 60)
                     } else {
-                        Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.system(size: 22, weight: .bold))
+                        Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.cv(22, weight: .bold))
                             .foregroundColor(.black)
                             .frame(width: 56, height: 56)
                             .background(Circle().fill(Color.white))
@@ -3137,7 +3140,7 @@ struct ClassicPlayerView: View {
 
     func plainIconButton(_ name: String, size: CGFloat, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button { action(); poke() } label: {
-            Image(systemName: name).font(.system(size: size, weight: .medium))
+            Image(systemName: name).font(.cv(size, weight: .medium))
                 .frame(width: size + 12, height: size + 12)
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
@@ -3170,13 +3173,13 @@ struct ClassicPlayerView: View {
     func row(_ icon: String, _ title: String, sub: String? = nil, checked: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 18) {
-                Image(systemName: icon).font(.system(size: 18)).frame(width: 26)
+                Image(systemName: icon).font(.cv(18)).frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 16))
-                    if let sub { Text(sub).font(.system(size: 13)).foregroundColor(.secondary) }
+                    Text(title).font(.cv(16))
+                    if let sub { Text(sub).font(.cv(13)).foregroundColor(.secondary) }
                 }
                 Spacer()
-                if checked { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)) }
+                if checked { Image(systemName: "checkmark").font(.cv(15, weight: .semibold)) }
             }
             .foregroundColor(checked ? accent : .white)
             .padding(.horizontal, 22).padding(.vertical, 11)
@@ -3185,7 +3188,7 @@ struct ClassicPlayerView: View {
     }
 
     func sectionTitle(_ t: String) -> some View {
-        Text(t).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+        Text(t).font(.cv(13, weight: .semibold)).foregroundColor(.secondary)
             .padding(.horizontal, 22).padding(.top, 10).padding(.bottom, 4)
     }
 
@@ -3203,10 +3206,10 @@ struct ClassicPlayerView: View {
                     }
                 }
                 HStack(spacing: 18) {
-                    Image(systemName: "timer").font(.system(size: 18)).frame(width: 26)
+                    Image(systemName: "timer").font(.cv(18)).frame(width: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Subtitle Offset").font(.system(size: 16))
-                        Text("\(model.subOffset) ms").font(.system(size: 13)).foregroundColor(.secondary)
+                        Text("Subtitle Offset").font(.cv(16))
+                        Text("\(model.subOffset) ms").font(.cv(13)).foregroundColor(.secondary)
                     }
                     Spacer()
                     Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plainHand)
@@ -3216,7 +3219,7 @@ struct ClassicPlayerView: View {
                     Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms later")
                 }
-                .font(.system(size: 18))
+                .font(.cv(18))
                 .padding(.horizontal, 22).padding(.vertical, 9)
                 row("textformat.size", "Subtitle Appearance") { withAnimation { panel = .appearance } }
 
@@ -3242,7 +3245,7 @@ struct ClassicPlayerView: View {
                     ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0] as [Float], id: \.self) { r in
                         let on = model.speed == r
                         Button { model.setSpeed(r) } label: {
-                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.system(size: 14, weight: .semibold))
+                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.cv(14, weight: .semibold))
                                 .frame(maxWidth: .infinity).frame(height: 36)
                                 .foregroundColor(on ? .black : .white)
                                 .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
@@ -3264,7 +3267,7 @@ struct ClassicPlayerView: View {
 
     func dropdown<T: Hashable>(_ label: String, _ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.system(size: 15)).foregroundColor(.white.opacity(0.85))
+            Text(label).font(.cv(15)).foregroundColor(.white.opacity(0.85))
             Menu {
                 ForEach(opts, id: \.0) { o in
                     Button { sel.wrappedValue = o.0 } label: {
@@ -3273,9 +3276,9 @@ struct ClassicPlayerView: View {
                 }
             } label: {
                 HStack {
-                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").font(.system(size: 16))
+                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").font(.cv(16))
                     Spacer()
-                    Image(systemName: "chevron.down").font(.system(size: 13, weight: .bold))
+                    Image(systemName: "chevron.down").font(.cv(13, weight: .bold))
                 }
                 .padding(.horizontal, 14).padding(.vertical, 11)
                 .background(Color.white.opacity(0.1)).cornerRadius(6)
@@ -3288,9 +3291,9 @@ struct ClassicPlayerView: View {
     var appearancePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 20) {
-                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.system(size: 18, weight: .semibold)) }
+                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.cv(18, weight: .semibold)) }
                     .buttonStyle(.plainHand)
-                Text("Subtitle Appearance").font(.system(size: 18, weight: .bold))
+                Text("Subtitle Appearance").font(.cv(18, weight: .bold))
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
             ScrollView {
@@ -3299,11 +3302,11 @@ struct ClassicPlayerView: View {
                     dropdown("Text color", $subColor, Self.colors.map { ($0.0, $0.1) })
                     dropdown("Drop shadow", $subShadow, Self.shadows)
                     dropdown("Background color", $subBg, Self.bgs.map { ($0.0, $0.1) })
-                    Text("Subtitle Position").font(.system(size: 20, weight: .bold)).padding(.top, 8)
+                    Text("Subtitle Position").font(.cv(20, weight: .bold)).padding(.top, 8)
                     VStack(alignment: .leading, spacing: 8) {
                         dropdown("Bottom Edge Position", $subBottom, [0, 5, 10, 15, 20, 25, 30].map { (Double($0), "\($0)%") })
                         Text("Set the vertical position of the subtitles relative to the bottom of the screen.")
-                            .font(.system(size: 13)).foregroundColor(.secondary)
+                            .font(.cv(13)).foregroundColor(.secondary)
                     }
                     Button("Reset to Default") {
                         subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10
@@ -3361,7 +3364,7 @@ extension ClassicPlayerView {
     }
 
     func classicMenuIcon(_ name: String, on: Bool) -> some View {
-        Image(systemName: name).font(.system(size: 18, weight: .medium))
+        Image(systemName: name).font(.cv(18, weight: .medium))
             .frame(width: 30, height: 30)
             .foregroundColor(on ? accent : .white)
             .contentShape(Rectangle())
@@ -3394,8 +3397,8 @@ extension ClassicPlayerView {
 
     var classicPipPlaceholder: some View {
         VStack(spacing: 10) {
-            Image(systemName: "pip").font(.system(size: 44))
-            Text("Playing in picture in picture").font(.system(size: 16, weight: .medium))
+            Image(systemName: "pip").font(.cv(44))
+            Text("Playing in picture in picture").font(.cv(16, weight: .medium))
         }.opacity(0.6).allowsHitTesting(false)
     }
 
@@ -3413,7 +3416,7 @@ extension ClassicPlayerView {
                         .frame(width: w).cornerRadius(6)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1))
                 }
-                Text(fmt(t)).font(.system(size: 13, weight: .semibold).monospacedDigit())
+                Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit())
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Capsule().fill(Color.black.opacity(0.7)))
             }
@@ -3439,16 +3442,16 @@ extension ClassicPlayerView {
             if model.skippedIntro {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
-                    Text("Intro skipped").font(.system(size: 15, weight: .semibold))
+                    Text("Intro skipped").font(.cv(15, weight: .semibold))
                     Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
-                        .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
+                        .font(.cv(15, weight: .semibold)).foregroundColor(accent)
                 }
                 .padding(.horizontal, 18).frame(height: 44)
                 .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
-                    Label("Skip Intro", systemImage: "forward.fill").font(.system(size: 16, weight: .semibold))
+                    Label("Skip Intro", systemImage: "forward.fill").font(.cv(16, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 22).frame(height: 44)
                         .searchGlass()
@@ -3469,24 +3472,24 @@ extension ClassicPlayerView {
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+                Text("Up next").font(.cv(12, weight: .semibold)).foregroundColor(.secondary)
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
-                    .font(.system(size: 15, weight: .semibold)).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
+                    .font(.cv(15, weight: .semibold)).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
-                        Text("Play now").font(.system(size: 14, weight: .semibold))
+                        Text("Play now").font(.cv(14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
-                        Text("Cancel").font(.system(size: 14, weight: .semibold))
+                        Text("Cancel").font(.cv(14, weight: .semibold))
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
                 }
                 if autoNext {
                     Text("Next starts in \(classicSecsLeft)s")
-                        .font(.system(size: 11)).foregroundColor(.secondary)
+                        .font(.cv(11)).foregroundColor(.secondary)
                 }
             }
         }
@@ -3502,7 +3505,7 @@ extension ClassicPlayerView {
         VStack {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Playback info").font(.system(size: 13, weight: .bold))
+                    Text("Playback info").font(.cv(13, weight: .bold))
                     ForEach(Array(infoLines.enumerated()), id: \.offset) { _, l in
                         HStack(alignment: .top, spacing: 10) {
                             Text(l.0).foregroundColor(.white.opacity(0.6)).frame(width: 120, alignment: .leading)
@@ -3510,7 +3513,7 @@ extension ClassicPlayerView {
                         }
                     }
                 }
-                .font(.system(size: 12).monospacedDigit())
+                .font(.cv(12).monospacedDigit())
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.75)))
                 Spacer()
@@ -3528,7 +3531,7 @@ extension ClassicPlayerView {
         let list = episodes.filter { ($0.ParentIndexNumber ?? 0) == pickerSeason }
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Episodes").font(.system(size: 18, weight: .bold))
+                Text("Episodes").font(.cv(18, weight: .bold))
                 Spacer()
                 if seasons.count > 1 {
                     Picker("", selection: $pickerSeason) {
@@ -3564,20 +3567,20 @@ extension ClassicPlayerView {
                 .frame(width: 120, height: 68).clipped().cornerRadius(5)
                 .overlay {
                     if current {
-                        Image(systemName: "speaker.wave.2.fill").font(.system(size: 18)).foregroundColor(.white)
+                        Image(systemName: "speaker.wave.2.fill").font(.cv(18)).foregroundColor(.white)
                             .padding(6).background(Circle().fill(Color.black.opacity(0.6)))
                     }
                 }
                 .overlay(alignment: .topTrailing) {
                     if played && !current {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 14))
+                        Image(systemName: "checkmark.circle.fill").font(.cv(14))
                             .foregroundColor(.white).shadow(radius: 2).padding(4)
                     }
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").font(.cv(14, weight: .semibold)).lineLimit(2)
                     if let t = ep.RunTimeTicks, t > 0 {
-                        Text(runtimeText(t)).font(.system(size: 12)).foregroundColor(.secondary)
+                        Text(runtimeText(t)).font(.cv(12)).foregroundColor(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -3622,8 +3625,8 @@ extension ClassicPlayerView {
                 }
                 .frame(width: 112, height: 63).clipped().cornerRadius(5)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(c.Name ?? "Chapter \(i + 1)").font(.system(size: 15)).lineLimit(2)
-                    Text(fmt(c.start)).font(.system(size: 13).monospacedDigit()).foregroundColor(.secondary)
+                    Text(c.Name ?? "Chapter \(i + 1)").font(.cv(15)).lineLimit(2)
+                    Text(fmt(c.start)).font(.cv(13).monospacedDigit()).foregroundColor(.secondary)
                 }
                 Spacer()
             }
@@ -3648,7 +3651,7 @@ struct ClassicAlphaLetter: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            Text(l).font(.system(size: 11, weight: .bold))
+            Text(l).font(.cv(11, weight: .bold))
                 .frame(width: 22, height: 16)
                 .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : hover ? AnyShapeStyle(Color.primary) : AnyShapeStyle(Color.secondary))
                 .background(on ? Color.white.opacity(0.15) : hover ? Color.white.opacity(0.1) : Color.clear)
@@ -3674,13 +3677,13 @@ struct ClassicFavPersonCard: View {
                 CachedImage(url: emby.image(p.id, width: 360)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
                 .classicThinBorder(12)
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
-                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
+                Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)
             }.frame(width: 150)
         }.buttonStyle(.plainHand)
     }
@@ -3696,7 +3699,7 @@ struct ClassicFavoritePeopleView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Favorite People").font(.title.bold())
+                Text("Favorite People").font(.cv(22, weight: .bold))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(people.filter { emby.isFav($0) }) { ClassicFavPersonCard(p: $0) }
                 }

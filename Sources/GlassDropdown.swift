@@ -63,9 +63,9 @@ private struct DropdownLayer: View {
                 ForEach(l.options.indices, id: \.self) { i in
                     Button { l.pick(i); center.close() } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: "checkmark").font(.system(size: 11, weight: .bold))
+                            Image(systemName: "checkmark").font(.cv(11, weight: .bold))
                                 .opacity(i == l.selected ? 1 : 0)
-                            Text(l.options[i]).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                            Text(l.options[i]).font(.cv(13, weight: .medium)).lineLimit(1)
                             Spacer(minLength: 0)
                         }
                         .foregroundColor(.white)
@@ -124,9 +124,9 @@ struct GlassPicker<T: Hashable>: View {
             HStack(spacing: 6) {
                 Text(options.first { $0.0 == selection }?.1 ?? "—").lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: maxWidth - 44, alignment: .leading)
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold)).opacity(0.7)
+                Image(systemName: "chevron.up.chevron.down").font(.cv(9, weight: .bold)).opacity(0.7)
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(.cv(13, weight: .medium))
             .padding(.horizontal, 14).frame(height: 32)
             .classicGlassPill()
             .fixedSize()

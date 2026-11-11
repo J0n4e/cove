@@ -83,10 +83,10 @@ struct ClassicGlassPillStyle: ViewModifier {
     private var accent: Color { Theme.accent(accentName) }
     @ViewBuilder func sized(_ content: Content) -> some View {
         if let size, iconOnly {
-            content.labelStyle(.iconOnly).font(.system(size: size * 0.36, weight: .medium))
+            content.labelStyle(.iconOnly).font(.cv(size * 0.36, weight: .medium))
                 .frame(width: size, height: size)
         } else if let size {
-            content.font(.system(size: size * 0.36, weight: .medium))
+            content.font(.cv(size * 0.36, weight: .medium))
                 .padding(.horizontal, size * 0.38)
                 .frame(minWidth: size, minHeight: size, maxHeight: size)
         } else { content }

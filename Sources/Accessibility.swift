@@ -36,7 +36,7 @@ private struct TipBubble: View {
     var body: some View {
         if classic {
             // Glass pill like the buttons, over a dark tint so the text always reads
-            Text(text).font(.system(size: 12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+            Text(text).font(.cv(12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
                 .padding(.horizontal, 12).frame(height: 28)
                 .background(Capsule().fill(bg.opacity(0.6)))
                 .classicClearGlass()

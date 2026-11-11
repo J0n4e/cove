@@ -1506,6 +1506,7 @@ struct Hero: View {
 
 /// The title's logo image from Emby (Apple TV style); falls back to big bold text when there is none.
 struct TitleLogo: View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: its chosen font
     @EnvironmentObject var emby: Emby
     let item: Item
     var height: CGFloat = 90
@@ -1517,7 +1518,7 @@ struct TitleLogo: View {
                     .frame(maxWidth: 420, maxHeight: height, alignment: .bottomLeading)
                     .shadow(color: .black.opacity(0.5), radius: 8)
             } else {
-                Text(item.heroTitle).font(.system(size: font, weight: .heavy)).lineLimit(2)
+                Text(item.heroTitle).font(classic ? .cv(font, weight: .heavy) : .system(size: font, weight: .heavy)).lineLimit(2)
                     .minimumScaleFactor(0.6).frame(maxWidth: 620, alignment: .leading)
                     .shadow(color: .black.opacity(0.5), radius: 8)
             }
