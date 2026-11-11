@@ -978,6 +978,82 @@ extension View {
     }
 }
 
+/// A series' coming episodes stacked like playing cards (as the Home banner's deck): the next one in front, the
+/// ones after it peeking out behind. Clicking the front card plays it; clicking one behind brings it to the front,
+/// the cards before it fading away.
+struct EpisodeDeck: View {
+    @EnvironmentObject var emby: Emby
+    let items: [Item]
+    let play: (Item) -> Void
+    @State private var pos = 0
+    @State private var leaving: Item?
+    @State private var leavingGone = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let w: CGFloat = 280
+
+    var body: some View {
+        let shown = min(items.count - pos, 4)
+        ZStack(alignment: .leading) {
+            ForEach(Array((pos..<(pos + max(shown, 0))).reversed()), id: \.self) { p in
+                let k = p - pos
+                Button { k == 0 ? play(items[p]) : bring(p) } label: { card(items[p], k: k) }
+                    .buttonStyle(.plainHand)
+                    .helpLabel(k == 0 ? "Play " + label(items[p]) : label(items[p]))
+                    .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
+                    .offset(x: CGFloat(k) * 26)
+                    .transition(.opacity)
+            }
+            if let l = leaving {
+                card(l, k: 0)
+                    .scaleEffect(leavingGone ? 1.08 : 1)
+                    .offset(x: leavingGone ? -30 : 0)
+                    .opacity(leavingGone ? 0 : 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(width: w + CGFloat(max(shown, 1) - 1) * 26, height: w * 9 / 16, alignment: .leading)
+    }
+
+    func label(_ ep: Item) -> String { "S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0) · \(ep.Name)" }
+
+    /// Card `p` comes to the front; the front card fades away over the deck.
+    func bring(_ p: Int) {
+        if !reduceMotion {
+            leaving = items[pos]; leavingGone = false
+            DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.6)) { leavingGone = true } }
+            let id = leaving?.id
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if leaving?.id == id { leaving = nil } }
+        }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { pos = p }
+    }
+
+    func card(_ ep: Item, k: Int) -> some View {
+        CachedImage(url: emby.image(ep.Id, width: 520, plain: true)) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: { Color(white: 0.15) }
+        .frame(width: w, height: w * 9 / 16).clipped()
+        .overlay(alignment: .bottomLeading) {
+            if k == 0 {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Up next · S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)")
+                        .font(.system(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.8))
+                    Text(ep.Name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom))
+            }
+        }
+        .overlay { if k == 0 { Image(systemName: "play.fill").font(.system(size: 22)).foregroundColor(.white.opacity(0.9))
+            .shadow(color: .black.opacity(0.6), radius: 4) } }
+        .cornerRadius(12)
+        .classicThinBorder(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+}
+
 /// The banner's outline: full width (cinematic, panel) or an inset card with the glass frame.
 private struct BannerShape: ViewModifier {
     let card: Bool
@@ -1963,8 +2039,24 @@ struct ClassicDetailView: View {
         .classicHideToolbarTitle()
     }
 
+    /// Series: the episodes coming up, from the next one to watch
+    var upcoming: [Item] {
+        guard let n = nextEp, let i = kids.firstIndex(where: { $0.id == n.id }) else { return [] }
+        return Array(kids[i...].prefix(8))
+    }
+
     // Header: poster + info + pickers + buttons
     var header: some View {
+        headerBody
+            .overlay(alignment: .bottomTrailing) {
+                // Series: the coming episodes as a deck of cards, as on the Home banner
+                if item.isSeries, upcoming.count > 1 {
+                    EpisodeDeck(items: upcoming) { playEpisode($0) }.padding(.trailing, 44)
+                }
+            }
+    }
+
+    var headerBody: some View {
         HStack(alignment: .top, spacing: 28) {
             CachedImage(url: emby.image(item.id, width: 500)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
