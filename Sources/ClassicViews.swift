@@ -1268,7 +1268,7 @@ struct ClassicHero: View {
                 let i = ((p % items.count) + items.count) % items.count
                 Button { go(i) } label: { deckCard(items[i], k: k) }
                     .buttonStyle(.plainHand)
-                    .helpLabel(items[i].heroTitle)
+                    .accessibilityLabel(items[i].heroTitle)   // no tooltip: the card shows its title
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * 26)
                     // The front card leaves at once (its fading copy takes over; two fading copies overlapped into a
