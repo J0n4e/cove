@@ -4809,10 +4809,8 @@ struct HoverPreview: View {
     var body: some View {
         let played = emby.isPlayed(item), fav = emby.isFav(item)
         VStack(alignment: .leading, spacing: 10) {
-            CachedImage(url: emby.image(item.backdropId ?? item.Id, item.backdropId == nil ? "Primary" : "Backdrop", width: 640)) { img in
-                img.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: { Color(white: 0.15) }
-            .frame(width: 320, height: 180).clipped()
+            // Classic theme: the picture fills the whole card (drawn as the background); here only room for it
+            if classic { Color.clear.frame(width: 320, height: 130) } else { picture.frame(width: 320, height: 180).clipped() }
             VStack(alignment: .leading, spacing: 8) {
                 Text(item.Name).font(.headline).lineLimit(2)
                 if !facts.isEmpty { Text(facts).font(.caption).foregroundColor(.secondary) }
@@ -4843,11 +4841,28 @@ struct HoverPreview: View {
             }.padding(.horizontal, 14).padding(.bottom, 14)
         }
         .frame(width: 320)
-        .background(Color(white: 0.12))
+        .background {
+            if classic {
+                // Whole-card picture, darkened behind the text so it reads on bright pictures
+                ZStack {
+                    picture
+                    LinearGradient(stops: [.init(color: .clear, location: 0.2),
+                                           .init(color: .black.opacity(0.55), location: 0.45),
+                                           .init(color: .black.opacity(0.8), location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                }
+            } else { Color(white: 0.12) }
+        }
         .environment(\.colorScheme, .dark)
         // Clicking anywhere on the card (outside its buttons) opens this item's page
         .contentShape(Rectangle())
         .onTapGesture { close(); emby.openRequest = item }.handCursor()
+    }
+
+    var picture: some View {
+        CachedImage(url: emby.image(item.backdropId ?? item.Id, item.backdropId == nil ? "Primary" : "Backdrop", width: 640)) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: { Color(white: 0.15) }
     }
 
     @ViewBuilder func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
