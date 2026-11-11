@@ -505,10 +505,10 @@ struct ClassicTopNavButtons: View {
                 if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
                 else if badge > 0 { Text("\(badge)") }
             }
-                .font(.callout.weight(on ? .semibold : .regular))
-                .foregroundColor(on ? .white : .secondary)
-                .padding(.horizontal, labels == "names" ? 18 : 14).frame(height: 36)
-                .classicSelectedGlass(on)
+                .font(.system(size: 15, weight: on ? .semibold : .medium))
+                .foregroundColor(on ? .white : .white.opacity(0.6))
+                .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 44)
+                .classicGlassPill()   // each section its own glass pill, as the banner buttons
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -531,7 +531,7 @@ struct ClassicTopNavButtons: View {
         }
     }
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             item("Home", "home", "house.fill")
             let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
             ForEach(NavOrder.top(rows), id: \.self) { section($0) }
@@ -540,9 +540,7 @@ struct ClassicTopNavButtons: View {
                 ForEach(NavOrder.after(lib.id, rows), id: \.self) { section($0) }
             }
         }
-        .padding(4)
-        .frame(height: 44)
-        .classicClearGlass()
+
     }
 }
 

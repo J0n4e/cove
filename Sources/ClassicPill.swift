@@ -48,6 +48,7 @@ struct ClassicGlassPillStyle: ViewModifier {
             // System glass, untinted: lenses the page behind it, with light catching the edges and reacting to the
             // pointer
             sized(content).foregroundColor(.white)
+                .background(ClassicGlassBacking(shape: Capsule()))
                 .glassEffect(.clear.interactive(), in: Capsule())   // the clearest glass
         } else {
             sized(content).foregroundColor(.white).background(ClassicGlassPill())
@@ -68,8 +69,22 @@ struct ClassicGlassPillStyle: ViewModifier {
 struct ClassicClearGlass<S: Shape>: ViewModifier {
     let shape: S
     @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 26, *) { content.glassEffect(.clear.interactive(), in: shape) }
+        if #available(macOS 26, *) {
+            content.background(ClassicGlassBacking(shape: shape)).glassEffect(.clear.interactive(), in: shape)
+        }
         else { content.background(shape.fill(Color.white.opacity(0.1))) }
+    }
+}
+
+/// Faint light under the glass: a top-lit fill and a hairline rim. Clear glass over a plain background (the top
+/// bar, the search box once results fill the page) otherwise shows almost nothing; with this it keeps the look it
+/// has over a picture.
+struct ClassicGlassBacking<S: Shape>: View {
+    let shape: S
+    var body: some View {
+        shape.fill(LinearGradient(colors: [.white.opacity(0.12), .white.opacity(0.03)], startPoint: .top, endPoint: .bottom))
+            .overlay(shape.stroke(LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.08), .white.opacity(0.2)],
+                                                 startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
     }
 }
 
