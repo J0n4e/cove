@@ -48,7 +48,7 @@ struct ClassicGlassPillStyle: ViewModifier {
             // System glass: lenses the page behind it, with light catching the edges and reacting to the pointer;
             // the accent tints it from the left, fading to clear on the right
             sized(content).foregroundColor(.white)
-                .background(Capsule().fill(LinearGradient(colors: [accent.opacity(0.22), accent.opacity(0.0)],
+                .background(Capsule().fill(LinearGradient(colors: [accent.opacity(0.1), accent.opacity(0.0)],
                                                           startPoint: .leading, endPoint: .trailing)))
                 .glassEffect(.clear.interactive(), in: Capsule())   // the clearest glass
         } else {
