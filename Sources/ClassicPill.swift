@@ -30,13 +30,15 @@ struct ClassicGlassPill: View {
             }
             .clipShape(Capsule())
         }
-        .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+        // the hovered look, at rest: a little brighter and lifted off the page
+        .brightness(0.12)
+        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
     }
 }
 
 extension View {
-    /// Classic pill look: light white label on blue glass.
+    /// Classic pill look: white label on blue glass.
     func classicGlassPill() -> some View {
-        foregroundColor(Color(white: 0.9)).background(ClassicGlassPill())
+        foregroundColor(.white).background(ClassicGlassPill())
     }
 }
