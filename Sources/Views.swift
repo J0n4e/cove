@@ -1185,7 +1185,17 @@ struct PersonView: View {
 
 /// Top of an actor's page (both themes): a dimmed backdrop from one of their titles, a large portrait,
 /// and the name, birth facts, title counts and biography beside it, sized to fill the width.
+/// The big photo's edge on a person page: the glass card frame in Glass3D, a faint outline otherwise.
+struct PersonPhotoFrame: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic { content.modifier(ClassicGlassCard(radius: 14)) }
+        else { content.overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.15))) }
+    }
+}
+
 struct PersonHeader: View {
+    @Environment(\.classicGlass) private var classic   // Glass3D theme
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let id: String
@@ -1210,11 +1220,16 @@ struct PersonHeader: View {
         return f.joined(separator: " · ")
     }
 
-    func chip(_ text: String) -> some View {
-        Text(text).font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 12).padding(.vertical, 5)
-            .background(Capsule().fill(Color.white.opacity(0.12)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.15)))
+    @ViewBuilder func chip(_ text: String) -> some View {
+        if classic {
+            // Glass3D: the glass pill, as the buttons
+            Text(text).font(.cv(13, weight: .semibold)).padding(.horizontal, 14).frame(height: 30).classicGlassPill()
+        } else {
+            Text(text).font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(Capsule().fill(Color.white.opacity(0.12)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.15)))
+        }
     }
 
     var body: some View {
@@ -1246,10 +1261,10 @@ struct PersonHeader: View {
                 }
                 .modifier(HoverPersonHeart(id: id, name: name))
                 .task { _ = await emby.favoritePeople() }   // knows whether this person is a favorite
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.15)))
+                .modifier(PersonPhotoFrame(classic: classic))   // Glass3D: the glass card frame
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(name).font(.system(size: 42, weight: .bold)).lineLimit(2)
+                    Text(name).font(classic ? .cv(42, weight: .bold) : .system(size: 42, weight: .bold)).lineLimit(2)
                     if !facts.isEmpty { Text(facts).font(.system(size: 15)).foregroundColor(.secondary) }
                     HStack(spacing: 8) {
                         if !loading {
