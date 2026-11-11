@@ -2274,6 +2274,25 @@ struct TubeBadge: View {
     }
 }
 
+/// Classic: short text (e.g. "S3·E3 · 42m left") in a glass tube bent into a capsule, drawn as glass like the badges.
+struct TubeLabel: View {
+    let text: String
+    var body: some View {
+        TubeBadge(count: nil).glyph(Text(text).font(.caption2.weight(.semibold)))
+            .lineLimit(1)
+            .padding(.horizontal, 9).frame(minHeight: 22)
+            .overlay {
+                ZStack {
+                    Capsule().stroke(Color.white.opacity(0.12), lineWidth: 4)
+                    Capsule().stroke(Color.white.opacity(0.55), lineWidth: 0.8).padding(0.6)
+                    Capsule().stroke(Color.white.opacity(0.45), lineWidth: 0.6).padding(-2)
+                    Capsule().stroke(Color.white.opacity(0.3), lineWidth: 0.6).padding(2)
+                }
+            }
+            .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
+    }
+}
+
 struct CountBadge: View {
     let count: Int?
     @Environment(\.classicGlass) private var classic   // Classic theme: glass tube badges

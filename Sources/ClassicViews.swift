@@ -1107,10 +1107,7 @@ struct ClassicResumeCard: View {
                 // Series info (S3·E3 · 42m left), top-left
                 .overlay(alignment: .topLeading) {
                     if let subtitle {
-                        Text(subtitle).font(.caption2.weight(.semibold)).foregroundColor(.white)
-                            .padding(.horizontal, 7).padding(.vertical, 3)
-                            .background(Capsule().fill(Color.black.opacity(0.35)))
-                            .padding(8)
+                        TubeLabel(text: subtitle).padding(10)
                     }
                 }
                 // White progress ring, bottom-right
