@@ -1078,6 +1078,23 @@ struct SeasonDeck: View {
     }
 }
 
+/// The player's side panel: dark glass framed like the buttons in the Classic theme, the frosted panel otherwise.
+struct PanelSurface: ViewModifier {
+    let classic: Bool
+    @Environment(\.appBG) private var bg
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        if classic {
+            content.background(shape.fill(bg.opacity(0.75))).clipShape(shape)
+                .modifier(ClassicClearGlass(shape: shape))
+                .shadow(color: .black.opacity(0.45), radius: 16, y: 6)
+        } else {
+            content.background(.ultraThinMaterial.opacity(0.95)).background(Color(white: 0.15).opacity(0.85))
+                .cornerRadius(14)
+        }
+    }
+}
+
 /// Watched / Favorite buttons on hover (bottom right), only on the deck's front card.
 private struct FrontActions: ViewModifier {
     let on: Bool
@@ -3258,9 +3275,7 @@ struct ClassicPlayerView: View {
             .padding(.vertical, 12)
         }
         .frame(width: 340)
-        .background(.ultraThinMaterial.opacity(0.95))
-        .background(Color(white: 0.15).opacity(0.85))
-        .cornerRadius(14)
+        .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}   // keep taps inside the panel
     }
@@ -3380,8 +3395,24 @@ extension ClassicPlayerView {
                     }
                 }.helpLabel("Episodes (E)")
             }
-            if !model.subStreams.isEmpty { classicSubtitleMenu }
-            classicQualityMenu
+            if classic {
+                // Glass buttons opening the glass list, as the other controls
+                if !model.subStreams.isEmpty {
+                    let subs = [nil] + model.subStreams.map { Optional($0.Index) }
+                    GlassMenuButton(icon: "captions.bubble", on: model.sub != nil,
+                                    options: ["Off"] + model.subStreams.map { $0.DisplayTitle ?? "Track \($0.Index)" },
+                                    selected: subs.firstIndex(of: model.sub) ?? 0) { i in
+                        Task { await model.setSub(emby, subs[i]) }
+                    }.accessibilityLabel("Subtitles")
+                }
+                GlassMenuButton(icon: "dial.medium", on: model.quality != 0, options: Self.qualities.map(\.1),
+                                selected: Self.qualities.firstIndex { $0.0 == model.quality } ?? 0) { i in
+                    Task { await model.setQuality(emby, Self.qualities[i].0) }
+                }.accessibilityLabel("Video quality")
+            } else {
+                if !model.subStreams.isEmpty { classicSubtitleMenu }
+                classicQualityMenu
+            }
             if !model.chapterList.isEmpty {
                 iconButton("list.bullet.rectangle", size: 18, on: panel == .chapters) {
                     withAnimation(.easeOut(duration: 0.2)) { panel = panel == .chapters ? nil : .chapters }

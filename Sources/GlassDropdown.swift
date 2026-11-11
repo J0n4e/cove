@@ -140,3 +140,32 @@ struct GlassPicker<T: Hashable>: View {
         })
     }
 }
+
+/// A round glass icon button (player controls) that opens the glass list: subtitles, quality.
+struct GlassMenuButton: View {
+    let icon: String
+    var on = false
+    let options: [String]
+    let selected: Int
+    let pick: (Int) -> Void
+    var size: CGFloat = 42
+    @Environment(\.dropdownCenter) private var center
+    @State private var frame: CGRect = .zero
+
+    var body: some View {
+        Button {
+            guard let center else { return }
+            if center.list != nil { center.close(); return }
+            center.list = .init(anchor: frame, options: options, selected: selected, pick: pick)
+        } label: {
+            Label(icon, systemImage: icon).classicGlassPill(size: size)
+                .overlay { if on { Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1) } }
+        }
+        .buttonStyle(HoverButton())
+        .background(GeometryReader { g in
+            Color.clear
+                .onAppear { frame = g.frame(in: .named("dropdownLayer")) }
+                .onChange(of: g.frame(in: .named("dropdownLayer"))) { _, f in frame = f }
+        })
+    }
+}
