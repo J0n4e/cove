@@ -987,6 +987,10 @@ struct SeasonDeck: View {
     let title: (Int) -> String
     let image: (Int) -> URL?
     let select: (Int) -> Void
+    /// Front card extras, as on the season posters: unwatched count (top right), Watched / Favorite on hover
+    let badge: (Int) -> Int?
+    let seasonItem: (Int) -> Item?
+    let episodes: (Int) -> [Item]
     private let w: CGFloat = 280, h: CGFloat = 420
     private let peek: CGFloat = 40
 
@@ -1033,7 +1037,13 @@ struct SeasonDeck: View {
         ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
-                Button { go(p) } label: { card(numbers[p], k: k) }
+                Button { go(p) } label: {
+                    card(numbers[p], k: k)
+                        .overlay(alignment: .topTrailing) {
+                            if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
+                        }
+                }
+                .modifier(FrontActions(on: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p])))
                     .buttonStyle(.plainHand)
                     .helpLabel(title(numbers[p]))
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
@@ -1061,6 +1071,16 @@ struct SeasonDeck: View {
         .classicThinBorder(10)
         .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+}
+
+/// Watched / Favorite buttons on hover (bottom right), only on the deck's front card.
+private struct FrontActions: ViewModifier {
+    let on: Bool
+    let item: Item?
+    let episodes: [Item]
+    @ViewBuilder func body(content: Content) -> some View {
+        if on { content.hoverItemActions(item, .bottomTrailing, children: episodes) } else { content }
     }
 }
 
@@ -2093,7 +2113,10 @@ struct ClassicDetailView: View {
                 SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
                            title: { seasonTitle($0) },
                            image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
-                           select: { season = $0 })
+                           select: { season = $0 },
+                       badge: { unwatched($0) },
+                       seasonItem: { n in seasonItems.first { ($0.IndexNumber ?? 0) == n } },
+                       episodes: { n in kids.filter { ($0.ParentIndexNumber ?? 0) == n } })
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 44).padding(.bottom, 56)
                     .transition(.opacity)
@@ -2116,7 +2139,10 @@ struct ClassicDetailView: View {
                     SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
                                title: { seasonTitle($0) },
                                image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
-                               select: { season = $0 })
+                               select: { season = $0 },
+                       badge: { unwatched($0) },
+                       seasonItem: { n in seasonItems.first { ($0.IndexNumber ?? 0) == n } },
+                       episodes: { n in kids.filter { ($0.ParentIndexNumber ?? 0) == n } })
                     .padding(.trailing, 40)   // in line with the episodes' right edge
                 }
             }
