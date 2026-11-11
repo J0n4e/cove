@@ -1866,28 +1866,31 @@ struct ClassicDetailView: View {
 
     var buttons: some View {
         let played = emby.isPlayed(item)
+        let fav = emby.isFav(item)
+        // All the same size and shape: a 44-pt glass circle with the icon; the title slides out on hover
         return HStack(spacing: 10) {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {
-                Label(playLabel, systemImage: "play.fill").font(.system(size: 17, weight: .regular))
-                    .padding(.horizontal, 24).frame(height: 44)
-                    .classicGlassPill()
+                Label(playLabel, systemImage: "play.fill").classicGlassPill(size: 44)
             }.buttonStyle(HoverButton())
             if r > 0 {
-                Button { playNow() } label: { Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicPill() }
-                    .buttonStyle(HoverButton())
+                Button { playNow() } label: {
+                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44)
+                }.buttonStyle(HoverButton())
             }
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
-                Button { Trailer.open(u, item: item, emby: emby) } label: { Label("Trailer", systemImage: "film").classicPill() }.buttonStyle(HoverButton())
+                Button { Trailer.open(u, item: item, emby: emby) } label: {
+                    Label("Trailer", systemImage: "film").classicGlassPill(size: 44)
+                }.buttonStyle(HoverButton())
             }
             Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
-                if played { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).classicCircleButton() }
-                else { Image(systemName: "checkmark.circle").classicCircleButton() }
+                Label(played ? "Watched" : "Mark as Watched", systemImage: played ? "checkmark.circle.fill" : "checkmark.circle")
+                    .classicGlassPill(size: 44)
             }.buttonStyle(HoverButton()).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
-            Button { Task { await emby.setFav(item.id, !emby.isFav(item), name: item.Name) } } label: {
-                if emby.isFav(item) { Image(systemName: "heart.fill").foregroundStyle(.tint).classicCircleButton() }
-                else { Image(systemName: "heart").classicCircleButton() }
-            }.buttonStyle(HoverButton()).helpLabel("Favorite")
+            Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
+                Label(fav ? "Favorite" : "Add to Favorites", systemImage: fav ? "heart.fill" : "heart")
+                    .classicGlassPill(size: 44)
+            }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
         }
     }
 
