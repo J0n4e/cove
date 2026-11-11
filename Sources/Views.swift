@@ -998,6 +998,7 @@ struct FavoriteGridView: View {
 // MARK: - Now Playing (active sessions on the server)
 
 struct NowPlayingView: View {
+    @Environment(\.classicGlass) private var classic
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @State private var sessions: [ActiveSession] = []
@@ -1007,7 +1008,7 @@ struct NowPlayingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Now Playing").font(.title.bold())
+                    Text("Now Playing").font(classic ? .cv(22, weight: .bold) : .title.bold())
                     if !sessions.isEmpty { Text("\(sessions.count) active").foregroundColor(.secondary) }
                 }
                 if !loaded { Spinner().frame(maxWidth: .infinity).padding(60) }
@@ -1036,6 +1037,7 @@ struct NowPlayingView: View {
 }
 
 struct SessionCard: View {
+    @Environment(\.classicGlass) private var classic   // Classic theme: glass card
     @EnvironmentObject var emby: Emby
     let s: ActiveSession
 
@@ -1086,7 +1088,9 @@ struct SessionCard: View {
                     if let c = s.TranscodingInfo?.CompletionPercentage {
                         Rectangle().fill(Color.white.opacity(0.3)).frame(width: g.size.width * min(1, c / 100))
                     }
-                    Rectangle().fill(Color.accentColor).frame(width: dur > 0 ? g.size.width * min(1, pos / dur) : 0)
+                    Rectangle().fill(classic ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.accentColor))
+                        .opacity(classic ? 0.7 : 1)
+                        .frame(width: dur > 0 ? g.size.width * min(1, pos / dur) : 0)
                 }
             }.frame(height: 4)
             HStack(spacing: 12) {
@@ -1100,8 +1104,20 @@ struct SessionCard: View {
             }
             .padding(12)
         }
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(10)
+        .modifier(SessionSurface(classic: classic))
+    }
+}
+
+/// A Now Playing card: a glass card in the Classic theme, a faint grey box otherwise.
+struct SessionSurface: ViewModifier {
+    let classic: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic {
+            let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+            content.background(shape.fill(Color.black.opacity(0.3))).background(ClassicGlassBacking(shape: shape)).clipShape(shape)
+        } else {
+            content.background(Color.white.opacity(0.06)).cornerRadius(10)
+        }
     }
 }
 

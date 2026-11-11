@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Shown instead of an empty page when the server couldn't be reached or answered with an error (both themes).
 struct ErrorStateView: View {
+    @Environment(\.classicGlass) private var classic
     let message: String
     var retry: () -> Void
     var switchServer: (() -> Void)? = nil
@@ -11,11 +12,23 @@ struct ErrorStateView: View {
             Image(systemName: "wifi.exclamationmark").font(.system(size: 40, weight: .light)).foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(message).font(.headline).multilineTextAlignment(.center).frame(maxWidth: 460)
-            HStack(spacing: 12) {
-                Button("Try Again", action: retry).keyboardShortcut(.defaultAction)
-                if let switchServer { Button("Switch Server", action: switchServer) }
+            if classic {
+                // Classic theme: glass buttons
+                HStack(spacing: 12) {
+                    Button(action: retry) { Label("Try Again", systemImage: "arrow.clockwise").classicGlassPill(size: 40, iconOnly: false) }
+                        .buttonStyle(HoverButton()).keyboardShortcut(.defaultAction)
+                    if let switchServer {
+                        Button(action: switchServer) { Label("Switch Server", systemImage: "server.rack").classicGlassPill(size: 40, iconOnly: false) }
+                            .buttonStyle(HoverButton())
+                    }
+                }
+            } else {
+                HStack(spacing: 12) {
+                    Button("Try Again", action: retry).keyboardShortcut(.defaultAction)
+                    if let switchServer { Button("Switch Server", action: switchServer) }
+                }
+                .controlSize(.large)
             }
-            .controlSize(.large)
         }
         .padding(40)
         .frame(maxWidth: .infinity)

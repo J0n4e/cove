@@ -206,6 +206,7 @@ struct ClassicLoginView: View {
 // MARK: - Sidebar shell + search
 
 struct ClassicHomeView: View {
+    @AppStorage("accent") private var accentName = "red"
     @State private var keepPage = false   // the search box is being cleared after opening a result
     @State private var fromSearch = false // the first page on the stack was opened from search results
     @EnvironmentObject var emby: Emby
@@ -252,31 +253,49 @@ struct ClassicHomeView: View {
 
     /// Favorites or Now Playing in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
-        if id == NavOrder.favorites {
-            Label("Favorites", systemImage: "heart.fill").foregroundStyle(.tint).modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
-        } else if id == NavOrder.nowPlaying {
-            Label("Now Playing", systemImage: "dot.radiowaves.left.and.right")
-                .foregroundStyle(.tint)
-                .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
-                .badge(activeCount)
-                .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
+        if id == NavOrder.favorites { sideRow("Favorites", "heart.fill", "favorites") }
+        else if id == NavOrder.nowPlaying { sideRow("Now Playing", "dot.radiowaves.left.and.right", "nowplaying", badge: activeCount) }
+    }
+
+    /// One sidebar line: the chosen one on an accent glass band, the one under the pointer lit softly (as the glass
+    /// lists). Clicking the chosen one again goes back to that page's start.
+    func sideRow(_ title: String, _ icon: String, _ id: String, badge: Int = 0) -> some View {
+        let on = sel == id
+        return Button { if on { popToRoot() } else { selB.wrappedValue = id } } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.cv(13)).frame(width: 18).foregroundStyle(.tint)
+                Text(title).font(.cv(13, weight: on ? .semibold : .regular)).lineLimit(1)
+                Spacer(minLength: 0)
+                if badge > 0 { Text("\(badge)").font(.cv(11, weight: .semibold)).foregroundColor(.secondary) }
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 12).frame(height: 32)
+            .background {
+                if on {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+                }
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PanelRowStyle(glass: !on))
     }
 
     var splitLayout: some View {
         NavigationSplitView {
-            List(selection: selB) {
-                Label("Home", systemImage: "house.fill").foregroundStyle(.tint).modifier(RootTap(id: "home", sel: sel, action: popToRoot)).tag("home")
-                let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
-                ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
-                Section("My Media") {
+            // Glass rows instead of the macOS list (its selection is always the system's blue)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    sideRow("Home", "house.fill", "home")
+                    let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
+                    ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
+                    Text("MY MEDIA").font(.cv(10, weight: .semibold)).kerning(0.6).foregroundColor(.secondary)
+                        .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 2)
                     ForEach(emby.libs) { lib in
-                        if lib.visible {
-                            Label(lib.title, systemImage: icon(lib)).foregroundStyle(.tint).modifier(RootTap(id: lib.id, sel: sel, action: popToRoot)).tag(lib.id)
-                        }
+                        if lib.visible { sideRow(lib.title, icon(lib), lib.id) }
                         ForEach(NavOrder.after(lib.id, rows), id: \.self) { sideSection($0) }
                     }
-                }
+                }.padding(.horizontal, 8).padding(.vertical, 6)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 215, max: 280)
             .safeAreaInset(edge: .top) {
@@ -291,10 +310,10 @@ struct ClassicHomeView: View {
                             Spacer(minLength: 0)
                             Image(systemName: "chevron.up.chevron.down").font(.cv(10, weight: .regular)).foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, 10).padding(.vertical, 8)
-                        .background(Color.white.opacity(0.05))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                        .cornerRadius(8).contentShape(Rectangle())
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plainHand)
                     .helpLabel("Connected to \(emby.server) — click to switch server")
@@ -304,8 +323,8 @@ struct ClassicHomeView: View {
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 12) {
                     Button { nav.showSettings = true } label: {
-                        Label("Settings", systemImage: "gearshape").font(.cv(12, weight: .regular))
-                            .padding(.horizontal, 8).padding(.vertical, 8).contentShape(Rectangle())
+                        Label("Settings", systemImage: "gearshape").font(.cv(12, weight: .medium))
+                            .padding(.horizontal, 14).frame(height: 32).classicGlassPill()
                     }
                     .helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
                     Spacer()
@@ -625,8 +644,9 @@ struct ClassicSearchBar: View {
                     }.buttonStyle(.plainHand)
                 }
             }
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(Color.white.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, 14).frame(height: 34)
+            .background(Capsule().fill(Color.black.opacity(0.35)))
+            .background(ClassicGlassBacking(shape: Capsule()))   // glass field, as the search box
             .frame(width: 280)
         }
         .padding(.horizontal, 32).padding(.vertical, 10)
@@ -1068,9 +1088,9 @@ struct SeasonDeck: View {
         .overlay(alignment: .bottomLeading) {
             // Only on the front card; fades with the move instead of popping in
             Text(title(n)).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 16)
+                .classicBlackOutline()
+                .padding(.horizontal, 10).padding(.bottom, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom))
                 .opacity(k == 0 ? 1 : 0)
         }
         .cornerRadius(10)
@@ -1446,10 +1466,11 @@ struct ClassicHero: View {
         } placeholder: { Color(white: 0.15) }
         .frame(width: deckW, height: deckW * 9 / 16).clipped()
         .overlay(alignment: .bottomLeading) {
-            Text(it.heroTitle).font(.cv(13, weight: .semibold)).lineLimit(1)
-                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 14)
+            // No background: a black outline, as the other cards
+            Text(it.heroTitle).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                .classicBlackOutline()
+                .padding(.horizontal, 10).padding(.bottom, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
                 .opacity(k == 0 ? 1 : 0)
         }
         .cornerRadius(12)
