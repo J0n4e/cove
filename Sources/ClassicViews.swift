@@ -1034,7 +1034,9 @@ struct SeasonDeck: View {
                     .helpLabel(title(numbers[p]))
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * peek)
-                    .transition(.opacity)
+                    // Fades in (going back); leaves at once, as the fading copy below takes over (two fading
+                    // copies of the same card overlapped into a ghost)
+                    .transition(.asymmetric(insertion: .opacity, removal: .identity))
             }
             if let l = leaving {
                 card(l, k: 0)
@@ -1053,12 +1055,12 @@ struct SeasonDeck: View {
         } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.caption) } }
         .frame(width: w, height: h).clipped()
         .overlay(alignment: .bottomLeading) {
-            if k == 0 {
-                Text(title(n)).font(.system(size: 13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                    .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom))
-            }
+            // Only on the front card; fades with the move instead of popping in
+            Text(title(n)).font(.system(size: 13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom))
+                .opacity(k == 0 ? 1 : 0)
         }
         .cornerRadius(10)
         .classicThinBorder(10)
@@ -1141,8 +1143,13 @@ struct ClassicHero: View {
         ZStack(alignment: .bottomLeading) {
             Color.clear.frame(maxWidth: .infinity).frame(height: bannerH)
                 .overlay { Backdrop(id: item.backdropId ?? item.Id, width: min(Int(width * 2), 2560)) }.clipped()   // Retina-sharp
-                .id("b" + item.id).transition(.opacity)
-            fades
+                // The new picture fades in over the old one, which stays solid underneath until it is covered (both
+                // half see-through at once made the banner dim mid-change)
+                .id("b" + item.id)
+                .transition(.asymmetric(insertion: .opacity,
+                                        removal: .opacity.animation(.linear(duration: 0.05).delay(0.7))))
+                .zIndex(Double(pos))
+            fades.zIndex(Double(pos) + 0.5)
             Group {
                 if style == "panel" {
                     info(item).padding(24)
@@ -1151,16 +1158,22 @@ struct ClassicHero: View {
                 } else { info(item) }
             }
             .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, 56)
-            .id("t" + item.id).transition(.opacity)
-            // The coming banners as a deck of cards, bottom right
-            if items.count > 1 {
-                if bannerNav == "bullets" {
-                    thumbs.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
-                } else {
-                    deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                        .padding(.trailing, 44).padding(.bottom, 56)
+            // Old text fades out quickly, then the new text fades in (they overlapped mid-change)
+            .id("t" + item.id)
+            .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.4).delay(0.3)),
+                                    removal: .opacity.animation(.easeIn(duration: 0.25))))
+            .zIndex(Double(pos) + 0.6)
+            // The coming banners as a deck of cards, bottom right (above the changing picture and text)
+            Group {
+                if items.count > 1 {
+                    if bannerNav == "bullets" {
+                        thumbs.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
+                    } else {
+                        deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                            .padding(.trailing, 44).padding(.bottom, 56)
+                    }
                 }
-            }
+            }.zIndex(Double(pos) + 1)
         }
         .overlay { if hover && items.count > 1 { sideArrows } }
         .animation(.easeOut(duration: 0.15), value: hover)
@@ -1244,7 +1257,9 @@ struct ClassicHero: View {
                     .helpLabel(items[i].heroTitle)
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * 26)
-                    .transition(.opacity)
+                    // Fades in; leaves at once, as the fading copy below takes over (two fading copies overlapped
+                    // into a ghost)
+                    .transition(.asymmetric(insertion: .opacity, removal: .identity))
             }
             // Moving forward: the card that was in front, drawn over the deck, fading away (growing slightly and
             // drifting left) while the one beneath takes its place
@@ -1267,12 +1282,11 @@ struct ClassicHero: View {
         } placeholder: { Color(white: 0.15) }
         .frame(width: deckW, height: deckW * 9 / 16).clipped()
         .overlay(alignment: .bottomLeading) {
-            if k == 0 {
-                Text(it.heroTitle).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
-            }
+            Text(it.heroTitle).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                .padding(.horizontal, 10).padding(.vertical, 8).padding(.top, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                .opacity(k == 0 ? 1 : 0)
         }
         .cornerRadius(12)
         .classicThinBorder(12)
