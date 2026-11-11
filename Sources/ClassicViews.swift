@@ -549,6 +549,7 @@ struct ClassicTopNavButtons: View {
                 .foregroundColor(on ? .white : .white.opacity(0.6))
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
+                .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -1180,6 +1181,26 @@ struct GlassSlider: View {
         .frame(height: 18)
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover || dragging)
+    }
+}
+
+/// Top bar hover (try-out): an accent glow shaped like the selected section's pill, without the pill itself.
+struct SectionHoverGlow: ViewModifier {
+    let on: Bool
+    @AppStorage("accent") private var accentName = "red"
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        let accent = Theme.accent(accentName)
+        content
+            .background {
+                Capsule()
+                    .fill(RadialGradient(colors: [accent.opacity(0.5), accent.opacity(0.12)], center: .bottom,
+                                         startRadius: 2, endRadius: 50))
+                    .blur(radius: 6)
+                    .opacity(on && hover ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
+            .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
     }
 }
 

@@ -1061,9 +1061,10 @@ struct SessionCard: View {
                 CachedImage(url: emby.image(it.SeriesId ?? it.Id, width: 160)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.08) }
-                .frame(width: 64, height: 96).clipped().cornerRadius(4)
+                .frame(width: 64, height: 96).clipped().cornerRadius(classic ? 8 : 4)
+                .modifier(PersonPhotoFrame(classic: classic, radius: 8))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(it.SeriesName ?? it.Name).font(.headline).lineLimit(1)
+                    Text(it.SeriesName ?? it.Name).font(classic ? .cv(13, weight: .bold) : .headline).lineLimit(1)
                     if it.SeriesName != nil {
                         Text("S\(it.ParentIndexNumber ?? 0):E\(it.IndexNumber ?? 0) - \(it.Name)")
                             .foregroundColor(.secondary).lineLimit(1)
@@ -1073,15 +1074,22 @@ struct SessionCard: View {
                         Text("\(clock(s.PlayState?.PositionTicks)) / \(clock(it.RunTimeTicks))").monospacedDigit()
                     }.foregroundColor(.secondary)
                     Text(transcoding ? "Transcode" : "Direct play")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .font(classic ? .cv(10, weight: .semibold) : .caption.weight(.semibold))
+                        .padding(.horizontal, classic ? 10 : 7).padding(.vertical, classic ? 3 : 2)
                         .background(Capsule().fill(transcoding ? Color.orange.opacity(0.25) : Color.green.opacity(0.25)))
+                        .overlay { if classic { Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5) } }
                         .tip(s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", ") ?? "")
                 }
                 Spacer(minLength: 0)
             }
             .padding(12)
             // Progress: watched position, plus how far the server has transcoded
+            if classic {
+                // Glass3D: the glass line, as on the cards
+                ClassicSessionLine(watched: dur > 0 ? min(1, pos / dur) : 0,
+                                   converted: (s.TranscodingInfo?.CompletionPercentage).map { min(1, $0 / 100) })
+                    .padding(.horizontal, 12)
+            } else {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Rectangle().fill(Color.white.opacity(0.15))
@@ -1093,6 +1101,7 @@ struct SessionCard: View {
                         .frame(width: dur > 0 ? g.size.width * min(1, pos / dur) : 0)
                 }
             }.frame(height: 4)
+            }
             HStack(spacing: 12) {
                 Image(systemName: icon).font(.system(size: 26)).frame(width: 36)
                 VStack(alignment: .leading, spacing: 2) {
@@ -1185,12 +1194,37 @@ struct PersonView: View {
 
 /// Top of an actor's page (both themes): a dimmed backdrop from one of their titles, a large portrait,
 /// and the name, birth facts, title counts and biography beside it, sized to fill the width.
-/// The big photo's edge on a person page: the glass card frame in Glass3D, a faint outline otherwise.
+/// A photo's edge (person page, Now Playing): the glass card frame in Glass3D, a faint outline otherwise.
 struct PersonPhotoFrame: ViewModifier {
     let classic: Bool
+    var radius: CGFloat = 14
     @ViewBuilder func body(content: Content) -> some View {
-        if classic { content.modifier(ClassicGlassCard(radius: 14)) }
-        else { content.overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.15))) }
+        if classic { content.modifier(ClassicGlassCard(radius: radius)) }
+        else if radius == 14 { content.overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.15))) }
+        else { content }
+    }
+}
+
+/// Glass3D Now Playing progress: a slim glass capsule, how far the server converted in faint white, the watched part
+/// in see-through accent with a glow.
+struct ClassicSessionLine: View {
+    let watched: Double
+    let converted: Double?
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        let accent = Theme.accent(accentName)
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.black.opacity(0.35))
+                ClassicGlassBacking(shape: Capsule())
+                if let c = converted { Capsule().fill(Color.white.opacity(0.18)).frame(width: max(6, g.size.width * c)) }
+                Capsule().fill(accent.opacity(0.5))
+                    .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.4), .clear], startPoint: .top, endPoint: .center)))
+                    .frame(width: max(6, g.size.width * watched))
+                    .shadow(color: accent.opacity(0.8), radius: 4)
+            }
+        }
+        .frame(height: 6)
     }
 }
 
