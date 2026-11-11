@@ -2309,6 +2309,9 @@ struct ClassicPlayerView: View {
     @EnvironmentObject var emby: Emby
     @StateObject private var model = PlayerModel()
     let req: PlayRequest
+    /// Classic theme: glass buttons. These controls can also be picked under the Glass theme (Settings →
+    /// Playback → Player controls); there they keep their plain look.
+    @Environment(\.classicGlass) private var classic
 
     enum Panel { case subtitles, appearance, chapters, episodes }
     @State private var panel: Panel?
@@ -2673,16 +2676,23 @@ struct ClassicPlayerView: View {
         HStack(spacing: 16) {
             // The classicPill that used to sit here is hidden (kept, not deleted): in full screen Esc does the job, and in a
             // window it moved to the title bar (titleBarBack, now off too). Set inPlayerBackPill to true to bring it back.
-            if Self.inPlayerBackPill { BackPill { back() }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)") }
+            if Self.inPlayerBackPill {
+                Group {
+                    if classic {
+                        Button { back() } label: { Label("Back", systemImage: "chevron.left").classicGlassPill(size: 44) }
+                            .buttonStyle(HoverButton()).keyboardShortcut("[", modifiers: .command)
+                    } else { BackPill { back() } }
+                }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)")
+            }
             CachedImage(url: emby.image(item.SeriesId ?? item.Id, "Logo", width: 400)) { img in
                 img.resizable().aspectRatio(contentMode: .fit)
             } placeholder: { EmptyView() }
             .frame(maxWidth: 160, maxHeight: 40, alignment: .leading)
             Spacer()
             Slider(value: $model.volume, in: 0...1).frame(width: 160).tint(.white).controlSize(.small).handCursor()
-            Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
-                Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 18))
-            }.buttonStyle(HoverButton(backing: true))
+            iconButton(model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 18) {
+                model.volume = model.volume > 0 ? 0 : 1
+            }.helpLabel(model.volume == 0 ? "Unmute" : "Mute")
         }
         .padding(.horizontal, 20).padding(.top, 14)
     }
@@ -2736,11 +2746,16 @@ struct ClassicPlayerView: View {
                     .helpLabel("Previous")
                 iconButton("gobackward.\(skipSecs)", size: 22) { model.skip(-Double(skipSecs)) }.helpLabel("Back \(skipSecs) seconds")
                 Button { model.togglePlay(); poke() } label: {
-                    Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.black)
-                        .frame(width: 56, height: 56)
-                        .background(Circle().fill(Color.white))
-                        .contentShape(Circle())
+                    if classic {
+                        Label(model.playing ? "Pause" : "Play", systemImage: model.playing ? "pause.fill" : "play.fill")
+                            .classicGlassPill(size: 60)
+                    } else {
+                        Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.black)
+                            .frame(width: 56, height: 56)
+                            .background(Circle().fill(Color.white))
+                            .contentShape(Circle())
+                    }
                 }.buttonStyle(HoverButton()).helpLabel(model.playing ? "Pause (Space)" : "Play (Space)")
                 iconButton("goforward.\(skipSecs)", size: 22) { model.skip(Double(skipSecs)) }.helpLabel("Forward \(skipSecs) seconds")
                 iconButton("forward.end.fill", size: 18) { if let n = nextEp { play(n) } }
@@ -2756,7 +2771,19 @@ struct ClassicPlayerView: View {
         .padding(.horizontal, 34).padding(.bottom, 24)
     }
 
-    func iconButton(_ name: String, size: CGFloat = 22, on: Bool = false, _ action: @escaping () -> Void) -> some View {
+    @ViewBuilder func iconButton(_ name: String, size: CGFloat = 22, on: Bool = false, _ action: @escaping () -> Void) -> some View {
+        if classic {
+            // Glass button; an open panel shows as a brighter icon
+            Button { action(); poke() } label: {
+                Label(name, systemImage: name).classicGlassPill(size: size + 24).opacity(on ? 1 : 0.92)
+                    .overlay { if on { Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1) } }
+            }.buttonStyle(HoverButton())
+        } else {
+            plainIconButton(name, size: size, on: on, action)
+        }
+    }
+
+    func plainIconButton(_ name: String, size: CGFloat, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button { action(); poke() } label: {
             Image(systemName: name).font(.system(size: size, weight: .medium))
                 .frame(width: size + 12, height: size + 12)

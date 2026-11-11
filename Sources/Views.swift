@@ -3603,7 +3603,8 @@ struct ChosenPlayerView: View {
     var body: some View {
         let style = controls == "theme" ? (theme == "apple" ? "glass" : "classic") : controls
         if let t = req.trailer { TrailerPlayerView(link: t) }
-        else if style == "classic" { ClassicPlayerView(req: req) } else { PlayerView(req: req) }
+        else if style == "classic" { ClassicPlayerView(req: req) }
+        else { PlayerView(req: req).environment(\.classicGlass, false) }   // the Glass player keeps its own look in every theme
     }
 }
 
