@@ -1482,7 +1482,7 @@ struct ClassicLibraryView: View {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
                                 .font(.callout.weight(.medium))
                                 .padding(.horizontal, 16).frame(height: 36)
-                                .classicSelectedGlass(tab == i)
+                                .classicSelectedPill(tab == i)
                                 .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
@@ -1581,7 +1581,7 @@ struct ClassicLibraryView: View {
                 Button { layout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 36, height: 36)
-                        .classicSelectedGlass(layout == m.0)
+                        .classicSelectedPill(layout == m.0)
                         .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -2102,7 +2102,7 @@ struct ClassicDetailView: View {
                 Button { epLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 36, height: 36)
-                        .classicSelectedGlass(epLayout == m.0)
+                        .classicSelectedPill(epLayout == m.0)
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
@@ -2275,7 +2275,7 @@ struct ClassicDetailView: View {
                 Button { similarLayout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 36, height: 36)
-                        .classicSelectedGlass(similarLayout == m.0)
+                        .classicSelectedPill(similarLayout == m.0)
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
