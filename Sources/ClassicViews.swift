@@ -1006,8 +1006,8 @@ struct ClassicHero: View {
     /// Settings → General → Home banner: "cinematic" (edge to edge), "panel" (text on a glass panel) or "card"
     /// (an inset glass-framed card)
     @AppStorage("classicBannerStyle") private var style = "cinematic"
-    /// The picture's 16:9 shape at the window's width plus 10 %, 520–1000 pt, and never taller than the visible page
-    var bannerH: CGFloat { min(max(width * 9 / 16 * 1.1, 520), 1000, max(pageH - 20, 360)) }
+    /// The whole visible page, so the rows (Continue Watching…) start just below it and show once you scroll
+    var bannerH: CGFloat { pageH.isFinite ? max(pageH, 360) : max(width * 9 / 16, 520) }
 
     func meta(_ item: Item) -> String {
         var m: [String] = [item.isEpisode || item.isSeries ? "TV Show" : "Movie"]
@@ -1040,7 +1040,7 @@ struct ClassicHero: View {
         }
         .overlay { if hover && items.count > 1 { sideArrows } }
         .animation(.easeOut(duration: 0.15), value: hover)
-        .frame(height: style == "card" ? min(bannerH, 640) : bannerH)
+        .frame(height: style == "card" ? max(bannerH - 24, 340) : bannerH)
         .modifier(BannerShape(card: style == "card"))
         .foregroundColor(.white)
         .background(GeometryReader { g in
