@@ -38,6 +38,14 @@ jobs:
         with:
           fetch-depth: 0   # tags, for the version shown in the app
 
+      # The Glass3D theme uses the macOS 26 glass and scroll-edge APIs, which need the Xcode 26 SDK
+      - name: Select Xcode 26
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$X" ] || { echo "::error::No Xcode 26 on this runner"; ls -d /Applications/Xcode*.app; exit 1; }
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
       - name: Show Swift version
         run: swift --version
 
@@ -88,6 +96,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+
+      # The Glass3D theme uses the macOS 26 glass and scroll-edge APIs, which need the Xcode 26 SDK
+      - name: Select Xcode 26
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$X" ] || { echo "::error::No Xcode 26 on this runner"; ls -d /Applications/Xcode*.app; exit 1; }
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
 
       - name: Show Swift version
         run: swift --version
