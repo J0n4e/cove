@@ -124,4 +124,15 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(Trakt.ids(["Imdb": "0133093", "Tmdb": "abc"]), [:])
         XCTAssertEqual(Trakt.keys(kind: "movie", ids: ids), ["movie:imdb:tt0133093", "movie:tmdb:603"])
     }
+
+    func testSealedPrefs() {
+        let name = "test.sealed.\(UUID().uuidString)"
+        defer { SealedPrefs.set(nil, for: name) }
+        SealedPrefs.set("abc123secret", for: name)
+        XCTAssertEqual(SealedPrefs.get(name), "abc123secret")
+        let raw = UserDefaults.standard.data(forKey: name) ?? Data()
+        XCTAssertNil(raw.range(of: Data("abc123secret".utf8)))
+        SealedPrefs.set(nil, for: name)
+        XCTAssertNil(SealedPrefs.get(name))
+    }
 }

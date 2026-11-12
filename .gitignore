@@ -9,6 +9,3 @@ dist/
 # Release secrets created by scripts/make-update-key.swift and scripts/make-signing-cert.sh (never commit)
 update-key.private
 cove-signing.p12
-
-# Trakt app keys for local builds (TRAKT_CLIENT_ID=… / TRAKT_CLIENT_SECRET=…), read by make-app.sh
-trakt.env

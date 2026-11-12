@@ -5,9 +5,8 @@ import Foundation
 /// you enter it on trakt.tv/activate, and no password passes through Cove. Ratings are matched by the IMDb,
 /// TMDB or TVDB ids the media server has for the movie or episode.
 ///
-/// The app's Trakt keys come from Info.plist (TraktClientId, plus TraktClientSecret only for older apps that have one; written by make-app.sh from
-/// trakt.env or the environment); for a quick local test they can also be set with
-/// `defaults write eu.jonae.cove traktClientId …`. Without them the Connect page says Trakt isn't set up.
+/// Each user registers their own Trakt app (a public one, no secret) and enters its Client ID in Settings →
+/// Connect. The Client ID and the sign-in tokens are kept encrypted in the preferences file (SealedPrefs).
 @MainActor
 final class Trakt: ObservableObject {
     static let shared = Trakt()
@@ -35,32 +34,33 @@ final class Trakt: ObservableObject {
     private var lastFetch: Date?
     private var signInTask: Task<Void, Never>?
 
-    var clientId: String { Self.key("TraktClientId", "traktClientId") }
-    private var clientSecret: String { Self.key("TraktClientSecret", "traktClientSecret") }
+    /// The Client ID of the user's Trakt app, from Settings → Connect.
+    @Published private(set) var clientId: String
     var isConfigured: Bool { !clientId.isEmpty }
+    var isConnected: Bool { user != nil && accessToken != nil }
 
-    /// Client id plus the secret when the Trakt app has one (newer public "PKCE" apps don't).
+    /// A new Client ID belongs to another Trakt app, so the old sign-in goes.
+    func setClientId(_ id: String) {
+        let id = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard id != clientId else { return }
+        if isConnected || accessToken != nil { disconnect() }
+        clientId = id
+        SealedPrefs.set(id, for: "traktClientId")
+    }
+
     private func withClient(_ body: [String: String]) -> [String: String] {
         var b = body
         b["client_id"] = clientId
-        if !clientSecret.isEmpty { b["client_secret"] = clientSecret }
         return b
     }
-    var isConnected: Bool { user != nil && accessToken != nil }
 
-    private static func key(_ plist: String, _ pref: String) -> String {
-        let s = (Bundle.main.object(forInfoDictionaryKey: plist) as? String) ?? ""
-        return s.isEmpty ? (UserDefaults.standard.string(forKey: pref) ?? "") : s
-    }
-
-    // Tokens go to the preferences file, like the media server tokens (see Emby.saveServers for why not Keychain)
     private var accessToken: String? {
-        get { d.string(forKey: "traktAccess") }
-        set { d.set(newValue, forKey: "traktAccess") }
+        get { SealedPrefs.get("traktAccess") }
+        set { SealedPrefs.set(newValue, for: "traktAccess") }
     }
     private var refreshToken: String? {
-        get { d.string(forKey: "traktRefresh") }
-        set { d.set(newValue, forKey: "traktRefresh") }
+        get { SealedPrefs.get("traktRefresh") }
+        set { SealedPrefs.set(newValue, for: "traktRefresh") }
     }
     private var expiresAt: Date? {
         get { d.object(forKey: "traktExpires") as? Date }
@@ -68,6 +68,7 @@ final class Trakt: ObservableObject {
     }
 
     private init() {
+        clientId = SealedPrefs.get("traktClientId") ?? ""
         user = d.string(forKey: "traktUser")
         if let data = d.data(forKey: "traktRatings"), let r = try? JSONDecoder().decode([String: Int].self, from: data) { ratings = r }
         if let data = d.data(forKey: "traktPending"), let p = try? JSONDecoder().decode([Pending].self, from: data) { pending = p }

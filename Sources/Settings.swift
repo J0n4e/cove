@@ -844,6 +844,22 @@ struct ShortcutsSettings: View {
 struct ServerSettings: View {
     @EnvironmentObject var emby: Emby
     @ObservedObject private var trakt = Trakt.shared
+    @State private var clientIdDraft = ""
+    let redirectURI = "urn:ietf:wg:oauth:2.0:oob"
+
+    func saveClientId() {
+        let id = clientIdDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else { return }
+        trakt.setClientId(id)
+        clientIdDraft = ""
+    }
+
+    func step<V: View>(_ n: Int, @ViewBuilder _ text: () -> V) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(n).").bold().frame(width: 14, alignment: .trailing)
+            text().fixedSize(horizontal: false, vertical: true)
+        }
+    }
     @Environment(\.dismiss) var dismiss
     @State private var busy: String?
 
@@ -925,9 +941,7 @@ struct ServerSettings: View {
         PrefSection(title: "Trakt", last: true) {
             PrefRow(label: "Ratings") {
                 VStack(alignment: .leading, spacing: 8) {
-                    if !trakt.isConfigured {
-                        Text("Trakt isn't set up in this build of Cove.").foregroundColor(.secondary)
-                    } else if let u = trakt.user {
+                    if let u = trakt.user {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(TintShapeStyle())
                             Text("Connected as ") + Text(u).bold()
@@ -948,13 +962,55 @@ struct ServerSettings: View {
                             Text("Waiting for Trakt…").foregroundColor(.secondary)
                             Button("Cancel") { trakt.cancelSignIn() }
                         }
-                    } else {
+                    } else if trakt.isConfigured {
                         Button("Connect Trakt…") { trakt.connect() }
+                    } else {
+                        Text("Not set up yet. Follow the steps below.").foregroundColor(.secondary)
                     }
                     if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange) }
                 }
             }
-            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt (trakt.tv) and shown again on every Mac signed in to the same Trakt account.")
+            if trakt.user == nil && trakt.signIn == nil {
+                PrefRow(label: "Client ID") {
+                    HStack(spacing: 8) {
+                        // Shown as dots once saved; typing a new one replaces it
+                        SecureField(trakt.isConfigured ? "Saved (encrypted)" : "Paste the Client ID", text: $clientIdDraft)
+                            .textFieldStyle(.roundedBorder).frame(width: 300)
+                            .onSubmit(saveClientId)
+                        Button("Save", action: saveClientId).disabled(clientIdDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                        if trakt.isConfigured {
+                            Button("Remove") { trakt.setClientId(""); clientIdDraft = "" }
+                        }
+                    }
+                }
+                PrefRow(label: "How to set up") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        step(1) {
+                            Text("Sign in on trakt.tv, then open ") +
+                            Text("[trakt.tv/oauth/applications](https://trakt.tv/oauth/applications)") +
+                            Text(" and click **New Application**.")
+                        }
+                        step(2) { Text("Name it **Cove**. As Redirect URI enter:") }
+                        HStack(spacing: 6) {
+                            Text(redirectURI).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(redirectURI, forType: .string)
+                            } label: { Image(systemName: "doc.on.doc") }
+                                .buttonStyle(.borderless).handCursor().tip("Copy")
+                        }.padding(.leading, 22)
+                        step(3) { Text("Leave the rest empty and click **Save App**.") }
+                        step(4) { Text("Copy the **Client ID** (there's no secret), paste it above and click **Save**.") }
+                        step(5) { Text("Click **Connect Trakt…**, enter the code Cove shows on trakt.tv/activate and allow Cove.") }
+                    }
+                    .font(.callout).frame(maxWidth: 440, alignment: .leading)
+                    .environment(\.openURL, OpenURLAction { u in
+                        if let u = SafeLink.url(u.absoluteString) { NSWorkspace.shared.open(u) }
+                        return .handled
+                    })
+                }
+            }
+            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are stored encrypted.")
         }
     }
 }

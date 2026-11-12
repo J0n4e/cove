@@ -10,10 +10,6 @@ VERSION="${VERSION:-$(git describe --tags --always 2>/dev/null || echo dev)}"
 SHORT=$(echo "$VERSION" | sed -E 's/^v//; s/^([0-9]+(\.[0-9]+)*).*/\1/'); [[ "$SHORT" =~ ^[0-9] ]] || SHORT=0.0
 BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 1)
 echo "Version: $VERSION ($SHORT, build $BUILD)"
-# Trakt app keys (Settings → Connect): from trakt.env (not committed) or the environment; empty = Trakt off
-[[ -f trakt.env ]] && source trakt.env
-TRAKT_CLIENT_ID="${TRAKT_CLIENT_ID:-}"; TRAKT_CLIENT_SECRET="${TRAKT_CLIENT_SECRET:-}"
-[[ "$TRAKT_CLIENT_ID$TRAKT_CLIENT_SECRET" =~ ^[0-9A-Za-z]*$ ]] || { echo "error: Trakt keys may only contain letters and digits" >&2; exit 1; }
 swift build -c release --arch arm64   # Apple Silicon only (Intel Macs are not supported)
 BIN=$(swift build -c release --arch arm64 --show-bin-path)
 
@@ -44,8 +40,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleShortVersionString</key><string>$SHORT</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
   <key>CoveVersion</key><string>$VERSION</string>
-  <key>TraktClientId</key><string>$TRAKT_CLIENT_ID</string>
-  <key>TraktClientSecret</key><string>$TRAKT_CLIENT_SECRET</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
