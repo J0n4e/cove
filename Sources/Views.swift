@@ -1843,6 +1843,7 @@ struct PosterCard: View {
                     if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .thinBorder(12)
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
@@ -2218,6 +2219,7 @@ struct HoverCardLayer: View {
                     .frame(width: w)
                     .background(GeometryReader { c in Color.clear.preference(key: CardHeightKey.self, value: c.size.height) })
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .thinBorder(12)
                     .shadow(color: .black.opacity(0.6), radius: 24)
                     .scaleEffect(open ? 1 : 170 / w, anchor: UnitPoint(x: ux, y: uy))
                     .opacity(open ? 1 : 0)

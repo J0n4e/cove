@@ -143,6 +143,35 @@ struct ClassicGlassCard: ViewModifier {
     }
 }
 
+/// ClassicGlassCard's look in two layers, for posters in long grids: the top sheen and the bright corner edge,
+/// without the bevel strokes, the clip and a hover tracker of its own (the poster passes its hover in). The
+/// accent glow is drawn only behind the hovered poster.
+struct ClassicLightCard: ViewModifier {
+    let radius: CGFloat
+    var hover = false
+    var accent: Color = .clear
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
+        let lit = hover ? 1.0 : 0.7
+        return content
+            .overlay {
+                ZStack {
+                    shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
+                                                      .init(color: .clear, location: 0.4)],
+                                              startPoint: .top, endPoint: .bottom))
+                    shape.strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.9 * lit), location: 0),
+                                                              .init(color: .white.opacity(0.12 * lit), location: 0.3),
+                                                              .init(color: .white.opacity(0.06 * lit), location: 0.5),
+                                                              .init(color: .white.opacity(0.12 * lit), location: 0.7),
+                                                              .init(color: .white.opacity(0.9 * lit), location: 1)],
+                                                      startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.2)
+                }
+                .allowsHitTesting(false)
+            }
+            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+    }
+}
+
 /// The Glass3D hover look, as chosen in Settings → General → Hover effect.
 struct ClassicHoverEffect: View {
     @AppStorage("classicHover") private var style = "fog"   // "fog" or "glow"
