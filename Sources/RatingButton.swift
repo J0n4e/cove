@@ -73,14 +73,14 @@ struct RatingButton: View {
 struct RatedStar: View {
     let rating: Int
     let width: CGFloat
-    var fill: CGFloat = 0.76
+    var fill: CGFloat = 0.8
     var body: some View {
         let w = width
-        // Small badges (posters) need the number a bigger share of the star to stay readable
-        let small = w < 34
-        let share: CGFloat = small ? (rating == 10 ? 0.36 : 0.42) : (rating == 10 ? 0.25 : 0.29) * fill / 0.76
-        let number = Text("\(rating)").font(.system(size: w * share, weight: .heavy))
-        let line: CGFloat = small ? 0.6 : w * 0.025
+        // The number takes the same share of the star at every size (readable on a poster badge too), with a
+        // thin outline that grows a little with the size
+        // "10" condensed, so two digits can be as tall as one
+        let number = Text("\(rating)").font(.system(size: w * fill * 0.46, weight: .heavy).width(rating == 10 ? .condensed : .standard))
+        let line = max(0.6, w * 0.018)
         ZStack {
             // A star's body sits below the middle of its outline box (the top point sticks up): raised so the
             // body is in the middle of the button, where the number goes
