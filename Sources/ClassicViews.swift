@@ -1053,12 +1053,14 @@ struct SeasonDeck: View {
             }
             arrow("chevron.right", "Next \(noun)", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
         }
-        .onHover { swipe.inside = $0 }
+        .onHover { swipe.hover($0) }
         .onAppear {
             pos = numbers.firstIndex(of: selected) ?? 0
             let box = swipe
             swipe.monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { e in
-                guard box.inside, let step = box.step(e) else { return box.inside && box.horizontal ? nil : e }
+            guard box.inside, let step = box.step(e) else { return box.inside && box.horizontal ? nil : e }
+                // Past the first or last card the page scrolls on instead
+                guard numbers.indices.contains(shownPos + step) else { return e }
                 go(shownPos + step)
                 return nil
             }
@@ -1145,10 +1147,20 @@ struct SeasonDeck: View {
 }
 
 /// A two-finger trackpad swipe over a card deck: one card per swipe (left = next, right = previous), whatever
-/// the swipe's length; the page keeps scrolling up and down as usual.
+/// the swipe's length; the page keeps scrolling up and down as usual. A mouse wheel turned over the deck steps
+/// through it too (down = next), unless the page was already scrolling when the deck came under the pointer.
 final class DeckSwipe {
     var monitor: Any?
     var inside = false
+    /// The pointer came onto the deck while the page stood still: the mouse wheel is the deck's
+    private var wheelArmed = false
+    private var lastWheelStep = Date.distantPast
+    private var wheelTravel: CGFloat = 0
+
+    @MainActor func hover(_ h: Bool) {
+        inside = h
+        wheelArmed = h && !ScrollActivity.scrolling
+    }
     /// This swipe goes sideways (its events are the deck's, not the page's)
     var horizontal = false
     private var dx: CGFloat = 0
@@ -1159,7 +1171,22 @@ final class DeckSwipe {
         // The coasting after the fingers lift belongs to the swipe already counted
         if !e.momentumPhase.isEmpty { return nil }
         if e.phase == .began || e.phase == .mayBegin { dx = 0; fired = false; horizontal = false }
-        // A mouse wheel (no phases): every sideways tick counts on its own
+        // A mouse wheel: no phases at all (a trackpad marks every event with its swipe or coasting phase).
+        // macOS smooths each notch into a short stream of small steps (about 50 points in all), so a card turns
+        // after 45 points: one per notch. Sideways always; up and down once armed.
+        if e.phase.isEmpty && e.momentumPhase.isEmpty {
+            horizontal = false
+            let d = abs(e.scrollingDeltaX) > abs(e.scrollingDeltaY) ? e.scrollingDeltaX : (wheelArmed ? e.scrollingDeltaY : 0)
+            guard d != 0 else { return nil }
+            horizontal = true   // this tick is the deck's
+            if Date().timeIntervalSince(lastWheelStep) > 0.3 { wheelTravel = 0 }   // a new notch
+            lastWheelStep = Date()
+            wheelTravel += e.hasPreciseScrollingDeltas ? d : d * 50
+            guard abs(wheelTravel) >= 45 else { return nil }
+            let step = wheelTravel < 0 ? 1 : -1
+            wheelTravel = 0   // the rest of this notch's stream doesn't add up to another card
+            return step
+        }
         if e.phase.isEmpty { dx = 0; fired = false; horizontal = false }
         if e.phase == .ended || e.phase == .cancelled { horizontal = false; return nil }
         if !horizontal {
