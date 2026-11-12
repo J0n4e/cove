@@ -1681,7 +1681,7 @@ struct ClassicPosterCard: View {
                     switch phase {
                     case .active(let p):
                         ptr.global = p
-                        if !ptr.inside {
+                        if !ptr.inside && !ScrollActivity.scrolling {   // not for posters scrolling past
                             ptr.inside = true
                             let box = ptr
                             ClassicHoverCardCenter.shared.posterHover(item, inside: true) {
@@ -1705,7 +1705,7 @@ struct ClassicPosterCard: View {
             }
             .frame(width: 150, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
@@ -2061,7 +2061,7 @@ struct ClassicLibraryView: View {
                 LazyVStack(spacing: 6) {
                     ForEach(items) { it in
                         ListRow(item: it).onAppear {
-                            if it.id == items.last?.id { Task { await load(reset: false) } }
+                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
                         }
                     }
                 }
@@ -2069,7 +2069,7 @@ struct ClassicLibraryView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
                     ForEach(items) { it in
                         ClassicPosterCard(item: it).onAppear {
-                            if it.id == items.last?.id { Task { await load(reset: false) } }
+                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
                         }
                     }
                 }
@@ -2132,7 +2132,12 @@ struct ClassicLibraryView: View {
         guard let r else { loadFailed = true; return }
         if reset { items = r.Items } else { items += r.Items }
         total = r.TotalRecordCount ?? items.count
+        // Posters of the new page start downloading now, before they scroll into view
+        ImageCache.shared.prefetch(r.Items.prefix(40).map { emby.image($0.posterId, width: 360) })
     }
+
+    /// The next page is fetched when this item appears, 30 before the end, so it's there before you reach it.
+    var nextPageAt: String? { items.count > 30 ? items[items.count - 30].id : nil }
 
     func shuffle() async {
         let r = await fetch(start: 0, limit: 1, sort: "random")

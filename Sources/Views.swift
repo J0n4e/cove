@@ -1856,7 +1856,7 @@ struct PosterCard: View {
             }
             .frame(width: 170, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
@@ -2068,6 +2068,20 @@ struct ItemActionsButton: View {
 }
 
 /// Pointer position on a poster in its own and in window coordinates (a class: writes don't redraw the poster).
+/// Whether the page is being scrolled right now (a wheel or trackpad tick in the last 0.2 s). While it is, posters
+/// sliding under a resting pointer don't light up: each one flipping its hover lift, glow and action buttons on
+/// and off for a frame made scrolling a long library stutter.
+@MainActor
+enum ScrollActivity {
+    private static var last = Date.distantPast
+    private static let monitor: Any? = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { e in
+        last = Date(); return e
+    }
+    static var scrolling: Bool { _ = monitor; return Date().timeIntervalSince(last) < 0.2 }
+    /// Installs the watcher (called once at launch).
+    static func start() { _ = monitor }
+}
+
 final class PointerBox {
     var local = CGPoint.zero
     var global = CGPoint.zero
@@ -2885,7 +2899,7 @@ struct LibraryView: View {
                 LazyVStack(spacing: 6) {
                     ForEach(items) { it in
                         ListRow(item: it).onAppear {
-                            if it.id == items.last?.id { Task { await load(reset: false) } }
+                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
                         }
                     }
                 }
@@ -2893,7 +2907,7 @@ struct LibraryView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 18) {
                     ForEach(items) { it in
                         PosterCard(item: it).onAppear {
-                            if it.id == items.last?.id { Task { await load(reset: false) } }
+                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
                         }
                     }
                 }
@@ -2950,7 +2964,12 @@ struct LibraryView: View {
         guard let r else { loadFailed = true; return }
         if reset { items = r.Items } else { items += r.Items }
         total = r.TotalRecordCount ?? items.count
+        // Posters of the new page start downloading now, before they scroll into view
+        ImageCache.shared.prefetch(r.Items.prefix(40).map { emby.image($0.posterId, width: 360) })
     }
+
+    /// The next page is fetched when this item appears, 30 before the end, so it's there before you reach it.
+    var nextPageAt: String? { items.count > 30 ? items[items.count - 30].id : nil }
 
     func shuffle() async {
         let r = await fetch(start: 0, limit: 1, sort: "random")

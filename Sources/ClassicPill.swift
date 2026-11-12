@@ -139,7 +139,7 @@ struct ClassicGlassCard: ViewModifier {
             }
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
             .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
-            .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+            .onHover { h in if h && ScrollActivity.scrolling { return }; withAnimation(.easeOut(duration: 0.2)) { hover = h } }
     }
 }
 

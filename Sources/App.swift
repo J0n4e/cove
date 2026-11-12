@@ -13,6 +13,7 @@ struct CoveApp: App {
         Self.scrubEmbyFlixTokens()
         NSApplication.shared.setActivationPolicy(.regular)
         Self.applyIcon()
+        ScrollActivity.start()   // hover effects pause while a page scrolls
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
     /// Dock icon, shown exactly as drawn (newer macOS redraws .icns icons in its own style). The same icon
