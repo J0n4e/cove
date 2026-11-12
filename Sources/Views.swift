@@ -2336,14 +2336,21 @@ struct TubeBadge: View {
         }
         .foregroundColor(.white)
         .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 22)
-        .background(Capsule().fill(LinearGradient(colors: [Color(white: 0.3).opacity(0.75), Color.black.opacity(0.65)],
-                                                  startPoint: .top, endPoint: .bottom)))
-        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .white.opacity(0.3)],
-                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
+        .glassTube()
     }
     func glyph<V: View>(_ v: V) -> some View {
         v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.75)], startPoint: .top, endPoint: .bottom))
             .shadow(color: .black.opacity(0.85), radius: 1, y: 0.5)
+    }
+}
+
+extension View {
+    /// The Glass3D badge look: a glass tube bent into a capsule.
+    func glassTube() -> some View {
+        background(Capsule().fill(LinearGradient(colors: [Color(white: 0.3).opacity(0.75), Color.black.opacity(0.65)],
+                                                 startPoint: .top, endPoint: .bottom)))
+        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .white.opacity(0.3)],
+                                                      startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
     }
 }
 

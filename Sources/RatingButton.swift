@@ -65,15 +65,21 @@ struct MyRatingBadge: View {
     let item: Item
     @ObservedObject private var trakt = Trakt.shared
     @AppStorage("accent") private var accentName = "red"
+    @Environment(\.classicGlass) private var classic   // Glass3D: the same glass tube as the watched badge
     var body: some View {
         if let r = trakt.rating(item) {
-            HStack(spacing: 2) {
+            let label = HStack(spacing: 2) {
                 Image(systemName: "star.fill").font(.system(size: 9, weight: .bold)).foregroundColor(Theme.accent(accentName))
-                Text("\(r)").font(.system(size: 11, weight: .heavy)).foregroundColor(.white)
+                Text("\(r)").font(.system(size: classic ? 12 : 11, weight: classic ? .bold : .heavy)).foregroundColor(.white)
             }
-            .padding(.horizontal, 7).frame(height: 22)
-            .background(Capsule().fill(Color.black.opacity(0.7)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
+            .padding(.horizontal, classic ? 8 : 7).frame(height: 22)
+            Group {
+                if classic { label.glassTube() }
+                else {
+                    label.background(Capsule().fill(Color.black.opacity(0.7)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
+                }
+            }
             .helpLabel("Your rating: \(r)/10")
         }
     }
