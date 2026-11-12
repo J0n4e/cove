@@ -169,14 +169,17 @@ struct ClassicLightCard: ViewModifier {
     /// For cards that don't pass their hover in (episodes): follows the pointer itself
     var tracksHover = false
     @State private var ownHover = false
+    /// The card's size when it isn't fixed (episode tiles follow the window width), measured once per change
+    @State private var measured: CGSize?
     @Environment(\.displayScale) private var scale
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
         let hover = self.hover || ownHover
         let lit = hover ? 1.0 : 0.7
         return content
+            .modifier(MeasureSize(enabled: size == nil, size: $measured))
             .overlay {
-                if let size {
+                if let size = size ?? measured, size.width > 0 {
                     Raster.view("edge\(size.width)x\(size.height)r\(radius)l\(lit)", scale: scale, pad: 0) {
                         edge(shape, lit: lit).frame(width: size.width, height: size.height)
                     }
@@ -204,6 +207,21 @@ struct ClassicLightCard: ViewModifier {
                                                       startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.2)
                 }
                 .allowsHitTesting(false)
+    }
+}
+
+/// Reports a view's size (rounded to whole points) when it changes, on macOS 15 and later; earlier, nothing.
+private struct MeasureSize: ViewModifier {
+    let enabled: Bool
+    @Binding var size: CGSize?
+    func body(content: Content) -> some View {
+        if enabled, #available(macOS 15, *) {
+            content.onGeometryChange(for: CGSize.self) {
+                CGSize(width: $0.size.width.rounded(), height: $0.size.height.rounded())
+            } action: { size = $0 }
+        } else {
+            content
+        }
     }
 }
 

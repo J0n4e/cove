@@ -1025,6 +1025,7 @@ struct SeasonDeck: View {
     let seasonItem: (Int) -> Item?
     let episodes: (Int) -> [Item]
     private let w: CGFloat = 280, h: CGFloat = 420
+    @AppStorage("accent") private var accentName = "red"
     private let peek: CGFloat = 40
 
     /// The deck's own position; the page's season follows it (and the deck follows the page when the season
@@ -1101,7 +1102,8 @@ struct SeasonDeck: View {
                 .opacity(k == 0 ? 1 : 0)
         }
         .cornerRadius(10)
-        .classicThinBorder(10)
+        .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
+                                   tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
         .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
@@ -2598,7 +2600,8 @@ struct ClassicDetailView: View {
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
                 .overlay(alignment: .topTrailing) { CountBadge(count: unwatched(n)).padding(8) }
-                .classicThinBorder(8, size: CGSize(width: 170, height: 255))   // glass card, as the posters
+                .modifier(ClassicLightCard(radius: 8, accent: Theme.accent(accentName), size: CGSize(width: 170, height: 255),
+                                           tracksHover: true))   // the posters' light glass edge   // glass card, as the posters
                 .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint, lineWidth: 2) } }
                 .shadow(radius: 6)
                 .classicHoverLift()
