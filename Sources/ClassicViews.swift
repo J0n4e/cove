@@ -1038,6 +1038,7 @@ struct SeasonDeck: View {
     /// The deck's own position; the page's season follows it (and the deck follows the page when the season
     /// changes elsewhere).
     @State private var pos = -1
+    @State private var swipe = DeckSwipe()
     var shownPos: Int { pos >= 0 ? pos : (numbers.firstIndex(of: selected) ?? 0) }
 
     var body: some View {
@@ -1052,7 +1053,17 @@ struct SeasonDeck: View {
             }
             arrow("chevron.right", "Next \(noun)", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
         }
-        .onAppear { pos = numbers.firstIndex(of: selected) ?? 0 }
+        .onHover { swipe.inside = $0 }
+        .onAppear {
+            pos = numbers.firstIndex(of: selected) ?? 0
+            let box = swipe
+            swipe.monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { e in
+                guard box.inside, let step = box.step(e) else { return box.inside && box.horizontal ? nil : e }
+                go(shownPos + step)
+                return nil
+            }
+        }
+        .onDisappear { if let m = swipe.monitor { NSEvent.removeMonitor(m); swipe.monitor = nil } }
         .onChange(of: selected) { _, s in
             if let i = numbers.firstIndex(of: s), i != pos { pos = i }
         }
@@ -1130,6 +1141,35 @@ struct SeasonDeck: View {
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
         .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+}
+
+/// A two-finger trackpad swipe over a card deck: one card per swipe (left = next, right = previous), whatever
+/// the swipe's length; the page keeps scrolling up and down as usual.
+final class DeckSwipe {
+    var monitor: Any?
+    var inside = false
+    /// This swipe goes sideways (its events are the deck's, not the page's)
+    var horizontal = false
+    private var dx: CGFloat = 0
+    private var fired = false
+
+    /// The step this event completes (+1 next, -1 previous), or nil.
+    func step(_ e: NSEvent) -> Int? {
+        // The coasting after the fingers lift belongs to the swipe already counted
+        if !e.momentumPhase.isEmpty { return nil }
+        if e.phase == .began || e.phase == .mayBegin { dx = 0; fired = false; horizontal = false }
+        // A mouse wheel (no phases): every sideways tick counts on its own
+        if e.phase.isEmpty { dx = 0; fired = false; horizontal = false }
+        if e.phase == .ended || e.phase == .cancelled { horizontal = false; return nil }
+        if !horizontal {
+            guard abs(e.scrollingDeltaX) > abs(e.scrollingDeltaY) else { return nil }
+            horizontal = true
+        }
+        dx += e.scrollingDeltaX
+        guard !fired, abs(dx) > 40 else { return nil }
+        fired = true
+        return dx < 0 ? 1 : -1   // fingers to the left bring the next card
     }
 }
 
