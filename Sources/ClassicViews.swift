@@ -710,7 +710,7 @@ struct ClassicSearchView: View {
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .classicThinBorder(12)
+                                .modifier(ClassicLightCard(radius: 12))   // the posters' light glass edge
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
                                         FavHeart(size: 16).padding(8)

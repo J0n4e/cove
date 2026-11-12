@@ -1261,7 +1261,7 @@ struct PersonPhotoFrame: ViewModifier {
     let classic: Bool
     var radius: CGFloat = 14
     @ViewBuilder func body(content: Content) -> some View {
-        if classic { content.modifier(ClassicGlassCard(radius: radius)) }
+        if classic { content.modifier(ClassicLightCard(radius: radius)) }   // the posters' light glass edge
         else if radius == 14 { content.overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.15))) }
         else { content }
     }
