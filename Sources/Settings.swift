@@ -45,10 +45,10 @@ struct SettingsView: View {
                             Image(systemName: s.icon).font(.system(size: 20))
                             Text(s.rawValue).font(.system(size: 11))
                         }
-                        .foregroundColor(on ? Color(red: 0.24, green: 0.56, blue: 1) : .secondary)
+                        // Selected: filled with the accent, light text on it (accent-colored text was hard to read)
+                        .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)
                         .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.white.opacity(0.1) : Color.clear))
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? Color.white.opacity(0.12) : Color.clear))
+                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent : Color.clear))
                         .contentShape(Rectangle())
                     }.buttonStyle(.plainHand).focusEffectDisabled()
                 }
@@ -999,13 +999,16 @@ struct ServerSettings: View {
                         }
                     }
                 }
-                if scrobble || syncWatched {
-                    PrefRow {
-                        Label("If your Emby server's Trakt plugin also scrobbles or syncs watched status for you, turn that off in the plugin (or here), or every play is logged twice.",
-                              systemImage: "exclamationmark.triangle")
-                            .font(.callout).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: 440, alignment: .leading)
+                PrefRow(label: "Emby Trakt plugin") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("If your Emby server also has the Trakt plugin, turn these off for your user (Emby → your user's preferences → Trakt), or plays get logged twice and marking a show unwatched removes its plays from Trakt:")
+                            .fixedSize(horizontal: false, vertical: true)
+                        Label("Sync Manual Playstate Changes to Trakt", systemImage: "xmark.circle").fontWeight(.semibold)
+                        Label("Update Trakt watched history during Scheduled Task", systemImage: "xmark.circle").fontWeight(.semibold)
+                        Text("The plugin's scrobbling always stays on, so leave Cove's Scrobble switch off when the plugin is installed. Keep \u{201C}Skip unwatched import from Trakt\u{201D} on.")
+                            .foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
+                    .font(.callout).frame(maxWidth: 440, alignment: .leading)
                 }
             }
             if trakt.user == nil && trakt.signIn == nil {
