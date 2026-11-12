@@ -3966,10 +3966,10 @@ struct ClassicAlphaLetter: View {
             if hover {
                 Text(l).font(.cv(19, weight: .heavy)).foregroundColor(.black.opacity(0.85))
                     .frame(width: 34, height: 36)
-                    .offset(x: 1, y: 6)   // the tilt moves the drop's round part down; the letter follows
+                    .offset(x: 7, y: -17)   // the turn moves the drop's round part up-left; the letter follows
                     .padding(.trailing, 8)   // the point
-                    // Only the drop tilts (its point up a little, at the arrow's tip); the letter stays upright
-                    .background(TeardropGlass().rotationEffect(.degrees(-15), anchor: .trailing))
+                    // The drop lies like a backslash: round part up-left, the point down-right at the letter
+                    .background(TeardropGlass().rotationEffect(.degrees(45), anchor: .trailing))
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
                     .offset(x: -9, y: -2)   // the point reaches toward the letter under the pointer
