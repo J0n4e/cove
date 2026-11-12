@@ -235,6 +235,37 @@ struct CachedImage<Content: View>: View {
     }
 }
 
+// MARK: - Raster: small unchanging decorations drawn once
+
+/// Glossy badges and glass edges are many layers each (the heart alone is ten: eight black copies for the outline,
+/// the glossy symbol, its shine). SwiftUI draws every layer of every poster on the CPU and gives each its own
+/// view, which AppKit adds and removes as posters scroll by: most of the time a scrolling grid took. These are
+/// drawn once into a picture, exactly as they look, and the picture is reused everywhere.
+@MainActor
+enum Raster {
+    private static let cache = NSCache<NSString, NSImage>()
+
+    /// `content` drawn once per key and screen scale; `pad` leaves room for its shadow, outside its own size.
+    @ViewBuilder static func view<V: View>(_ key: String, scale: CGFloat, pad: CGFloat = 4,
+                                           @ViewBuilder _ content: () -> V) -> some View {
+        if let img = image(key, scale: scale, pad: pad, content) {
+            Image(nsImage: img).padding(-pad)
+        } else {
+            content()
+        }
+    }
+
+    static func image<V: View>(_ key: String, scale: CGFloat, pad: CGFloat, _ content: () -> V) -> NSImage? {
+        let k = "\(key)@\(scale)" as NSString
+        if let c = cache.object(forKey: k) { return c }
+        let r = ImageRenderer(content: content().padding(pad).environment(\.colorScheme, .dark))
+        r.scale = scale
+        guard let img = r.nsImage else { return nil }
+        cache.setObject(img, forKey: k)
+        return img
+    }
+}
+
 // MARK: - BlurHash (https://blurha.sh): a short text that decodes to a tiny blurred picture
 
 enum BlurHash {

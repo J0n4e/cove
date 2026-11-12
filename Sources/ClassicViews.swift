@@ -710,7 +710,7 @@ struct ClassicSearchView: View {
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .modifier(ClassicLightCard(radius: 12))   // the posters' light glass edge
+                                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
                                         FavHeart(size: 16).padding(8)
@@ -1671,7 +1671,7 @@ struct ClassicPosterCard: View {
                     if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .cornerRadius(8)
-                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName)))
+                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
                 // The Netflix-style preview card is drawn by ClassicHoverCardLayer (window level), centered on this poster.
                 // Local + global pointer positions together give the poster's place in the window.
                 .onContinuousHover(coordinateSpace: .local) { phase in
@@ -2164,7 +2164,8 @@ struct ClassicCastTile: View {
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
-            .modifier(ClassicLightCard(radius: big ? 10 : 44, hover: hover, accent: Theme.accent(accentName)))   // the posters' light glass edge
+            .modifier(ClassicLightCard(radius: big ? 10 : 44, hover: hover, accent: Theme.accent(accentName),
+                                       size: big ? CGSize(width: 132, height: 198) : CGSize(width: 88, height: 88)))   // the posters' light glass edge
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
@@ -4066,7 +4067,7 @@ struct ClassicFavPersonCard: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                .modifier(ClassicLightCard(radius: 12))   // the posters' light glass edge
+                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
                 Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)

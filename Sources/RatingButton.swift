@@ -78,7 +78,12 @@ struct RatedStar: View {
     /// instead of a white star in a bubble.
     var outlined = false
     @AppStorage("accent") private var accentName = "red"
+    @Environment(\.displayScale) private var scale
     var body: some View {
+        // The poster badge is drawn once per rating (see Raster); the plain star stays live
+        if outlined { Raster.view("star\(rating)|\(width)|\(fill)", scale: scale) { drawing } } else { drawing }
+    }
+    @ViewBuilder var drawing: some View {
         let w = width
         // The number takes the same share of the star at every size (readable on a poster badge too), with a
         // thin outline that grows a little with the size
@@ -134,7 +139,9 @@ struct Glossy<Symbol: View>: View {
 /// outline, like the rating star and watched check.
 struct FavHeart: View {
     var size: CGFloat = 14
-    var body: some View {
+    @Environment(\.displayScale) private var scale
+    var body: some View { Raster.view("heart\(size)", scale: scale) { drawing } }
+    @ViewBuilder var drawing: some View {
         let heart = Image(systemName: "heart.fill").font(.system(size: size))
         ZStack {
             ForEach(0..<8, id: \.self) { i in
@@ -150,7 +157,9 @@ struct FavHeart: View {
 /// the heart and rating star.
 struct GlossyCheck: View {
     var size: CGFloat = 23
-    var body: some View {
+    @Environment(\.displayScale) private var scale
+    var body: some View { Raster.view("check\(size)", scale: scale) { drawing } }
+    @ViewBuilder var drawing: some View {
         let mark = Image(systemName: "checkmark.circle.fill").font(.system(size: size, weight: .semibold))
         ZStack {
             ForEach(0..<8, id: \.self) { i in
@@ -166,7 +175,9 @@ struct GlossyCheck: View {
 /// Unwatched episodes (Glass3D posters): the count in a glossy white capsule, matching GlossyCheck.
 struct GlossyCount: View {
     let text: String
-    var body: some View {
+    @Environment(\.displayScale) private var scale
+    var body: some View { Raster.view("count" + text, scale: scale) { drawing } }
+    @ViewBuilder var drawing: some View {
         Text(text).font(.system(size: 12, weight: .heavy)).foregroundColor(.black)
             .padding(.horizontal, 7).frame(minWidth: 23, minHeight: 23)
             .background {

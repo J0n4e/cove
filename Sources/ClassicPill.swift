@@ -150,11 +150,26 @@ struct ClassicLightCard: ViewModifier {
     let radius: CGFloat
     var hover = false
     var accent: Color = .clear
+    /// The card's size, when it's fixed: the edge is then drawn once into a picture and reused (see Raster)
+    var size: CGSize? = nil
+    @Environment(\.displayScale) private var scale
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
         let lit = hover ? 1.0 : 0.7
         return content
             .overlay {
+                if let size {
+                    Raster.view("edge\(size.width)x\(size.height)r\(radius)l\(lit)", scale: scale, pad: 0) {
+                        edge(shape, lit: lit).frame(width: size.width, height: size.height)
+                    }
+                } else {
+                    edge(shape, lit: lit)
+                }
+            }
+            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+    }
+
+    func edge(_ shape: RoundedRectangle, lit: Double) -> some View {
                 ZStack {
                     shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
                                                       .init(color: .clear, location: 0.4)],
@@ -167,8 +182,6 @@ struct ClassicLightCard: ViewModifier {
                                                       startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.2)
                 }
                 .allowsHitTesting(false)
-            }
-            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
     }
 }
 
