@@ -1770,10 +1770,14 @@ struct PosterCard: View {
                     WatchBadge(item: item, played: played).padding(8)
                 }
                 .overlay(alignment: .topLeading) {
-                    if emby.isFav(item) && !inFavorites {
-                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
-                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
-                    }
+                    // Favorite heart, then your Trakt rating
+                    HStack(spacing: 6) {
+                        if emby.isFav(item) && !inFavorites {
+                            Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
+                                .shadow(color: .black.opacity(0.6), radius: 3)
+                        }
+                        MyRatingBadge(item: item)
+                    }.padding(8)
                 }
                 .overlay(alignment: .bottom) {
                     if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {

@@ -33,7 +33,7 @@ struct Item: Identifiable, Decodable, Hashable {
     let Status: String?
     let PremiereDate: String?            // a person's birth date
     let ProductionLocations: [String]?   // a person's birthplace
-    let ProviderIds: [String: String]?   // only when asked for (Trakt watched sync)
+    let ProviderIds: [String: String]?   // IMDb / TMDB / TVDB ids, for Trakt (ratings on posters, watched sync)
     struct UD: Decodable, Hashable { let Played: Bool?; let IsFavorite: Bool?; let PlayedPercentage: Double?; let UnplayedItemCount: Int?; let PlaybackPositionTicks: Int64? }
     var id: String { Id }
     var backdropId: String? { (BackdropImageTags ?? []).isEmpty ? ParentBackdropItemId : Id }
@@ -593,8 +593,10 @@ final class Emby: ObservableObject {
     func get<T: Decodable>(_ path: String, _ q: [String: String] = [:]) async throws -> T {
         var q = q
         // The server leaves the year out unless asked; posters show it under the title
-        if let f = q["Fields"] { if !f.contains("ProductionYear") { q["Fields"] = f + ",ProductionYear" } }
-        else { q["Fields"] = "ProductionYear" }
+        // ProviderIds: posters show your Trakt rating, matched by IMDb / TMDB / TVDB id
+        var fields = q["Fields"].map { $0.split(separator: ",").map(String.init) } ?? []
+        for extra in ["ProductionYear", "ProviderIds"] where !fields.contains(extra) { fields.append(extra) }
+        q["Fields"] = fields.joined(separator: ",")
         guard var c = URLComponents(string: server + path) else { throw URLError(.badURL) }
         c.queryItems = q.map { URLQueryItem(name: $0.key, value: $0.value) }
         // URLComponents leaves "+" as is, and servers read it as a space ("C++", "Love + Death" would fail)

@@ -11,11 +11,11 @@ struct RatingButton: View {
     @AppStorage("accent") private var accentName = "red"
     @State private var open = false
 
-    var kind: String { item.isEpisode ? "episode" : "movie" }
+    var kind: String { Trakt.kind(item) ?? "movie" }
     var ids: [String: String] { Trakt.ids(full?.ProviderIds) }
 
     var body: some View {
-        if !ids.isEmpty && !item.isSeries && !item.isBox {
+        if !ids.isEmpty && Trakt.kind(item) != nil {
             let r = trakt.rating(kind: kind, ids: ids)
             let help = r.map { "Your rating: \($0)/10" } ?? "Rate"
             Button { open.toggle() } label: { label(r) }
@@ -56,6 +56,25 @@ struct RatingButton: View {
                 .background(Circle().fill(.black))
                 .offset(x: 3, y: -3)
                 .help(trakt.lastError ?? "Waiting to be sent to Trakt")
+        }
+    }
+}
+
+/// Your Trakt rating on a poster ("★ 9"), next to the favorite heart; nothing when it isn't rated.
+struct MyRatingBadge: View {
+    let item: Item
+    @ObservedObject private var trakt = Trakt.shared
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        if let r = trakt.rating(item) {
+            HStack(spacing: 2) {
+                Image(systemName: "star.fill").font(.system(size: 9, weight: .bold)).foregroundColor(Theme.accent(accentName))
+                Text("\(r)").font(.system(size: 11, weight: .heavy)).foregroundColor(.white)
+            }
+            .padding(.horizontal, 7).frame(height: 22)
+            .background(Capsule().fill(Color.black.opacity(0.7)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
+            .helpLabel("Your rating: \(r)/10")
         }
     }
 }

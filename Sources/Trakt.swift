@@ -97,6 +97,23 @@ final class Trakt: ObservableObject {
         ["imdb", "tmdb", "tvdb"].compactMap { p in ids[p].map { "\(kind):\(p):\($0)" } }
     }
 
+    /// "movie", "show" or "episode"; nil for things Trakt doesn't rate here (collections, seasons, people).
+    static func kind(_ item: Item) -> String? {
+        switch item.`Type` {
+        case "Movie": return "movie"
+        case "Series": return "show"
+        case "Episode": return "episode"
+        default: return nil
+        }
+    }
+
+    /// Your rating for a poster (nil when not connected or not rated).
+    func rating(_ item: Item) -> Int? {
+        guard user != nil, let k = Self.kind(item) else { return nil }
+        let ids = Self.ids(item.ProviderIds)
+        return ids.isEmpty ? nil : rating(kind: k, ids: ids)
+    }
+
     func rating(kind: String, ids: [String: String]) -> Int? {
         Self.keys(kind: kind, ids: ids).lazy.compactMap { self.ratings[$0] }.first
     }
@@ -123,7 +140,7 @@ final class Trakt: ObservableObject {
         guard isConnected, !pending.isEmpty else { return }
         for p in pending {
             let entry: [String: Any] = p.rating == 0 ? ["ids": p.ids] : ["ids": p.ids, "rating": p.rating]
-            let body: [String: Any] = [p.kind == "episode" ? "episodes" : "movies": [entry]]
+            let body: [String: Any] = [p.kind + "s": [entry]]
             do {
                 _ = try await send(p.rating == 0 ? "/sync/ratings/remove" : "/sync/ratings", method: "POST", json: body)
                 pending.removeAll { $0 == p }
@@ -144,11 +161,11 @@ final class Trakt: ObservableObject {
         await flush()
         do {
             var fresh: [String: Int] = [:]
-            for kind in ["movie", "episode"] {
+            for kind in ["movie", "show", "episode"] {
                 let data = try await send("/sync/ratings/\(kind)s")
                 let list = try JSONDecoder().decode([RatedEntry].self, from: data)
                 for e in list {
-                    guard let ids = (kind == "movie" ? e.movie : e.episode)?.ids.strings else { continue }
+                    guard let ids = (kind == "movie" ? e.movie : kind == "show" ? e.show : e.episode)?.ids.strings else { continue }
                     for k in Self.keys(kind: kind, ids: ids) { fresh[k] = e.rating }
                 }
             }
@@ -166,6 +183,7 @@ final class Trakt: ObservableObject {
     private struct RatedEntry: Decodable {
         let rating: Int
         let movie: Media?
+        let show: Media?
         let episode: Media?
         struct Media: Decodable { let ids: Ids }
         struct Ids: Decodable {
