@@ -180,6 +180,114 @@ final class Trakt: ObservableObject {
         }
     }
 
+    // MARK: - Scrobbling and watched status (Settings → Connect switches, both off by default because the
+    // server's Trakt plugin may already do the same, which would log every play twice)
+
+    var scrobbleOn: Bool { isConnected && d.bool(forKey: "traktScrobble") }
+    var watchedSyncOn: Bool { isConnected && d.bool(forKey: "traktSyncWatched") }
+
+    /// What Trakt needs to know about a server item: movie or episode, its ids and its length.
+    struct Media { let kind: String; let ids: [String: String]; let runtime: Double }
+    private var mediaCache: [String: Media] = [:]
+    /// Last pause state sent per playback, so the 10-second progress reports don't all go to Trakt.
+    private var scrobblePaused: [String: Bool] = [:]
+
+    private func media(_ itemId: String, _ emby: Emby) async -> Media? {
+        if let m = mediaCache[itemId] { return m }
+        guard let f = await emby.full(itemId) else { return nil }
+        let kind = f.`Type` == "Episode" ? "episode" : f.`Type` == "Movie" ? "movie" : ""
+        let ids = Self.ids(f.ProviderIds)
+        guard !kind.isEmpty, !ids.isEmpty else { return nil }
+        let m = Media(kind: kind, ids: ids, runtime: Double(f.RunTimeTicks ?? 0) / 10_000_000)
+        mediaCache[itemId] = m
+        return m
+    }
+
+    /// action: "start", "pause" or "stop". Trakt logs the play itself when a stop comes past 80%.
+    func scrobble(_ action: String, itemId: String, session: String, at sec: Double, duration: Double = 0, emby: Emby) async {
+        guard scrobbleOn, let m = await media(itemId, emby) else { return }
+        if action == "stop" { scrobblePaused[session] = nil }
+        else {
+            let paused = action == "pause"
+            if scrobblePaused[session] == paused { return }
+            scrobblePaused[session] = paused
+        }
+        let length = duration > 0 ? duration : m.runtime
+        guard length > 0 else { return }
+        let progress = min(100, max(0, sec / length * 100))
+        let body: [String: Any] = [m.kind: ["ids": m.ids], "progress": (progress * 100).rounded() / 100]
+        _ = try? await send("/scrobble/\(action)", method: "POST", json: body)
+    }
+
+    /// A Watched / Unwatched click in Cove: the same change on Trakt (movies, episodes, whole shows and seasons).
+    func setWatched(itemId: String, _ watched: Bool, emby: Emby) async {
+        guard watchedSyncOn, let f = await emby.full(itemId) else { return }
+        var body: [String: Any] = [:]
+        switch f.`Type` {
+        case "Movie", "Episode":
+            let ids = Self.ids(f.ProviderIds)
+            guard !ids.isEmpty else { return }
+            body = [f.`Type` == "Movie" ? "movies" : "episodes": [["ids": ids]]]
+        case "Series":
+            let ids = Self.ids(f.ProviderIds)
+            guard !ids.isEmpty else { return }
+            body = ["shows": [["ids": ids]]]
+        case "Season":
+            guard let sid = f.SeriesId, let n = f.IndexNumber, let show = await emby.full(sid) else { return }
+            let ids = Self.ids(show.ProviderIds)
+            guard !ids.isEmpty else { return }
+            body = ["shows": [["ids": ids, "seasons": [["number": n]]]]]
+        default: return
+        }
+        do { _ = try await send(watched ? "/sync/history" : "/sync/history/remove", method: "POST", json: body) }
+        catch { lastError = describe(error) }
+    }
+
+    @Published private(set) var lastWatchedSync: Date? = UserDefaults.standard.object(forKey: "traktWatchedSyncAt") as? Date
+    private var importing = false
+
+    /// Plays Trakt got from elsewhere since the last sync are marked watched on the server. The first sync
+    /// only sets the starting point (the history before it is left alone).
+    func importWatched(_ emby: Emby) async {
+        guard watchedSyncOn, emby.loggedIn, !importing else { return }
+        importing = true
+        defer { importing = false }
+        let now = Date()
+        guard let since = lastWatchedSync else { markSynced(now); return }
+        let iso = ISO8601DateFormatter()
+        do {
+            var found = 0
+            for type in ["movies", "episodes"] {
+                var page = 1
+                while true {
+                    let data = try await send("/sync/history/\(type)?start_at=\(iso.string(from: since))&limit=100&page=\(page)")
+                    let list = try JSONDecoder().decode([HistoryEntry].self, from: data)
+                    for e in list {
+                        guard let ids = (e.movie ?? e.episode)?.ids.strings,
+                              let item = await emby.findByProviderIds(ids, episode: type == "episodes"),
+                              !emby.isPlayed(item) else { continue }
+                        await emby.setPlayed(item.id, true)
+                        found += 1
+                    }
+                    if list.count < 100 { break }
+                    page += 1
+                }
+            }
+            markSynced(now)
+            lastError = nil
+            if found > 0 { emby.toast = Emby.Toast(text: "Marked \(found) watched from Trakt", icon: "checkmark.circle.fill") }
+        } catch {
+            lastError = describe(error)
+        }
+    }
+
+    private func markSynced(_ t: Date) { lastWatchedSync = t; d.set(t, forKey: "traktWatchedSyncAt") }
+
+    private struct HistoryEntry: Decodable {
+        let movie: RatedEntry.Media?
+        let episode: RatedEntry.Media?
+    }
+
     // MARK: - Sign-in (device code)
 
     func connect() {
@@ -231,6 +339,7 @@ final class Trakt: ObservableObject {
         ratings = [:]; saveRatings()
         pending = []; savePending()
         lastFetch = nil; lastError = nil
+        lastWatchedSync = nil; d.removeObject(forKey: "traktWatchedSyncAt")
     }
 
     private struct DeviceCode: Decodable {

@@ -845,6 +845,8 @@ struct ServerSettings: View {
     @EnvironmentObject var emby: Emby
     @ObservedObject private var trakt = Trakt.shared
     @State private var clientIdDraft = ""
+    @AppStorage("traktScrobble") private var scrobble = false
+    @AppStorage("traktSyncWatched") private var syncWatched = false
     let redirectURI = "urn:ietf:wg:oauth:2.0:oob"
 
     func saveClientId() {
@@ -968,6 +970,40 @@ struct ServerSettings: View {
                         Text("Not set up yet. Follow the steps below.").foregroundColor(.secondary)
                     }
                     if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange) }
+                }
+            }
+            if trakt.user != nil {
+                PrefRow(label: "Scrobbling") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Scrobble what I watch in Cove", isOn: $scrobble)
+                        Text("Trakt shows what you're watching and logs the play when you finish (past 80%).")
+                            .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                PrefRow(label: "Watched status") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Sync watched status", isOn: $syncWatched)
+                            .onChange(of: syncWatched) { _, on in if on { Task { await trakt.importWatched(emby) } } }
+                        Text("Marking something watched or unwatched in Cove changes it on Trakt, and plays Trakt gets from other apps are marked watched here (from now on, every hour).")
+                            .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                        if syncWatched {
+                            HStack(spacing: 10) {
+                                Button("Sync Now") { Task { await trakt.importWatched(emby) } }
+                                if let t = trakt.lastWatchedSync {
+                                    Text("Last synced \(t.formatted(date: .abbreviated, time: .shortened))")
+                                        .font(.callout).foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+                if scrobble || syncWatched {
+                    PrefRow {
+                        Label("If your Emby server's Trakt plugin also scrobbles or syncs watched status for you, turn that off in the plugin (or here), or every play is logged twice.",
+                              systemImage: "exclamationmark.triangle")
+                            .font(.callout).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: 440, alignment: .leading)
+                    }
                 }
             }
             if trakt.user == nil && trakt.signIn == nil {

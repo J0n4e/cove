@@ -59,6 +59,13 @@ struct CoveApp: App {
                 .frame(minWidth: 1000, minHeight: 650)
                 .sessionExpiredAlert(emby)
                 .task { await Updater.shared.checkOnLaunch() }
+                // Trakt watched sync (when switched on): plays from other apps, at launch and every hour
+                .task(id: emby.token) {
+                    while !Task.isCancelled {
+                        await Trakt.shared.importWatched(emby)
+                        try? await Task.sleep(for: .seconds(3600))
+                    }
+                }
         }
         .commands {
             // Cove → Settings… (⌘,), as in the Apple TV app

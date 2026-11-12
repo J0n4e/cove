@@ -33,6 +33,7 @@ struct Item: Identifiable, Decodable, Hashable {
     let Status: String?
     let PremiereDate: String?            // a person's birth date
     let ProductionLocations: [String]?   // a person's birthplace
+    let ProviderIds: [String: String]?   // only when asked for (Trakt watched sync)
     struct UD: Decodable, Hashable { let Played: Bool?; let IsFavorite: Bool?; let PlayedPercentage: Double?; let UnplayedItemCount: Int?; let PlaybackPositionTicks: Int64? }
     var id: String { Id }
     var backdropId: String? { (BackdropImageTags ?? []).isEmpty ? ParentBackdropItemId : Id }
@@ -161,8 +162,12 @@ struct Full: Decodable {
     let RemoteTrailers: [Link]?
     let UserData: UD?
     let Chapters: [Chapter]?
-    /// "Imdb": "tt…", "Tmdb": "603", "Tvdb": … (for Trakt ratings)
+    /// "Imdb": "tt…", "Tmdb": "603", "Tvdb": … (for Trakt)
     let ProviderIds: [String: String]?
+    // For Trakt watched sync: what the item is, and for a season its show and number
+    let `Type`: String?
+    let SeriesId: String?
+    let IndexNumber: Int?
     struct Named: Decodable { let Name: String }
     struct Person: Decodable, Identifiable {
         let Id: String
@@ -904,10 +909,14 @@ final class Emby: ObservableObject {
 
     func reportStart(_ s: PlaySession, _ sec: Double) async {
         await postJSON("/Sessions/Playing", progressBody(s, sec), on: s)
+        if s.server == server { await Trakt.shared.scrobble("start", itemId: s.itemId, session: s.id, at: sec, emby: self) }
     }
 
     func reportProgress(_ s: PlaySession, _ sec: Double, paused: Bool) async {
         await postJSON("/Sessions/Playing/Progress", progressBody(s, sec, paused: paused), on: s)
+        if s.server == server {
+            await Trakt.shared.scrobble(paused ? "pause" : "start", itemId: s.itemId, session: s.id, at: sec, emby: self)
+        }
     }
 
     /// Tells the server this playback is still alive (used while paused, so it keeps the transcode running).
@@ -928,6 +937,9 @@ final class Emby: ObservableObject {
         recentStopped.append(s)
         if recentStopped.count > 6 { recentStopped.removeFirst() }
         await postJSON("/Sessions/Playing/Stopped", progressBody(s, sec), on: s)
+        if s.server == server && !quick {
+            await Trakt.shared.scrobble("stop", itemId: s.itemId, session: s.id, at: sec, duration: duration, emby: self)
+        }
         await stopEncoding(s)
         if quick { return }
         // A segment request that was still in flight when playback stopped can make the server start a NEW
@@ -965,6 +977,19 @@ final class Emby: ObservableObject {
         positions[id] = 0
         for c in children { played[c.id] = v; positions[c.id] = 0 }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
+        if name != nil { await Trakt.shared.setWatched(itemId: id, v, emby: self) }   // a click, not the player or a sync
+    }
+
+    /// The movie or episode with one of these Trakt ids (imdb / tmdb / tvdb) in this library, for watched sync.
+    func findByProviderIds(_ ids: [String: String], episode: Bool) async -> Item? {
+        for (p, v) in ids.sorted(by: { $0.key < $1.key }) {
+            let r: ItemList? = try? await get("/Users/\(userId)/Items", [
+                "Recursive": "true", "IncludeItemTypes": episode ? "Episode" : "Movie",
+                "AnyProviderIdEquals": "\(p).\(v)", "Fields": "ProviderIds", "Limit": "5"])
+            // Servers that don't know the filter answer with everything: only take an item that really has the id
+            if let it = r?.Items.first(where: { Trakt.ids($0.ProviderIds)[p] == v }) { return it }
+        }
+        return nil
     }
     /// `children`: a season's episodes. Favorites don't carry down on the server, so each episode is sent too.
     func setFav(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
