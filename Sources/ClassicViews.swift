@@ -817,7 +817,7 @@ struct ClassicFavoritesView: View {
             // Opened through the page path (like every other page), so Back shows and the top bar can leave it
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
-                    Text(title).font(.cv(15, weight: .bold))
+                    Text3D(text: title, size: 16)
                     Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
@@ -919,7 +919,7 @@ struct ClassicPersonView: View {
     func section(_ title: String, _ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title).font(.cv(17, weight: .bold))
+                Text3D(text: title, size: 17)
                 Text("\(list.count)").font(.cv(15, weight: .regular)).foregroundColor(.secondary)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
@@ -3934,8 +3934,7 @@ extension View {
     func classicHoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(SelfHoverLift(play: play, onPlay: onPlay)) }
 }
 
-/// A page's name at the top left (a library, Favorites): its icon and name in a glass pill, as the top bar's
-/// selected section.
+/// A page's name at the top left (a library, Favorites): its icon and name in 3D lettering.
 struct ClassicPageTitle: View {
     let text: String
     var icon: String? = nil
@@ -3951,12 +3950,33 @@ struct ClassicPageTitle: View {
     }
     var body: some View {
         HStack(spacing: 8) {
-            if let icon { Image(systemName: icon).font(.cv(15, weight: .semibold)) }
-            Text(text).font(.cv(18, weight: .bold))
+            if let icon { Text3D(image: Image(systemName: icon), size: 18) }
+            Text3D(text: text, size: 22)
         }
-        .foregroundColor(.white)
-        .padding(.horizontal, 18).frame(height: 40)
-        .classicGlassPill()
+    }
+}
+
+/// Lettering with depth: glossy white (light on top, shade at the bottom), grey layers stepped down-right under
+/// it as its thickness, and a soft shadow.
+struct Text3D: View {
+    var text: String = ""
+    var image: Image? = nil
+    var size: CGFloat
+    @ViewBuilder var glyph: some View {
+        if let image { image.font(.cv(size * 0.85, weight: .bold)) } else { Text(text).font(.cv(size, weight: .heavy)) }
+    }
+    var body: some View {
+        let depth = max(2, Int(size / 6))
+        ZStack {
+            // Thickness: dark layers stepped down-right
+            ForEach(1...depth, id: \.self) { i in
+                glyph.foregroundColor(Color(white: 0.5 - Double(i) * 0.05))   // grey, so it shows on a black page
+                    .offset(x: CGFloat(i) * 0.7, y: CGFloat(i) * 1.0)
+            }
+            glyph.foregroundStyle(LinearGradient(colors: [.white, Color(white: 0.92), Color(white: 0.62)],
+                                                 startPoint: .top, endPoint: .bottom))
+        }
+        .shadow(color: .black.opacity(0.6), radius: 3, x: 1, y: 3)
     }
 }
 
