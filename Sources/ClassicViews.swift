@@ -625,7 +625,7 @@ struct ClassicTopBackButton: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = $0 }
+        .onHover { hover = ScrollActivity.hover(hover, $0) }
         .keyboardShortcut("[", modifiers: .command)
         .accessibilityLabel("Back")
         .disabled(emby.playing != nil)
@@ -1184,7 +1184,7 @@ struct GlassSlider: View {
                 .onEnded { _ in dragging = false; onEditing(false) })
         }
         .frame(height: 18)
-        .onHover { hover = $0 }
+        .onHover { hover = ScrollActivity.hover(hover, $0) }
         .animation(.easeOut(duration: 0.12), value: hover || dragging)
     }
 }
@@ -1389,7 +1389,7 @@ struct ClassicHero: View {
         .background(GeometryReader { g in
             Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
         })
-        .onHover { hover = $0 }
+        .onHover { hover = ScrollActivity.hover(hover, $0) }
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
         // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
         .task(id: "\(pos)-\(hover)-\(playback.active)") {
@@ -1599,7 +1599,7 @@ struct ClassicResumeCard: View {
             }
             .frame(width: 260, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .onHover { hover = ScrollActivity.hover(hover, $0) }
             .onTapGesture { openPage() }.handCursor()
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
@@ -2181,7 +2181,7 @@ struct ClassicCastTile: View {
                     }.padding(big ? 8 : 0)
                 }
             }
-            .onHover { hover = $0 }
+            .onHover { hover = ScrollActivity.hover(hover, $0) }
             .classicHoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font(.cv(big ? 12 : 10, weight: .semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(.cv(10)).foregroundColor(.secondary).lineLimit(1)
