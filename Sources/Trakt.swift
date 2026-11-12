@@ -219,9 +219,11 @@ final class Trakt: ObservableObject {
         _ = try? await send("/scrobble/\(action)", method: "POST", json: body)
     }
 
-    /// A Watched / Unwatched click in Cove: the same change on Trakt (movies, episodes, whole shows and seasons).
+    /// A Watched click in Cove adds a play on Trakt (movies, episodes, whole shows and seasons). Unwatched
+    /// leaves Trakt alone: it only resets the progress here (e.g. to watch a show again), and Trakt keeps
+    /// every play, so rewatches add up there.
     func setWatched(itemId: String, _ watched: Bool, emby: Emby) async {
-        guard watchedSyncOn, let f = await emby.full(itemId) else { return }
+        guard watched, watchedSyncOn, let f = await emby.full(itemId) else { return }
         var body: [String: Any] = [:]
         switch f.`Type` {
         case "Movie", "Episode":
@@ -239,7 +241,7 @@ final class Trakt: ObservableObject {
             body = ["shows": [["ids": ids, "seasons": [["number": n]]]]]
         default: return
         }
-        do { _ = try await send(watched ? "/sync/history" : "/sync/history/remove", method: "POST", json: body) }
+        do { _ = try await send("/sync/history", method: "POST", json: body) }
         catch { lastError = describe(error) }
     }
 

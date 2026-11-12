@@ -984,7 +984,7 @@ struct ServerSettings: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle("Sync watched status", isOn: $syncWatched)
                             .onChange(of: syncWatched) { _, on in if on { Task { await trakt.importWatched(emby) } } }
-                        Text("Marking something watched or unwatched in Cove changes it on Trakt, and plays Trakt gets from other apps are marked watched here (from now on, every hour).")
+                        Text("Marking something watched in Cove adds a play on Trakt, and plays Trakt gets from other apps are marked watched here (from now on, every hour). Marking it unwatched only resets your progress in Cove: Trakt keeps every play, so rewatches add up.")
                             .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                         if syncWatched {
                             HStack(spacing: 10) {
