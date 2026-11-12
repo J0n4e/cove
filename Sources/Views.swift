@@ -625,9 +625,11 @@ struct TopNavBar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             // On a narrow window the sections don't all fit: the pill then scrolls sideways instead of
             // spilling past the window edge, where its buttons can't be clicked and Back gets squeezed out
+            // Too narrow for the names: icons only (names on hover); scrolling only if even those don't fit
             ViewThatFits(in: .horizontal) {
                 TopNavButtons()
-                ScrollView(.horizontal, showsIndicators: false) { TopNavButtons() }
+                TopNavButtons(compact: true)
+                ScrollView(.horizontal, showsIndicators: false) { TopNavButtons(compact: true) }
             }.layoutPriority(1)
             TopNavTools().fixedSize()
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -646,7 +648,10 @@ struct TopNavButtons: View {
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
-    @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
+    @AppStorage("topBarLabels") private var labelSetting = "both"   // Settings → General: "both", "names" or "icons"
+    /// The window is too narrow for the names: icons only, whatever Settings says.
+    var compact = false
+    var labels: String { compact ? "icons" : labelSetting }
     func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
