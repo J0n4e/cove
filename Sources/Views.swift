@@ -141,7 +141,7 @@ struct AlphaLetter: View {
             if hover {
                 Text(l).font(.system(size: 19, weight: .heavy)).foregroundColor(.black.opacity(0.85))
                     .frame(width: 34, height: 36)
-                    .offset(x: 7, y: -17)   // the turn moves the drop's round part up-left; the letter follows
+                    .offset(x: 7, y: -15)   // the turn moves the drop's round part up-left; the letter follows
                     .padding(.trailing, 8)   // the point
                     // The drop lies like a backslash: round part up-left, the point down-right at the letter
                     .background(TeardropGlass().rotationEffect(.degrees(45), anchor: .trailing))
