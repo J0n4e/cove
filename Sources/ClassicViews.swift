@@ -1038,6 +1038,7 @@ struct SeasonDeck: View {
     /// The deck's own position; the page's season follows it (and the deck follows the page when the season
     /// changes elsewhere).
     @State private var pos = -1
+    @State private var swipe = DeckSwipe()
     var shownPos: Int { pos >= 0 ? pos : (numbers.firstIndex(of: selected) ?? 0) }
 
     var body: some View {
@@ -1052,7 +1053,19 @@ struct SeasonDeck: View {
             }
             arrow("chevron.right", "Next \(noun)", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
         }
-        .onAppear { pos = numbers.firstIndex(of: selected) ?? 0 }
+        .onHover { swipe.inside = $0 }
+        .onAppear {
+            pos = numbers.firstIndex(of: selected) ?? 0
+            let box = swipe
+            swipe.monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { e in
+            guard box.inside, let step = box.step(e) else { return box.inside && box.horizontal ? nil : e }
+                // Past the first or last card the page scrolls on instead
+                guard numbers.indices.contains(shownPos + step) else { return e }
+                go(shownPos + step)
+                return nil
+            }
+        }
+        .onDisappear { if let m = swipe.monitor { NSEvent.removeMonitor(m); swipe.monitor = nil } }
         .onChange(of: selected) { _, s in
             if let i = numbers.firstIndex(of: s), i != pos { pos = i }
         }
@@ -1116,20 +1129,42 @@ struct SeasonDeck: View {
         CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
         } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.cv(10, weight: .regular)) } }
-        .frame(width: w, height: h).clipped()
-        .overlay(alignment: .bottomLeading) {
-            // Only on the front card; fades with the move instead of popping in
-            Text(title(n)).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                .classicBlackOutline()
-                .padding(.horizontal, 10).padding(.bottom, 9)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .opacity(k == 0 && caption == nil ? 1 : 0)   // a movie poster shows its own title
-        }
+        .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
         .cornerRadius(10)
         .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
         .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+    }
+}
+
+/// A two-finger trackpad swipe over a card deck: one card per swipe (left = next, right = previous), whatever
+/// the swipe's length; the page keeps scrolling up and down as usual, and the mouse wheel always scrolls the page.
+final class DeckSwipe {
+    var monitor: Any?
+    var inside = false
+    /// This swipe goes sideways (its events are the deck's, not the page's)
+    var horizontal = false
+    private var dx: CGFloat = 0
+    private var fired = false
+
+    /// The step this event completes (+1 next, -1 previous), or nil.
+    func step(_ e: NSEvent) -> Int? {
+        // The coasting after the fingers lift belongs to the swipe already counted
+        if !e.momentumPhase.isEmpty { return nil }
+        if e.phase == .began || e.phase == .mayBegin { dx = 0; fired = false; horizontal = false }
+        // A mouse wheel (no phases at all; a trackpad marks every event with its swipe or coasting phase) stays
+        // the page's
+        if e.phase.isEmpty && e.momentumPhase.isEmpty { horizontal = false; return nil }
+        if e.phase == .ended || e.phase == .cancelled { horizontal = false; return nil }
+        if !horizontal {
+            guard abs(e.scrollingDeltaX) > abs(e.scrollingDeltaY) else { return nil }
+            horizontal = true
+        }
+        dx += e.scrollingDeltaX
+        guard !fired, abs(dx) > 40 else { return nil }
+        fired = true
+        return dx < 0 ? 1 : -1   // fingers to the left bring the next card
     }
 }
 
@@ -1521,15 +1556,7 @@ struct ClassicHero: View {
         CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
         } placeholder: { Color(white: 0.15) }
-        .frame(width: deckW, height: deckW * 9 / 16).clipped()
-        .overlay(alignment: .bottomLeading) {
-            // No background: a black outline, as the other cards
-            Text(it.heroTitle).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                .classicBlackOutline()
-                .padding(.horizontal, 10).padding(.bottom, 9)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .opacity(k == 0 ? 1 : 0)
-        }
+        .frame(width: deckW, height: deckW * 9 / 16).clipped()   // no name on the card (the banner beside it says it)
         .cornerRadius(12)
         .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: deckW, height: deckW * 9 / 16),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
