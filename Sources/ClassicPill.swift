@@ -55,12 +55,12 @@ struct ClassicGlassPillStyle: ViewModifier {
         if #available(macOS 26, *) {
             // System glass, untinted: lenses the page behind it, with light catching the edges and reacting to the
             // pointer
-            sized(content).foregroundColor(.white)
+            sized(content).glossyLettering()
                 .background(hoverTint)
                 .background(ClassicGlassBacking(shape: Capsule()))
                 .glassEffect(.clear.interactive(), in: Capsule())   // the clearest glass
         } else {
-            sized(content).foregroundColor(.white).background(hoverTint).background(ClassicGlassPill())
+            sized(content).glossyLettering().background(hoverTint).background(ClassicGlassPill())
         }
     }
     private var accent: Color { Theme.accent(accentName) }
@@ -203,6 +203,13 @@ extension EnvironmentValues {
 }
 
 extension View {
+    /// The top bar's glossy lettering (white fading to light grey, soft shadow) for a button's name and icon.
+    /// Parts that set their own color (the rating star, the heart) keep it.
+    func glossyLettering() -> some View {
+        foregroundStyle(LinearGradient(colors: [.white, Color(white: 0.92), Color(white: 0.62)],
+                                       startPoint: .top, endPoint: .bottom))
+            .shadow(color: .black.opacity(0.6), radius: 3, x: 1, y: 3)
+    }
     func classicClearGlass() -> some View { modifier(ClassicClearGlass(shape: Capsule())) }
     /// The banner Play button's glass pill, only when `on` (the selected top-bar section).
     @ViewBuilder func classicSelectedPill(_ on: Bool) -> some View {
