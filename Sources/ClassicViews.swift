@@ -1129,15 +1129,7 @@ struct SeasonDeck: View {
         CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
         } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.cv(10, weight: .regular)) } }
-        .frame(width: w, height: h).clipped()
-        .overlay(alignment: .bottomLeading) {
-            // Only on the front card; fades with the move instead of popping in
-            Text(title(n)).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                .classicBlackOutline()
-                .padding(.horizontal, 10).padding(.bottom, 9)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .opacity(k == 0 && caption == nil ? 1 : 0)   // a movie poster shows its own title
-        }
+        .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
         .cornerRadius(10)
         .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
