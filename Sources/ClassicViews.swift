@@ -751,7 +751,7 @@ struct ClassicFavoritesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Favorites").font(.cv(22, weight: .bold))
+                    ClassicPageTitle(text: "Favorites", icon: "heart.fill")
                     if !favs.isEmpty { Text("\(favs.count) Items").foregroundColor(.secondary) }
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
@@ -847,7 +847,7 @@ struct ClassicFavoriteGridView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(title).font(.cv(22, weight: .bold))
+                ClassicPageTitle(text: title, icon: "heart.fill")
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(items.filter { emby.isFav($0) }) { ClassicPosterCard(item: $0) }
                 }
@@ -1979,7 +1979,7 @@ struct ClassicLibraryView: View {
     var header: some View {
         VStack(spacing: 16) {
             ZStack {
-                HStack { Text(lib.title).font(.cv(17, weight: .bold)); Spacer() }
+                HStack { ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind)); Spacer() }
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
                         Button { tab = i } label: {
@@ -3934,6 +3934,32 @@ extension View {
     func classicHoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(SelfHoverLift(play: play, onPlay: onPlay)) }
 }
 
+/// A page's name at the top left (a library, Favorites): its icon and name in a glass pill, as the top bar's
+/// selected section.
+struct ClassicPageTitle: View {
+    let text: String
+    var icon: String? = nil
+    static func icon(_ kind: String?) -> String {
+        switch kind {
+        case "movies": return "film"
+        case "tvshows": return "tv"
+        case "boxsets": return "square.stack"
+        case "music": return "music.note"
+        case "homevideos": return "video"
+        default: return "folder"
+        }
+    }
+    var body: some View {
+        HStack(spacing: 8) {
+            if let icon { Image(systemName: icon).font(.cv(15, weight: .semibold)) }
+            Text(text).font(.cv(18, weight: .bold))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 18).frame(height: 40)
+        .classicGlassPill()
+    }
+}
+
 /// One letter of the Classic A–Z bar: the original look, plus a pointing hand and a light circle under the mouse.
 struct ClassicAlphaLetter: View {
     let l: String
@@ -4020,7 +4046,7 @@ struct ClassicFavoritePeopleView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Favorite People").font(.cv(22, weight: .bold))
+                ClassicPageTitle(text: "Favorite People", icon: "person.2.fill")
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(people.filter { emby.isFav($0) }) { ClassicFavPersonCard(p: $0) }
                 }
