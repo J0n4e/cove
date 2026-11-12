@@ -96,7 +96,7 @@ struct RatedStar: View {
                             let a = Double(i) * .pi / 4
                             star.foregroundColor(.black.opacity(0.85)).offset(x: cos(a) * 0.9, y: sin(a) * 0.9)
                         }
-                        Glossy(symbol: star, color: Theme.accent(accentName))
+                        Glossy(symbol: star, color: .white)
                     }
                 } else {
                     star.foregroundColor(.white)
@@ -130,12 +130,19 @@ struct Glossy<Symbol: View>: View {
     }
 }
 
-/// The favorite heart everywhere (posters, cast, cards, favorite buttons): glossy, in the accent color.
+/// The favorite heart everywhere (posters, cast, cards, favorite buttons): glossy white with a thin black
+/// outline, like the rating star and watched check.
 struct FavHeart: View {
     var size: CGFloat = 14
-    @AppStorage("accent") private var accentName = "red"
     var body: some View {
-        Glossy(symbol: Image(systemName: "heart.fill").font(.system(size: size)), color: Theme.accent(accentName))
+        let heart = Image(systemName: "heart.fill").font(.system(size: size))
+        ZStack {
+            ForEach(0..<8, id: \.self) { i in
+                let a = Double(i) * .pi / 4
+                heart.foregroundColor(.black.opacity(0.85)).offset(x: cos(a) * 0.9, y: sin(a) * 0.9)
+            }
+            Glossy(symbol: heart, color: .white)
+        }
     }
 }
 

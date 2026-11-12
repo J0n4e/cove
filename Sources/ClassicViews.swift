@@ -3964,14 +3964,13 @@ struct ClassicAlphaLetter: View {
         // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {
-                Text(l).font(.cv(26, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
-                    .frame(width: 46, height: 48)
-                    .padding(.trailing, 18)   // the point
-                    .background(Teardrop().fill(Theme.accent(accentName)))
-                    .overlay(Teardrop().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                Text(l).font(.cv(19, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
+                    .frame(width: 34, height: 36)
+                    .padding(.trailing, 13)   // the point
+                    .background(TeardropGlass(color: Theme.accent(accentName)))
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
-                    .offset(x: -12)   // the point reaches toward the letter under the pointer
+                    .offset(x: -10)   // the point reaches toward the letter under the pointer
                     .allowsHitTesting(false)
                     .transition(.opacity)
             }

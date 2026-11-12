@@ -98,6 +98,21 @@ struct Teardrop: Shape {
     }
 }
 
+/// The A–Z letter preview's glass: frosted, tinted with the accent (see-through), a light top and a bright rim.
+struct TeardropGlass: View {
+    let color: Color
+    var body: some View {
+        ZStack {
+            Teardrop().fill(.ultraThinMaterial)
+            Teardrop().fill(color.opacity(0.62))
+            Teardrop().fill(LinearGradient(colors: [.white.opacity(0.28), .clear, .black.opacity(0.15)],
+                                           startPoint: .top, endPoint: .bottom))
+            Teardrop().stroke(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0.12), .white.opacity(0.3)],
+                                             startPoint: .top, endPoint: .bottom), lineWidth: 0.8)
+        }
+    }
+}
+
 /// One letter of the library A–Z bar.
 struct AlphaLetter: View {
     @AppStorage("accent") private var accentName = "red"
@@ -122,14 +137,13 @@ struct AlphaLetter: View {
         // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {
-                Text(l).font(.system(size: 26, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
-                    .frame(width: 46, height: 48)
-                    .padding(.trailing, 18)   // the point
-                    .background(Teardrop().fill(Theme.accent(accentName)))
-                    .overlay(Teardrop().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                Text(l).font(.system(size: 19, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
+                    .frame(width: 34, height: 36)
+                    .padding(.trailing, 13)   // the point
+                    .background(TeardropGlass(color: Theme.accent(accentName)))
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
-                    .offset(x: -12)   // the point reaches toward the letter under the pointer
+                    .offset(x: -10)   // the point reaches toward the letter under the pointer
                     .allowsHitTesting(false)
                     .transition(.opacity)
             }
