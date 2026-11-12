@@ -96,9 +96,11 @@ private struct HoverTip: ViewModifier {
     @Environment(\.tipCenter) private var center
     func body(content: Content) -> some View {
         content
+            // The frame reader exists only while the bubble shows (a reader on every badge of every poster
+            // was laid out again on each scroll frame)
             .overlay {
+                if shown && !text.isEmpty {
                 GeometryReader { g in
-                    if shown && !text.isEmpty {
                         if let center {
                             let f = g.frame(in: .named("tipLayer"))
                             Color.clear
@@ -107,12 +109,12 @@ private struct HoverTip: ViewModifier {
                         } else {
                             TipBubble(text: text).position(x: g.size.width / 2, y: g.size.height + 8 + 12)
                         }
-                    }
                 }
                 .allowsHitTesting(false)
+                }
             }
             .zIndex(shown ? 1 : 0)
-            .onHover { hover = $0; if !$0 { shown = false } }
+            .onHover { hover = ScrollActivity.hover(hover, $0); if !$0 { shown = false } }
             .onDisappear { center?.hide(id) }
             // Shows after the pointer rests a moment, as a system tooltip does
             .task(id: hover) {

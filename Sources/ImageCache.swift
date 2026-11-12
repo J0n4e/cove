@@ -194,6 +194,7 @@ struct CachedImage<Content: View>: View {
     let url: URL?
     let content: (AsyncImagePhase) -> Content
     @State private var phase: AsyncImagePhase = .empty
+    @State private var shownURL: URL?    // the full picture for this link is already showing
 
     init(url: URL?, @ViewBuilder content: @escaping (AsyncImagePhase) -> Content) {
         self.url = url
@@ -202,6 +203,7 @@ struct CachedImage<Content: View>: View {
         // otherwise the blurred preview, if there is one
         if let url, let img = ImageCache.shared.cached(url) {
             _phase = State(initialValue: .success(Image(nsImage: img)))
+            _shownURL = State(initialValue: url)
         } else if let url, let blur = BlurHash.preview(for: url) {
             _phase = State(initialValue: .success(Image(nsImage: blur)))
         }
@@ -218,11 +220,14 @@ struct CachedImage<Content: View>: View {
         content(phase)
             .task(id: url) {
                 guard let url else { phase = .empty; return }
-                if let img = ImageCache.shared.cached(url) { phase = .success(Image(nsImage: img)); return }
+                // Shown from memory on the first frame: setting it again would redraw every poster scrolling in
+                if shownURL == url { return }
+                if let img = ImageCache.shared.cached(url) { phase = .success(Image(nsImage: img)); shownURL = url; return }
                 if let blur = BlurHash.preview(for: url) { phase = .success(Image(nsImage: blur)) }
                 else if case .success = phase {} else { phase = .empty }
                 if let img = await ImageCache.shared.image(url) {
                     withAnimation(.easeOut(duration: 0.2)) { phase = .success(Image(nsImage: img)) }
+                    shownURL = url
                 } else if !Task.isCancelled, phase.image == nil {
                     phase = .failure(URLError(.cannotDecodeContentData))
                 }
