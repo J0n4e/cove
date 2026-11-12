@@ -2203,6 +2203,7 @@ struct ClassicDetailView: View {
     @Environment(\.appBG) var bg
     @Environment(\.dismiss) var dismiss
     let item: Item
+    @AppStorage("accent") private var accentName = "red"   // episode cards' hover glow
     @State private var full: Full?
     @State private var kids: [Item] = []
     @State private var seasonItems: [Item] = []
@@ -2658,7 +2659,8 @@ struct ClassicDetailView: View {
                     if pct > 0, pct < 100, !played { ClassicProgressCircle(progress: pct / 100).padding(6) }
                 }
                 .cornerRadius(6)
-                .classicThinBorder(6, size: CGSize(width: 220, height: 124))
+                .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), size: CGSize(width: 220, height: 124),
+                                           tracksHover: true))   // the posters' light glass edge
                 .classicHoverLift(play: 36) { playEpisode(ep) }
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
@@ -2766,7 +2768,7 @@ struct ClassicDetailView: View {
                     if hasProgress { ClassicProgressCircle(progress: pct / 100).padding(8) }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
-                .classicThinBorder(6)
+                .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
                 .classicHoverLift(play: 40) { playEpisode(ep) }
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))

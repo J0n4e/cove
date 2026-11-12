@@ -166,9 +166,13 @@ struct ClassicLightCard: ViewModifier {
     var accent: Color = .clear
     /// The card's size, when it's fixed: the edge is then drawn once into a picture and reused (see Raster)
     var size: CGSize? = nil
+    /// For cards that don't pass their hover in (episodes): follows the pointer itself
+    var tracksHover = false
+    @State private var ownHover = false
     @Environment(\.displayScale) private var scale
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
+        let hover = self.hover || ownHover
         let lit = hover ? 1.0 : 0.7
         return content
             .overlay {
@@ -181,6 +185,10 @@ struct ClassicLightCard: ViewModifier {
                 }
             }
             .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+            .onHover { h in
+                guard tracksHover, !(h && ScrollActivity.scrolling) else { return }
+                withAnimation(.easeOut(duration: 0.2)) { ownHover = h }
+            }
     }
 
     func edge(_ shape: RoundedRectangle, lit: Double) -> some View {
