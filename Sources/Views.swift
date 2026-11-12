@@ -79,6 +79,25 @@ struct GlassCapsule: ViewModifier {
 }
 extension View { func glassCapsule() -> some View { modifier(GlassCapsule()) } }
 
+/// A teardrop lying on its side: round on the left, its point at the middle of the right edge.
+struct Teardrop: Shape {
+    func path(in rect: CGRect) -> Path {
+        let r = rect.height / 2
+        let c = CGPoint(x: rect.minX + r, y: rect.midY)
+        let tip = CGPoint(x: rect.maxX, y: rect.midY)
+        let d = tip.x - c.x
+        guard d > r else { return Path(ellipseIn: rect) }
+        // Where the straight sides touch the circle
+        let a = acos(r / d)
+        var p = Path()
+        p.move(to: tip)
+        p.addLine(to: CGPoint(x: c.x + r * cos(a), y: c.y - r * sin(a)))
+        p.addArc(center: c, radius: r, startAngle: .radians(-a), endAngle: .radians(a), clockwise: true)
+        p.closeSubpath()
+        return p
+    }
+}
+
 /// One letter of the library A–Z bar.
 struct AlphaLetter: View {
     @AppStorage("accent") private var accentName = "red"
@@ -100,16 +119,17 @@ struct AlphaLetter: View {
         .buttonStyle(.plainHand)
         .scaleEffect(scale)
         .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
-        // The pointer covers the letter itself: a large preview of it beside the bar, to the left
+        // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {
                 Text(l).font(.system(size: 26, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
-                    .frame(width: 48, height: 48)
-                    .background(Circle().fill(Theme.accent(accentName)))
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
+                    .frame(width: 46, height: 48)
+                    .padding(.trailing, 18)   // the point
+                    .background(Teardrop().fill(Theme.accent(accentName)))
+                    .overlay(Teardrop().stroke(Color.white.opacity(0.35), lineWidth: 1))
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
-                    .offset(x: -44)
+                    .offset(x: -12)   // the point reaches toward the letter under the pointer
                     .allowsHitTesting(false)
                     .transition(.opacity)
             }

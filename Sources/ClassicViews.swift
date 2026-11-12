@@ -3961,16 +3961,17 @@ struct ClassicAlphaLetter: View {
         .buttonStyle(.plainHand)
         .scaleEffect(scale)
         .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
-        // The pointer covers the letter itself: a large preview of it beside the bar, to the left
+        // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {
                 Text(l).font(.cv(26, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
-                    .frame(width: 48, height: 48)
-                    .background(Circle().fill(Theme.accent(accentName)))
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
+                    .frame(width: 46, height: 48)
+                    .padding(.trailing, 18)   // the point
+                    .background(Teardrop().fill(Theme.accent(accentName)))
+                    .overlay(Teardrop().stroke(Color.white.opacity(0.35), lineWidth: 1))
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
-                    .offset(x: -44)
+                    .offset(x: -12)   // the point reaches toward the letter under the pointer
                     .allowsHitTesting(false)
                     .transition(.opacity)
             }
