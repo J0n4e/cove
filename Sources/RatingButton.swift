@@ -54,23 +54,7 @@ struct RatingButton: View {
         }
     }
 
-    /// The rating on a big white star, as one round button; the number is white with a black outline.
-    func starred(_ r: Int) -> some View {
-        let w = size - (classic ? 2 : 0)
-        let number = Text("\(r)").font(.system(size: w * (r == 10 ? 0.25 : 0.29), weight: .heavy))
-        return ZStack {
-            // A star's body sits below the middle of its outline box (the top point sticks up): raised so the
-            // body is in the middle of the button, where the number goes
-            Image(systemName: "star.fill").font(.system(size: w * 0.76)).foregroundColor(.white)
-                .offset(y: -w * 0.045)
-            // Black outline: the number drawn in black around itself, then in white on top
-            ForEach(0..<8, id: \.self) { i in
-                let a = Double(i) * .pi / 4
-                number.foregroundColor(.black).offset(x: cos(a) * 1.1, y: sin(a) * 1.1)
-            }
-            number.foregroundColor(.white)
-        }
-    }
+    func starred(_ r: Int) -> some View { RatedStar(rating: r, width: size - (classic ? 2 : 0)) }
 
     /// A small dot while the rating hasn't reached Trakt yet.
     @ViewBuilder var badge: some View {
@@ -84,24 +68,49 @@ struct RatingButton: View {
     }
 }
 
-/// Your Trakt rating on a poster ("★ 9"), next to the favorite heart; nothing when it isn't rated.
+/// The rating on a big white star, the number white with a black outline. `width`: the round button or badge
+/// it sits in; `fill`: how much of it the star takes.
+struct RatedStar: View {
+    let rating: Int
+    let width: CGFloat
+    var fill: CGFloat = 0.76
+    var body: some View {
+        let w = width
+        // Small badges (posters) need the number a bigger share of the star to stay readable
+        let small = w < 34
+        let share: CGFloat = small ? (rating == 10 ? 0.36 : 0.42) : (rating == 10 ? 0.25 : 0.29) * fill / 0.76
+        let number = Text("\(rating)").font(.system(size: w * share, weight: .heavy))
+        let line: CGFloat = small ? 0.6 : w * 0.025
+        ZStack {
+            // A star's body sits below the middle of its outline box (the top point sticks up): raised so the
+            // body is in the middle of the button, where the number goes
+            Image(systemName: "star.fill").font(.system(size: w * fill)).foregroundColor(.white)
+                .offset(y: -w * fill * 0.06)
+            // Black outline: the number drawn in black around itself, then in white on top
+            ForEach(0..<8, id: \.self) { i in
+                let a = Double(i) * .pi / 4
+                number.foregroundColor(.black).offset(x: cos(a) * line, y: sin(a) * line)
+            }
+            number.foregroundColor(.white)
+        }
+    }
+}
+
+/// Your Trakt rating on a poster (the number on a white star), next to the favorite heart; nothing when it
+/// isn't rated.
 struct MyRatingBadge: View {
     let item: Item
     @ObservedObject private var trakt = Trakt.shared
-    @AppStorage("accent") private var accentName = "red"
     @Environment(\.classicGlass) private var classic   // Glass3D: the same glass tube as the watched badge
     var body: some View {
         if let r = trakt.rating(item) {
-            let label = HStack(spacing: 2) {
-                Image(systemName: "star.fill").font(.system(size: 9, weight: .bold)).foregroundColor(Theme.accent(accentName))
-                Text("\(r)").font(.system(size: classic ? 12 : 11, weight: classic ? .bold : .heavy)).foregroundColor(.white)
-            }
-            .padding(.horizontal, classic ? 8 : 7).frame(height: 22)
+            let d: CGFloat = 28
+            let star = RatedStar(rating: r, width: d, fill: 0.92).frame(width: d, height: d)
             Group {
-                if classic { label.glassTube() }
+                if classic { star.glassTube() }
                 else {
-                    label.background(Capsule().fill(Color.black.opacity(0.7)))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
+                    star.background(Circle().fill(Color.black.opacity(0.7)))
+                        .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 }
             }
             .helpLabel("Your rating: \(r)/10")
