@@ -1024,6 +1024,11 @@ struct SeasonDeck: View {
     let badge: (Int) -> Int?
     let seasonItem: (Int) -> Item?
     let episodes: (Int) -> [Item]
+    /// Collections: the line under the deck (the front movie's year, so the order is clear), the movie the front
+    /// card opens, and what the arrows step through
+    var caption: ((Int) -> String?)? = nil
+    var link: ((Int) -> Item?)? = nil
+    var noun = "season"
     private let w: CGFloat = 280, h: CGFloat = 420
     @AppStorage("accent") private var accentName = "red"
     private let peek: CGFloat = 40
@@ -1035,9 +1040,15 @@ struct SeasonDeck: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            arrow("chevron.left", "Previous season", enabled: shownPos > 0) { go(shownPos - 1) }
-            cards
-            arrow("chevron.right", "Next season", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
+            arrow("chevron.left", "Previous \(noun)", enabled: shownPos > 0) { go(shownPos - 1) }
+            VStack(alignment: .leading, spacing: 10) {
+                cards
+                if let caption, numbers.indices.contains(shownPos), let c = caption(numbers[shownPos]) {
+                    Text(c).font(.cv(15, weight: .semibold)).foregroundColor(.white).classicBlackOutline()
+                        .frame(width: w).id(shownPos).transition(.opacity)   // centered under the front card
+                }
+            }
+            arrow("chevron.right", "Next \(noun)", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
         }
         .onAppear { pos = numbers.firstIndex(of: selected) ?? 0 }
         .onChange(of: selected) { _, s in
@@ -1071,7 +1082,7 @@ struct SeasonDeck: View {
         ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
-                Button { go(p) } label: {
+                deckButton(p, k: k) {
                     card(numbers[p], k: k)
                         .overlay(alignment: .topTrailing) {
                             if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
@@ -1088,6 +1099,15 @@ struct SeasonDeck: View {
         .transition(.opacity)
     }
 
+    /// The front card of a collection opens its movie; every other card brings itself to the front.
+    @ViewBuilder func deckButton<L: View>(_ p: Int, k: Int, @ViewBuilder label: () -> L) -> some View {
+        if k == 0, let link, let it = link(numbers[p]) {
+            NavigationLink(value: it) { label() }
+        } else {
+            Button { go(p) } label: { label() }
+        }
+    }
+
     func card(_ n: Int, k: Int) -> some View {
         CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
@@ -1099,7 +1119,7 @@ struct SeasonDeck: View {
                 .classicBlackOutline()
                 .padding(.horizontal, 10).padding(.bottom, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .opacity(k == 0 ? 1 : 0)
+                .opacity(k == 0 && caption == nil ? 1 : 0)   // a movie poster shows its own title
         }
         .cornerRadius(10)
         .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
@@ -2358,8 +2378,24 @@ struct ClassicDetailView: View {
                 Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
-            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries ? 600 : 340)
-            if !item.isSeries {
+            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries || item.isBox ? 600 : 340)
+            if item.isBox && !boxMovies.isEmpty {
+                // A collection's movies as a deck, oldest first, the year under the front one
+                let movies = boxMovies
+                SeasonDeck(numbers: Array(movies.indices), selected: 0,
+                           title: { movies[$0].Name },
+                           image: { emby.image(movies[$0].posterId, width: 500) },
+                           select: { _ in },
+                           badge: { _ in nil },
+                           seasonItem: { movies[$0] },
+                           episodes: { _ in [] },
+                           caption: { movies[$0].ProductionYear.map(String.init) },
+                           link: { movies[$0] },
+                           noun: "movie")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 44).padding(.bottom, 30)
+                    .transition(.opacity)
+            } else if !item.isSeries && !item.isBox {
                 // The movie's poster in the corner where a show's season cards sit
                 CachedImage(url: emby.image(item.id, width: 500)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
@@ -2805,6 +2841,11 @@ struct ClassicDetailView: View {
             }.contentShape(Rectangle())
         }.handCursor()
         .buttonStyle(.plainHand)
+    }
+
+    /// A collection's movies in release order (by year, then date), for the banner's deck.
+    var boxMovies: [Item] {
+        kids.sorted { ($0.ProductionYear ?? 9999, $0.PremiereDate ?? "") < ($1.ProductionYear ?? 9999, $1.PremiereDate ?? "") }
     }
 
     var boxGrid: some View {
