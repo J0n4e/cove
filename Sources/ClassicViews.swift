@@ -3964,7 +3964,7 @@ struct Text3D: View {
     var image: Image? = nil
     var size: CGFloat
     /// The grey thickness under the letters (off: just the glossy face and its shadow).
-    var thick = true
+    var thick = false
     var weight: Font.Weight = .heavy
     @ViewBuilder var glyph: some View {
         if let image { image.font(.cv(size * 0.85, weight: .bold)) } else { Text(text).font(.cv(size, weight: weight)) }
