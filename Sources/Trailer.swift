@@ -41,6 +41,7 @@ struct TrailerPlayerView: View {
     let link: URL
     @State private var blocked = false
     @State private var playerWin = WeakWindow()
+    @State private var web = WebViewBox()
     @State private var keyMonitor: Any?
     @State private var enteredFullScreen = false
     @State private var isFullScreen = false
@@ -75,7 +76,7 @@ struct TrailerPlayerView: View {
                             .buttonStyle(.borderedProminent).handCursor()
                     }
                 } else {
-                    YouTubePlayer(videoID: videoID) { blocked = true }
+                    YouTubePlayer(videoID: videoID, box: web) { blocked = true }
                 }
             }
         }
@@ -94,7 +95,10 @@ struct TrailerPlayerView: View {
                 return nil
             }
         }
-        .onDisappear { if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil } }
+        .onDisappear {
+            if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+            web.stop()
+        }
         // Keeps the full screen button's icon right, however full screen was entered (F, button, green button)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
             if playerWin.owns(n.object) { isFullScreen = true }
@@ -107,7 +111,7 @@ struct TrailerPlayerView: View {
 
     @AppStorage("theme") private var theme = "apple"
 
-    /// The page Back button of the current theme: Glass's round ‹, Classic's "‹ Back" capsule.
+    /// The page Back button of the current theme: Glass's round ‹, Glass3D's round glass ‹.
     /// (The pages' own Back buttons switch off while something plays, so these are drawn here.)
     @ViewBuilder var backButton: some View {
         if theme == "apple" {
@@ -121,17 +125,15 @@ struct TrailerPlayerView: View {
                     .contentShape(Circle())
             }.buttonStyle(HoverButton())
         } else {
+            // Glass3D's round glass ‹, as on the pages (ClassicTopBackButton switches off while something plays)
             Button(action: close) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
-                    Text("Back").font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundStyle(Color.white)
-                .padding(.horizontal, 14).padding(.vertical, 6)
-                .background(Capsule().fill(Color.white.opacity(0.18)))
-                .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
-                .contentShape(Capsule())
-            }.buttonStyle(HoverButton())
+                Image(systemName: "chevron.left").font(.cv(15, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .classicGlassPill()
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(HoverButton())
+            .focusEffectDisabled()
         }
     }
 
@@ -144,13 +146,29 @@ struct TrailerPlayerView: View {
     func close() {
         if enteredFullScreen, let w = playerWin.window, w.styleMask.contains(.fullScreen) { w.toggleFullScreen(nil) }
         enteredFullScreen = false
+        web.stop()   // the sound stops now, even if the page lingers until the view is torn down
         emby.playing = nil
+    }
+}
+
+/// The trailer's web view, so leaving the trailer can silence it. Leaving used to rely on SwiftUI tearing the
+/// web view down, which didn't always happen (after Esc the sound played on until Cove quit).
+@MainActor
+final class WebViewBox {
+    weak var view: WKWebView?
+
+    /// Pauses the video, unloads the page and takes the web view off screen. Safe to call more than once.
+    func stop() {
+        guard let v = view else { return }
+        view = nil
+        YouTubePlayer.stop(v)
     }
 }
 
 /// YouTube's embedded player (IFrame API) in a web view. Links inside it open in the browser.
 private struct YouTubePlayer: NSViewRepresentable {
     let videoID: String
+    let box: WebViewBox
     let onError: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onError: onError) }
@@ -166,14 +184,20 @@ private struct YouTubePlayer: NSViewRepresentable {
         v.setValue(false, forKey: "drawsBackground")
         // YouTube refuses embeds without a referrer; apps identify themselves by their bundle id
         v.loadHTMLString(html, baseURL: URL(string: "https://eu.jonae.cove/"))
+        box.view = v
         return v
     }
 
     func updateNSView(_ v: WKWebView, context: Context) {}
 
-    static func dismantleNSView(_ v: WKWebView, coordinator: Coordinator) {
-        v.configuration.userContentController.removeScriptMessageHandler(forName: "cove")
+    static func dismantleNSView(_ v: WKWebView, coordinator: Coordinator) { stop(v) }
+
+    static func stop(_ v: WKWebView) {
+        v.configuration.userContentController.removeAllScriptMessageHandlers()
+        v.pauseAllMediaPlayback(completionHandler: nil)
+        v.stopLoading()
         v.loadHTMLString("", baseURL: nil)
+        v.removeFromSuperview()
     }
 
     var html: String {

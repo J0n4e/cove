@@ -194,6 +194,7 @@ struct CachedImage<Content: View>: View {
     let url: URL?
     let content: (AsyncImagePhase) -> Content
     @State private var phase: AsyncImagePhase = .empty
+    @State private var shownURL: URL?    // the full picture for this link is already showing
 
     init(url: URL?, @ViewBuilder content: @escaping (AsyncImagePhase) -> Content) {
         self.url = url
@@ -202,6 +203,7 @@ struct CachedImage<Content: View>: View {
         // otherwise the blurred preview, if there is one
         if let url, let img = ImageCache.shared.cached(url) {
             _phase = State(initialValue: .success(Image(nsImage: img)))
+            _shownURL = State(initialValue: url)
         } else if let url, let blur = BlurHash.preview(for: url) {
             _phase = State(initialValue: .success(Image(nsImage: blur)))
         }
@@ -218,15 +220,49 @@ struct CachedImage<Content: View>: View {
         content(phase)
             .task(id: url) {
                 guard let url else { phase = .empty; return }
-                if let img = ImageCache.shared.cached(url) { phase = .success(Image(nsImage: img)); return }
+                // Shown from memory on the first frame: setting it again would redraw every poster scrolling in
+                if shownURL == url { return }
+                if let img = ImageCache.shared.cached(url) { phase = .success(Image(nsImage: img)); shownURL = url; return }
                 if let blur = BlurHash.preview(for: url) { phase = .success(Image(nsImage: blur)) }
                 else if case .success = phase {} else { phase = .empty }
                 if let img = await ImageCache.shared.image(url) {
                     withAnimation(.easeOut(duration: 0.2)) { phase = .success(Image(nsImage: img)) }
+                    shownURL = url
                 } else if !Task.isCancelled, phase.image == nil {
                     phase = .failure(URLError(.cannotDecodeContentData))
                 }
             }
+    }
+}
+
+// MARK: - Raster: small unchanging decorations drawn once
+
+/// Glossy badges and glass edges are many layers each (the heart alone is ten: eight black copies for the outline,
+/// the glossy symbol, its shine). SwiftUI draws every layer of every poster on the CPU and gives each its own
+/// view, which AppKit adds and removes as posters scroll by: most of the time a scrolling grid took. These are
+/// drawn once into a picture, exactly as they look, and the picture is reused everywhere.
+@MainActor
+enum Raster {
+    private static let cache = NSCache<NSString, NSImage>()
+
+    /// `content` drawn once per key and screen scale; `pad` leaves room for its shadow, outside its own size.
+    @ViewBuilder static func view<V: View>(_ key: String, scale: CGFloat, pad: CGFloat = 4,
+                                           @ViewBuilder _ content: () -> V) -> some View {
+        if let img = image(key, scale: scale, pad: pad, content) {
+            Image(nsImage: img).padding(-pad)
+        } else {
+            content()
+        }
+    }
+
+    static func image<V: View>(_ key: String, scale: CGFloat, pad: CGFloat, _ content: () -> V) -> NSImage? {
+        let k = "\(key)@\(scale)" as NSString
+        if let c = cache.object(forKey: k) { return c }
+        let r = ImageRenderer(content: content().padding(pad).environment(\.colorScheme, .dark))
+        r.scale = scale
+        guard let img = r.nsImage else { return nil }
+        cache.setObject(img, forKey: k)
+        return img
     }
 }
 

@@ -107,15 +107,33 @@ struct ClassicGlassBacking<S: Shape>: View {
 /// top. Under the mouse the edge lights up and the card gives off a soft accent glow.
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
+    /// The card's size, when it's fixed: the finish is then drawn once into a picture and reused (see Raster)
+    var size: CGSize? = nil
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
+    @Environment(\.displayScale) private var scale
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
         let accent = Theme.accent(accentName)
-        let lit = hover ? 1.0 : 0.7
         return content
             .overlay {
-                ZStack {
+                if let size {
+                    Raster.view("glass\(size.width)x\(size.height)r\(radius)h\(hover)", scale: scale, pad: 0) {
+                        finish(shape).frame(width: size.width, height: size.height)
+                    }
+                    .allowsHitTesting(false)
+                } else {
+                    finish(shape)
+                }
+            }
+            // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
+            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+            .onHover { h in if h && ScrollActivity.scrolling { return }; withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+    }
+
+    func finish(_ shape: RoundedRectangle) -> some View {
+        let lit = hover ? 1.0 : 0.7
+        return ZStack {
                     // faint sheen over the upper part
                     shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
                                                       .init(color: .clear, location: 0.4)],
@@ -136,10 +154,74 @@ struct ClassicGlassCard: ViewModifier {
                 }
                 .clipShape(shape)
                 .allowsHitTesting(false)
+    }
+}
+
+/// ClassicGlassCard's look in two layers, for posters in long grids: the top sheen and the bright corner edge,
+/// without the bevel strokes, the clip and a hover tracker of its own (the poster passes its hover in). The
+/// accent glow is drawn only behind the hovered poster.
+struct ClassicLightCard: ViewModifier {
+    let radius: CGFloat
+    var hover = false
+    var accent: Color = .clear
+    /// The card's size, when it's fixed: the edge is then drawn once into a picture and reused (see Raster)
+    var size: CGSize? = nil
+    /// For cards that don't pass their hover in (episodes): follows the pointer itself
+    var tracksHover = false
+    @State private var ownHover = false
+    /// The card's size when it isn't fixed (episode tiles follow the window width), measured once per change
+    @State private var measured: CGSize?
+    @Environment(\.displayScale) private var scale
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
+        let hover = self.hover || ownHover
+        let lit = hover ? 1.0 : 0.7
+        return content
+            .modifier(MeasureSize(enabled: size == nil, size: $measured))
+            .overlay {
+                if let size = size ?? measured, size.width > 0 {
+                    Raster.view("edge\(size.width)x\(size.height)r\(radius)l\(lit)", scale: scale, pad: 0) {
+                        edge(shape, lit: lit).frame(width: size.width, height: size.height)
+                    }
+                } else {
+                    edge(shape, lit: lit)
+                }
             }
-            // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
             .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
-            .onHover { h in withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+            .onHover { h in
+                guard tracksHover, !(h && ScrollActivity.scrolling) else { return }
+                withAnimation(.easeOut(duration: 0.2)) { ownHover = h }
+            }
+    }
+
+    func edge(_ shape: RoundedRectangle, lit: Double) -> some View {
+                ZStack {
+                    shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
+                                                      .init(color: .clear, location: 0.4)],
+                                              startPoint: .top, endPoint: .bottom))
+                    shape.strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.9 * lit), location: 0),
+                                                              .init(color: .white.opacity(0.12 * lit), location: 0.3),
+                                                              .init(color: .white.opacity(0.06 * lit), location: 0.5),
+                                                              .init(color: .white.opacity(0.12 * lit), location: 0.7),
+                                                              .init(color: .white.opacity(0.9 * lit), location: 1)],
+                                                      startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.2)
+                }
+                .allowsHitTesting(false)
+    }
+}
+
+/// Reports a view's size (rounded to whole points) when it changes, on macOS 15 and later; earlier, nothing.
+private struct MeasureSize: ViewModifier {
+    let enabled: Bool
+    @Binding var size: CGSize?
+    func body(content: Content) -> some View {
+        if enabled, #available(macOS 15, *) {
+            content.onGeometryChange(for: CGSize.self) {
+                CGSize(width: $0.size.width.rounded(), height: $0.size.height.rounded())
+            } action: { size = $0 }
+        } else {
+            content
+        }
     }
 }
 

@@ -21,7 +21,8 @@ struct ClassicPillStyle: ViewModifier {
 
 extension View {
     /// Glass card finish that follows the rounded corners (posters, episode thumbnails, preview card).
-    func classicThinBorder(_ radius: CGFloat) -> some View { modifier(ClassicGlassCard(radius: radius)) }
+    /// `size`: the card's fixed size, if it has one, so the finish is drawn once and reused (see Raster).
+    func classicThinBorder(_ radius: CGFloat, size: CGSize? = nil) -> some View { modifier(ClassicGlassCard(radius: radius, size: size)) }
     func classicPill(active: Bool = false) -> some View { modifier(ClassicPillStyle(active: active)) }
     func classicOnAccent() -> some View { modifier(OnAccent()) }
     func classicCircleButton() -> some View {
@@ -625,7 +626,7 @@ struct ClassicTopBackButton: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = $0 }
+        .onHover { hover = ScrollActivity.hover(hover, $0) }
         .keyboardShortcut("[", modifiers: .command)
         .accessibilityLabel("Back")
         .disabled(emby.playing != nil)
@@ -710,7 +711,7 @@ struct ClassicSearchView: View {
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .classicThinBorder(12)
+                                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
                                         FavHeart(size: 16).padding(8)
@@ -1023,7 +1024,15 @@ struct SeasonDeck: View {
     let badge: (Int) -> Int?
     let seasonItem: (Int) -> Item?
     let episodes: (Int) -> [Item]
+    /// Collections: the line under the deck (the front movie's year, so the order is clear), the movie the front
+    /// card opens, and what the arrows step through
+    var caption: ((Int) -> String?)? = nil
+    var link: ((Int) -> Item?)? = nil
+    /// Collections: whether each movie is watched (the check on every card, top right, as on posters)
+    var watched: ((Int) -> Bool)? = nil
+    var noun = "season"
     private let w: CGFloat = 280, h: CGFloat = 420
+    @AppStorage("accent") private var accentName = "red"
     private let peek: CGFloat = 40
 
     /// The deck's own position; the page's season follows it (and the deck follows the page when the season
@@ -1033,9 +1042,15 @@ struct SeasonDeck: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            arrow("chevron.left", "Previous season", enabled: shownPos > 0) { go(shownPos - 1) }
-            cards
-            arrow("chevron.right", "Next season", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
+            arrow("chevron.left", "Previous \(noun)", enabled: shownPos > 0) { go(shownPos - 1) }
+            VStack(alignment: .leading, spacing: 10) {
+                cards
+                if let caption, numbers.indices.contains(shownPos), let c = caption(numbers[shownPos]) {
+                    Text(c).font(.cv(15, weight: .semibold)).foregroundColor(.white).classicBlackOutline()
+                        .frame(width: w).id(shownPos).transition(.opacity)   // centered under the front card
+                }
+            }
+            arrow("chevron.right", "Next \(noun)", enabled: shownPos < numbers.count - 1) { go(shownPos + 1) }
         }
         .onAppear { pos = numbers.firstIndex(of: selected) ?? 0 }
         .onChange(of: selected) { _, s in
@@ -1069,10 +1084,12 @@ struct SeasonDeck: View {
         ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
-                Button { go(p) } label: {
+                deckButton(p, k: k) {
                     card(numbers[p], k: k)
                         .overlay(alignment: .topTrailing) {
-                            if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
+                            if let watched {
+                                if watched(numbers[p]) { TubeBadge(count: nil).helpLabel("Watched").padding(10) }
+                            } else if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
                         }
                 }
                 .modifier(FrontActions(on: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p])))
@@ -1086,6 +1103,15 @@ struct SeasonDeck: View {
         .transition(.opacity)
     }
 
+    /// The front card of a collection opens its movie; every other card brings itself to the front.
+    @ViewBuilder func deckButton<L: View>(_ p: Int, k: Int, @ViewBuilder label: () -> L) -> some View {
+        if k == 0, let link, let it = link(numbers[p]) {
+            NavigationLink(value: it) { label() }
+        } else {
+            Button { go(p) } label: { label() }
+        }
+    }
+
     func card(_ n: Int, k: Int) -> some View {
         CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
@@ -1097,10 +1123,11 @@ struct SeasonDeck: View {
                 .classicBlackOutline()
                 .padding(.horizontal, 10).padding(.bottom, 9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .opacity(k == 0 ? 1 : 0)
+                .opacity(k == 0 && caption == nil ? 1 : 0)   // a movie poster shows its own title
         }
         .cornerRadius(10)
-        .classicThinBorder(10)
+        .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
+                                   tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
         .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
@@ -1184,7 +1211,7 @@ struct GlassSlider: View {
                 .onEnded { _ in dragging = false; onEditing(false) })
         }
         .frame(height: 18)
-        .onHover { hover = $0 }
+        .onHover { hover = ScrollActivity.hover(hover, $0) }
         .animation(.easeOut(duration: 0.12), value: hover || dragging)
     }
 }
@@ -1238,10 +1265,15 @@ struct ClassicProgressCircle: View {
     let progress: Double   // 0...1
     var size: CGFloat = 26
     @AppStorage("accent") private var accentName = "red"
+    @Environment(\.displayScale) private var scale
     var body: some View {
+        // Drawn once per whole percent, size and accent (see Raster): it's eight layers with glowing shadows
+        let pct = Int((min(1, max(0.03, progress)) * 100).rounded())
+        Raster.view("ring\(pct)|\(size)|\(accentName)", scale: scale, pad: 12) { drawing(CGFloat(pct) / 100) }
+    }
+    @ViewBuilder func drawing(_ p: CGFloat) -> some View {
         let accent = Theme.accent(accentName)
         let w: CGFloat = 5
-        let p = CGFloat(min(1, max(0.03, progress)))
         ZStack {
             // glass track
             Circle().stroke(Color.black.opacity(0.4), lineWidth: w)
@@ -1281,7 +1313,9 @@ private struct BannerShape: ViewModifier {
     let card: Bool
     @ViewBuilder func body(content: Content) -> some View {
         if card {
-            content.clipShape(RoundedRectangle(cornerRadius: 18)).classicThinBorder(18).padding(.horizontal, 32)
+            content.clipShape(RoundedRectangle(cornerRadius: 18))
+                .modifier(ClassicLightCard(radius: 18))   // the posters' light glass edge, drawn once per size
+                .padding(.horizontal, 32)
         } else {
             content.clipped()
         }
@@ -1389,7 +1423,7 @@ struct ClassicHero: View {
         .background(GeometryReader { g in
             Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
         })
-        .onHover { hover = $0 }
+        .onHover { hover = ScrollActivity.hover(hover, $0) }
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
         // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
         .task(id: "\(pos)-\(hover)-\(playback.active)") {
@@ -1481,6 +1515,7 @@ struct ClassicHero: View {
     }
 
     private let deckW: CGFloat = 300
+    @AppStorage("accent") private var accentName = "red"
 
     func deckCard(_ it: Item, k: Int) -> some View {
         CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
@@ -1496,7 +1531,8 @@ struct ClassicHero: View {
                 .opacity(k == 0 ? 1 : 0)
         }
         .cornerRadius(12)
-        .classicThinBorder(12)
+        .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: deckW, height: deckW * 9 / 16),
+                                   tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
         .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
@@ -1529,6 +1565,7 @@ struct ClassicResumeCard: View {
     @EnvironmentObject var emby: Emby
     let item: Item
     @State private var hover = false
+    @AppStorage("accent") private var accentName = "red"
 
     var progress: Double { min(1, max(0, (item.UserData?.PlayedPercentage ?? 0) / 100)) }
     var timeLeft: String? {
@@ -1594,12 +1631,13 @@ struct ClassicResumeCard: View {
                     }
                 }
                 .cornerRadius(8)
-                .classicThinBorder(8)
+                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName),
+                                           size: CGSize(width: 260, height: 146)))   // the posters' light glass edge
                 .classicHoverLift()
             }
             .frame(width: 260, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .onHover { hover = ScrollActivity.hover(hover, $0) }
             .onTapGesture { openPage() }.handCursor()
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
@@ -1671,7 +1709,7 @@ struct ClassicPosterCard: View {
                     if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .cornerRadius(8)
-                .classicThinBorder(8)
+                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
                 // The Netflix-style preview card is drawn by ClassicHoverCardLayer (window level), centered on this poster.
                 // Local + global pointer positions together give the poster's place in the window.
                 .onContinuousHover(coordinateSpace: .local) { phase in
@@ -1681,7 +1719,7 @@ struct ClassicPosterCard: View {
                     switch phase {
                     case .active(let p):
                         ptr.global = p
-                        if !ptr.inside {
+                        if !ptr.inside && !ScrollActivity.scrolling {   // not for posters scrolling past
                             ptr.inside = true
                             let box = ptr
                             ClassicHoverCardCenter.shared.posterHover(item, inside: true) {
@@ -1705,7 +1743,7 @@ struct ClassicPosterCard: View {
             }
             .frame(width: 150, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
@@ -1835,7 +1873,7 @@ struct ClassicHoverCardLayer: View {
                     .frame(width: w)
                     .background(GeometryReader { c in Color.clear.preference(key: CardHeightKey.self, value: c.size.height) })
                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .classicThinBorder(12)
+                    .modifier(ClassicLightCard(radius: 12))
                     .shadow(color: .black.opacity(0.6), radius: 24)
                     .scaleEffect(open ? 1 : 150 / w, anchor: UnitPoint(x: ux, y: uy))
                     .opacity(open ? 1 : 0)
@@ -2061,7 +2099,7 @@ struct ClassicLibraryView: View {
                 LazyVStack(spacing: 6) {
                     ForEach(items) { it in
                         ListRow(item: it).onAppear {
-                            if it.id == items.last?.id { Task { await load(reset: false) } }
+                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
                         }
                     }
                 }
@@ -2069,7 +2107,7 @@ struct ClassicLibraryView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
                     ForEach(items) { it in
                         ClassicPosterCard(item: it).onAppear {
-                            if it.id == items.last?.id { Task { await load(reset: false) } }
+                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
                         }
                     }
                 }
@@ -2132,7 +2170,12 @@ struct ClassicLibraryView: View {
         guard let r else { loadFailed = true; return }
         if reset { items = r.Items } else { items += r.Items }
         total = r.TotalRecordCount ?? items.count
+        // Posters of the new page start downloading now, before they scroll into view
+        ImageCache.shared.prefetch(r.Items.prefix(40).map { emby.image($0.posterId, width: 360) })
     }
+
+    /// The next page is fetched when this item appears, 30 before the end, so it's there before you reach it.
+    var nextPageAt: String? { items.count > 30 ? items[items.count - 30].id : nil }
 
     func shuffle() async {
         let r = await fetch(start: 0, limit: 1, sort: "random")
@@ -2146,6 +2189,7 @@ struct ClassicCastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
     @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
+    @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     var body: some View {
         let big = castSize == "large"
@@ -2158,7 +2202,8 @@ struct ClassicCastTile: View {
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
-            .classicThinBorder(big ? 10 : 44)   // glass tube edge and sheen, as the cards
+            .modifier(ClassicLightCard(radius: big ? 10 : 44, hover: hover, accent: Theme.accent(accentName),
+                                       size: big ? CGSize(width: 132, height: 198) : CGSize(width: 88, height: 88)))   // the posters' light glass edge
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
@@ -2176,7 +2221,7 @@ struct ClassicCastTile: View {
                     }.padding(big ? 8 : 0)
                 }
             }
-            .onHover { hover = $0 }
+            .onHover { hover = ScrollActivity.hover(hover, $0) }
             .classicHoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font(.cv(big ? 12 : 10, weight: .semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(.cv(10)).foregroundColor(.secondary).lineLimit(1)
@@ -2190,6 +2235,8 @@ struct ClassicDetailView: View {
     @Environment(\.appBG) var bg
     @Environment(\.dismiss) var dismiss
     let item: Item
+    @AppStorage("accent") private var accentName = "red"   // episode cards' hover glow
+    @AppStorage("moviePage") private var moviePage = "banner"   // Settings → Libraries → Movie page
     @State private var full: Full?
     @State private var kids: [Item] = []
     @State private var seasonItems: [Item] = []
@@ -2259,7 +2306,9 @@ struct ClassicDetailView: View {
     /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
     /// Decided by the setting alone (not by the seasons, which load a moment later), so the page never shows the
     /// old header first
-    var bigBanner: Bool { item.isSeries && seasonLayout == "deck" }
+    /// Movies and collections (Settings → Movie pages → Big banner) open the same way: a movie on the banner
+    /// alone, a collection with its movies as the deck.
+    var bigBanner: Bool { item.isSeries ? seasonLayout == "deck" : (!item.isEpisode && moviePage == "banner") }
 
     var body: some View {
         ScrollView {
@@ -2326,11 +2375,36 @@ struct ClassicDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 TitleLogo(item: item, height: 110, font: 56)
                 meta
+                // A movie keeps its version, audio, subtitle and quality choices (a show picks per episode)
+                if !item.isSeries && !simple {
+                    // A set width, so Version, Audio, Subtitles and Quality fit on one line (left to size itself,
+                    // the row was offered the narrow width of the text beside it and wrapped)
+                    streamsRow.frame(width: 900, alignment: .leading)
+                }
                 buttons
+                if !item.isSeries, let tag = full?.Taglines?.first { Text(tag).font(.cv(13, weight: .bold)) }
                 Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
-            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 600)
+            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries || item.isBox ? 600 : 80)
+            if item.isBox && !boxMovies.isEmpty {
+                // A collection's movies as a deck, oldest first, the year under the front one
+                let movies = boxMovies
+                SeasonDeck(numbers: Array(movies.indices), selected: 0,
+                           title: { movies[$0].Name },
+                           image: { emby.image(movies[$0].posterId, width: 500) },
+                           select: { _ in },
+                           badge: { _ in nil },
+                           seasonItem: { movies[$0] },
+                           episodes: { _ in [] },
+                           caption: { movies[$0].ProductionYear.map(String.init) },
+                           link: { movies[$0] },
+                           watched: { emby.isPlayed(movies[$0]) },
+                           noun: "movie")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 44).padding(.bottom, 30)
+                    .transition(.opacity)
+            }
             if seasonNumbers.count > 1 {
                 SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
                            title: { seasonTitle($0) },
@@ -2377,7 +2451,8 @@ struct ClassicDetailView: View {
             } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
             .frame(width: item.isEpisode ? 320 : 220, height: item.isEpisode ? 180 : 330)
             .clipped().cornerRadius(10)
-            .classicThinBorder(10)   // glass tube edge and sheen, as the cards
+            .modifier(ClassicLightCard(radius: 10,
+                                       size: item.isEpisode ? CGSize(width: 320, height: 180) : CGSize(width: 220, height: 330)))   // the posters' light glass edge and sheen, as the cards
             .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             VStack(alignment: .leading, spacing: 14) {
                 Text(item.Name).font(.cv(46, weight: .black))
@@ -2584,7 +2659,8 @@ struct ClassicDetailView: View {
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
                 .overlay(alignment: .topTrailing) { CountBadge(count: unwatched(n)).padding(8) }
-                .classicThinBorder(8)   // glass card, as the posters
+                .modifier(ClassicLightCard(radius: 8, accent: Theme.accent(accentName), size: CGSize(width: 170, height: 255),
+                                           tracksHover: true))   // the posters' light glass edge   // glass card, as the posters
                 .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint, lineWidth: 2) } }
                 .shadow(radius: 6)
                 .classicHoverLift()
@@ -2645,7 +2721,8 @@ struct ClassicDetailView: View {
                     if pct > 0, pct < 100, !played { ClassicProgressCircle(progress: pct / 100).padding(6) }
                 }
                 .cornerRadius(6)
-                .classicThinBorder(6)
+                .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), size: CGSize(width: 220, height: 124),
+                                           tracksHover: true))   // the posters' light glass edge
                 .classicHoverLift(play: 36) { playEpisode(ep) }
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
@@ -2753,7 +2830,7 @@ struct ClassicDetailView: View {
                     if hasProgress { ClassicProgressCircle(progress: pct / 100).padding(8) }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
-                .classicThinBorder(6)
+                .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
                 .classicHoverLift(play: 40) { playEpisode(ep) }
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
@@ -2763,6 +2840,11 @@ struct ClassicDetailView: View {
             }.contentShape(Rectangle())
         }.handCursor()
         .buttonStyle(.plainHand)
+    }
+
+    /// A collection's movies in release order (by year, then date), for the banner's deck.
+    var boxMovies: [Item] {
+        kids.sorted { ($0.ProductionYear ?? 9999, $0.PremiereDate ?? "") < ($1.ProductionYear ?? 9999, $1.PremiereDate ?? "") }
     }
 
     var boxGrid: some View {
@@ -4060,7 +4142,7 @@ struct ClassicFavPersonCard: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                .classicThinBorder(12)
+                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
                 Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)

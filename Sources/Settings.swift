@@ -77,7 +77,7 @@ struct SettingsView: View {
             Divider()
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.handCursor().controlSize(.large)
+                Button("Cancel") { dismiss() }.handCursor().controlSize(.large).settingsWhiteText()
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent).handCursor().tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
@@ -169,7 +169,20 @@ struct SettingRow<C: View>: View {
 func menuPicker<T: Hashable>(_ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
     Picker("", selection: sel) {
         ForEach(opts, id: \.0) { Text($0.1).tag($0.0) }
-    }.labelsHidden().fixedSize()
+    }.labelsHidden().fixedSize().settingsWhiteText()
+}
+
+extension View {
+    /// White text on menus and plain buttons in Settings. Built with Xcode 26 (the GitHub release), macOS draws
+    /// their text in the accent colour; built with Xcode 27 (Swift 6.4) it draws them grey with an accent arrow
+    /// badge, which white would wash out, so that build is left as it is.
+    @ViewBuilder func settingsWhiteText() -> some View {
+        #if compiler(>=6.4)
+        self
+        #else
+        self.tint(.white)
+        #endif
+    }
 }
 
 // MARK: - General
@@ -434,6 +447,7 @@ struct LibrariesSettings: View {
     @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("similarLayout") private var similarLayout = "row"
     @AppStorage("castSize") private var castSize = "normal"
+    @AppStorage("moviePage") private var moviePage = "banner"
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
@@ -471,6 +485,10 @@ struct LibrariesSettings: View {
             libraryOptions(i, emby.libs[i])
         }
         PrefSection(title: "Movie and show pages") {
+            if theme == "classic" {
+                PrefRow(label: "Movie pages") { menuPicker($moviePage, [("banner", "Big banner"), ("poster", "Poster and details")]) }
+                PrefNote("Big banner opens a movie or collection as a show opens with Season layout → Cards: the backdrop fills the page; a collection shows its movies as cards.")
+            }
             PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
             PrefRow(label: "Cast & Crew") { menuPicker($castSize, [("normal", "Normal"), ("large", "Large")]) }
