@@ -139,6 +139,43 @@ struct FavHeart: View {
     }
 }
 
+/// Watched (Glass3D posters and seasons): a glossy white check-circle with a thin black outline, the size of
+/// the heart and rating star.
+struct GlossyCheck: View {
+    var size: CGFloat = 23
+    var body: some View {
+        let mark = Image(systemName: "checkmark.circle.fill").font(.system(size: size, weight: .semibold))
+        ZStack {
+            ForEach(0..<8, id: \.self) { i in
+                let a = Double(i) * .pi / 4
+                mark.foregroundColor(.black.opacity(0.85)).offset(x: cos(a) * 0.9, y: sin(a) * 0.9)
+            }
+            // Check cut out of a white disc: the poster shows through it, so the check reads on any picture
+            Glossy(symbol: mark, color: .white)
+        }
+    }
+}
+
+/// Unwatched episodes (Glass3D posters): the count in a glossy white capsule, matching GlossyCheck.
+struct GlossyCount: View {
+    let text: String
+    var body: some View {
+        Text(text).font(.system(size: 12, weight: .heavy)).foregroundColor(.black)
+            .padding(.horizontal, 7).frame(minWidth: 23, minHeight: 23)
+            .background {
+                ZStack {
+                    Capsule().fill(Color.white)
+                    Capsule().fill(LinearGradient(stops: [.init(color: .white.opacity(0.55), location: 0),
+                                                          .init(color: .white.opacity(0.1), location: 0.45),
+                                                          .init(color: .black.opacity(0.3), location: 1)],
+                                                  startPoint: .top, endPoint: .bottom))
+                }
+                .overlay(Capsule().strokeBorder(Color.black.opacity(0.85), lineWidth: 0.9))
+                .shadow(color: .black.opacity(0.65), radius: 1.5, y: 1.5)
+            }
+    }
+}
+
 /// Your Trakt rating on a poster (the number on a glossy accent star), next to the favorite heart; nothing when
 /// it isn't rated.
 struct MyRatingBadge: View {

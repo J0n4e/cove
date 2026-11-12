@@ -2333,6 +2333,10 @@ struct HoverBacking: ViewModifier {
 struct TubeBadge: View {
     let count: Int?
     var body: some View {
+        // Glossy like the heart and rating star beside it: a check when watched, else the unwatched count
+        if let n = count { GlossyCount(text: n > 99 ? "99+" : "\(n)") } else { GlossyCheck() }
+    }
+    var tube: some View {
         Group {
             if let n = count {
                 Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold))
