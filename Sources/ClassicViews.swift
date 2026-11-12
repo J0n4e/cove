@@ -2282,9 +2282,9 @@ struct ClassicDetailView: View {
     /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
     /// Decided by the setting alone (not by the seasons, which load a moment later), so the page never shows the
     /// old header first
-    /// Movies (Settings → Movie page → Big banner) open the same way, with their poster where the deck would be.
-    var bigBanner: Bool { item.isSeries ? seasonLayout == "deck" : (isMovie && moviePage == "banner") }
-    var isMovie: Bool { !item.isEpisode && !item.isBox }
+    /// Movies and collections (Settings → Movie page → Big banner) open the same way, with their poster where the
+    /// deck would be.
+    var bigBanner: Bool { item.isSeries ? seasonLayout == "deck" : (!item.isEpisode && moviePage == "banner") }
 
     var body: some View {
         ScrollView {
