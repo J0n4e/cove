@@ -1843,7 +1843,6 @@ struct PosterCard: View {
                     if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .thinBorder(12)
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
@@ -4993,8 +4992,7 @@ struct HoverLift: ViewModifier {
     var hover: Bool
     func body(content: Content) -> some View {
         content
-            .scaleEffect(hover ? 1.06 : 1)
-            .shadow(radius: hover ? 12 : 0)
+            .scaleEffect(hover ? 1.06 : 1)   // no shadow: one on every card made scrolling drag
             .animation(.easeOut(duration: 0.15), value: hover)
             .zIndex(hover ? 1 : 0)
     }

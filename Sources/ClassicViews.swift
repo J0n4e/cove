@@ -1671,7 +1671,6 @@ struct ClassicPosterCard: View {
                     if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .cornerRadius(8)
-                .classicThinBorder(8)
                 // The Netflix-style preview card is drawn by ClassicHoverCardLayer (window level), centered on this poster.
                 // Local + global pointer positions together give the poster's place in the window.
                 .onContinuousHover(coordinateSpace: .local) { phase in
