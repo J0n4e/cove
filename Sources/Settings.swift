@@ -447,6 +447,7 @@ struct LibrariesSettings: View {
     @AppStorage("favoritesLayout") private var favLayout = "row"
     @AppStorage("similarLayout") private var similarLayout = "row"
     @AppStorage("castSize") private var castSize = "normal"
+    @AppStorage("moviePage") private var moviePage = "banner"
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
@@ -484,6 +485,10 @@ struct LibrariesSettings: View {
             libraryOptions(i, emby.libs[i])
         }
         PrefSection(title: "Movie and show pages") {
+            if theme == "classic" {
+                PrefRow(label: "Movie page") { menuPicker($moviePage, [("banner", "Big banner"), ("poster", "Poster and details")]) }
+                PrefNote("Big banner opens a movie as a show opens with Season layout → Cards: the backdrop fills the page, the poster in the corner.")
+            }
             PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
             PrefRow(label: "Cast & Crew") { menuPicker($castSize, [("normal", "Normal"), ("large", "Large")]) }

@@ -2212,6 +2212,7 @@ struct ClassicDetailView: View {
     @Environment(\.dismiss) var dismiss
     let item: Item
     @AppStorage("accent") private var accentName = "red"   // episode cards' hover glow
+    @AppStorage("moviePage") private var moviePage = "banner"   // Settings → Libraries → Movie page
     @State private var full: Full?
     @State private var kids: [Item] = []
     @State private var seasonItems: [Item] = []
@@ -2281,7 +2282,9 @@ struct ClassicDetailView: View {
     /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
     /// Decided by the setting alone (not by the seasons, which load a moment later), so the page never shows the
     /// old header first
-    var bigBanner: Bool { item.isSeries && seasonLayout == "deck" }
+    /// Movies (Settings → Movie page → Big banner) open the same way, with their poster where the deck would be.
+    var bigBanner: Bool { item.isSeries ? seasonLayout == "deck" : (isMovie && moviePage == "banner") }
+    var isMovie: Bool { !item.isEpisode && !item.isBox }
 
     var body: some View {
         ScrollView {
@@ -2348,11 +2351,25 @@ struct ClassicDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 TitleLogo(item: item, height: 110, font: 56)
                 meta
+                // A movie keeps its version, audio, subtitle and quality choices (a show picks per episode)
+                if !item.isSeries && !simple { streamsRow.frame(maxWidth: 760, alignment: .leading) }
                 buttons
+                if !item.isSeries, let tag = full?.Taglines?.first { Text(tag).font(.cv(13, weight: .bold)) }
                 Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
-            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, 600)
+            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries ? 600 : 340)
+            if !item.isSeries {
+                // The movie's poster in the corner where a show's season cards sit
+                CachedImage(url: emby.image(item.id, width: 500)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
+                .frame(width: 240, height: 360).clipped().cornerRadius(10)
+                .modifier(ClassicLightCard(radius: 10, size: CGSize(width: 240, height: 360)))   // the posters' light glass edge
+                .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(.trailing, 44).padding(.bottom, 56)
+            }
             if seasonNumbers.count > 1 {
                 SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
                            title: { seasonTitle($0) },
