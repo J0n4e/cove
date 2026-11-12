@@ -31,6 +31,9 @@ struct SettingsView: View {
         }
     }
     @State private var section: Section = .general
+    @ObservedObject private var trakt = Trakt.shared
+    /// The Trakt tab shows only while Trakt is connected.
+    var sections: [Section] { Section.allCases.filter { $0 != .trakt || trakt.isConnected } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +41,7 @@ struct SettingsView: View {
             Text(section.rawValue).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
                 .padding(.top, 12)
             HStack(spacing: 4) {
-                ForEach(Section.allCases) { s in
+                ForEach(sections) { s in
                     let on = section == s
                     Button { section = s } label: {
                         VStack(spacing: 3) {
@@ -81,6 +84,8 @@ struct SettingsView: View {
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
+        // Disconnected while on the Trakt tab: go to Connect, where Trakt is set up again
+        .onChange(of: trakt.isConnected) { _, on in if !on && section == .trakt { section = .servers } }
         .tint(accent)     // switches, menus and links inside Settings too
         .background(bg)   // follows Appearance → Background, like the rest of the app
         // Esc closes Settings and keeps the changes, like OK / Done
