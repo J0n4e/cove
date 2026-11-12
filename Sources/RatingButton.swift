@@ -7,12 +7,16 @@ struct RatingButton: View {
     let full: Full?
     /// Glass3D look (glass pill) instead of the Glass theme's round button.
     var classic = false
+    /// Button height: 46 on the detail page, smaller on the hover preview card.
+    var size: CGFloat = 46
     @ObservedObject private var trakt = Trakt.shared
     @AppStorage("accent") private var accentName = "red"
     @State private var open = false
+    /// The star picker is open: the hover preview card stays open meanwhile (the picker sits outside it).
+    @MainActor static var pickerOpen = false
 
     var kind: String { Trakt.kind(item) ?? "movie" }
-    var ids: [String: String] { Trakt.ids(full?.ProviderIds) }
+    var ids: [String: String] { Trakt.ids(full?.ProviderIds ?? item.ProviderIds) }
 
     var body: some View {
         if !ids.isEmpty && Trakt.kind(item) != nil {
@@ -27,23 +31,26 @@ struct RatingButton: View {
                         Task { await trakt.rate(kind: kind, ids: ids, v) }
                     }
                 }
+                .onChange(of: open) { _, on in Self.pickerOpen = on }
+                .onDisappear { if open { Self.pickerOpen = false } }
                 .task(id: item.id) { await trakt.refresh() }
         }
     }
 
     @ViewBuilder func label(_ r: Int?) -> some View {
         let star = Image(systemName: r == nil ? "star" : "star.fill")
+        let font = Font.system(size: size * 0.37, weight: .semibold)
         if classic {
-            if let r { Label { Text("\(r)") } icon: { star }.classicGlassPill(size: 44, iconOnly: false) }
-            else { Label("Rate", systemImage: "star").classicGlassPill(size: 44) }
+            if let r { Label { Text("\(r)") } icon: { star }.classicGlassPill(size: size - 2, iconOnly: false) }
+            else { Label("Rate", systemImage: "star").classicGlassPill(size: size - 2) }
         } else if let r {
             HStack(spacing: 5) { star.foregroundColor(Theme.accent(accentName)); Text("\(r)") }
-                .font(.system(size: 17, weight: .semibold))
-                .padding(.horizontal, 16).frame(height: 46)
+                .font(font)
+                .padding(.horizontal, size * 0.35).frame(height: size)
                 .background(.ultraThinMaterial, in: Capsule())
         } else {
-            star.font(.system(size: 17, weight: .semibold))
-                .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
+            star.font(font)
+                .frame(width: size, height: size).background(.ultraThinMaterial, in: Circle())
                 .contentShape(Circle())
         }
     }

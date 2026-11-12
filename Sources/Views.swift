@@ -2086,7 +2086,7 @@ final class HoverCardCenter: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(100))
                 if Task.isCancelled { return }
                 if PlaybackFlag.shared.active { hide(); return }
-                away = pointerInside() ? 0 : away + 1
+                away = pointerInside() || RatingButton.pickerOpen ? 0 : away + 1   // the star picker sits outside the card
                 if away >= 3 { closeCard(); return }
             }
         }
@@ -4987,6 +4987,7 @@ struct HoverPreview: View {
                             }
                         }.buttonStyle(.plainHand).helpLabel("Resume from \(timeString(r))")
                     }
+                    RatingButton(item: item, full: nil, classic: classic, size: classic ? 36 : 32)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
                         Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }

@@ -1786,7 +1786,7 @@ final class ClassicHoverCardCenter: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(100))
                 if Task.isCancelled { return }
                 if PlaybackFlag.shared.active { hide(); return }
-                away = pointerInside() ? 0 : away + 1
+                away = pointerInside() || RatingButton.pickerOpen ? 0 : away + 1   // the star picker sits outside the card
                 if away >= 3 { closeCard(); return }
             }
         }
