@@ -111,7 +111,7 @@ struct TrailerPlayerView: View {
 
     @AppStorage("theme") private var theme = "apple"
 
-    /// The page Back button of the current theme: Glass's round ‹, Classic's "‹ Back" capsule.
+    /// The page Back button of the current theme: Glass's round ‹, Glass3D's round glass ‹.
     /// (The pages' own Back buttons switch off while something plays, so these are drawn here.)
     @ViewBuilder var backButton: some View {
         if theme == "apple" {
@@ -125,17 +125,15 @@ struct TrailerPlayerView: View {
                     .contentShape(Circle())
             }.buttonStyle(HoverButton())
         } else {
+            // Glass3D's round glass ‹, as on the pages (ClassicTopBackButton switches off while something plays)
             Button(action: close) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
-                    Text("Back").font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundStyle(Color.white)
-                .padding(.horizontal, 14).padding(.vertical, 6)
-                .background(Capsule().fill(Color.white.opacity(0.18)))
-                .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
-                .contentShape(Capsule())
-            }.buttonStyle(HoverButton())
+                Image(systemName: "chevron.left").font(.cv(15, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .classicGlassPill()
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(HoverButton())
+            .focusEffectDisabled()
         }
     }
 
