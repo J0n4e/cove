@@ -41,17 +41,27 @@ struct RatingButton: View {
         let star = Image(systemName: r == nil ? "star" : "star.fill")
         let font = Font.system(size: size * 0.37, weight: .semibold)
         if classic {
-            if let r { Label { Text("\(r)") } icon: { star }.classicGlassPill(size: size - 2, iconOnly: false) }
+            if let r { Label { Text("Your rating: \(r)") } icon: { starred(r) }.classicGlassPill(size: size - 2) }
             else { Label("Rate", systemImage: "star").classicGlassPill(size: size - 2) }
         } else if let r {
-            HStack(spacing: 5) { star.foregroundColor(Theme.accent(accentName)); Text("\(r)") }
-                .font(font)
-                .padding(.horizontal, size * 0.35).frame(height: size)
-                .background(.ultraThinMaterial, in: Capsule())
+            starred(r)
+                .frame(width: size, height: size).background(.ultraThinMaterial, in: Circle())
+                .contentShape(Circle())
         } else {
             star.font(font)
                 .frame(width: size, height: size).background(.ultraThinMaterial, in: Circle())
                 .contentShape(Circle())
+        }
+    }
+
+    /// The rating on a big star in the accent color, as one round button.
+    func starred(_ r: Int) -> some View {
+        let w = size - (classic ? 2 : 0)
+        return ZStack {
+            Image(systemName: "star.fill").font(.system(size: w * 0.76)).foregroundColor(Theme.accent(accentName))
+            Text("\(r)").font(.system(size: w * (r == 10 ? 0.25 : 0.29), weight: .heavy))
+                .foregroundColor(Theme.onAccent(accentName))
+                .offset(y: w * 0.04)   // the star's middle sits a little low
         }
     }
 
