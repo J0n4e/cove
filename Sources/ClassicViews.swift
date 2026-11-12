@@ -1541,6 +1541,7 @@ struct ClassicResumeCard: View {
     @EnvironmentObject var emby: Emby
     let item: Item
     @State private var hover = false
+    @AppStorage("accent") private var accentName = "red"
 
     var progress: Double { min(1, max(0, (item.UserData?.PlayedPercentage ?? 0) / 100)) }
     var timeLeft: String? {
@@ -1606,7 +1607,8 @@ struct ClassicResumeCard: View {
                     }
                 }
                 .cornerRadius(8)
-                .classicThinBorder(8, size: CGSize(width: 260, height: 146))
+                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName),
+                                           size: CGSize(width: 260, height: 146)))   // the posters' light glass edge
                 .classicHoverLift()
             }
             .frame(width: 260, alignment: .leading)
