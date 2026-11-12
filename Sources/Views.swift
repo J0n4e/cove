@@ -79,13 +79,14 @@ struct GlassCapsule: ViewModifier {
 }
 extension View { func glassCapsule() -> some View { modifier(GlassCapsule()) } }
 
-/// A teardrop lying on its side: round on the left, its point at the middle of the right edge.
+/// A teardrop lying on its side: round on the left, its point at the middle of the right edge. The point is a
+/// right angle (the sides meet at 90°), as a classic drop.
 struct Teardrop: Shape {
     func path(in rect: CGRect) -> Path {
         let r = rect.height / 2
         let c = CGPoint(x: rect.minX + r, y: rect.midY)
-        let tip = CGPoint(x: rect.maxX, y: rect.midY)
-        let d = tip.x - c.x
+        let d = min(rect.maxX - c.x, r * 2.squareRoot())   // r·√2 from the middle gives the 90° point
+        let tip = CGPoint(x: c.x + d, y: rect.midY)
         guard d > r else { return Path(ellipseIn: rect) }
         // Where the straight sides touch the circle
         let a = acos(r / d)
@@ -98,13 +99,12 @@ struct Teardrop: Shape {
     }
 }
 
-/// The A–Z letter preview's glass: frosted, tinted with the accent (see-through), a light top and a bright rim.
+/// The A–Z letter preview's glass: frosted white (see-through), a light top and a bright rim.
 struct TeardropGlass: View {
-    let color: Color
     var body: some View {
         ZStack {
             Teardrop().fill(.ultraThinMaterial)
-            Teardrop().fill(color.opacity(0.62))
+            Teardrop().fill(Color.white.opacity(0.78))
             Teardrop().fill(LinearGradient(colors: [.white.opacity(0.28), .clear, .black.opacity(0.15)],
                                            startPoint: .top, endPoint: .bottom))
             Teardrop().stroke(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0.12), .white.opacity(0.3)],
@@ -137,13 +137,15 @@ struct AlphaLetter: View {
         // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {
-                Text(l).font(.system(size: 19, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
+                Text(l).font(.system(size: 19, weight: .heavy)).foregroundColor(.black.opacity(0.85))
                     .frame(width: 34, height: 36)
-                    .padding(.trailing, 13)   // the point
-                    .background(TeardropGlass(color: Theme.accent(accentName)))
+                    .offset(x: 1, y: 6)   // the tilt moves the drop's round part down; the letter follows
+                    .padding(.trailing, 8)   // the point
+                    // Only the drop tilts (its point up a little, at the arrow's tip); the letter stays upright
+                    .background(TeardropGlass().rotationEffect(.degrees(-15), anchor: .trailing))
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
-                    .offset(x: -10)   // the point reaches toward the letter under the pointer
+                    .offset(x: -9, y: -2)   // the point reaches toward the letter under the pointer
                     .allowsHitTesting(false)
                     .transition(.opacity)
             }
