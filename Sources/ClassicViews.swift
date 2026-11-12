@@ -1289,7 +1289,9 @@ private struct BannerShape: ViewModifier {
     let card: Bool
     @ViewBuilder func body(content: Content) -> some View {
         if card {
-            content.clipShape(RoundedRectangle(cornerRadius: 18)).classicThinBorder(18).padding(.horizontal, 32)
+            content.clipShape(RoundedRectangle(cornerRadius: 18))
+                .modifier(ClassicLightCard(radius: 18))   // the posters' light glass edge, drawn once per size
+                .padding(.horizontal, 32)
         } else {
             content.clipped()
         }
@@ -1489,6 +1491,7 @@ struct ClassicHero: View {
     }
 
     private let deckW: CGFloat = 300
+    @AppStorage("accent") private var accentName = "red"
 
     func deckCard(_ it: Item, k: Int) -> some View {
         CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
@@ -1504,7 +1507,8 @@ struct ClassicHero: View {
                 .opacity(k == 0 ? 1 : 0)
         }
         .cornerRadius(12)
-        .classicThinBorder(12)
+        .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: deckW, height: deckW * 9 / 16),
+                                   tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
         .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
