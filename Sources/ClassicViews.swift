@@ -2376,7 +2376,11 @@ struct ClassicDetailView: View {
                 TitleLogo(item: item, height: 110, font: 56)
                 meta
                 // A movie keeps its version, audio, subtitle and quality choices (a show picks per episode)
-                if !item.isSeries && !simple { streamsRow.frame(maxWidth: 760, alignment: .leading) }
+                if !item.isSeries && !simple {
+                    // A set width, so Version, Audio, Subtitles and Quality fit on one line (left to size itself,
+                    // the row was offered the narrow width of the text beside it and wrapped)
+                    streamsRow.frame(width: 900, alignment: .leading)
+                }
                 buttons
                 if !item.isSeries, let tag = full?.Taglines?.first { Text(tag).font(.cv(13, weight: .bold)) }
                 Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
