@@ -2306,8 +2306,8 @@ struct ClassicDetailView: View {
     /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
     /// Decided by the setting alone (not by the seasons, which load a moment later), so the page never shows the
     /// old header first
-    /// Movies and collections (Settings → Movie page → Big banner) open the same way, with their poster where the
-    /// deck would be.
+    /// Movies and collections (Settings → Movie pages → Big banner) open the same way: a movie on the banner
+    /// alone, a collection with its movies as the deck.
     var bigBanner: Bool { item.isSeries ? seasonLayout == "deck" : (!item.isEpisode && moviePage == "banner") }
 
     var body: some View {
@@ -2382,7 +2382,7 @@ struct ClassicDetailView: View {
                 Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
-            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries || item.isBox ? 600 : 340)
+            .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries || item.isBox ? 600 : 80)
             if item.isBox && !boxMovies.isEmpty {
                 // A collection's movies as a deck, oldest first, the year under the front one
                 let movies = boxMovies
@@ -2400,16 +2400,6 @@ struct ClassicDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 44).padding(.bottom, 30)
                     .transition(.opacity)
-            } else if !item.isSeries && !item.isBox {
-                // The movie's poster in the corner where a show's season cards sit
-                CachedImage(url: emby.image(item.id, width: 500)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
-                .frame(width: 240, height: 360).clipped().cornerRadius(10)
-                .modifier(ClassicLightCard(radius: 10, size: CGSize(width: 240, height: 360)))   // the posters' light glass edge
-                .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, 44).padding(.bottom, 56)
             }
             if seasonNumbers.count > 1 {
                 SeasonDeck(numbers: seasonNumbers, selected: currentSeason,

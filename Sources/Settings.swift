@@ -487,7 +487,7 @@ struct LibrariesSettings: View {
         PrefSection(title: "Movie and show pages") {
             if theme == "classic" {
                 PrefRow(label: "Movie pages") { menuPicker($moviePage, [("banner", "Big banner"), ("poster", "Poster and details")]) }
-                PrefNote("Big banner opens a movie or collection as a show opens with Season layout → Cards: the backdrop fills the page, the poster in the corner.")
+                PrefNote("Big banner opens a movie or collection as a show opens with Season layout → Cards: the backdrop fills the page; a collection shows its movies as cards.")
             }
             PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
