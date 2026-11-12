@@ -130,6 +130,15 @@ struct Glossy<Symbol: View>: View {
     }
 }
 
+/// The favorite heart everywhere (posters, cast, cards, favorite buttons): glossy, in the accent color.
+struct FavHeart: View {
+    var size: CGFloat = 14
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        Glossy(symbol: Image(systemName: "heart.fill").font(.system(size: size)), color: Theme.accent(accentName))
+    }
+}
+
 /// Your Trakt rating on a poster (the number on a glossy accent star), next to the favorite heart; nothing when
 /// it isn't rated.
 struct MyRatingBadge: View {

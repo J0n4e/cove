@@ -712,8 +712,7 @@ struct ClassicSearchView: View {
                                 .classicThinBorder(12)
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
-                                        Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
-                                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
+                                        FavHeart(size: 16).padding(8)
                                     }
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
@@ -1657,9 +1656,7 @@ struct ClassicPosterCard: View {
                     HStack(spacing: 6) {
                         if emby.isFav(item) && !inFavorites {
                             // A glossy accent heart, like the rating star beside it
-                            Glossy(symbol: Image(systemName: "heart.fill").font(.system(size: 17)),
-                                   color: Theme.accent(accentName))
-                                .helpLabel("Favorite")
+                            FavHeart(size: 22).helpLabel("Favorite")   // as big as the rating star beside it
                         }
                         MyRatingBadge(item: item)
                     }.padding(8)
@@ -2147,8 +2144,7 @@ struct ClassicCastTile: View {
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
                 if emby.isPersonFav(p.Id) {
-                    Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
-                        .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
+                    FavHeart(size: 16).padding(big ? 8 : 2)
                 }
             }
             // Favorite heart, bottom right on hover, as on posters
@@ -2461,8 +2457,10 @@ struct ClassicDetailView: View {
                     .classicGlassPill(size: 44)
             }.buttonStyle(HoverButton()).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
-                Label(fav ? "Favorite" : "Add to Favorites", systemImage: fav ? "heart.fill" : "heart")
-                    .classicGlassPill(size: 44)
+                Label { Text(fav ? "Favorite" : "Add to Favorites") } icon: {
+                    if fav { FavHeart(size: 17) } else { Image(systemName: "heart") }
+                }
+                .classicGlassPill(size: 44)
             }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
         }
     }

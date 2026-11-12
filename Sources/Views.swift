@@ -836,8 +836,7 @@ struct SearchView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
-                                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
-                                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
+                                        FavHeart(size: 16).padding(8)
                                     }
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
@@ -1295,8 +1294,7 @@ struct PersonHeader: View {
                 // Favorite: heart top left when it is one, heart button bottom right on hover (as on cast photos)
                 .overlay(alignment: .topLeading) {
                     if emby.isPersonFav(id) {
-                        Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(.tint)
-                            .shadow(color: .black.opacity(0.6), radius: 3).padding(12)
+                        FavHeart(size: 20).padding(12)
                     }
                 }
                 .modifier(HoverPersonHeart(id: id, name: name))
@@ -1773,8 +1771,7 @@ struct PosterCard: View {
                     // Favorite heart, then your Trakt rating
                     HStack(spacing: 6) {
                         if emby.isFav(item) && !inFavorites {
-                            Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
-                                .shadow(color: .black.opacity(0.6), radius: 3)
+                            FavHeart(size: 22)   // as big as the rating star beside it
                         }
                         MyRatingBadge(item: item)
                     }.padding(8)
@@ -1975,8 +1972,17 @@ struct ItemActionsButton: View {
         var body: some View {
             Button(action: action) {
                 if classic {
-                    Label(help, systemImage: on && !icon.hasSuffix(".fill") ? icon + ".circle.fill" : icon)
-                        .classicGlassPill(size: 30)
+                    if icon == "heart.fill" { Label { Text(help) } icon: { FavHeart(size: 13) }.classicGlassPill(size: 30) }
+                    else {
+                        Label(help, systemImage: on && !icon.hasSuffix(".fill") ? icon + ".circle.fill" : icon)
+                            .classicGlassPill(size: 30)
+                    }
+                } else if icon == "heart.fill" {
+                    FavHeart(size: 13)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.black.opacity(0.6)))
+                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        .contentShape(Circle())
                 } else {
                     Image(systemName: icon).font(.system(size: 12, weight: .bold))
                         .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
@@ -2899,8 +2905,7 @@ struct CastTile: View {
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
                 if emby.isPersonFav(p.Id) {
-                    Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
-                        .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
+                    FavHeart(size: 16).padding(big ? 8 : 2)
                 }
             }
             // Favorite heart, bottom right on hover, as on posters
@@ -5025,8 +5030,11 @@ struct HoverPreview: View {
 
     @ViewBuilder func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         if classic {
-            // Classic theme: the glass button; "on" shows as the filled icon, in white
-            Button(action: action) { Label(help, systemImage: icon).classicGlassPill(size: 34) }
+            // Classic theme: the glass button; "on" shows as the filled icon, in white (a favorite: the glossy heart)
+            Button(action: action) {
+                if icon == "heart.fill" { Label { Text(help) } icon: { FavHeart(size: 15) }.classicGlassPill(size: 34) }
+                else { Label(help, systemImage: icon).classicGlassPill(size: 34) }
+            }
                 .buttonStyle(.plainHand).helpLabel(help)
         } else {
             plainCircle(icon, on: on, help: help, action)
@@ -5035,8 +5043,13 @@ struct HoverPreview: View {
 
     func plainCircle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white))
+            Group {
+                if icon == "heart.fill" { FavHeart(size: 15) }
+                else {
+                    Image(systemName: icon).font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white))
+                }
+            }
                 .frame(width: 32, height: 32)
                 .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
                 .contentShape(Circle())
@@ -5133,7 +5146,7 @@ struct FavPersonListRow<Link: Hashable>: View {
                 .frame(width: 44, height: 66).clipShape(RoundedRectangle(cornerRadius: 6))
                 Text(p.Name).font(.body.weight(.semibold)).lineLimit(1)
                 Spacer(minLength: 0)
-                if emby.isFav(p) { Image(systemName: "heart.fill").foregroundStyle(.tint) }
+                if emby.isFav(p) { FavHeart(size: 15) }
             }
             .padding(.horizontal, 10).padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hover ? 0.1 : 0.04)))
