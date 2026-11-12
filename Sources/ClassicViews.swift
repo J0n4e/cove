@@ -2151,6 +2151,7 @@ struct ClassicCastTile: View {
     @EnvironmentObject var emby: Emby
     let p: Full.Person
     @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
+    @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     var body: some View {
         let big = castSize == "large"
@@ -2163,7 +2164,7 @@ struct ClassicCastTile: View {
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
-            .classicThinBorder(big ? 10 : 44)   // glass tube edge and sheen, as the cards
+            .modifier(ClassicLightCard(radius: big ? 10 : 44, hover: hover, accent: Theme.accent(accentName)))   // the posters' light glass edge
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
@@ -4065,7 +4066,7 @@ struct ClassicFavPersonCard: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                .classicThinBorder(12)
+                .modifier(ClassicLightCard(radius: 12))   // the posters' light glass edge
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
                 Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)
