@@ -79,12 +79,51 @@ struct GlassCapsule: ViewModifier {
 }
 extension View { func glassCapsule() -> some View { modifier(GlassCapsule()) } }
 
+/// A teardrop lying on its side: round on the left, its point at the middle of the right edge. The point is a
+/// right angle (the sides meet at 90°), as a classic drop.
+struct Teardrop: Shape {
+    func path(in rect: CGRect) -> Path {
+        let r = rect.height / 2
+        let c = CGPoint(x: rect.minX + r, y: rect.midY)
+        let d = min(rect.maxX - c.x, r * 2.squareRoot())   // r·√2 from the middle gives the 90° point
+        let tip = CGPoint(x: c.x + d, y: rect.midY)
+        guard d > r else { return Path(ellipseIn: rect) }
+        // Where the straight sides touch the circle
+        let a = acos(r / d)
+        var p = Path()
+        p.move(to: tip)
+        p.addLine(to: CGPoint(x: c.x + r * cos(a), y: c.y - r * sin(a)))
+        p.addArc(center: c, radius: r, startAngle: .radians(-a), endAngle: .radians(a), clockwise: true)
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// The A–Z letter preview's drop, in the watched check's finish: glossy white (light on top, shade at the
+/// bottom) with a thin black outline and a soft shadow.
+struct TeardropGlass: View {
+    var body: some View {
+        ZStack {
+            Teardrop().fill(Color.white)
+            Teardrop().fill(LinearGradient(stops: [.init(color: .white.opacity(0.55), location: 0),
+                                                   .init(color: .white.opacity(0.1), location: 0.45),
+                                                   .init(color: .black.opacity(0.35), location: 1)],
+                                           startPoint: .top, endPoint: .bottom))
+            Teardrop().stroke(Color.black.opacity(0.85), lineWidth: 0.9)
+        }
+        .shadow(color: .black.opacity(0.65), radius: 1.5, y: 1.5)
+    }
+}
+
 /// One letter of the library A–Z bar.
 struct AlphaLetter: View {
     @AppStorage("accent") private var accentName = "red"
     let l: String
     let on: Bool
     let action: () -> Void
+    /// Dock-style zoom: set by the bar from how close the pointer is to this letter.
+    var scale: CGFloat = 1
+    var hovering: (Bool) -> Void = { _ in }
     @State private var hover = false
     var body: some View {
         Button(action: action) {
@@ -95,8 +134,27 @@ struct AlphaLetter: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
+        .scaleEffect(scale)
+        .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
+        // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
+        .overlay(alignment: .trailing) {
+            if hover {
+                Text(l).font(.system(size: 19, weight: .heavy)).foregroundColor(.black.opacity(0.85))
+                    .frame(width: 34, height: 36)
+                    .offset(x: 7, y: -15)   // the turn moves the drop's round part up-left; the letter follows
+                    .padding(.trailing, 8)   // the point
+                    // The drop lies like a backslash: round part up-left, the point down-right at the letter
+                    .background(TeardropGlass().rotationEffect(.degrees(45), anchor: .trailing))
+                    .fixedSize()
+                    .offset(x: -15, y: -6)   // the point reaches toward the letter under the pointer
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .zIndex(scale > 1 ? 1 : 0)
         .onHover { inside in
             hover = inside
+            hovering(inside)
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
@@ -625,9 +683,11 @@ struct TopNavBar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             // On a narrow window the sections don't all fit: the pill then scrolls sideways instead of
             // spilling past the window edge, where its buttons can't be clicked and Back gets squeezed out
+            // Too narrow for the names: icons only (names on hover); scrolling only if even those don't fit
             ViewThatFits(in: .horizontal) {
                 TopNavButtons()
-                ScrollView(.horizontal, showsIndicators: false) { TopNavButtons() }
+                TopNavButtons(compact: true)
+                ScrollView(.horizontal, showsIndicators: false) { TopNavButtons(compact: true) }
             }.layoutPriority(1)
             TopNavTools().fixedSize()
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -646,7 +706,10 @@ struct TopNavButtons: View {
     @AppStorage(NavOrder.key) private var navOrder = ""
     @AppStorage("showNowPlaying") private var showNowPlaying = true
     @AppStorage("showRecent") private var showRecent = true
-    @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
+    @AppStorage("topBarLabels") private var labelSetting = "both"   // Settings → General: "both", "names" or "icons"
+    /// The window is too narrow for the names: icons only, whatever Settings says.
+    var compact = false
+    var labels: String { compact ? "icons" : labelSetting }
     func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
@@ -831,8 +894,7 @@ struct SearchView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
-                                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
-                                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
+                                        FavHeart(size: 16).padding(8)
                                     }
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
@@ -1290,8 +1352,7 @@ struct PersonHeader: View {
                 // Favorite: heart top left when it is one, heart button bottom right on hover (as on cast photos)
                 .overlay(alignment: .topLeading) {
                     if emby.isPersonFav(id) {
-                        Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(.tint)
-                            .shadow(color: .black.opacity(0.6), radius: 3).padding(12)
+                        FavHeart(size: 20).padding(12)
                     }
                 }
                 .modifier(HoverPersonHeart(id: id, name: name))
@@ -1765,10 +1826,13 @@ struct PosterCard: View {
                     WatchBadge(item: item, played: played).padding(8)
                 }
                 .overlay(alignment: .topLeading) {
-                    if emby.isFav(item) && !inFavorites {
-                        Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
-                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
-                    }
+                    // Favorite heart, then your Trakt rating
+                    HStack(spacing: 6) {
+                        if emby.isFav(item) && !inFavorites {
+                            FavHeart(size: 22)   // as big as the rating star beside it
+                        }
+                        MyRatingBadge(item: item)
+                    }.padding(8)
                 }
                 .overlay(alignment: .bottom) {
                     if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {
@@ -1966,8 +2030,17 @@ struct ItemActionsButton: View {
         var body: some View {
             Button(action: action) {
                 if classic {
-                    Label(help, systemImage: on && !icon.hasSuffix(".fill") ? icon + ".circle.fill" : icon)
-                        .classicGlassPill(size: 30)
+                    if icon == "heart.fill" { Label { Text(help) } icon: { FavHeart(size: 13) }.classicGlassPill(size: 30) }
+                    else {
+                        Label(help, systemImage: on && !icon.hasSuffix(".fill") ? icon + ".circle.fill" : icon)
+                            .classicGlassPill(size: 30)
+                    }
+                } else if icon == "heart.fill" {
+                    FavHeart(size: 13)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.black.opacity(0.6)))
+                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        .contentShape(Circle())
                 } else {
                     Image(systemName: icon).font(.system(size: 12, weight: .bold))
                         .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
@@ -2077,7 +2150,7 @@ final class HoverCardCenter: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(100))
                 if Task.isCancelled { return }
                 if PlaybackFlag.shared.active { hide(); return }
-                away = pointerInside() ? 0 : away + 1
+                away = pointerInside() || RatingButton.pickerOpen ? 0 : away + 1   // the star picker sits outside the card
                 if away >= 3 { closeCard(); return }
             }
         }
@@ -2318,6 +2391,10 @@ struct HoverBacking: ViewModifier {
 struct TubeBadge: View {
     let count: Int?
     var body: some View {
+        // Glossy like the heart and rating star beside it: a check when watched, else the unwatched count
+        if let n = count { GlossyCount(text: n > 99 ? "99+" : "\(n)") } else { GlossyCheck() }
+    }
+    var tube: some View {
         Group {
             if let n = count {
                 Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold))
@@ -2327,14 +2404,21 @@ struct TubeBadge: View {
         }
         .foregroundColor(.white)
         .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 22)
-        .background(Capsule().fill(LinearGradient(colors: [Color(white: 0.3).opacity(0.75), Color.black.opacity(0.65)],
-                                                  startPoint: .top, endPoint: .bottom)))
-        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .white.opacity(0.3)],
-                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
+        .glassTube()
     }
     func glyph<V: View>(_ v: V) -> some View {
         v.foregroundStyle(LinearGradient(colors: [.white, .white.opacity(0.75)], startPoint: .top, endPoint: .bottom))
             .shadow(color: .black.opacity(0.85), radius: 1, y: 0.5)
+    }
+}
+
+extension View {
+    /// The Glass3D badge look: a glass tube bent into a capsule.
+    func glassTube() -> some View {
+        background(Capsule().fill(LinearGradient(colors: [Color(white: 0.3).opacity(0.75), Color.black.opacity(0.65)],
+                                                 startPoint: .top, endPoint: .bottom)))
+        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .white.opacity(0.3)],
+                                                      startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
     }
 }
 
@@ -2687,7 +2771,7 @@ struct LibraryView: View {
             VStack(spacing: 18) {
                 header
                 if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 76).padding(.vertical, 24)   // room for the A–Z bar
+            }.padding(.leading, 40).padding(.trailing, 94).padding(.vertical, 24)   // room for the A–Z bar
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -2697,17 +2781,30 @@ struct LibraryView: View {
         .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
     }
 
+    /// The letter under the pointer, for the Dock-style zoom of the A–Z bar.
+    @State private var alphaHover: Int?
+    func alphaScale(_ i: Int) -> CGFloat {
+        guard let h = alphaHover else { return 1 }
+        switch abs(i - h) { case 0: return 1.7; case 1: return 1.35; case 2: return 1.12; default: return 1 }
+    }
+
     /// A–Z jump bar in a glass capsule. Each letter shows a pointing hand and lights up under the mouse;
     /// the chosen letter is filled with the accent color (click it again to show everything).
     var alphaBar: some View {
         VStack(spacing: 1) {
-            ForEach(alphaLetters, id: \.self) { l in AlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l } }
+            ForEach(Array(alphaLetters.enumerated()), id: \.element) { i, l in
+                AlphaLetter(l: l, on: letter == l, action: { letter = (letter == l) ? "" : l },
+                            scale: alphaScale(i), hovering: { inside in
+                    if inside { alphaHover = i } else if alphaHover == i { alphaHover = nil }
+                })
+            }
         }
+        .animation(.easeOut(duration: 0.12), value: alphaHover)
         .padding(.vertical, 8).padding(.horizontal, 4)
         .background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.4)))
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.white.opacity(0.15), lineWidth: 1))
-        .padding(.trailing, 22)   // clear of the window's scroll bar
+        .padding(.trailing, 40)   // clear of the window's scroll bar, a little in from the edge
     }
 
     var header: some View {
@@ -2883,8 +2980,7 @@ struct CastTile: View {
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
                 if emby.isPersonFav(p.Id) {
-                    Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(.tint)
-                        .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
+                    FavHeart(size: 16).padding(big ? 8 : 2)
                 }
             }
             // Favorite heart, bottom right on hover, as on posters
@@ -3196,6 +3292,7 @@ struct DetailView: View {
                         .background(.ultraThinMaterial, in: Capsule())
                 }.buttonStyle(HoverButton())
             }
+            RatingButton(item: item, full: full)
             glassCircle(fav ? "checkmark" : "plus", help: fav ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await emby.setFav(item.id, !fav, name: item.Name) }
             }
@@ -3830,10 +3927,10 @@ struct PlayerView: View {
     func close() {
         if enteredFullScreen, let w = window, w.styleMask.contains(.fullScreen) { w.toggleFullScreen(nil) }
         enteredFullScreen = false
-        let done = model.watchedEnough
+        // Past 90% the stop report marks it watched on the server (and here, see reportStopped). Marking it again
+        // made the server's Trakt plugin log a second play ("watch" next to the "scrobble").
         model.stop()
         emby.playing = nil
-        if done { Task { await emby.setPlayed(req.item.id, true) } }
     }
 
     /// Plays a neighbouring episode, keeping the current subtitle language.
@@ -3850,8 +3947,7 @@ struct PlayerView: View {
                 let text = ["srt", "subrip", "vtt", "ass", "ssa"]
                 pick = (subs.first { text.contains(($0.Codec ?? "").lowercased()) } ?? subs.first)?.Index
             }
-            if model.watchedEnough { await emby.setPlayed(item.id, true) }
-            model.stop()
+            model.stop()       // marks a finished episode watched (see close())
             let q = UserDefaults.standard.integer(forKey: "defaultQuality")
             emby.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: q > 0 ? q : nil,
                                        start: emby.resumeAt(ep))
@@ -4971,6 +5067,7 @@ struct HoverPreview: View {
                             }
                         }.buttonStyle(.plainHand).helpLabel("Resume from \(timeString(r))")
                     }
+                    RatingButton(item: item, full: nil, classic: classic, size: classic ? 36 : 32)
                     circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from favorites" : "Add to favorites") {
                         Task { await emby.setFav(item.id, !fav, name: item.Name) }
                     }
@@ -5008,8 +5105,11 @@ struct HoverPreview: View {
 
     @ViewBuilder func circle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         if classic {
-            // Classic theme: the glass button; "on" shows as the filled icon, in white
-            Button(action: action) { Label(help, systemImage: icon).classicGlassPill(size: 34) }
+            // Classic theme: the glass button; "on" shows as the filled icon, in white (a favorite: the glossy heart)
+            Button(action: action) {
+                if icon == "heart.fill" { Label { Text(help) } icon: { FavHeart(size: 15) }.classicGlassPill(size: 34) }
+                else { Label(help, systemImage: icon).classicGlassPill(size: 34) }
+            }
                 .buttonStyle(.plainHand).helpLabel(help)
         } else {
             plainCircle(icon, on: on, help: help, action)
@@ -5018,8 +5118,13 @@ struct HoverPreview: View {
 
     func plainCircle(_ icon: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white))
+            Group {
+                if icon == "heart.fill" { FavHeart(size: 15) }
+                else {
+                    Image(systemName: icon).font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white))
+                }
+            }
                 .frame(width: 32, height: 32)
                 .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1.5))
                 .contentShape(Circle())
@@ -5116,7 +5221,7 @@ struct FavPersonListRow<Link: Hashable>: View {
                 .frame(width: 44, height: 66).clipShape(RoundedRectangle(cornerRadius: 6))
                 Text(p.Name).font(.body.weight(.semibold)).lineLimit(1)
                 Spacer(minLength: 0)
-                if emby.isFav(p) { Image(systemName: "heart.fill").foregroundStyle(.tint) }
+                if emby.isFav(p) { FavHeart(size: 15) }
             }
             .padding(.horizontal, 10).padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hover ? 0.1 : 0.04)))

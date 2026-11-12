@@ -33,6 +33,7 @@ struct Item: Identifiable, Decodable, Hashable {
     let Status: String?
     let PremiereDate: String?            // a person's birth date
     let ProductionLocations: [String]?   // a person's birthplace
+    let ProviderIds: [String: String]?   // IMDb / TMDB / TVDB ids, for Trakt (ratings on posters, watched sync)
     struct UD: Decodable, Hashable { let Played: Bool?; let IsFavorite: Bool?; let PlayedPercentage: Double?; let UnplayedItemCount: Int?; let PlaybackPositionTicks: Int64? }
     var id: String { Id }
     var backdropId: String? { (BackdropImageTags ?? []).isEmpty ? ParentBackdropItemId : Id }
@@ -161,6 +162,12 @@ struct Full: Decodable {
     let RemoteTrailers: [Link]?
     let UserData: UD?
     let Chapters: [Chapter]?
+    /// "Imdb": "tt…", "Tmdb": "603", "Tvdb": … (for Trakt)
+    let ProviderIds: [String: String]?
+    // For Trakt watched sync: what the item is, and for a season its show and number
+    let `Type`: String?
+    let SeriesId: String?
+    let IndexNumber: Int?
     struct Named: Decodable { let Name: String }
     struct Person: Decodable, Identifiable {
         let Id: String
@@ -586,8 +593,10 @@ final class Emby: ObservableObject {
     func get<T: Decodable>(_ path: String, _ q: [String: String] = [:]) async throws -> T {
         var q = q
         // The server leaves the year out unless asked; posters show it under the title
-        if let f = q["Fields"] { if !f.contains("ProductionYear") { q["Fields"] = f + ",ProductionYear" } }
-        else { q["Fields"] = "ProductionYear" }
+        // ProviderIds: posters show your Trakt rating, matched by IMDb / TMDB / TVDB id
+        var fields = q["Fields"].map { $0.split(separator: ",").map(String.init) } ?? []
+        for extra in ["ProductionYear", "ProviderIds"] where !fields.contains(extra) { fields.append(extra) }
+        q["Fields"] = fields.joined(separator: ",")
         guard var c = URLComponents(string: server + path) else { throw URLError(.badURL) }
         c.queryItems = q.map { URLQueryItem(name: $0.key, value: $0.value) }
         // URLComponents leaves "+" as is, and servers read it as a space ("C++", "Love + Death" would fail)
@@ -902,10 +911,14 @@ final class Emby: ObservableObject {
 
     func reportStart(_ s: PlaySession, _ sec: Double) async {
         await postJSON("/Sessions/Playing", progressBody(s, sec), on: s)
+        if s.server == server { await Trakt.shared.scrobble("start", itemId: s.itemId, session: s.id, at: sec, emby: self) }
     }
 
     func reportProgress(_ s: PlaySession, _ sec: Double, paused: Bool) async {
         await postJSON("/Sessions/Playing/Progress", progressBody(s, sec, paused: paused), on: s)
+        if s.server == server {
+            await Trakt.shared.scrobble(paused ? "pause" : "start", itemId: s.itemId, session: s.id, at: sec, emby: self)
+        }
     }
 
     /// Tells the server this playback is still alive (used while paused, so it keeps the transcode running).
@@ -926,6 +939,9 @@ final class Emby: ObservableObject {
         recentStopped.append(s)
         if recentStopped.count > 6 { recentStopped.removeFirst() }
         await postJSON("/Sessions/Playing/Stopped", progressBody(s, sec), on: s)
+        if s.server == server && !quick {
+            await Trakt.shared.scrobble("stop", itemId: s.itemId, session: s.id, at: sec, duration: duration, emby: self)
+        }
         await stopEncoding(s)
         if quick { return }
         // A segment request that was still in flight when playback stopped can make the server start a NEW
@@ -963,6 +979,19 @@ final class Emby: ObservableObject {
         positions[id] = 0
         for c in children { played[c.id] = v; positions[c.id] = 0 }
         await send(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
+        if name != nil { await Trakt.shared.setWatched(itemId: id, v, emby: self) }   // a click, not the player or a sync
+    }
+
+    /// The movie or episode with one of these Trakt ids (imdb / tmdb / tvdb) in this library, for watched sync.
+    func findByProviderIds(_ ids: [String: String], episode: Bool) async -> Item? {
+        for (p, v) in ids.sorted(by: { $0.key < $1.key }) {
+            let r: ItemList? = try? await get("/Users/\(userId)/Items", [
+                "Recursive": "true", "IncludeItemTypes": episode ? "Episode" : "Movie",
+                "AnyProviderIdEquals": "\(p).\(v)", "Fields": "ProviderIds", "Limit": "5"])
+            // Servers that don't know the filter answer with everything: only take an item that really has the id
+            if let it = r?.Items.first(where: { Trakt.ids($0.ProviderIds)[p] == v }) { return it }
+        }
+        return nil
     }
     /// `children`: a season's episodes. Favorites don't carry down on the server, so each episode is sent too.
     func setFav(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
@@ -986,7 +1015,7 @@ final class Emby: ObservableObject {
     }
 
     func full(_ id: String) async -> Full? {
-        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,People,Genres,Studios,MediaSources,MediaStreams,Taglines,DateCreated,ExternalUrls,RemoteTrailers,Chapters"])
+        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,People,Genres,Studios,MediaSources,MediaStreams,Taglines,DateCreated,ExternalUrls,RemoteTrailers,Chapters,ProviderIds"])
     }
 
     /// Collections (box sets) this movie or show belongs to, for "Included In". Jellyfin has its own call for

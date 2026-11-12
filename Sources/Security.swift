@@ -1,5 +1,7 @@
 import AppKit
+import CryptoKit
 import Foundation
+import IOKit
 import Security
 import SwiftUI
 
@@ -172,5 +174,32 @@ struct ConnectionBadge: View {
             Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
                 .tip("Not encrypted (http) over the internet: the sign-in can be read on the network. Use an https address if the server has one.")
         }
+    }
+}
+
+/// Small secrets in the preferences file, encrypted (AES-GCM) with a key made from this Mac's hardware id, so
+/// they never appear as plain text there and a copied preferences file is useless on another Mac. Not as strong
+/// as the Keychain (another program running as you could do the same), which waits for an Apple Developer ID
+/// for the same reason as the server tokens (see TokenStore).
+enum SealedPrefs {
+    private static let key: SymmetricKey = {
+        let hw = IORegistryEntryCreateCFProperty(
+            IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice")),
+            kIOPlatformUUIDKey as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String ?? "cove"
+        return SymmetricKey(data: SHA256.hash(data: Data("eu.jonae.cove.sealed.\(hw)".utf8)))
+    }()
+
+    static func get(_ name: String) -> String? {
+        guard let data = UserDefaults.standard.data(forKey: name),
+              let box = try? AES.GCM.SealedBox(combined: data),
+              let plain = try? AES.GCM.open(box, using: key) else { return nil }
+        return String(data: plain, encoding: .utf8)
+    }
+
+    /// nil (or empty) removes it.
+    static func set(_ value: String?, for name: String) {
+        guard let value, !value.isEmpty, let box = try? AES.GCM.seal(Data(value.utf8), using: key).combined
+        else { UserDefaults.standard.removeObject(forKey: name); return }
+        UserDefaults.standard.set(box, forKey: name)
     }
 }

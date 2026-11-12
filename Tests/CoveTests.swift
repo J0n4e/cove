@@ -117,4 +117,28 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(d.queryItems?.first { $0.name == "VideoBitrate" }?.value, "8000000")
         XCTAssertNil(d.queryItems?.first { $0.name == "MaxWidth" })
     }
+
+    func testTraktIds() {
+        let ids = Trakt.ids(["Imdb": "tt0133093", "tmdb": "603", "Tvdb": "", "TvRage": "1", "Tmdb2": "x"])
+        XCTAssertEqual(ids, ["imdb": "tt0133093", "tmdb": "603"])
+        XCTAssertEqual(Trakt.ids(["Imdb": "0133093", "Tmdb": "abc"]), [:])
+        XCTAssertEqual(Trakt.keys(kind: "movie", ids: ids), ["movie:imdb:tt0133093", "movie:tmdb:603"])
+    }
+
+    func testSealedPrefs() {
+        let name = "test.sealed.\(UUID().uuidString)"
+        defer { SealedPrefs.set(nil, for: name) }
+        SealedPrefs.set("abc123secret", for: name)
+        XCTAssertEqual(SealedPrefs.get(name), "abc123secret")
+        let raw = UserDefaults.standard.data(forKey: name) ?? Data()
+        XCTAssertNil(raw.range(of: Data("abc123secret".utf8)))
+        SealedPrefs.set(nil, for: name)
+        XCTAssertNil(SealedPrefs.get(name))
+    }
+
+    func testTraktURLKeepsQuery() {
+        let u = Trakt.url("/sync/history/movies?start_at=2026-01-01T00:00:00Z&limit=100&page=2")
+        XCTAssertEqual(u.path, "/sync/history/movies")
+        XCTAssertEqual(URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "page" }?.value, "2")
+    }
 }

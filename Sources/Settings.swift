@@ -14,7 +14,7 @@ struct SettingsView: View {
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "General", home = "Home", libraries = "Libraries",
-             subtitles = "Subtitles", playback = "Playback", servers = "Servers", shortcuts = "Shortcuts", about = "About"
+             subtitles = "Subtitles", playback = "Playback", servers = "Connect", trakt = "Trakt", shortcuts = "Shortcuts", about = "About"
         var id: String { rawValue }
         var icon: String {
             switch self {
@@ -23,13 +23,17 @@ struct SettingsView: View {
             case .libraries: return "square.grid.2x2"
             case .subtitles: return "captions.bubble"
             case .playback: return "play.rectangle"
-            case .servers: return "server.rack"
+            case .servers: return "link"
+            case .trakt: return "chart.bar"
             case .shortcuts: return "keyboard"
             case .about: return "info.circle"
             }
         }
     }
     @State private var section: Section = .general
+    @ObservedObject private var trakt = Trakt.shared
+    /// The Trakt tab shows only while Trakt is connected.
+    var sections: [Section] { Section.allCases.filter { $0 != .trakt || trakt.isConnected } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,17 +41,17 @@ struct SettingsView: View {
             Text(section.rawValue).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
                 .padding(.top, 12)
             HStack(spacing: 4) {
-                ForEach(Section.allCases) { s in
+                ForEach(sections) { s in
                     let on = section == s
                     Button { section = s } label: {
                         VStack(spacing: 3) {
                             Image(systemName: s.icon).font(.system(size: 20))
                             Text(s.rawValue).font(.system(size: 11))
                         }
-                        .foregroundColor(on ? accent : .secondary)
+                        // Selected: filled with the accent, light text on it (accent-colored text was hard to read)
+                        .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)
                         .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent.opacity(0.15) : Color.clear))
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? accent.opacity(0.4) : Color.clear))
+                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent : Color.clear))
                         .contentShape(Rectangle())
                     }.buttonStyle(.plainHand).focusEffectDisabled()
                 }
@@ -62,6 +66,7 @@ struct SettingsView: View {
                     case .subtitles: SubtitleSettings()
                     case .playback: PlaybackSettings()
                     case .servers: ServerSettings()
+                    case .trakt: TraktStatsSettings()
                     case .shortcuts: ShortcutsSettings()
                     case .about: AboutSettings()
                     }
@@ -72,15 +77,15 @@ struct SettingsView: View {
             Divider()
             HStack {
                 Spacer()
-                // Both buttons in the accent color; Cancel is the lighter one
-                Button { dismiss() } label: { Text("Cancel").frame(minWidth: 60) }
-                    .buttonStyle(.bordered).handCursor().tint(accent).controlSize(.large)
+                Button("Cancel") { dismiss() }.handCursor().controlSize(.large)
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent).handCursor().tint(accent).controlSize(.large)
+                    .buttonStyle(.borderedProminent).handCursor().tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
+        // Disconnected while on the Trakt tab: go to Connect, where Trakt is set up again
+        .onChange(of: trakt.isConnected) { _, on in if !on && section == .trakt { section = .servers } }
         .tint(accent)     // switches, menus and links inside Settings too
         .background(bg)   // follows Appearance → Background, like the rest of the app
         // Esc closes Settings and keeps the changes, like OK / Done
@@ -845,6 +850,25 @@ struct ShortcutsSettings: View {
 
 struct ServerSettings: View {
     @EnvironmentObject var emby: Emby
+    @ObservedObject private var trakt = Trakt.shared
+    @State private var clientIdDraft = ""
+    @AppStorage("traktScrobble") private var scrobble = false
+    @AppStorage("traktSyncWatched") private var syncWatched = false
+    let redirectURI = "urn:ietf:wg:oauth:2.0:oob"
+
+    func saveClientId() {
+        let id = clientIdDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else { return }
+        trakt.setClientId(id)
+        clientIdDraft = ""
+    }
+
+    func step<V: View>(_ n: Int, @ViewBuilder _ text: () -> V) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(n).").bold().frame(width: 14, alignment: .trailing)
+            text().fixedSize(horizontal: false, vertical: true)
+        }
+    }
     @Environment(\.dismiss) var dismiss
     @State private var busy: String?
 
@@ -882,7 +906,7 @@ struct ServerSettings: View {
                 }
             }
         }
-        PrefSection(title: "Saved servers", last: true) {
+        PrefSection(title: "Saved servers") {
             PrefRow(label: "Servers") {
                 VStack(alignment: .leading, spacing: 0) {
                     if emby.servers.isEmpty { Text("No saved servers.").foregroundColor(.secondary).padding(12) }
@@ -923,5 +947,260 @@ struct ServerSettings: View {
             PrefRow { Button("Add Server…") { emby.switchServer(); dismiss() } }
             PrefNote("Click a server's name to rename it. Connect switches Cove to that server. Add Server opens the sign-in screen.")
         }
+        PrefSection(title: "Trakt", last: true) {
+            PrefRow(label: "Ratings") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let u = trakt.user {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(TintShapeStyle())
+                            Text("Connected as ") + Text(u).bold()
+                        }
+                        HStack(spacing: 10) {
+                            Button("Refresh Ratings") { Task { await trakt.refresh(force: true) } }
+                            Button("Disconnect", role: .destructive) { trakt.disconnect() }
+                        }
+                        if !trakt.pending.isEmpty {
+                            Text("\(trakt.pending.count) rating\(trakt.pending.count == 1 ? "" : "s") waiting to be sent.")
+                                .font(.callout).foregroundColor(.secondary)
+                        }
+                    } else if let s = trakt.signIn {
+                        Text("Enter this code on \(s.url):").foregroundColor(.secondary)
+                        Text(s.userCode).font(.system(size: 26, weight: .bold, design: .monospaced)).textSelection(.enabled)
+                        HStack(spacing: 10) {
+                            Spinner().controlSize(.small)
+                            Text("Waiting for Trakt…").foregroundColor(.secondary)
+                            Button("Cancel") { trakt.cancelSignIn() }
+                        }
+                    } else if trakt.isConfigured {
+                        Button("Connect Trakt…") { trakt.connect() }
+                    } else {
+                        Text("Not set up yet. Follow the steps below.").foregroundColor(.secondary)
+                    }
+                    if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange) }
+                }
+            }
+            if trakt.user != nil {
+                PrefRow(label: "Scrobbling") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Scrobble what I watch in Cove", isOn: $scrobble)
+                        Text("Trakt shows what you're watching and logs the play when you finish (past 80%).")
+                            .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                PrefRow(label: "Watched status") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Sync watched status", isOn: $syncWatched)
+                            .onChange(of: syncWatched) { _, on in if on { Task { await trakt.importWatched(emby) } } }
+                        Text("Marking something watched in Cove adds a play on Trakt, and plays Trakt gets from other apps are marked watched here (from now on, every hour). Marking it unwatched only resets your progress in Cove: Trakt keeps every play, so rewatches add up.")
+                            .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                        if syncWatched {
+                            HStack(spacing: 10) {
+                                Button("Sync Now") { Task { await trakt.importWatched(emby) } }
+                                if let t = trakt.lastWatchedSync {
+                                    Text("Last synced \(t.formatted(date: .abbreviated, time: .shortened))")
+                                        .font(.callout).foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+                PrefRow(label: "Emby Trakt plugin") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("If your Emby server also has the Trakt plugin, turn these off for your user (Emby → your user's preferences → Trakt), or plays get logged twice and marking a show unwatched removes its plays from Trakt:")
+                            .fixedSize(horizontal: false, vertical: true)
+                        Label("Sync Manual Playstate Changes to Trakt", systemImage: "xmark.circle").fontWeight(.semibold)
+                        Label("Update Trakt watched history during Scheduled Task", systemImage: "xmark.circle").fontWeight(.semibold)
+                        Text("The plugin's scrobbling always stays on, so leave Cove's Scrobble switch off when the plugin is installed. Keep \u{201C}Skip unwatched import from Trakt\u{201D} on.")
+                            .foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.callout).frame(maxWidth: 440, alignment: .leading)
+                }
+            }
+            if trakt.user == nil && trakt.signIn == nil {
+                PrefRow(label: "Client ID") {
+                    HStack(spacing: 8) {
+                        // Shown as dots once saved; typing a new one replaces it
+                        SecureField(trakt.isConfigured ? "Saved (encrypted)" : "Paste the Client ID", text: $clientIdDraft)
+                            .textFieldStyle(.roundedBorder).frame(width: 300)
+                            .onSubmit(saveClientId)
+                        Button("Save", action: saveClientId).disabled(clientIdDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                        if trakt.isConfigured {
+                            Button("Remove") { trakt.setClientId(""); clientIdDraft = "" }
+                        }
+                    }
+                }
+                PrefRow(label: "How to set up") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        step(1) {
+                            Text("Sign in on trakt.tv, then open ") +
+                            Text("[trakt.tv/oauth/applications](https://trakt.tv/oauth/applications)") +
+                            Text(" and click **New Application**.")
+                        }
+                        step(2) { Text("Name it **Cove**. As Redirect URI enter:") }
+                        HStack(spacing: 6) {
+                            Text(redirectURI).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(redirectURI, forType: .string)
+                            } label: { Image(systemName: "doc.on.doc") }
+                                .buttonStyle(.borderless).handCursor().tip("Copy")
+                        }.padding(.leading, 22)
+                        step(3) { Text("Leave the rest empty and click **Save App**.") }
+                        step(4) { Text("Copy the **Client ID** (there's no secret), paste it above and click **Save**.") }
+                        step(5) { Text("Click **Connect Trakt…**, enter the code Cove shows on trakt.tv/activate and allow Cove.") }
+                    }
+                    .font(.callout).frame(maxWidth: 440, alignment: .leading)
+                    .environment(\.openURL, OpenURLAction { u in
+                        if let u = SafeLink.url(u.absoluteString) { NSWorkspace.shared.open(u) }
+                        return .handled
+                    })
+                }
+            }
+            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are stored encrypted.")
+        }
+    }
+}
+
+// MARK: - Trakt stats
+
+/// Your Trakt numbers: all time, this month against last month, the last 12 months, your ratings and the latest
+/// plays. Loaded when the tab opens (the last numbers show meanwhile).
+struct TraktStatsSettings: View {
+    @ObservedObject private var trakt = Trakt.shared
+    @AppStorage("accent") private var accentName = "red"
+    var accent: Color { Theme.accent(accentName) }
+
+    var body: some View {
+        if !trakt.isConnected {
+            PrefSection(title: "Trakt", last: true) {
+                PrefRow(label: "Stats") {
+                    Text("Connect Trakt in Settings → Connect to see your numbers here.").foregroundColor(.secondary)
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 10) {
+                    Text("Connected as ") + Text(trakt.user ?? "").bold()
+                    Spacer()
+                    if trakt.loadingStats { Spinner().controlSize(.small) }
+                    else if let s = trakt.stats {
+                        Text("Updated \(s.updated.formatted(date: .omitted, time: .shortened))").foregroundColor(.secondary)
+                    }
+                    Button("Refresh") { Task { await trakt.loadStats() } }.disabled(trakt.loadingStats)
+                }
+                .font(.callout).padding(.top, 8).padding(.horizontal, 6)
+                if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange).padding(.horizontal, 6) }
+                if let s = trakt.stats { content(s) }
+                else if trakt.loadingStats { Text("Loading your stats…").foregroundColor(.secondary).padding(20) }
+            }
+            .task { await trakt.loadStats() }
+        }
+    }
+
+    @ViewBuilder func content(_ s: Trakt.Stats) -> some View {
+        PrefSection(title: "All time") {
+            HStack(spacing: 10) {
+                tile("Movies", "\(s.movies.watched)", "\(s.movies.plays) plays · \(hours(s.movies.minutes))")
+                tile("Shows", "\(s.shows)", "\(s.episodes.plays) episodes · \(hours(s.episodes.minutes))")
+                tile("Time watched", hours(s.movies.minutes + s.episodes.minutes), days(s.movies.minutes + s.episodes.minutes))
+            }.padding(.horizontal, 12)
+        }
+        let cur = s.months.last, prev = s.months.dropLast().last
+        PrefSection(title: "This month") {
+            HStack(spacing: 10) {
+                tile("Movies", "\(cur?.movies ?? 0)", change(cur?.movies ?? 0, prev?.movies ?? 0))
+                tile("Episodes", "\(cur?.episodes ?? 0)", change(cur?.episodes ?? 0, prev?.episodes ?? 0))
+                tile("Time", hours(cur?.minutes ?? 0), change(cur?.minutes ?? 0, prev?.minutes ?? 0))
+            }.padding(.horizontal, 12)
+            if let t = s.topShowThisMonth {
+                (Text("Most watched: ").foregroundColor(.secondary) + Text(t).bold()
+                 + Text(" · \(s.topShowEpisodes) episode\(s.topShowEpisodes == 1 ? "" : "s")").foregroundColor(.secondary))
+                    .font(.callout).padding(.horizontal, 14)
+            }
+        }
+        PrefSection(title: "Last 12 months · hours watched") { monthsChart(s.months).padding(.horizontal, 14) }
+        PrefSection(title: "Your ratings · \(s.ratingsTotal)") { ratingsChart(s.distribution).padding(.horizontal, 14) }
+        PrefSection(title: "Recently watched", last: true) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(s.recent.enumerated()), id: \.offset) { _, r in
+                    HStack(spacing: 10) {
+                        Image(systemName: r.isMovie ? "film" : "tv").foregroundColor(.secondary).frame(width: 18)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(r.title).fontWeight(.semibold).lineLimit(1)
+                            Text(r.subtitle).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                        }
+                        Spacer(minLength: 8)
+                        Text(r.date.formatted(.relative(presentation: .named))).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }.padding(.horizontal, 14)
+        }
+    }
+
+    func tile(_ title: String, _ value: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).foregroundColor(.secondary)
+            Text(value).font(.system(size: 26, weight: .bold)).foregroundColor(accent).lineLimit(1).minimumScaleFactor(0.6)
+            Text(detail).font(.caption).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+    }
+
+    func monthsChart(_ months: [Trakt.Stats.Month]) -> some View {
+        let maxH = max(1, months.map(\.minutes).max() ?? 1)
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(Array(months.enumerated()), id: \.offset) { i, m in
+                VStack(spacing: 4) {
+                    Text(m.minutes > 0 ? "\(m.minutes / 60)" : "").font(.system(size: 9)).foregroundColor(.secondary)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(i == months.count - 1 ? accent : accent.opacity(0.45))
+                        .frame(height: max(2, CGFloat(m.minutes) / CGFloat(maxH) * 90))
+                    Text(monthLetter(m.key)).font(.system(size: 10)).foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .help("\(monthName(m.key)): \(m.movies) movie\(m.movies == 1 ? "" : "s"), \(m.episodes) episode\(m.episodes == 1 ? "" : "s"), \(hours(m.minutes))")
+            }
+        }.frame(height: 125)
+    }
+
+    func ratingsChart(_ dist: [Int]) -> some View {
+        let maxN = max(1, dist.max() ?? 1)
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(0..<10, id: \.self) { i in
+                VStack(spacing: 4) {
+                    Text(dist[i] > 0 ? "\(dist[i])" : "").font(.system(size: 9)).foregroundColor(.secondary)
+                    RoundedRectangle(cornerRadius: 3).fill(accent.opacity(0.35 + 0.065 * Double(i)))
+                        .frame(height: max(2, CGFloat(dist[i]) / CGFloat(maxN) * 70))
+                    Text("\(i + 1)").font(.system(size: 10, weight: .semibold)).foregroundColor(.secondary)
+                }.frame(maxWidth: .infinity)
+            }
+        }.frame(height: 105)
+    }
+
+    func hours(_ minutes: Int) -> String {
+        let h = Double(minutes) / 60
+        return h >= 100 ? "\(Int(h.rounded())) h" : String(format: "%.1f h", h)
+    }
+    func days(_ minutes: Int) -> String {
+        let d = Double(minutes) / 1440
+        return d >= 1 ? String(format: "%.1f days", d) : "less than a day"
+    }
+    /// "+12% vs last month", "same as last month", "new this month".
+    func change(_ now: Int, _ before: Int) -> String {
+        if before == 0 { return now > 0 ? "none last month" : "none last month either" }
+        let p = Int((Double(now - before) / Double(before) * 100).rounded())
+        return p == 0 ? "same as last month" : "\(p > 0 ? "+" : "")\(p)% vs last month"
+    }
+    func monthDate(_ key: String) -> Date? {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM"; return f.date(from: key)
+    }
+    func monthLetter(_ key: String) -> String {
+        guard let d = monthDate(key) else { return "" }
+        let f = DateFormatter(); f.dateFormat = "MMM"; return String(f.string(from: d).prefix(3))
+    }
+    func monthName(_ key: String) -> String {
+        guard let d = monthDate(key) else { return key }
+        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f.string(from: d)
     }
 }

@@ -515,9 +515,11 @@ struct ClassicTopNavBar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             // On a narrow window the sections don't all fit: the pill then scrolls sideways instead of
             // spilling past the window edge, where its buttons can't be clicked and Back gets squeezed out
+            // Too narrow for the names: icons only (names on hover); scrolling only if even those don't fit
             ViewThatFits(in: .horizontal) {
                 ClassicTopNavButtons()
-                ScrollView(.horizontal, showsIndicators: false) { ClassicTopNavButtons() }
+                ClassicTopNavButtons(compact: true)
+                ScrollView(.horizontal, showsIndicators: false) { ClassicTopNavButtons(compact: true) }
             }.layoutPriority(1)
             ClassicTopNavTools().fixedSize()
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -532,7 +534,10 @@ struct ClassicTopNavButtons: View {
     @EnvironmentObject var emby: Emby
     @AppStorage(NavOrder.key) private var navOrder = ""
     @ObservedObject private var nav = ClassicNavState.shared
-    @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
+    @AppStorage("topBarLabels") private var labelSetting = "both"   // Settings → General: "both", "names" or "icons"
+    /// The window is too narrow for the names: icons only, whatever Settings says.
+    var compact = false
+    var labels: String { compact ? "icons" : labelSetting }
     func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
         let on = nav.sel == id
         return Button {
@@ -541,12 +546,13 @@ struct ClassicTopNavButtons: View {
         } label: {
             // Small icon before each name, as in the sidebar
             HStack(spacing: 6) {
-                if labels != "names" { Image(systemName: icon).font(.cv(labels == "icons" ? 14 : 12)) }
-                if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
-                else if badge > 0 { Text("\(badge)") }
+                // Glossy lettering (the 3D face, no thickness)
+                if labels != "names" { Text3D(image: Image(systemName: icon), size: labels == "icons" ? 16 : 14, thick: false) }
+                if labels != "icons" {
+                    Text3D(text: badge > 0 ? "\(title) \(badge)" : title, size: 15, thick: false, weight: on ? .bold : .semibold)
+                } else if badge > 0 { Text3D(text: "\(badge)", size: 15, thick: false) }
             }
-                .font(.cv(15, weight: on ? .semibold : .medium))
-                .foregroundColor(on ? .white : .white.opacity(0.6))
+                .opacity(on ? 1 : 0.6)
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
                 .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
@@ -707,8 +713,7 @@ struct ClassicSearchView: View {
                                 .classicThinBorder(12)
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
-                                        Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
-                                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
+                                        FavHeart(size: 16).padding(8)
                                     }
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
@@ -747,7 +752,7 @@ struct ClassicFavoritesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Favorites").font(.cv(22, weight: .bold))
+                    ClassicPageTitle(text: "Favorites", icon: "heart.fill")
                     if !favs.isEmpty { Text("\(favs.count) Items").foregroundColor(.secondary) }
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
@@ -813,8 +818,8 @@ struct ClassicFavoritesView: View {
             // Opened through the page path (like every other page), so Back shows and the top bar can leave it
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
-                    Text(title).font(.cv(15, weight: .bold))
-                    Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
+                    Text3D(text: title, size: 16)
+                    Text3D(image: Image(systemName: "chevron.right"), size: 16)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
@@ -843,7 +848,7 @@ struct ClassicFavoriteGridView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(title).font(.cv(22, weight: .bold))
+                ClassicPageTitle(text: title, icon: "heart.fill")
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(items.filter { emby.isFav($0) }) { ClassicPosterCard(item: $0) }
                 }
@@ -915,7 +920,7 @@ struct ClassicPersonView: View {
     func section(_ title: String, _ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title).font(.cv(17, weight: .bold))
+                Text3D(text: title, size: 17)
                 Text("\(list.count)").font(.cv(15, weight: .regular)).foregroundColor(.secondary)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
@@ -1624,6 +1629,7 @@ struct ClassicBackdrop: View {
 struct ClassicPosterCard: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.inFavorites) private var inFavorites
+    @AppStorage("accent") private var accentName = "red"
     let item: Item
     @State private var hover = false
     // Settings → Libraries → Poster labels
@@ -1647,10 +1653,14 @@ struct ClassicPosterCard: View {
                     WatchBadge(item: item, played: played).padding(8)
                 }
                 .overlay(alignment: .topLeading) {
-                    if emby.isFav(item) && !inFavorites {
-                        Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
-                            .shadow(color: .black.opacity(0.6), radius: 3).padding(8)
-                    }
+                    // Favorite heart, then your Trakt rating
+                    HStack(spacing: 6) {
+                        if emby.isFav(item) && !inFavorites {
+                            // A glossy accent heart, like the rating star beside it
+                            FavHeart(size: 22).helpLabel("Favorite")   // as big as the rating star beside it
+                        }
+                        MyRatingBadge(item: item)
+                    }.padding(8)
                 }
                 .overlay(alignment: .bottom) {
                     if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {
@@ -1777,7 +1787,7 @@ final class ClassicHoverCardCenter: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(100))
                 if Task.isCancelled { return }
                 if PlaybackFlag.shared.active { hide(); return }
-                away = pointerInside() ? 0 : away + 1
+                away = pointerInside() || RatingButton.pickerOpen ? 0 : away + 1   // the star picker sits outside the card
                 if away >= 3 { closeCard(); return }
             }
         }
@@ -1933,7 +1943,7 @@ struct ClassicLibraryView: View {
             VStack(spacing: 18) {
                 header
                 if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 72).padding(.vertical, 24)   // room for the A–Z bar
+            }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -1943,32 +1953,44 @@ struct ClassicLibraryView: View {
         .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
     }
 
+    /// The letter under the pointer, for the Dock-style zoom of the A–Z bar.
+    @State private var alphaHover: Int?
+    func alphaScale(_ i: Int) -> CGFloat {
+        guard let h = alphaHover else { return 1 }
+        switch abs(i - h) { case 0: return 1.7; case 1: return 1.35; case 2: return 1.12; default: return 1 }
+    }
+
     var alphaBar: some View {
         // Letters on a slim glass strip, as the top bar's sections
         VStack(spacing: 1) {
-            ForEach(classicAlphaLetters, id: \.self) { l in
-                ClassicAlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l }
+            ForEach(Array(classicAlphaLetters.enumerated()), id: \.element) { i, l in
+                ClassicAlphaLetter(l: l, on: letter == l, action: { letter = (letter == l) ? "" : l },
+                                   scale: alphaScale(i), hovering: { inside in
+                    if inside { alphaHover = i } else if alphaHover == i { alphaHover = nil }
+                })
             }
         }
+        .animation(.easeOut(duration: 0.12), value: alphaHover)
         .padding(.vertical, 6).padding(.horizontal, 3)
         .background(Capsule().fill(Color.black.opacity(0.3)))
         .background(ClassicGlassBacking(shape: Capsule()))
-        .padding(.trailing, 14)
+        .padding(.trailing, 34)
     }
 
     var header: some View {
         VStack(spacing: 16) {
             ZStack {
-                HStack { Text(lib.title).font(.cv(17, weight: .bold)); Spacer() }
+                HStack { ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind)); Spacer() }
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
                         Button { tab = i } label: {
-                            Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
-                                .font(.cv(12, weight: .medium))
+                            // Glossy lettering, as the top bar
+                            Text3D(text: i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i], size: 12,
+                                   weight: tab == i ? .bold : .semibold)
+                                .opacity(tab == i ? 1 : 0.6)
                                 .padding(.horizontal, 16).frame(height: 36)
                                 .classicSelectedPill(tab == i)
                         .modifier(SectionHoverGlow(on: !(tab == i)))   // accent glow on hover, as the top bar
-                                .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
                 }.padding(4).frame(height: 44).classicClearGlass()
@@ -1977,14 +1999,19 @@ struct ClassicLibraryView: View {
         }
     }
 
+    /// A button's icon and name in the top bar's glossy lettering.
+    func glossyLabel(_ title: String, _ icon: String) -> some View {
+        Label { Text3D(text: title, size: 16, weight: .semibold) } icon: { Text3D(image: Image(systemName: icon), size: 17) }
+    }
+
     var controls: some View {
         HStack(spacing: 10) {
             Text("\(total) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { if let f = items.first { await emby.play(f) } } } label: {
-                Label("Play", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+                glossyLabel("Play", "play.fill").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
             Button { Task { await shuffle() } } label: {
-                Label("Shuffle", systemImage: "shuffle").classicGlassPill(size: 44, iconOnly: false)
+                glossyLabel("Shuffle", "shuffle").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
             // Sort, filter and More open the glass list (not the macOS menu)
             GlassListButton(list: {
@@ -1996,7 +2023,7 @@ struct ClassicLibraryView: View {
                     if (1...4).contains(i) { sort = sorts[i - 1].0 } else if i == 6 { desc = false } else if i == 7 { desc = true }
                 })
             }) {
-                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").classicGlassPill(size: 44, iconOnly: false)
+                glossyLabel(sortLabel, desc ? "arrow.down" : "arrow.up").classicGlassPill(size: 44, iconOnly: false)
             }.helpLabel("Sort")
             GlassListButton(list: {
                 let status = [("all", "All"), ("unwatched", "Unwatched"), ("watched", "Watched")]
@@ -2013,7 +2040,7 @@ struct ClassicLibraryView: View {
                     .classicGlassPill(size: 44)
             }.helpLabel("Filter")
             if !genre.isEmpty {
-                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicGlassPill(size: 44, iconOnly: false) }
+                Button { genre = "" } label: { glossyLabel(genre, "xmark").classicGlassPill(size: 44, iconOnly: false) }
                     .buttonStyle(HoverButton()).helpLabel("Clear genre")
             }
             layoutToggle
@@ -2060,11 +2087,12 @@ struct ClassicLibraryView: View {
         HStack(spacing: 0) {
             ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { layout = m.0 } label: {
-                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
+                    // Glossy icon, as the top bar's lettering
+                    Text3D(image: Image(systemName: m.1), size: 15)
+                        .opacity(layout == m.0 ? 1 : 0.6)
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(layout == m.0)
                         .modifier(SectionHoverGlow(on: !(layout == m.0)))   // accent glow on hover, as the top bar
-                        .foregroundColor(layout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
@@ -2135,8 +2163,7 @@ struct ClassicCastTile: View {
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
                 if emby.isPersonFav(p.Id) {
-                    Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
-                        .shadow(color: .black.opacity(0.6), radius: 3).padding(big ? 8 : 2)
+                    FavHeart(size: 16).padding(big ? 8 : 2)
                 }
             }
             // Favorite heart, bottom right on hover, as on posters
@@ -2438,6 +2465,7 @@ struct ClassicDetailView: View {
                     Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
                 }.buttonStyle(HoverButton())
             }
+            RatingButton(item: item, full: full, classic: true)
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44)
@@ -2448,8 +2476,10 @@ struct ClassicDetailView: View {
                     .classicGlassPill(size: 44)
             }.buttonStyle(HoverButton()).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
-                Label(fav ? "Favorite" : "Add to Favorites", systemImage: fav ? "heart.fill" : "heart")
-                    .classicGlassPill(size: 44)
+                Label { Text(fav ? "Favorite" : "Add to Favorites") } icon: {
+                    if fav { FavHeart(size: 17) } else { Image(systemName: "heart") }
+                }
+                .classicGlassPill(size: 44)
             }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
         }
     }
@@ -2664,11 +2694,12 @@ struct ClassicDetailView: View {
         HStack(spacing: 0) {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { epLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
+                    // Glossy icon, as the top bar's lettering
+                    Text3D(image: Image(systemName: m.1), size: 15)
+                        .opacity(epLayout == m.0 ? 1 : 0.6)
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(epLayout == m.0)
                         .modifier(SectionHoverGlow(on: !(epLayout == m.0)))   // accent glow on hover, as the top bar
-                        .foregroundColor(epLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
@@ -2836,11 +2867,12 @@ struct ClassicDetailView: View {
         HStack(spacing: 0) {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { similarLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.cv(13, weight: .semibold))
+                    // Glossy icon, as the top bar's lettering
+                    Text3D(image: Image(systemName: m.1), size: 15)
+                        .opacity(similarLayout == m.0 ? 1 : 0.6)
                         .frame(width: 36, height: 36)
                         .classicSelectedPill(similarLayout == m.0)
                         .modifier(SectionHoverGlow(on: !(similarLayout == m.0)))   // accent glow on hover, as the top bar
-                        .foregroundColor(similarLayout == m.0 ? .white : .secondary)
                         .clipShape(Capsule())
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
@@ -2974,10 +3006,10 @@ struct ClassicPlayerView: View {
     func close() {
         if enteredFullScreen, let w = window, w.styleMask.contains(.fullScreen) { w.toggleFullScreen(nil) }
         enteredFullScreen = false
-        let done = model.watchedEnough
+        // Past 90% the stop report marks it watched on the server (and here, see reportStopped). Marking it again
+        // made the server's Trakt plugin log a second play ("watch" next to the "scrobble").
         model.stop()
         emby.playing = nil
-        if done { Task { await emby.setPlayed(req.item.id, true) } }
     }
 
     /// Plays a neighbouring episode, keeping the current subtitle language.
@@ -2994,8 +3026,7 @@ struct ClassicPlayerView: View {
                 let text = ["srt", "subrip", "vtt", "ass", "ssa"]
                 pick = (subs.first { text.contains(($0.Codec ?? "").lowercased()) } ?? subs.first)?.Index
             }
-            if model.watchedEnough { await emby.setPlayed(item.id, true) }
-            model.stop()
+            model.stop()       // marks a finished episode watched (see close())
             let q = UserDefaults.standard.integer(forKey: "defaultQuality")
             emby.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: q > 0 ? q : nil,
                                        start: emby.resumeAt(ep))
@@ -3913,30 +3944,103 @@ extension View {
     func classicHoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(SelfHoverLift(play: play, onPlay: onPlay)) }
 }
 
+/// A page's name at the top left (a library, Favorites): its icon and name in 3D lettering.
+struct ClassicPageTitle: View {
+    let text: String
+    var icon: String? = nil
+    static func icon(_ kind: String?) -> String {
+        switch kind {
+        case "movies": return "film"
+        case "tvshows": return "tv"
+        case "boxsets": return "square.stack"
+        case "music": return "music.note"
+        case "homevideos": return "video"
+        default: return "folder"
+        }
+    }
+    var body: some View {
+        HStack(spacing: 8) {
+            if let icon { Text3D(image: Image(systemName: icon), size: 18) }
+            Text3D(text: text, size: 22)
+        }
+    }
+}
+
+/// Lettering with depth: glossy white (light on top, shade at the bottom), grey layers stepped down-right under
+/// it as its thickness, and a soft shadow.
+struct Text3D: View {
+    var text: String = ""
+    var image: Image? = nil
+    var size: CGFloat
+    /// The grey thickness under the letters (off: just the glossy face and its shadow).
+    var thick = false
+    var weight: Font.Weight = .heavy
+    @ViewBuilder var glyph: some View {
+        if let image { image.font(.cv(size * 0.85, weight: .bold)) } else { Text(text).font(.cv(size, weight: weight)) }
+    }
+    var body: some View {
+        let depth = max(2, Int(size / 6))
+        ZStack {
+            // Thickness: dark layers stepped down-right
+            if thick { ForEach(1...depth, id: \.self) { i in
+                glyph.foregroundColor(Color(white: 0.5 - Double(i) * 0.05))   // grey, so it shows on a black page
+                    .offset(x: CGFloat(i) * 0.7, y: CGFloat(i) * 1.0)
+            } }
+            glyph.foregroundStyle(LinearGradient(colors: [.white, Color(white: 0.92), Color(white: 0.62)],
+                                                 startPoint: .top, endPoint: .bottom))
+        }
+        .shadow(color: .black.opacity(0.6), radius: 3, x: 1, y: 3)
+    }
+}
+
 /// One letter of the Classic A–Z bar: the original look, plus a pointing hand and a light circle under the mouse.
 struct ClassicAlphaLetter: View {
     let l: String
     let on: Bool
     let action: () -> Void
+    /// Dock-style zoom: set by the bar from how close the pointer is to this letter.
+    var scale: CGFloat = 1
+    var hovering: (Bool) -> Void = { _ in }
     @State private var hover = false
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
         Button(action: action) {
-            // The chosen letter lit in the accent, the one under the pointer softly
+            // The chosen letter lit in the accent, the one under the pointer in the top bar's hover look
             Text(l).font(.cv(11, weight: .bold))
                 .frame(width: 20, height: 18)
                 .foregroundColor(on || hover ? .white : .white.opacity(0.55))
                 .background {
-                    if on || hover {
-                        Circle().fill(Theme.accent(accentName).opacity(on ? 0.6 : 0.3))
-                            .overlay(Circle().strokeBorder(Color.white.opacity(on ? 0.4 : 0.2), lineWidth: 0.5))
+                    if on {
+                        Circle().fill(Theme.accent(accentName).opacity(0.6))
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                    } else if hover {
+                        ClassicHoverEffect()   // the top bar's hover look (Settings → General → Hover effect)
                     }
                 }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
+        .scaleEffect(scale)
+        .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
+        // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
+        .overlay(alignment: .trailing) {
+            if hover {
+                Text(l).font(.cv(19, weight: .heavy)).foregroundColor(.black.opacity(0.85))
+                    .frame(width: 34, height: 36)
+                    .offset(x: 7, y: -15)   // the turn moves the drop's round part up-left; the letter follows
+                    .padding(.trailing, 8)   // the point
+                    // The drop lies like a backslash: round part up-left, the point down-right at the letter
+                    .background(TeardropGlass().rotationEffect(.degrees(45), anchor: .trailing))
+                    .fixedSize()
+                    .offset(x: -15, y: -6)   // the point reaches toward the letter under the pointer
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .zIndex(scale > 1 ? 1 : 0)
         .onHover { inside in
             hover = inside
+            hovering(inside)
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .accessibilityLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")   // no tooltip
@@ -3975,7 +4079,7 @@ struct ClassicFavoritePeopleView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Favorite People").font(.cv(22, weight: .bold))
+                ClassicPageTitle(text: "Favorite People", icon: "person.2.fill")
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(people.filter { emby.isFav($0) }) { ClassicFavPersonCard(p: $0) }
                 }

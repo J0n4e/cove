@@ -36,7 +36,7 @@ final class Updater: ObservableObject {
 
     /// Once per launch, a few seconds after start; only speaks up when there is an update.
     func checkOnLaunch() async {
-        guard !checkedThisLaunch, Self.autoCheck else { return }
+        guard !checkedThisLaunch, Self.autoCheck, !Self.isDevBuild else { return }
         checkedThisLaunch = true
         try? await Task.sleep(for: .seconds(5))
         await check(interactive: false)
@@ -72,6 +72,13 @@ final class Updater: ObservableObject {
 
     static var signingKey: Curve25519.Signing.PublicKey? {
         Data(base64Encoded: publicKey).flatMap { try? Curve25519.Signing.PublicKey(rawRepresentation: $0) }
+    }
+
+    /// A local build between releases ("v1.16.0-5-gc5f529b": commits after the tag, from make-app.sh). It would
+    /// always look older than the release it's based on, so it doesn't ask at launch; Check for Updates still works.
+    static var isDevBuild: Bool {
+        let v = Bundle.main.infoDictionary?["CoveVersion"] as? String ?? ""
+        return v.range(of: #"-\d+-g[0-9a-f]+$"#, options: .regularExpression) != nil
     }
 
     // MARK: Version compare ("v1.2" > "v1.1" > "v1.0" > "v0.10Beta"; a release beats a beta of the same number)
