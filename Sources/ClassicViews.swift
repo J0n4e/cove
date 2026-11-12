@@ -21,7 +21,8 @@ struct ClassicPillStyle: ViewModifier {
 
 extension View {
     /// Glass card finish that follows the rounded corners (posters, episode thumbnails, preview card).
-    func classicThinBorder(_ radius: CGFloat) -> some View { modifier(ClassicGlassCard(radius: radius)) }
+    /// `size`: the card's fixed size, if it has one, so the finish is drawn once and reused (see Raster).
+    func classicThinBorder(_ radius: CGFloat, size: CGSize? = nil) -> some View { modifier(ClassicGlassCard(radius: radius, size: size)) }
     func classicPill(active: Bool = false) -> some View { modifier(ClassicPillStyle(active: active)) }
     func classicOnAccent() -> some View { modifier(OnAccent()) }
     func classicCircleButton() -> some View {
@@ -1238,10 +1239,15 @@ struct ClassicProgressCircle: View {
     let progress: Double   // 0...1
     var size: CGFloat = 26
     @AppStorage("accent") private var accentName = "red"
+    @Environment(\.displayScale) private var scale
     var body: some View {
+        // Drawn once per whole percent, size and accent (see Raster): it's eight layers with glowing shadows
+        let pct = Int((min(1, max(0.03, progress)) * 100).rounded())
+        Raster.view("ring\(pct)|\(size)|\(accentName)", scale: scale, pad: 12) { drawing(CGFloat(pct) / 100) }
+    }
+    @ViewBuilder func drawing(_ p: CGFloat) -> some View {
         let accent = Theme.accent(accentName)
         let w: CGFloat = 5
-        let p = CGFloat(min(1, max(0.03, progress)))
         ZStack {
             // glass track
             Circle().stroke(Color.black.opacity(0.4), lineWidth: w)
@@ -1594,7 +1600,7 @@ struct ClassicResumeCard: View {
                     }
                 }
                 .cornerRadius(8)
-                .classicThinBorder(8)
+                .classicThinBorder(8, size: CGSize(width: 260, height: 146))
                 .classicHoverLift()
             }
             .frame(width: 260, alignment: .leading)
@@ -2384,7 +2390,7 @@ struct ClassicDetailView: View {
             } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
             .frame(width: item.isEpisode ? 320 : 220, height: item.isEpisode ? 180 : 330)
             .clipped().cornerRadius(10)
-            .classicThinBorder(10)   // glass tube edge and sheen, as the cards
+            .classicThinBorder(10, size: item.isEpisode ? CGSize(width: 320, height: 180) : CGSize(width: 220, height: 330))   // glass tube edge and sheen, as the cards
             .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             VStack(alignment: .leading, spacing: 14) {
                 Text(item.Name).font(.cv(46, weight: .black))
@@ -2591,7 +2597,7 @@ struct ClassicDetailView: View {
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
                 .overlay(alignment: .topTrailing) { CountBadge(count: unwatched(n)).padding(8) }
-                .classicThinBorder(8)   // glass card, as the posters
+                .classicThinBorder(8, size: CGSize(width: 170, height: 255))   // glass card, as the posters
                 .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint, lineWidth: 2) } }
                 .shadow(radius: 6)
                 .classicHoverLift()
@@ -2652,7 +2658,7 @@ struct ClassicDetailView: View {
                     if pct > 0, pct < 100, !played { ClassicProgressCircle(progress: pct / 100).padding(6) }
                 }
                 .cornerRadius(6)
-                .classicThinBorder(6)
+                .classicThinBorder(6, size: CGSize(width: 220, height: 124))
                 .classicHoverLift(play: 36) { playEpisode(ep) }
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {

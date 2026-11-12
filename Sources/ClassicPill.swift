@@ -107,15 +107,33 @@ struct ClassicGlassBacking<S: Shape>: View {
 /// top. Under the mouse the edge lights up and the card gives off a soft accent glow.
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
+    /// The card's size, when it's fixed: the finish is then drawn once into a picture and reused (see Raster)
+    var size: CGSize? = nil
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
+    @Environment(\.displayScale) private var scale
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
         let accent = Theme.accent(accentName)
-        let lit = hover ? 1.0 : 0.7
         return content
             .overlay {
-                ZStack {
+                if let size {
+                    Raster.view("glass\(size.width)x\(size.height)r\(radius)h\(hover)", scale: scale, pad: 0) {
+                        finish(shape).frame(width: size.width, height: size.height)
+                    }
+                    .allowsHitTesting(false)
+                } else {
+                    finish(shape)
+                }
+            }
+            // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
+            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+            .onHover { h in if h && ScrollActivity.scrolling { return }; withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+    }
+
+    func finish(_ shape: RoundedRectangle) -> some View {
+        let lit = hover ? 1.0 : 0.7
+        return ZStack {
                     // faint sheen over the upper part
                     shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.12), location: 0),
                                                       .init(color: .clear, location: 0.4)],
@@ -136,10 +154,6 @@ struct ClassicGlassCard: ViewModifier {
                 }
                 .clipShape(shape)
                 .allowsHitTesting(false)
-            }
-            // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
-            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
-            .onHover { h in if h && ScrollActivity.scrolling { return }; withAnimation(.easeOut(duration: 0.2)) { hover = h } }
     }
 }
 
