@@ -99,17 +99,19 @@ struct Teardrop: Shape {
     }
 }
 
-/// The A–Z letter preview's glass: frosted white (see-through), a light top and a bright rim.
+/// The A–Z letter preview's drop, in the watched check's finish: glossy white (light on top, shade at the
+/// bottom) with a thin black outline and a soft shadow.
 struct TeardropGlass: View {
     var body: some View {
         ZStack {
-            Teardrop().fill(.ultraThinMaterial)
-            Teardrop().fill(Color.white.opacity(0.78))
-            Teardrop().fill(LinearGradient(colors: [.white.opacity(0.28), .clear, .black.opacity(0.15)],
+            Teardrop().fill(Color.white)
+            Teardrop().fill(LinearGradient(stops: [.init(color: .white.opacity(0.55), location: 0),
+                                                   .init(color: .white.opacity(0.1), location: 0.45),
+                                                   .init(color: .black.opacity(0.35), location: 1)],
                                            startPoint: .top, endPoint: .bottom))
-            Teardrop().stroke(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0.12), .white.opacity(0.3)],
-                                             startPoint: .top, endPoint: .bottom), lineWidth: 0.8)
+            Teardrop().stroke(Color.black.opacity(0.85), lineWidth: 0.9)
         }
+        .shadow(color: .black.opacity(0.65), radius: 1.5, y: 1.5)
     }
 }
 
@@ -143,7 +145,6 @@ struct AlphaLetter: View {
                     .padding(.trailing, 8)   // the point
                     // The drop lies like a backslash: round part up-left, the point down-right at the letter
                     .background(TeardropGlass().rotationEffect(.degrees(45), anchor: .trailing))
-                    .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
                     .offset(x: -9, y: -2)   // the point reaches toward the letter under the pointer
                     .allowsHitTesting(false)

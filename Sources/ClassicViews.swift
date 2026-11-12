@@ -3970,7 +3970,6 @@ struct ClassicAlphaLetter: View {
                     .padding(.trailing, 8)   // the point
                     // The drop lies like a backslash: round part up-left, the point down-right at the letter
                     .background(TeardropGlass().rotationEffect(.degrees(45), anchor: .trailing))
-                    .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
                     .offset(x: -9, y: -2)   // the point reaches toward the letter under the pointer
                     .allowsHitTesting(false)
