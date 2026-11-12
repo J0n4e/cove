@@ -85,6 +85,9 @@ struct AlphaLetter: View {
     let l: String
     let on: Bool
     let action: () -> Void
+    /// Dock-style zoom: set by the bar from how close the pointer is to this letter.
+    var scale: CGFloat = 1
+    var hovering: (Bool) -> Void = { _ in }
     @State private var hover = false
     var body: some View {
         Button(action: action) {
@@ -95,8 +98,12 @@ struct AlphaLetter: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
+        .scaleEffect(scale)
+        .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
+        .zIndex(scale > 1 ? 1 : 0)
         .onHover { inside in
             hover = inside
+            hovering(inside)
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .helpLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")
@@ -2713,7 +2720,7 @@ struct LibraryView: View {
             VStack(spacing: 18) {
                 header
                 if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 76).padding(.vertical, 24)   // room for the A–Z bar
+            }.padding(.leading, 40).padding(.trailing, 94).padding(.vertical, 24)   // room for the A–Z bar
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -2723,17 +2730,30 @@ struct LibraryView: View {
         .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
     }
 
+    /// The letter under the pointer, for the Dock-style zoom of the A–Z bar.
+    @State private var alphaHover: Int?
+    func alphaScale(_ i: Int) -> CGFloat {
+        guard let h = alphaHover else { return 1 }
+        switch abs(i - h) { case 0: return 1.7; case 1: return 1.35; case 2: return 1.12; default: return 1 }
+    }
+
     /// A–Z jump bar in a glass capsule. Each letter shows a pointing hand and lights up under the mouse;
     /// the chosen letter is filled with the accent color (click it again to show everything).
     var alphaBar: some View {
         VStack(spacing: 1) {
-            ForEach(alphaLetters, id: \.self) { l in AlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l } }
+            ForEach(Array(alphaLetters.enumerated()), id: \.element) { i, l in
+                AlphaLetter(l: l, on: letter == l, action: { letter = (letter == l) ? "" : l },
+                            scale: alphaScale(i), hovering: { inside in
+                    if inside { alphaHover = i } else if alphaHover == i { alphaHover = nil }
+                })
+            }
         }
+        .animation(.easeOut(duration: 0.12), value: alphaHover)
         .padding(.vertical, 8).padding(.horizontal, 4)
         .background(RoundedRectangle(cornerRadius: 15).fill(Color.black.opacity(0.4)))
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.white.opacity(0.15), lineWidth: 1))
-        .padding(.trailing, 22)   // clear of the window's scroll bar
+        .padding(.trailing, 40)   // clear of the window's scroll bar, a little in from the edge
     }
 
     var header: some View {

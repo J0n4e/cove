@@ -1942,7 +1942,7 @@ struct ClassicLibraryView: View {
             VStack(spacing: 18) {
                 header
                 if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 72).padding(.vertical, 24)   // room for the A–Z bar
+            }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -1952,17 +1952,28 @@ struct ClassicLibraryView: View {
         .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
     }
 
+    /// The letter under the pointer, for the Dock-style zoom of the A–Z bar.
+    @State private var alphaHover: Int?
+    func alphaScale(_ i: Int) -> CGFloat {
+        guard let h = alphaHover else { return 1 }
+        switch abs(i - h) { case 0: return 1.7; case 1: return 1.35; case 2: return 1.12; default: return 1 }
+    }
+
     var alphaBar: some View {
         // Letters on a slim glass strip, as the top bar's sections
         VStack(spacing: 1) {
-            ForEach(classicAlphaLetters, id: \.self) { l in
-                ClassicAlphaLetter(l: l, on: letter == l) { letter = (letter == l) ? "" : l }
+            ForEach(Array(classicAlphaLetters.enumerated()), id: \.element) { i, l in
+                ClassicAlphaLetter(l: l, on: letter == l, action: { letter = (letter == l) ? "" : l },
+                                   scale: alphaScale(i), hovering: { inside in
+                    if inside { alphaHover = i } else if alphaHover == i { alphaHover = nil }
+                })
             }
         }
+        .animation(.easeOut(duration: 0.12), value: alphaHover)
         .padding(.vertical, 6).padding(.horizontal, 3)
         .background(Capsule().fill(Color.black.opacity(0.3)))
         .background(ClassicGlassBacking(shape: Capsule()))
-        .padding(.trailing, 14)
+        .padding(.trailing, 34)
     }
 
     var header: some View {
@@ -3928,6 +3939,9 @@ struct ClassicAlphaLetter: View {
     let l: String
     let on: Bool
     let action: () -> Void
+    /// Dock-style zoom: set by the bar from how close the pointer is to this letter.
+    var scale: CGFloat = 1
+    var hovering: (Bool) -> Void = { _ in }
     @State private var hover = false
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
@@ -3945,8 +3959,12 @@ struct ClassicAlphaLetter: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
+        .scaleEffect(scale)
+        .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
+        .zIndex(scale > 1 ? 1 : 0)
         .onHover { inside in
             hover = inside
+            hovering(inside)
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .accessibilityLabel(on ? "Show all" : l == "#" ? "Titles starting with a number" : "Jump to \(l)")   // no tooltip
