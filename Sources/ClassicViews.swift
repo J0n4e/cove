@@ -1984,12 +1984,13 @@ struct ClassicLibraryView: View {
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
                         Button { tab = i } label: {
-                            Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
-                                .font(.cv(12, weight: .medium))
+                            // Glossy lettering, as the top bar
+                            Text3D(text: i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i], size: 12,
+                                   weight: tab == i ? .bold : .semibold)
+                                .opacity(tab == i ? 1 : 0.6)
                                 .padding(.horizontal, 16).frame(height: 36)
                                 .classicSelectedPill(tab == i)
                         .modifier(SectionHoverGlow(on: !(tab == i)))   // accent glow on hover, as the top bar
-                                .foregroundColor(tab == i ? .white : .secondary)
                         }.buttonStyle(.plainHand)
                     }
                 }.padding(4).frame(height: 44).classicClearGlass()
@@ -1998,14 +1999,19 @@ struct ClassicLibraryView: View {
         }
     }
 
+    /// A button's icon and name in the top bar's glossy lettering.
+    func glossyLabel(_ title: String, _ icon: String) -> some View {
+        Label { Text3D(text: title, size: 16, weight: .semibold) } icon: { Text3D(image: Image(systemName: icon), size: 17) }
+    }
+
     var controls: some View {
         HStack(spacing: 10) {
             Text("\(total) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { if let f = items.first { await emby.play(f) } } } label: {
-                Label("Play", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+                glossyLabel("Play", "play.fill").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
             Button { Task { await shuffle() } } label: {
-                Label("Shuffle", systemImage: "shuffle").classicGlassPill(size: 44, iconOnly: false)
+                glossyLabel("Shuffle", "shuffle").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
             // Sort, filter and More open the glass list (not the macOS menu)
             GlassListButton(list: {
@@ -2017,7 +2023,7 @@ struct ClassicLibraryView: View {
                     if (1...4).contains(i) { sort = sorts[i - 1].0 } else if i == 6 { desc = false } else if i == 7 { desc = true }
                 })
             }) {
-                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").classicGlassPill(size: 44, iconOnly: false)
+                glossyLabel(sortLabel, desc ? "arrow.down" : "arrow.up").classicGlassPill(size: 44, iconOnly: false)
             }.helpLabel("Sort")
             GlassListButton(list: {
                 let status = [("all", "All"), ("unwatched", "Unwatched"), ("watched", "Watched")]
@@ -2034,7 +2040,7 @@ struct ClassicLibraryView: View {
                     .classicGlassPill(size: 44)
             }.helpLabel("Filter")
             if !genre.isEmpty {
-                Button { genre = "" } label: { Label(genre, systemImage: "xmark").classicGlassPill(size: 44, iconOnly: false) }
+                Button { genre = "" } label: { glossyLabel(genre, "xmark").classicGlassPill(size: 44, iconOnly: false) }
                     .buttonStyle(HoverButton()).helpLabel("Clear genre")
             }
             layoutToggle
