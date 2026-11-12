@@ -135,4 +135,10 @@ final class CoveTests: XCTestCase {
         SealedPrefs.set(nil, for: name)
         XCTAssertNil(SealedPrefs.get(name))
     }
+
+    func testTraktURLKeepsQuery() {
+        let u = Trakt.url("/sync/history/movies?start_at=2026-01-01T00:00:00Z&limit=100&page=2")
+        XCTAssertEqual(u.path, "/sync/history/movies")
+        XCTAssertEqual(URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "page" }?.value, "2")
+    }
 }

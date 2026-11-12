@@ -14,7 +14,7 @@ struct SettingsView: View {
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "General", home = "Home", libraries = "Libraries",
-             subtitles = "Subtitles", playback = "Playback", servers = "Connect", shortcuts = "Shortcuts", about = "About"
+             subtitles = "Subtitles", playback = "Playback", servers = "Connect", trakt = "Trakt", shortcuts = "Shortcuts", about = "About"
         var id: String { rawValue }
         var icon: String {
             switch self {
@@ -24,6 +24,7 @@ struct SettingsView: View {
             case .subtitles: return "captions.bubble"
             case .playback: return "play.rectangle"
             case .servers: return "link"
+            case .trakt: return "chart.bar"
             case .shortcuts: return "keyboard"
             case .about: return "info.circle"
             }
@@ -62,6 +63,7 @@ struct SettingsView: View {
                     case .subtitles: SubtitleSettings()
                     case .playback: PlaybackSettings()
                     case .servers: ServerSettings()
+                    case .trakt: TraktStatsSettings()
                     case .shortcuts: ShortcutsSettings()
                     case .about: AboutSettings()
                     }
@@ -1048,5 +1050,149 @@ struct ServerSettings: View {
             }
             PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are stored encrypted.")
         }
+    }
+}
+
+// MARK: - Trakt stats
+
+/// Your Trakt numbers: all time, this month against last month, the last 12 months, your ratings and the latest
+/// plays. Loaded when the tab opens (the last numbers show meanwhile).
+struct TraktStatsSettings: View {
+    @ObservedObject private var trakt = Trakt.shared
+    @AppStorage("accent") private var accentName = "red"
+    var accent: Color { Theme.accent(accentName) }
+
+    var body: some View {
+        if !trakt.isConnected {
+            PrefSection(title: "Trakt", last: true) {
+                PrefRow(label: "Stats") {
+                    Text("Connect Trakt in Settings → Connect to see your numbers here.").foregroundColor(.secondary)
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 10) {
+                    Text("Connected as ") + Text(trakt.user ?? "").bold()
+                    Spacer()
+                    if trakt.loadingStats { Spinner().controlSize(.small) }
+                    else if let s = trakt.stats {
+                        Text("Updated \(s.updated.formatted(date: .omitted, time: .shortened))").foregroundColor(.secondary)
+                    }
+                    Button("Refresh") { Task { await trakt.loadStats() } }.disabled(trakt.loadingStats)
+                }
+                .font(.callout).padding(.top, 8).padding(.horizontal, 6)
+                if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange).padding(.horizontal, 6) }
+                if let s = trakt.stats { content(s) }
+                else if trakt.loadingStats { Text("Loading your stats…").foregroundColor(.secondary).padding(20) }
+            }
+            .task { await trakt.loadStats() }
+        }
+    }
+
+    @ViewBuilder func content(_ s: Trakt.Stats) -> some View {
+        PrefSection(title: "All time") {
+            HStack(spacing: 10) {
+                tile("Movies", "\(s.movies.watched)", "\(s.movies.plays) plays · \(hours(s.movies.minutes))")
+                tile("Shows", "\(s.shows)", "\(s.episodes.plays) episodes · \(hours(s.episodes.minutes))")
+                tile("Time watched", hours(s.movies.minutes + s.episodes.minutes), days(s.movies.minutes + s.episodes.minutes))
+            }.padding(.horizontal, 12)
+        }
+        let cur = s.months.last, prev = s.months.dropLast().last
+        PrefSection(title: "This month") {
+            HStack(spacing: 10) {
+                tile("Movies", "\(cur?.movies ?? 0)", change(cur?.movies ?? 0, prev?.movies ?? 0))
+                tile("Episodes", "\(cur?.episodes ?? 0)", change(cur?.episodes ?? 0, prev?.episodes ?? 0))
+                tile("Time", hours(cur?.minutes ?? 0), change(cur?.minutes ?? 0, prev?.minutes ?? 0))
+            }.padding(.horizontal, 12)
+            if let t = s.topShowThisMonth {
+                (Text("Most watched: ").foregroundColor(.secondary) + Text(t).bold()
+                 + Text(" · \(s.topShowEpisodes) episode\(s.topShowEpisodes == 1 ? "" : "s")").foregroundColor(.secondary))
+                    .font(.callout).padding(.horizontal, 14)
+            }
+        }
+        PrefSection(title: "Last 12 months · hours watched") { monthsChart(s.months).padding(.horizontal, 14) }
+        PrefSection(title: "Your ratings · \(s.ratingsTotal)") { ratingsChart(s.distribution).padding(.horizontal, 14) }
+        PrefSection(title: "Recently watched", last: true) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(s.recent.enumerated()), id: \.offset) { _, r in
+                    HStack(spacing: 10) {
+                        Image(systemName: r.isMovie ? "film" : "tv").foregroundColor(.secondary).frame(width: 18)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(r.title).fontWeight(.semibold).lineLimit(1)
+                            Text(r.subtitle).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                        }
+                        Spacer(minLength: 8)
+                        Text(r.date.formatted(.relative(presentation: .named))).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }.padding(.horizontal, 14)
+        }
+    }
+
+    func tile(_ title: String, _ value: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).foregroundColor(.secondary)
+            Text(value).font(.system(size: 26, weight: .bold)).foregroundColor(accent).lineLimit(1).minimumScaleFactor(0.6)
+            Text(detail).font(.caption).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+    }
+
+    func monthsChart(_ months: [Trakt.Stats.Month]) -> some View {
+        let maxH = max(1, months.map(\.minutes).max() ?? 1)
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(Array(months.enumerated()), id: \.offset) { i, m in
+                VStack(spacing: 4) {
+                    Text(m.minutes > 0 ? "\(m.minutes / 60)" : "").font(.system(size: 9)).foregroundColor(.secondary)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(i == months.count - 1 ? accent : accent.opacity(0.45))
+                        .frame(height: max(2, CGFloat(m.minutes) / CGFloat(maxH) * 90))
+                    Text(monthLetter(m.key)).font(.system(size: 10)).foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .help("\(monthName(m.key)): \(m.movies) movie\(m.movies == 1 ? "" : "s"), \(m.episodes) episode\(m.episodes == 1 ? "" : "s"), \(hours(m.minutes))")
+            }
+        }.frame(height: 125)
+    }
+
+    func ratingsChart(_ dist: [Int]) -> some View {
+        let maxN = max(1, dist.max() ?? 1)
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(0..<10, id: \.self) { i in
+                VStack(spacing: 4) {
+                    Text(dist[i] > 0 ? "\(dist[i])" : "").font(.system(size: 9)).foregroundColor(.secondary)
+                    RoundedRectangle(cornerRadius: 3).fill(accent.opacity(0.35 + 0.065 * Double(i)))
+                        .frame(height: max(2, CGFloat(dist[i]) / CGFloat(maxN) * 70))
+                    Text("\(i + 1)").font(.system(size: 10, weight: .semibold)).foregroundColor(.secondary)
+                }.frame(maxWidth: .infinity)
+            }
+        }.frame(height: 105)
+    }
+
+    func hours(_ minutes: Int) -> String {
+        let h = Double(minutes) / 60
+        return h >= 100 ? "\(Int(h.rounded())) h" : String(format: "%.1f h", h)
+    }
+    func days(_ minutes: Int) -> String {
+        let d = Double(minutes) / 1440
+        return d >= 1 ? String(format: "%.1f days", d) : "less than a day"
+    }
+    /// "+12% vs last month", "same as last month", "new this month".
+    func change(_ now: Int, _ before: Int) -> String {
+        if before == 0 { return now > 0 ? "none last month" : "none last month either" }
+        let p = Int((Double(now - before) / Double(before) * 100).rounded())
+        return p == 0 ? "same as last month" : "\(p > 0 ? "+" : "")\(p)% vs last month"
+    }
+    func monthDate(_ key: String) -> Date? {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM"; return f.date(from: key)
+    }
+    func monthLetter(_ key: String) -> String {
+        guard let d = monthDate(key) else { return "" }
+        let f = DateFormatter(); f.dateFormat = "MMM"; return String(f.string(from: d).prefix(3))
+    }
+    func monthName(_ key: String) -> String {
+        guard let d = monthDate(key) else { return key }
+        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f.string(from: d)
     }
 }

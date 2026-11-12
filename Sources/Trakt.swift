@@ -30,7 +30,6 @@ final class Trakt: ObservableObject {
     }
 
     private let d = UserDefaults.standard
-    private let api = URL(string: "https://api.trakt.tv")!
     private var lastFetch: Date?
     private var signInTask: Task<Void, Never>?
 
@@ -308,6 +307,126 @@ final class Trakt: ObservableObject {
         let episode: RatedEntry.Media?
     }
 
+    // MARK: - Stats (Settings → Trakt)
+
+    /// What Settings → Trakt shows; kept between launches so the tab opens with the last numbers at once.
+    struct Stats: Codable, Equatable {
+        struct Totals: Codable, Equatable { var plays = 0; var watched = 0; var minutes = 0 }
+        struct Month: Codable, Equatable { var key: String; var movies = 0; var episodes = 0; var minutes = 0 }
+        struct Recent: Codable, Equatable { var title: String; var subtitle: String; var date: Date; var isMovie: Bool }
+        var movies = Totals()
+        var shows = 0
+        var episodes = Totals()
+        var ratingsTotal = 0
+        var distribution: [Int] = Array(repeating: 0, count: 10)   // ratings 1…10
+        var months: [Month] = []          // oldest first, the last 12 (this month last)
+        var topShowThisMonth: String?
+        var topShowEpisodes = 0
+        var recent: [Recent] = []
+        var updated = Date()
+    }
+
+    @Published private(set) var stats: Stats? = {
+        guard let d = UserDefaults.standard.data(forKey: "traktStats") else { return nil }
+        return try? JSONDecoder().decode(Stats.self, from: d)
+    }()
+    @Published private(set) var loadingStats = false
+
+    /// Month key ("2026-11") for a date, in the user's calendar.
+    static func monthKey(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month], from: d)
+        return String(format: "%04d-%02d", c.year ?? 0, c.month ?? 0)
+    }
+
+    /// All-time totals from what you've watched and rated, the last 12 months from the watch history (with runtimes).
+    func loadStats() async {
+        guard isConnected, !loadingStats else { return }
+        loadingStats = true
+        defer { loadingStats = false }
+        do {
+            var st = Stats()
+            // Trakt's /users/…/stats answers "204 No Content" (no longer served), so the totals are counted here
+            struct WatchedMovie: Decodable { struct M: Decodable { let runtime: Int? }; let plays: Int; let movie: M }
+            var movies: [WatchedMovie] = []
+            for page in 1...100 {   // 100 a page
+                let list = try JSONDecoder().decode([WatchedMovie].self,
+                                                    from: try await send("/sync/watched/movies?extended=full&limit=100&page=\(page)"))
+                movies += list
+                if list.count < 100 { break }
+            }
+            st.movies = .init(plays: movies.reduce(0) { $0 + $1.plays }, watched: movies.count,
+                              minutes: movies.reduce(0) { $0 + $1.plays * ($1.movie.runtime ?? 0) })
+            // Per show: the episode plays and the show's episode length (Trakt no longer lists the seasons here)
+            struct WatchedShow: Decodable { struct S: Decodable { let runtime: Int? }; let plays: Int; let show: S }
+            let shows = try JSONDecoder().decode([WatchedShow].self, from: try await send("/sync/watched/shows?extended=full"))
+            st.shows = shows.count
+            for sh in shows {
+                st.episodes.plays += sh.plays
+                st.episodes.minutes += sh.plays * (sh.show.runtime ?? 0)
+            }
+            struct Rated: Decodable { let rating: Int }
+            let rated = try JSONDecoder().decode([Rated].self, from: try await send("/sync/ratings"))
+            st.ratingsTotal = rated.count
+            for r in rated where (1...10).contains(r.rating) { st.distribution[r.rating - 1] += 1 }
+
+            // The last 12 months, this one included
+            let cal = Calendar.current
+            let thisMonth = cal.date(from: cal.dateComponents([.year, .month], from: Date()))!
+            let start = cal.date(byAdding: .month, value: -11, to: thisMonth)!
+            var byMonth: [String: Stats.Month] = [:]
+            for i in 0..<12 {
+                let k = Self.monthKey(cal.date(byAdding: .month, value: i, to: start)!)
+                byMonth[k] = .init(key: k)
+            }
+            struct Entry: Decodable {
+                struct Media: Decodable { let title: String?; let runtime: Int?; let season: Int?; let number: Int? }
+                let watched_at: Date; let type: String
+                let movie: Media?; let episode: Media?; let show: Media?
+            }
+            let dec = JSONDecoder()
+            dec.dateDecodingStrategy = .custom { d in
+                let s = try d.singleValueContainer().decode(String.self)
+                let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                return f.date(from: s) ?? ISO8601DateFormatter().date(from: s) ?? Date.distantPast
+            }
+            let iso = ISO8601DateFormatter().string(from: start)
+            var showsThisMonth: [String: Int] = [:]
+            let curKey = Self.monthKey(Date())
+            var page = 1
+            while page <= 60 {   // 6,000 plays a year at most; enough for anyone
+                let data = try await send("/sync/history?start_at=\(iso)&extended=full&limit=100&page=\(page)")
+                let list = try dec.decode([Entry].self, from: data)
+                for e in list {
+                    let k = Self.monthKey(e.watched_at)
+                    let isMovie = e.type == "movie"
+                    if st.recent.count < 8 {
+                        let title = isMovie ? (e.movie?.title ?? "") : (e.show?.title ?? "")
+                        let sub = isMovie ? "Movie" : String(format: "S%02dE%02d", e.episode?.season ?? 0, e.episode?.number ?? 0)
+                            + ((e.episode?.title).map { " · " + $0 } ?? "")
+                        st.recent.append(.init(title: title, subtitle: sub, date: e.watched_at, isMovie: isMovie))
+                    }
+                    guard var m = byMonth[k] else { continue }
+                    if isMovie { m.movies += 1; m.minutes += e.movie?.runtime ?? 0 }
+                    else {
+                        m.episodes += 1; m.minutes += e.episode?.runtime ?? 0
+                        if k == curKey, let t = e.show?.title { showsThisMonth[t, default: 0] += 1 }
+                    }
+                    byMonth[k] = m
+                }
+                if list.count < 100 { break }
+                page += 1
+            }
+            st.months = byMonth.values.sorted { $0.key < $1.key }
+            if let top = showsThisMonth.max(by: { $0.value < $1.value }) { st.topShowThisMonth = top.key; st.topShowEpisodes = top.value }
+            st.updated = Date()
+            stats = st
+            d.set(try? JSONEncoder().encode(st), forKey: "traktStats")
+            lastError = nil
+        } catch {
+            lastError = describe(error)
+        }
+    }
+
     // MARK: - Sign-in (device code)
 
     func connect() {
@@ -360,6 +479,7 @@ final class Trakt: ObservableObject {
         pending = []; savePending()
         lastFetch = nil; lastError = nil
         lastWatchedSync = nil; d.removeObject(forKey: "traktWatchedSyncAt")
+        stats = nil; d.removeObject(forKey: "traktStats")
     }
 
     private struct DeviceCode: Decodable {
@@ -414,8 +534,12 @@ final class Trakt: ObservableObject {
         return "Couldn't reach Trakt."
     }
 
+    /// The API address for a path that may carry a query ("/sync/history?start_at=…"). appendingPathComponent
+    /// would escape the "?", so every request with parameters went to a path that doesn't exist.
+    static func url(_ path: String) -> URL { URL(string: "https://api.trakt.tv" + path)! }
+
     private func request(_ path: String, method: String) -> URLRequest {
-        var r = URLRequest(url: api.appendingPathComponent(path))
+        var r = URLRequest(url: Self.url(path))
         r.httpMethod = method
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
         r.setValue("2", forHTTPHeaderField: "trakt-api-version")
