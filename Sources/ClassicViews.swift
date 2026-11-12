@@ -546,12 +546,13 @@ struct ClassicTopNavButtons: View {
         } label: {
             // Small icon before each name, as in the sidebar
             HStack(spacing: 6) {
-                if labels != "names" { Image(systemName: icon).font(.cv(labels == "icons" ? 14 : 12)) }
-                if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
-                else if badge > 0 { Text("\(badge)") }
+                // Glossy lettering (the 3D face, no thickness)
+                if labels != "names" { Text3D(image: Image(systemName: icon), size: labels == "icons" ? 16 : 14, thick: false) }
+                if labels != "icons" {
+                    Text3D(text: badge > 0 ? "\(title) \(badge)" : title, size: 15, thick: false, weight: on ? .bold : .semibold)
+                } else if badge > 0 { Text3D(text: "\(badge)", size: 15, thick: false) }
             }
-                .font(.cv(15, weight: on ? .semibold : .medium))
-                .foregroundColor(on ? .white : .white.opacity(0.6))
+                .opacity(on ? 1 : 0.6)
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
                 .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
@@ -818,7 +819,7 @@ struct ClassicFavoritesView: View {
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
                     Text3D(text: title, size: 16)
-                    Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
+                    Text3D(image: Image(systemName: "chevron.right"), size: 16)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
@@ -3962,17 +3963,20 @@ struct Text3D: View {
     var text: String = ""
     var image: Image? = nil
     var size: CGFloat
+    /// The grey thickness under the letters (off: just the glossy face and its shadow).
+    var thick = true
+    var weight: Font.Weight = .heavy
     @ViewBuilder var glyph: some View {
-        if let image { image.font(.cv(size * 0.85, weight: .bold)) } else { Text(text).font(.cv(size, weight: .heavy)) }
+        if let image { image.font(.cv(size * 0.85, weight: .bold)) } else { Text(text).font(.cv(size, weight: weight)) }
     }
     var body: some View {
         let depth = max(2, Int(size / 6))
         ZStack {
             // Thickness: dark layers stepped down-right
-            ForEach(1...depth, id: \.self) { i in
+            if thick { ForEach(1...depth, id: \.self) { i in
                 glyph.foregroundColor(Color(white: 0.5 - Double(i) * 0.05))   // grey, so it shows on a black page
                     .offset(x: CGFloat(i) * 0.7, y: CGFloat(i) * 1.0)
-            }
+            } }
             glyph.foregroundStyle(LinearGradient(colors: [.white, Color(white: 0.92), Color(white: 0.62)],
                                                  startPoint: .top, endPoint: .bottom))
         }
