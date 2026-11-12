@@ -117,4 +117,11 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(d.queryItems?.first { $0.name == "VideoBitrate" }?.value, "8000000")
         XCTAssertNil(d.queryItems?.first { $0.name == "MaxWidth" })
     }
+
+    func testTraktIds() {
+        let ids = Trakt.ids(["Imdb": "tt0133093", "tmdb": "603", "Tvdb": "", "TvRage": "1", "Tmdb2": "x"])
+        XCTAssertEqual(ids, ["imdb": "tt0133093", "tmdb": "603"])
+        XCTAssertEqual(Trakt.ids(["Imdb": "0133093", "Tmdb": "abc"]), [:])
+        XCTAssertEqual(Trakt.keys(kind: "movie", ids: ids), ["movie:imdb:tt0133093", "movie:tmdb:603"])
+    }
 }

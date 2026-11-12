@@ -14,7 +14,7 @@ struct SettingsView: View {
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "General", home = "Home", libraries = "Libraries",
-             subtitles = "Subtitles", playback = "Playback", servers = "Servers", shortcuts = "Shortcuts", about = "About"
+             subtitles = "Subtitles", playback = "Playback", servers = "Connect", shortcuts = "Shortcuts", about = "About"
         var id: String { rawValue }
         var icon: String {
             switch self {
@@ -23,7 +23,7 @@ struct SettingsView: View {
             case .libraries: return "square.grid.2x2"
             case .subtitles: return "captions.bubble"
             case .playback: return "play.rectangle"
-            case .servers: return "server.rack"
+            case .servers: return "link"
             case .shortcuts: return "keyboard"
             case .about: return "info.circle"
             }
@@ -44,10 +44,10 @@ struct SettingsView: View {
                             Image(systemName: s.icon).font(.system(size: 20))
                             Text(s.rawValue).font(.system(size: 11))
                         }
-                        .foregroundColor(on ? accent : .secondary)
+                        .foregroundColor(on ? Color(red: 0.24, green: 0.56, blue: 1) : .secondary)
                         .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent.opacity(0.15) : Color.clear))
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? accent.opacity(0.4) : Color.clear))
+                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.white.opacity(0.1) : Color.clear))
+                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? Color.white.opacity(0.12) : Color.clear))
                         .contentShape(Rectangle())
                     }.buttonStyle(.plainHand).focusEffectDisabled()
                 }
@@ -72,12 +72,10 @@ struct SettingsView: View {
             Divider()
             HStack {
                 Spacer()
-                // Both buttons in the accent color; Cancel is the lighter one
-                Button { dismiss() } label: { Text("Cancel").frame(minWidth: 60) }
-                    .buttonStyle(.bordered).handCursor().tint(accent).controlSize(.large)
+                Button("Cancel") { dismiss() }.handCursor().controlSize(.large)
                 Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent).handCursor().tint(accent).controlSize(.large)
+                    .buttonStyle(.borderedProminent).handCursor().tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
             }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
@@ -845,6 +843,7 @@ struct ShortcutsSettings: View {
 
 struct ServerSettings: View {
     @EnvironmentObject var emby: Emby
+    @ObservedObject private var trakt = Trakt.shared
     @Environment(\.dismiss) var dismiss
     @State private var busy: String?
 
@@ -882,7 +881,7 @@ struct ServerSettings: View {
                 }
             }
         }
-        PrefSection(title: "Saved servers", last: true) {
+        PrefSection(title: "Saved servers") {
             PrefRow(label: "Servers") {
                 VStack(alignment: .leading, spacing: 0) {
                     if emby.servers.isEmpty { Text("No saved servers.").foregroundColor(.secondary).padding(12) }
@@ -922,6 +921,40 @@ struct ServerSettings: View {
             }
             PrefRow { Button("Add Server…") { emby.switchServer(); dismiss() } }
             PrefNote("Click a server's name to rename it. Connect switches Cove to that server. Add Server opens the sign-in screen.")
+        }
+        PrefSection(title: "Trakt", last: true) {
+            PrefRow(label: "Ratings") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if !trakt.isConfigured {
+                        Text("Trakt isn't set up in this build of Cove.").foregroundColor(.secondary)
+                    } else if let u = trakt.user {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(TintShapeStyle())
+                            Text("Connected as ") + Text(u).bold()
+                        }
+                        HStack(spacing: 10) {
+                            Button("Refresh Ratings") { Task { await trakt.refresh(force: true) } }
+                            Button("Disconnect", role: .destructive) { trakt.disconnect() }
+                        }
+                        if !trakt.pending.isEmpty {
+                            Text("\(trakt.pending.count) rating\(trakt.pending.count == 1 ? "" : "s") waiting to be sent.")
+                                .font(.callout).foregroundColor(.secondary)
+                        }
+                    } else if let s = trakt.signIn {
+                        Text("Enter this code on \(s.url):").foregroundColor(.secondary)
+                        Text(s.userCode).font(.system(size: 26, weight: .bold, design: .monospaced)).textSelection(.enabled)
+                        HStack(spacing: 10) {
+                            Spinner().controlSize(.small)
+                            Text("Waiting for Trakt…").foregroundColor(.secondary)
+                            Button("Cancel") { trakt.cancelSignIn() }
+                        }
+                    } else {
+                        Button("Connect Trakt…") { trakt.connect() }
+                    }
+                    if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange) }
+                }
+            }
+            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt (trakt.tv) and shown again on every Mac signed in to the same Trakt account.")
         }
     }
 }

@@ -2438,6 +2438,7 @@ struct ClassicDetailView: View {
                     Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
                 }.buttonStyle(HoverButton())
             }
+            RatingButton(item: item, full: full, classic: true)
             if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44)

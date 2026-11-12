@@ -161,6 +161,8 @@ struct Full: Decodable {
     let RemoteTrailers: [Link]?
     let UserData: UD?
     let Chapters: [Chapter]?
+    /// "Imdb": "tt…", "Tmdb": "603", "Tvdb": … (for Trakt ratings)
+    let ProviderIds: [String: String]?
     struct Named: Decodable { let Name: String }
     struct Person: Decodable, Identifiable {
         let Id: String
@@ -986,7 +988,7 @@ final class Emby: ObservableObject {
     }
 
     func full(_ id: String) async -> Full? {
-        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,People,Genres,Studios,MediaSources,MediaStreams,Taglines,DateCreated,ExternalUrls,RemoteTrailers,Chapters"])
+        try? await get("/Users/\(userId)/Items/\(id)", ["Fields": "Overview,People,Genres,Studios,MediaSources,MediaStreams,Taglines,DateCreated,ExternalUrls,RemoteTrailers,Chapters,ProviderIds"])
     }
 
     /// Collections (box sets) this movie or show belongs to, for "Included In". Jellyfin has its own call for
