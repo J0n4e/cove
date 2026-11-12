@@ -1028,6 +1028,8 @@ struct SeasonDeck: View {
     /// card opens, and what the arrows step through
     var caption: ((Int) -> String?)? = nil
     var link: ((Int) -> Item?)? = nil
+    /// Collections: whether each movie is watched (the check on every card, top right, as on posters)
+    var watched: ((Int) -> Bool)? = nil
     var noun = "season"
     private let w: CGFloat = 280, h: CGFloat = 420
     @AppStorage("accent") private var accentName = "red"
@@ -1085,7 +1087,9 @@ struct SeasonDeck: View {
                 deckButton(p, k: k) {
                     card(numbers[p], k: k)
                         .overlay(alignment: .topTrailing) {
-                            if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
+                            if let watched {
+                                if watched(numbers[p]) { TubeBadge(count: nil).helpLabel("Watched").padding(10) }
+                            } else if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
                         }
                 }
                 .modifier(FrontActions(on: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p])))
@@ -2391,6 +2395,7 @@ struct ClassicDetailView: View {
                            episodes: { _ in [] },
                            caption: { movies[$0].ProductionYear.map(String.init) },
                            link: { movies[$0] },
+                           watched: { emby.isPlayed(movies[$0]) },
                            noun: "movie")
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 44).padding(.bottom, 30)
