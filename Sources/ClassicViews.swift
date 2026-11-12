@@ -1655,8 +1655,10 @@ struct ClassicPosterCard: View {
                     // Favorite heart, then your Trakt rating
                     HStack(spacing: 6) {
                         if emby.isFav(item) && !inFavorites {
-                            Image(systemName: "heart.fill").font(.cv(14)).foregroundStyle(.tint)
-                                .shadow(color: .black.opacity(0.6), radius: 3)
+                            // The watched badge's glass tube, with the heart in the accent color
+                            Image(systemName: "heart.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(.tint)
+                                .frame(width: 26, height: 22).glassTube()
+                                .helpLabel("Favorite")
                         }
                         MyRatingBadge(item: item)
                     }.padding(8)

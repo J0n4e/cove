@@ -74,6 +74,8 @@ struct RatedStar: View {
     let rating: Int
     let width: CGFloat
     var fill: CGFloat = 0.8
+    /// Drawn straight on a picture (posters): the star gets a black outline and a soft shadow instead of a bubble.
+    var outlined = false
     var body: some View {
         let w = width
         // The number takes the same share of the star at every size (readable on a poster badge too), with a
@@ -84,8 +86,22 @@ struct RatedStar: View {
         ZStack {
             // A star's body sits below the middle of its outline box (the top point sticks up): raised so the
             // body is in the middle of the button, where the number goes
-            Image(systemName: "star.fill").font(.system(size: w * fill)).foregroundColor(.white)
-                .offset(y: -w * fill * 0.06)
+            let star = Image(systemName: "star.fill").font(.system(size: w * fill))
+            Group {
+                if outlined {
+                    ZStack {
+                        ForEach(0..<8, id: \.self) { i in
+                            let a = Double(i) * .pi / 4
+                            star.foregroundColor(.black).offset(x: cos(a) * 1.2, y: sin(a) * 1.2)
+                        }
+                        star.foregroundColor(.white)
+                    }
+                    .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
+                } else {
+                    star.foregroundColor(.white)
+                }
+            }
+            .offset(y: -w * fill * 0.06)
             // Black outline: the number drawn in black around itself, then in white on top
             ForEach(0..<8, id: \.self) { i in
                 let a = Double(i) * .pi / 4
@@ -101,19 +117,11 @@ struct RatedStar: View {
 struct MyRatingBadge: View {
     let item: Item
     @ObservedObject private var trakt = Trakt.shared
-    @Environment(\.classicGlass) private var classic   // Glass3D: the same glass tube as the watched badge
     var body: some View {
         if let r = trakt.rating(item) {
             let d: CGFloat = 28
-            let star = RatedStar(rating: r, width: d, fill: 0.92).frame(width: d, height: d)
-            Group {
-                if classic { star.glassTube() }
-                else {
-                    star.background(Circle().fill(Color.black.opacity(0.7)))
-                        .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
-                }
-            }
-            .helpLabel("Your rating: \(r)/10")
+            RatedStar(rating: r, width: d, fill: 0.92, outlined: true).frame(width: d, height: d)
+                .helpLabel("Your rating: \(r)/10")
         }
     }
 }
