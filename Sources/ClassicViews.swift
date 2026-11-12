@@ -1834,7 +1834,6 @@ struct ClassicHoverCardLayer: View {
                     .frame(width: w)
                     .background(GeometryReader { c in Color.clear.preference(key: CardHeightKey.self, value: c.size.height) })
                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .classicThinBorder(12)
                     .shadow(color: .black.opacity(0.6), radius: 24)
                     .scaleEffect(open ? 1 : 150 / w, anchor: UnitPoint(x: ux, y: uy))
                     .opacity(open ? 1 : 0)
