@@ -1629,6 +1629,7 @@ struct ClassicBackdrop: View {
 struct ClassicPosterCard: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.inFavorites) private var inFavorites
+    @AppStorage("accent") private var accentName = "red"
     let item: Item
     @State private var hover = false
     // Settings → Libraries → Poster labels
@@ -1655,9 +1656,9 @@ struct ClassicPosterCard: View {
                     // Favorite heart, then your Trakt rating
                     HStack(spacing: 6) {
                         if emby.isFav(item) && !inFavorites {
-                            // The watched badge's glass tube, with the heart in the accent color
-                            Image(systemName: "heart.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(.tint)
-                                .frame(width: 26, height: 22).glassTube()
+                            // A glossy accent heart, like the rating star beside it
+                            Glossy(symbol: Image(systemName: "heart.fill").font(.system(size: 17)),
+                                   color: Theme.accent(accentName))
                                 .helpLabel("Favorite")
                         }
                         MyRatingBadge(item: item)

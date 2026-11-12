@@ -74,8 +74,10 @@ struct RatedStar: View {
     let rating: Int
     let width: CGFloat
     var fill: CGFloat = 0.8
-    /// Drawn straight on a picture (posters): the star gets a black outline and a soft shadow instead of a bubble.
+    /// Drawn straight on a picture (posters): a glossy star in the accent color with a thin black outline,
+    /// instead of a white star in a bubble.
     var outlined = false
+    @AppStorage("accent") private var accentName = "red"
     var body: some View {
         let w = width
         // The number takes the same share of the star at every size (readable on a poster badge too), with a
@@ -92,11 +94,10 @@ struct RatedStar: View {
                     ZStack {
                         ForEach(0..<8, id: \.self) { i in
                             let a = Double(i) * .pi / 4
-                            star.foregroundColor(.black).offset(x: cos(a) * 1.2, y: sin(a) * 1.2)
+                            star.foregroundColor(.black.opacity(0.85)).offset(x: cos(a) * 0.9, y: sin(a) * 0.9)
                         }
-                        star.foregroundColor(.white)
+                        Glossy(symbol: star, color: Theme.accent(accentName))
                     }
-                    .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
                 } else {
                     star.foregroundColor(.white)
                 }
@@ -112,8 +113,25 @@ struct RatedStar: View {
     }
 }
 
-/// Your Trakt rating on a poster (the number on a white star), next to the favorite heart; nothing when it
-/// isn't rated.
+/// A filled symbol with a little 3D: the color lit from above (a shine on top, shade at the bottom) and a soft
+/// drop shadow. For the poster heart and rating star.
+struct Glossy<Symbol: View>: View {
+    let symbol: Symbol
+    let color: Color
+    var body: some View {
+        ZStack {
+            symbol.foregroundStyle(color)
+            symbol.foregroundStyle(LinearGradient(stops: [.init(color: .white.opacity(0.55), location: 0),
+                                                          .init(color: .white.opacity(0.1), location: 0.45),
+                                                          .init(color: .black.opacity(0.35), location: 1)],
+                                                  startPoint: .top, endPoint: .bottom))
+        }
+        .shadow(color: .black.opacity(0.65), radius: 1.5, y: 1.5)
+    }
+}
+
+/// Your Trakt rating on a poster (the number on a glossy accent star), next to the favorite heart; nothing when
+/// it isn't rated.
 struct MyRatingBadge: View {
     let item: Item
     @ObservedObject private var trakt = Trakt.shared
