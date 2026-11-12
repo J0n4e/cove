@@ -3831,10 +3831,10 @@ struct PlayerView: View {
     func close() {
         if enteredFullScreen, let w = window, w.styleMask.contains(.fullScreen) { w.toggleFullScreen(nil) }
         enteredFullScreen = false
-        let done = model.watchedEnough
+        // Past 90% the stop report marks it watched on the server (and here, see reportStopped). Marking it again
+        // made the server's Trakt plugin log a second play ("watch" next to the "scrobble").
         model.stop()
         emby.playing = nil
-        if done { Task { await emby.setPlayed(req.item.id, true) } }
     }
 
     /// Plays a neighbouring episode, keeping the current subtitle language.
@@ -3851,8 +3851,7 @@ struct PlayerView: View {
                 let text = ["srt", "subrip", "vtt", "ass", "ssa"]
                 pick = (subs.first { text.contains(($0.Codec ?? "").lowercased()) } ?? subs.first)?.Index
             }
-            if model.watchedEnough { await emby.setPlayed(item.id, true) }
-            model.stop()
+            model.stop()       // marks a finished episode watched (see close())
             let q = UserDefaults.standard.integer(forKey: "defaultQuality")
             emby.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: q > 0 ? q : nil,
                                        start: emby.resumeAt(ep))

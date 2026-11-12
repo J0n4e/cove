@@ -98,11 +98,6 @@ final class PlayerModel: ObservableObject {
     var subStreams: [MStream] { streams.filter { $0.`Type` == "Subtitle" } }
     var now: Double { player?.currentTime().seconds ?? 0 }
 
-    var watchedEnough: Bool {
-        guard let p = player, let d = p.currentItem?.duration.seconds, d.isFinite, d > 0 else { return false }
-        return p.currentTime().seconds / d > 0.9
-    }
-
     func start(_ emby: Emby, _ req: PlayRequest, direct: Bool = true) async {
         stop()
         startGen += 1
