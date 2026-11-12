@@ -3946,14 +3946,16 @@ struct ClassicAlphaLetter: View {
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
         Button(action: action) {
-            // The chosen letter lit in the accent, the one under the pointer softly
+            // The chosen letter lit in the accent, the one under the pointer in the top bar's hover look
             Text(l).font(.cv(11, weight: .bold))
                 .frame(width: 20, height: 18)
                 .foregroundColor(on || hover ? .white : .white.opacity(0.55))
                 .background {
-                    if on || hover {
-                        Circle().fill(Theme.accent(accentName).opacity(on ? 0.6 : 0.3))
-                            .overlay(Circle().strokeBorder(Color.white.opacity(on ? 0.4 : 0.2), lineWidth: 0.5))
+                    if on {
+                        Circle().fill(Theme.accent(accentName).opacity(0.6))
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                    } else if hover {
+                        ClassicHoverEffect()   // the top bar's hover look (Settings → General → Hover effect)
                     }
                 }
                 .contentShape(Rectangle())
