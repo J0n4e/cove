@@ -54,14 +54,21 @@ struct RatingButton: View {
         }
     }
 
-    /// The rating on a big star in the accent color, as one round button.
+    /// The rating on a big white star, as one round button; the number is white with a black outline.
     func starred(_ r: Int) -> some View {
         let w = size - (classic ? 2 : 0)
+        let number = Text("\(r)").font(.system(size: w * (r == 10 ? 0.25 : 0.29), weight: .heavy))
         return ZStack {
-            Image(systemName: "star.fill").font(.system(size: w * 0.76)).foregroundColor(Theme.accent(accentName))
-            Text("\(r)").font(.system(size: w * (r == 10 ? 0.25 : 0.29), weight: .heavy))
-                .foregroundColor(Theme.onAccent(accentName))
-                .offset(y: w * 0.04)   // the star's middle sits a little low
+            // A star's body sits below the middle of its outline box (the top point sticks up): raised so the
+            // body is in the middle of the button, where the number goes
+            Image(systemName: "star.fill").font(.system(size: w * 0.76)).foregroundColor(.white)
+                .offset(y: -w * 0.045)
+            // Black outline: the number drawn in black around itself, then in white on top
+            ForEach(0..<8, id: \.self) { i in
+                let a = Double(i) * .pi / 4
+                number.foregroundColor(.black).offset(x: cos(a) * 1.1, y: sin(a) * 1.1)
+            }
+            number.foregroundColor(.white)
         }
     }
 
