@@ -3961,6 +3961,20 @@ struct ClassicAlphaLetter: View {
         .buttonStyle(.plainHand)
         .scaleEffect(scale)
         .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
+        // The pointer covers the letter itself: a large preview of it beside the bar, to the left
+        .overlay(alignment: .trailing) {
+            if hover {
+                Text(l).font(.cv(26, weight: .heavy)).foregroundColor(Theme.onAccent(accentName))
+                    .frame(width: 48, height: 48)
+                    .background(Circle().fill(Theme.accent(accentName)))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
+                    .fixedSize()
+                    .offset(x: -44)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
         .zIndex(scale > 1 ? 1 : 0)
         .onHover { inside in
             hover = inside
