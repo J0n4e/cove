@@ -1580,15 +1580,7 @@ struct ClassicHero: View {
         CachedImage(url: emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
         } placeholder: { Color(white: 0.15) }
-        .frame(width: deckW, height: deckW * 9 / 16).clipped()
-        .overlay(alignment: .bottomLeading) {
-            // No background: a black outline, as the other cards
-            Text(it.heroTitle).font(.cv(13, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                .classicBlackOutline()
-                .padding(.horizontal, 10).padding(.bottom, 9)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .opacity(k == 0 ? 1 : 0)
-        }
+        .frame(width: deckW, height: deckW * 9 / 16).clipped()   // no name on the card (the banner beside it says it)
         .cornerRadius(12)
         .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: deckW, height: deckW * 9 / 16),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
