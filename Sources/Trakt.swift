@@ -5,7 +5,7 @@ import Foundation
 /// you enter it on trakt.tv/activate, and no password passes through Cove. Ratings are matched by the IMDb,
 /// TMDB or TVDB ids the media server has for the movie or episode.
 ///
-/// The app's Trakt keys come from Info.plist (TraktClientId / TraktClientSecret, written by make-app.sh from
+/// The app's Trakt keys come from Info.plist (TraktClientId, plus TraktClientSecret only for older apps that have one; written by make-app.sh from
 /// trakt.env or the environment); for a quick local test they can also be set with
 /// `defaults write eu.jonae.cove traktClientId …`. Without them the Connect page says Trakt isn't set up.
 @MainActor
@@ -37,7 +37,15 @@ final class Trakt: ObservableObject {
 
     var clientId: String { Self.key("TraktClientId", "traktClientId") }
     private var clientSecret: String { Self.key("TraktClientSecret", "traktClientSecret") }
-    var isConfigured: Bool { !clientId.isEmpty && !clientSecret.isEmpty }
+    var isConfigured: Bool { !clientId.isEmpty }
+
+    /// Client id plus the secret when the Trakt app has one (newer public "PKCE" apps don't).
+    private func withClient(_ body: [String: String]) -> [String: String] {
+        var b = body
+        b["client_id"] = clientId
+        if !clientSecret.isEmpty { b["client_secret"] = clientSecret }
+        return b
+    }
     var isConnected: Bool { user != nil && accessToken != nil }
 
     private static func key(_ plist: String, _ pref: String) -> String {
@@ -188,7 +196,7 @@ final class Trakt: ObservableObject {
                 while Date() < deadline {
                     try await Task.sleep(nanoseconds: wait * 1_000_000_000)
                     let (body, status) = try await postRaw("/oauth/device/token",
-                        ["code": code.device_code, "client_id": clientId, "client_secret": clientSecret])
+                        withClient(["code": code.device_code]))
                     switch status {
                     case 200:
                         try store(try JSONDecoder().decode(TokenAnswer.self, from: body))
@@ -214,7 +222,7 @@ final class Trakt: ObservableObject {
 
     func disconnect() {
         if let t = accessToken {
-            let body = ["token": t, "client_id": clientId, "client_secret": clientSecret]
+            let body = withClient(["token": t])
             Task { _ = try? await postRaw("/oauth/revoke", body) }
         }
         accessToken = nil; refreshToken = nil; expiresAt = nil
@@ -250,9 +258,8 @@ final class Trakt: ObservableObject {
     /// A fresh access token a day before the old one runs out.
     private func renewIfNeeded() async throws {
         guard let exp = expiresAt, exp.timeIntervalSinceNow < 86_400, let r = refreshToken else { return }
-        let (body, status) = try await postRaw("/oauth/token", [
-            "refresh_token": r, "client_id": clientId, "client_secret": clientSecret,
-            "redirect_uri": "urn:ietf:wg:oauth:2.0:oob", "grant_type": "refresh_token"])
+        let (body, status) = try await postRaw("/oauth/token", withClient([
+            "refresh_token": r, "redirect_uri": "urn:ietf:wg:oauth:2.0:oob", "grant_type": "refresh_token"]))
         guard status == 200 else {
             if status == 401 || status == 400 { signedOutByTrakt() }
             throw TraktError.status(status)
