@@ -1,5 +1,6 @@
 import IOKit.pwr_mgt
 import SwiftUI
+import Combine
 import MediaPlayer
 import AVKit
 
@@ -817,7 +818,7 @@ struct TopBackButton: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .keyboardShortcut("[", modifiers: .command)
         .helpLabel("Back (⌘[)")
         .disabled(emby.playing != nil)
@@ -1621,7 +1622,7 @@ struct Hero: View {
                 }.padding(.horizontal, 14)
             }
         }
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .onChange(of: nav.bannerNudge) { _, n in if let n { step(n.dir) } }   // ← → keys
         .clipped()
         .background(GeometryReader { g in
@@ -1762,7 +1763,7 @@ struct ResumeCard: View {
         .hoverLift()
         .frame(width: 340, alignment: .leading)
         .contentShape(Rectangle())
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .onTapGesture { openPage() }.handCursor()
         // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
         // Resume button itself only shows under the pointer
@@ -1894,7 +1895,7 @@ struct PosterCard: View {
             }
             .frame(width: 170, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
+            .scrollHover($hover)   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
@@ -1910,7 +1911,7 @@ struct HoverItemActions: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(alignment: alignment) { if hover, let item { ItemActionsButton(item: item, children: children).padding(padding) } }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }   // after the overlay, so moving onto the buttons keeps them shown
+            .scrollHover($hover)   // after the overlay, so moving onto the buttons keeps them shown
     }
 }
 extension View {
@@ -2044,7 +2045,7 @@ struct HoverPersonHeart: ViewModifier {
                     }.padding(8)
                 }
             }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
     }
 }
 
@@ -2112,14 +2113,46 @@ struct ItemActionsButton: View {
 @MainActor
 enum ScrollActivity {
     private static var last = Date.distantPast
+    private static var settle: DispatchWorkItem?
     private static let monitor: Any? = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { e in
-        last = Date(); return e
+        last = Date()
+        // A moment after the last scroll event: the page has stopped (see `ended`)
+        settle?.cancel()
+        let w = DispatchWorkItem { if !scrolling { ended.send() } }
+        settle = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
+        return e
     }
     static var scrolling: Bool { _ = monitor; return Date().timeIntervalSince(last) < 0.2 }
-    /// A view's next hover state: entering is ignored while the page scrolls under the pointer, leaving never is.
-    static func hover(_ old: Bool, _ new: Bool) -> Bool { new && scrolling ? old : new }
+    /// Sent when a scroll has stopped, so the card now under a resting pointer can light up (no mouse move comes)
+    static let ended = PassthroughSubject<Void, Never>()
     /// Installs the watcher (called once at launch).
     static func start() { _ = monitor }
+}
+
+/// Hover that pauses while the page scrolls: a card sliding under a resting pointer doesn't light up on the way,
+/// and the one under the pointer when the scrolling stops does.
+struct ScrollHover: ViewModifier {
+    @Binding var hover: Bool
+    var animation: Animation? = nil
+    var enabled = true
+    @State private var inside = false
+    func body(content: Content) -> some View {
+        content
+            .onHover { h in
+                guard enabled else { return }
+                inside = h
+                if !h || !ScrollActivity.scrolling { set(h) }
+            }
+            .onReceive(ScrollActivity.ended) { if enabled && inside != hover { set(inside) } }
+    }
+    private func set(_ h: Bool) { if let animation { withAnimation(animation) { hover = h } } else { hover = h } }
+}
+
+extension View {
+    func scrollHover(_ hover: Binding<Bool>, animation: Animation? = nil, enabled: Bool = true) -> some View {
+        modifier(ScrollHover(hover: hover, animation: animation, enabled: enabled))
+    }
 }
 
 /// One row in the library list view: poster, title, year, overview and watched badge.
@@ -2148,7 +2181,7 @@ struct ListRow: View {
             .padding(8)
             .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(6)
             .contentShape(Rectangle())
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
         }.buttonStyle(.plainHand)
     }
 }
@@ -2172,7 +2205,7 @@ struct BackPill: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .animation(.easeOut(duration: 0.12), value: hover)
         .keyboardShortcut("[", modifiers: .command)
     }
@@ -2197,7 +2230,7 @@ struct HoverButton: ButtonStyle {
                 .brightness(hover ? 0.12 : 0)
                 .scaleEffect(c.isPressed ? 0.95 : hover ? 1.07 : 1)
                 .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
-                .onHover { hover = ScrollActivity.hover(hover, $0) }
+                .scrollHover($hover)
                 .handCursor()
                 .animation(.easeOut(duration: 0.15), value: hover)
                 .animation(.easeOut(duration: 0.1), value: c.isPressed)
@@ -2249,7 +2282,7 @@ struct HoverBacking: ViewModifier {
             .brightness(hover ? 0.12 : 0)
             .scaleEffect(hover ? 1.07 : 1)
             .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
             .handCursor()
             .animation(.easeOut(duration: 0.15), value: hover)
     }
@@ -2879,7 +2912,7 @@ struct CastTile: View {
                     }.padding(big ? 8 : 0)
                 }
             }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
             .hoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
@@ -4711,7 +4744,7 @@ struct PanelRowStyle: ButtonStyle {
         var body: some View {
             c.label
                 .background { if hover || c.isPressed { Capsule().fill(Theme.accent(accentName).opacity(c.isPressed ? 0.7 : 0.55)) } }
-                .onHover { hover = ScrollActivity.hover(hover, $0) }
+                .scrollHover($hover)
         }
     }
 }
@@ -4888,7 +4921,7 @@ struct SelfHoverLift: ViewModifier {
                     } else { icon }
                 }
             }
-            .modifier(HoverLift(hover: hover)).onHover { hover = ScrollActivity.hover(hover, $0) }
+            .modifier(HoverLift(hover: hover)).scrollHover($hover)
     }
 }
 
@@ -4993,7 +5026,7 @@ struct FavPersonListRow<Link: Hashable>: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
     }
 }
 

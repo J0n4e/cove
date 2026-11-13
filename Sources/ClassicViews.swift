@@ -631,7 +631,7 @@ struct ClassicTopBackButton: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .keyboardShortcut("[", modifiers: .command)
         .accessibilityLabel("Back")
         .disabled(emby.playing != nil)
@@ -1270,7 +1270,7 @@ struct GlassSlider: View {
                 .onEnded { _ in dragging = false; onEditing(false) })
         }
         .frame(height: 18)
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .animation(.easeOut(duration: 0.12), value: hover || dragging)
     }
 }
@@ -1482,7 +1482,7 @@ struct ClassicHero: View {
         .background(GeometryReader { g in
             Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
         })
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
         // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
         .task(id: "\(pos)-\(hover)-\(playback.active)") {
@@ -1688,7 +1688,7 @@ struct ClassicResumeCard: View {
             }
             .frame(width: 260, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
             .onTapGesture { openPage() }.handCursor()
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
@@ -1772,7 +1772,7 @@ struct ClassicPosterCard: View {
             }
             .frame(width: 150, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
+            .scrollHover($hover)   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
@@ -2087,7 +2087,7 @@ struct ClassicCastTile: View {
                     }.padding(big ? 8 : 0)
                 }
             }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
             .classicHoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font(.cv(big ? 12 : 10, weight: .semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(.cv(10)).foregroundColor(.secondary).lineLimit(1)

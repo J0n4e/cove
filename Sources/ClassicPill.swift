@@ -128,7 +128,7 @@ struct ClassicGlassCard: ViewModifier {
             }
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
             .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
-            .onHover { h in if h && ScrollActivity.scrolling { return }; withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+            .scrollHover($hover, animation: .easeOut(duration: 0.2))
     }
 
     func finish(_ shape: RoundedRectangle) -> some View {
@@ -190,10 +190,7 @@ struct ClassicLightCard: ViewModifier {
                 }
             }
             .background { if hover && glow { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
-            .onHover { h in
-                guard tracksHover, !(h && ScrollActivity.scrolling) else { return }
-                withAnimation(.easeOut(duration: 0.2)) { ownHover = h }
-            }
+            .scrollHover($ownHover, animation: .easeOut(duration: 0.2), enabled: tracksHover)
     }
 
     func edge(_ shape: RoundedRectangle, lit: Double) -> some View {
