@@ -95,15 +95,17 @@ struct PosterGrid: NSViewRepresentable {
         func collectionView(_ cv: NSCollectionView, willDisplay item: NSCollectionViewItem,
                             forRepresentedObjectAt ip: IndexPath) { willShow(ip.item) }
 
+        /// The hover card is left alone: it follows the same state itself, and rebuilding it flashed its glow.
         func refreshVisible() {
             guard let cv, let emby else { return }
             for ip in cv.indexPathsForVisibleItems() where ip.item < items.count {
                 (cv.item(at: ip) as? PosterGridCell)?.show(items[ip.item], emby: emby, scale: scale)
             }
-            if let i = hoverIndex { hoverIndex = nil; hover(i) }
         }
 
-        @objc func scrolled() { hover(nil) }   // the card would stay behind while posters slide under it
+        /// The card would stay behind while posters slide under it. Only a real scroll: the bounds also change
+        /// when the next page of posters loads, and dropping the card then made it flash.
+        @objc func scrolled() { if ScrollActivity.scrolling { hover(nil) } }
 
         /// Lays the SwiftUI card over poster `i` (nil: removes it). The card comes in at rest and zooms up, and
         /// zooms back down before it goes, as the hover on the SwiftUI grid.
