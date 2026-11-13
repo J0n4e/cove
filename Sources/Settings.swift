@@ -453,8 +453,6 @@ struct LibrariesSettings: View {
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
     @AppStorage("seasonLayoutTV") private var seasonLayout = "row"
     @AppStorage("theme") private var theme = "apple"
-    @AppStorage("hoverPreviewEnabled") private var hoverOn = true
-    @AppStorage("hoverPreviewDelay") private var hoverDelay = 0.7
     @AppStorage("hoverZoomEnabled") private var hoverZoom = true
     @AppStorage("hoverZoomDuration") private var hoverZoomDur = 0.3
     @AppStorage("hoverZoomStyle") private var hoverZoomStyle = "spring"
