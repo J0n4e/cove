@@ -114,7 +114,7 @@ private struct HoverTip: ViewModifier {
                 }
             }
             .zIndex(shown ? 1 : 0)
-            .scrollHover($hover)
+            .scrollHover($hover, hand: false)   // a tooltip isn't clickable
             .onHover { if !$0 { shown = false } }
             .onDisappear { center?.hide(id) }
             // Shows after the pointer rests a moment, as a system tooltip does

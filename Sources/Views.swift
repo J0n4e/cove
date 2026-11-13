@@ -2118,7 +2118,11 @@ enum ScrollActivity {
         last = Date()
         // A moment after the last scroll event: the page has stopped (see `ended`)
         settle?.cancel()
-        let w = DispatchWorkItem { if !scrolling { ended.send() } }
+        let w = DispatchWorkItem {
+            guard !scrolling else { return }
+            ended.send()
+            nudge(e.window)
+        }
         settle = w
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
         return e
@@ -2128,14 +2132,28 @@ enum ScrollActivity {
     static let ended = PassthroughSubject<Void, Never>()
     /// Installs the watcher (called once at launch).
     static func start() { _ = monitor }
+
+    /// A mouse move where the pointer already is, so AppKit checks what is under it again: views made during the
+    /// scroll (a row that just appeared) learn the pointer is over them, and the pointer takes their shape.
+    private static func nudge(_ window: NSWindow?) {
+        guard let window, window.isKeyWindow,
+              let e = NSEvent.mouseEvent(with: .mouseMoved, location: window.mouseLocationOutsideOfEventStream,
+                                         modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                         windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                                         clickCount: 0, pressure: 0) else { return }
+        NSApp.postEvent(e, atStart: false)
+    }
 }
 
 /// Hover that pauses while the page scrolls: a card sliding under a resting pointer doesn't light up on the way,
-/// and the one under the pointer when the scrolling stops does.
+/// and the one under the pointer when the scrolling stops does, with the hand pointer (macOS only updates the
+/// pointer when the mouse moves).
 struct ScrollHover: ViewModifier {
     @Binding var hover: Bool
     var animation: Animation? = nil
     var enabled = true
+    /// Clickable (a card): the hand pointer when it lights up after a scroll. Off for tooltips.
+    var hand = true
     @State private var inside = false
     func body(content: Content) -> some View {
         content
@@ -2144,14 +2162,19 @@ struct ScrollHover: ViewModifier {
                 inside = h
                 if !h || !ScrollActivity.scrolling { set(h) }
             }
-            .onReceive(ScrollActivity.ended) { if enabled && inside != hover { set(inside) } }
+            .onReceive(ScrollActivity.ended) {
+                guard enabled else { return }
+                if inside != hover { set(inside) }
+                // Also when it lit up in the last moment of the scroll: the pointer still shows the arrow then
+                if inside && hand { NSCursor.pointingHand.set() }
+            }
     }
     private func set(_ h: Bool) { if let animation { withAnimation(animation) { hover = h } } else { hover = h } }
 }
 
 extension View {
-    func scrollHover(_ hover: Binding<Bool>, animation: Animation? = nil, enabled: Bool = true) -> some View {
-        modifier(ScrollHover(hover: hover, animation: animation, enabled: enabled))
+    func scrollHover(_ hover: Binding<Bool>, animation: Animation? = nil, enabled: Bool = true, hand: Bool = true) -> some View {
+        modifier(ScrollHover(hover: hover, animation: animation, enabled: enabled, hand: hand))
     }
 }
 
