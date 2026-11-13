@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Library poster grid on NSCollectionView (Glass3D). LazyVGrid rebuilds a full SwiftUI card for every poster that
@@ -28,6 +29,7 @@ struct PosterGrid: NSViewRepresentable {
         cv.dataSource = context.coordinator
         cv.delegate = context.coordinator
         cv.coordinator = context.coordinator
+        cv.autoresizingMask = [.width]   // follow the window width (columns re-flow)
         let sv = NSScrollView()
         sv.documentView = cv
         sv.drawsBackground = false
@@ -47,13 +49,8 @@ struct PosterGrid: NSViewRepresentable {
 
     func updateNSView(_ sv: NSScrollView, context: Context) {
         let c = context.coordinator
-        let showTitle = UserDefaults.standard.object(forKey: "posterShowTitle") as? Bool ?? true
-        let showYear = UserDefaults.standard.object(forKey: "posterShowYear") as? Bool ?? true
-        let labelH: CGFloat = (showTitle || showYear) ? 6 + (showTitle ? 16 : 0) + (showYear ? 13 : 0) : 0
-        if let layout = c.cv?.collectionViewLayout as? NSCollectionViewFlowLayout {
-            layout.itemSize = CGSize(width: 150, height: 225 + labelH)
-            layout.sectionInset = insets
-        }
+        c.insets = insets
+        c.applyLayout()
         c.emby = emby
         c.willShow = willShow
         c.open = open
@@ -76,6 +73,48 @@ struct PosterGrid: NSViewRepresentable {
         var items: [Item] = []
         var ids: [String] = []
         var scale: CGFloat = 2
+        var insets = NSEdgeInsets()
+        private var watchers: [AnyCancellable] = []
+        /// The settings the posters are drawn with, to redraw them only when one of these changes
+        private var looks = ""
+
+        override init() {
+            super.init()
+            // Your Trakt rating, and Settings (poster labels, font, accent): redraw the posters on screen
+            watchers.append(Trakt.shared.objectWillChange.receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.refreshVisible() })
+            watchers.append(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.settingsChanged() })
+            looks = Self.currentLooks
+        }
+
+        private static var currentLooks: String {
+            let d = UserDefaults.standard
+            return ["posterShowTitle", "posterShowYear", "posterLabelAlign", "classicFont", "accent"]
+                .map { "\(d.object(forKey: $0) ?? "")" }.joined(separator: "|")
+        }
+
+        private func settingsChanged() {
+            let now = Self.currentLooks
+            guard now != looks else { return }
+            looks = now
+            applyLayout()
+            refreshVisible()
+        }
+
+        /// Cell size: the poster, plus room for the labels that are shown.
+        func applyLayout() {
+            let d = UserDefaults.standard
+            let showTitle = d.object(forKey: "posterShowTitle") as? Bool ?? true
+            let showYear = d.object(forKey: "posterShowYear") as? Bool ?? true
+            let labelH: CGFloat = (showTitle || showYear) ? 6 + (showTitle ? 16 : 0) + (showYear ? 13 : 0) : 0
+            guard let layout = cv?.collectionViewLayout as? NSCollectionViewFlowLayout else { return }
+            let size = CGSize(width: 150, height: 225 + labelH)
+            if layout.itemSize != size { layout.itemSize = size }
+            if !NSEdgeInsetsEqual(layout.sectionInset, insets) { layout.sectionInset = insets }
+        }
+
         var willShow: (Int) -> Void = { _ in }
         var open: (Item) -> Void = { _ in }
         /// The real SwiftUI card over the poster under the pointer
