@@ -6,7 +6,6 @@ import SwiftUI
 /// scrolls in; here cells are reused and drawn natively: the poster picture, one picture of its badges and glass edge
 /// (drawn once per look, see Raster), and two text labels. Only the poster under the pointer becomes the real SwiftUI
 /// card, laid over the grid, so hover lift, glow and the action button look as before.
-/// On with `defaults write eu.jonae.cove appkitGrid -bool YES`.
 /// How the posters of one theme look: size, corners, label fonts, badges and hover card.
 struct PosterLook: Equatable {
     let glass3D: Bool
@@ -31,6 +30,14 @@ struct PosterGrid: NSViewRepresentable {
     let open: (Item) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
+
+    /// Extra room on each side of the grid so each poster sits centered in its column, as LazyVGrid's adaptive
+    /// columns do: as many columns as fit, the spare width shared out between them.
+    static func centering(width: CGFloat, item: CGFloat, spacing: CGFloat) -> CGFloat {
+        let n = max(1, floor((width + spacing) / (item + spacing)))
+        let column = (width - spacing * (n - 1)) / n
+        return max(0, (column - item) / 2)
+    }
 
     func makeNSView(context: Context) -> NSScrollView {
         let layout = NSCollectionViewFlowLayout()
@@ -166,11 +173,8 @@ struct PosterGrid: NSViewRepresentable {
             if layout.itemSize != size { layout.itemSize = size }
             // As LazyVGrid's adaptive columns: the spare width is shared out, so each poster sits centered in
             // its column (the flow layout alone would put the first poster at the very edge)
-            let spacing = layout.minimumInteritemSpacing
-            let avail = cv.bounds.width - insets.left - insets.right
-            let n = max(1, floor((avail + spacing) / (size.width + spacing)))
-            let column = (avail - spacing * (n - 1)) / n
-            let side = max(0, (column - size.width) / 2)
+            let side = PosterGrid.centering(width: cv.bounds.width - insets.left - insets.right,
+                                            item: size.width, spacing: layout.minimumInteritemSpacing)
             var inset = insets
             inset.left += side; inset.right += side
             if headerH > 0 { inset.top += headerH + 18 }

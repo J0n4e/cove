@@ -1817,8 +1817,9 @@ struct ClassicLibraryView: View {
 
     var body: some View {
         Group {
-            if UserDefaults.standard.bool(forKey: "appkitGrid") && tab != 2 && layout != "list" {
-                // AppKit grid (see PosterGrid) owns the scrolling; the header scrolls with the posters
+            if tab != 2 && layout != "list" && !items.isEmpty {
+                // The posters: AppKit grid (see PosterGrid), which owns the scrolling; the header scrolls with them.
+                // While there are none yet (loading, an error, an empty library) the page below shows why.
                 GeometryReader { g in
                     PosterGrid(emby: emby, items: items,
                                header: AnyView(header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)),
@@ -1956,15 +1957,7 @@ struct ClassicLibraryView: View {
                         }
                     }
                 }
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
-                    ForEach(items) { it in
-                        ClassicPosterCard(item: it).onAppear {
-                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
-                        }
-                    }
-                }
-            }
+            }   // grid: PosterGrid, see body
             if loading { Spinner() }
             else if loadFailed {
                 if items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { Task { await load(reset: true) } } }
