@@ -407,7 +407,10 @@ struct ClassicHomeView: View {
             if navStyle == "topbar" { topLayout } else { splitLayout }
         }
         .task { await emby.loadLibs() }
-        .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
+        .onAppear {
+            updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
+            nav.open = { path.append($0) }
+        }
         .onAppear {
             if searchKey == nil {
                 searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
@@ -478,6 +481,8 @@ final class ClassicNavState: ObservableObject {
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
+    /// Pushes an item's page (for views outside SwiftUI navigation, as the AppKit poster grid)
+    var open: (Item) -> Void = { _ in }
 }
 
 /// Window toolbar contents: the Back classicPill on pushed pages. (In the Top bar layout the navigation and Back
@@ -1694,6 +1699,12 @@ struct ClassicPosterCard: View {
     @AppStorage("accent") private var accentName = "red"
     let item: Item
     @State private var hover = false
+    @Environment(\.posterOpen) private var posterOpen
+    /// The AppKit grid lays this card over the poster under the pointer: it starts lit
+    init(item: Item, startHover: Bool = false) {
+        self.item = item
+        _hover = State(initialValue: startHover)
+    }
     // Settings → Libraries → Poster labels
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -1701,7 +1712,7 @@ struct ClassicPosterCard: View {
     var centered: Bool { labelAlign == "center" }
     var body: some View {
         let played = emby.isPlayed(item)
-        NavigationLink(value: item) {
+        OpenLink(item: item, open: posterOpen) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack(alignment: .topTrailing) {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
@@ -1809,12 +1820,12 @@ struct ClassicLibraryView: View {
     var body: some View {
         Group {
             if UserDefaults.standard.bool(forKey: "appkitGrid") && tab != 2 && layout != "list" {
-                // SPIKE: AppKit grid owns the scrolling; the header stays put above it
+                // AppKit grid (see PosterGrid) owns the scrolling; the header stays put above it
                 VStack(spacing: 18) {
                     header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)
                     PosterGrid(emby: emby, items: items, willShow: { i in
                         if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
-                    }) { ClassicPosterCard(item: $0) }
+                    }, open: { ClassicNavState.shared.open($0) })
                 }
             } else {
                 ScrollView {
