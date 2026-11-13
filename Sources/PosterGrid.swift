@@ -23,6 +23,8 @@ struct PosterGrid: NSViewRepresentable {
     var insets = NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 92)
     /// The page header (title, tabs, controls): it scrolls with the posters, above them
     var header: AnyView? = nil
+    /// Under the posters while the next page loads (a spinner) or failed to (Try Again); nil: nothing
+    var footer: AnyView? = nil
     /// Height of the see-through top bar the grid runs under: the content starts below it and scrolls up under it
     var topInset: CGFloat = 0
     var spacing: CGFloat = 14
@@ -50,6 +52,8 @@ struct PosterGrid: NSViewRepresentable {
         cv.backgroundColors = [.clear]
         cv.isSelectable = false
         cv.register(PosterGridCell.self, forItemWithIdentifier: PosterGridCell.id)
+        cv.register(PosterGridFooter.self, forSupplementaryViewOfKind: NSCollectionView.elementKindSectionFooter,
+                    withIdentifier: PosterGridFooter.id)
         cv.dataSource = context.coordinator
         cv.delegate = context.coordinator
         cv.coordinator = context.coordinator
@@ -93,6 +97,10 @@ struct PosterGrid: NSViewRepresentable {
                 .environment(\.appBG, context.environment.appBG)
                 .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red")))
         })
+        c.setFooter(footer.map {
+            AnyView($0.environmentObject(emby).environment(\.classicGlass, look.glass3D)
+                .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red")))
+        })
         c.insets = insets
         if c.look != look { c.look = look; c.cv?.reloadData() }
         c.applyLayout()
@@ -125,6 +133,24 @@ struct PosterGrid: NSViewRepresentable {
         /// The page header, at the top of the scrolling content (see PosterGrid.header)
         private var headerHost: NSHostingController<AnyView>?
         private var headerH: CGFloat = 0
+
+        /// The footer's content; the footer view itself is the collection view's (see PosterGridFooter)
+        private var footer: AnyView?
+        func setFooter(_ view: AnyView?) {
+            let had = footer != nil
+            footer = view
+            (cv?.supplementaryView(forElementKind: NSCollectionView.elementKindSectionFooter, at: IndexPath(item: 0, section: 0))
+                as? PosterGridFooter)?.show(view)
+            guard had != (view != nil), let layout = cv?.collectionViewLayout as? NSCollectionViewFlowLayout else { return }
+            layout.footerReferenceSize = CGSize(width: 0, height: view == nil ? 0 : 64)
+        }
+
+        func collectionView(_ cv: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind,
+                            at ip: IndexPath) -> NSView {
+            let v = cv.makeSupplementaryView(ofKind: kind, withIdentifier: PosterGridFooter.id, for: ip) as! PosterGridFooter
+            v.show(footer)
+            return v
+        }
 
         func setHeader(_ view: AnyView?) {
             guard let view, let cv else { headerHost?.view.removeFromSuperview(); headerHost = nil; headerH = 0; return }
@@ -332,6 +358,23 @@ final class PosterCollectionView: NSCollectionView {
     /// Leaving the page (a movie opened over it): no card left lit for when it comes back
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); coordinator?.hover(nil) }
     override func viewDidHide() { super.viewDidHide(); coordinator?.hover(nil) }
+}
+
+/// The strip under the posters: the next page's spinner, or Try Again.
+final class PosterGridFooter: NSView, NSCollectionViewElement {
+    static let id = NSUserInterfaceItemIdentifier("PosterGridFooter")
+    private var host: NSHostingView<AnyView>?
+
+    func show(_ content: AnyView?) {
+        let view = AnyView(content.frame(maxWidth: .infinity, maxHeight: .infinity))
+        if let host { host.rootView = view; return }
+        let h = NSHostingView(rootView: view)
+        h.sizingOptions = []
+        h.frame = bounds
+        h.autoresizingMask = [.width, .height]
+        addSubview(h)
+        host = h
+    }
 }
 
 /// One poster drawn with layers: picture, badges-and-edge picture, title and year.

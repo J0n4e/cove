@@ -903,8 +903,8 @@ struct SearchView: View {
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("People").font(.title3.bold())
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 18) {
+            // In rows like the titles below, not one line that scrolls sideways
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14, alignment: .top)], spacing: 18) {
                     ForEach(people) { p in
                         PageLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
@@ -928,8 +928,7 @@ struct SearchView: View {
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
-                }.padding(.vertical, 8)
-            }
+            }.padding(.vertical, 8)
         }
         .task { _ = await emby.favoritePeople() }   // hearts on favorite people
     }
@@ -2651,6 +2650,8 @@ struct LibraryView: View {
                     PosterGrid(emby: emby, items: items, look: PosterLook(glass3D: false),
                                insets: NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 94),
                                header: AnyView(header.padding(.leading, 40).padding(.trailing, 94).padding(.top, 24)),
+                               footer: loading ? AnyView(Spinner())
+                                   : loadFailed ? AnyView(LoadMoreFailedView { Task { await load(reset: false) } }) : nil,
                                topInset: g.safeAreaInsets.top, willShow: { i in
                         if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
                     }, open: { NavState.shared.open($0) })

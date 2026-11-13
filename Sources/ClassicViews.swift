@@ -722,8 +722,8 @@ struct ClassicSearchView: View {
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("People").font(.cv(15, weight: .bold))
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 18) {
+            // In rows like the titles below, not one line that scrolls sideways
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14, alignment: .top)], spacing: 18) {
                     ForEach(people) { p in
                         PageLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
@@ -747,8 +747,7 @@ struct ClassicSearchView: View {
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
-                }.padding(.vertical, 8)
-            }
+            }.padding(.vertical, 8)
         }
         .task { _ = await emby.favoritePeople() }   // hearts on favorite people
     }
@@ -1846,6 +1845,8 @@ struct ClassicLibraryView: View {
                 GeometryReader { g in
                     PosterGrid(emby: emby, items: items,
                                header: AnyView(header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)),
+                               footer: loading ? AnyView(Spinner())
+                                   : loadFailed ? AnyView(LoadMoreFailedView { Task { await load(reset: false) } }) : nil,
                                topInset: g.safeAreaInsets.top, willShow: { i in
                         if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
                     }, open: { ClassicNavState.shared.open($0) })
