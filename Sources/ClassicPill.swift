@@ -197,15 +197,19 @@ struct ClassicLightCard: ViewModifier {
         return content
             .modifier(MeasureSize(enabled: size == nil, size: $measured))
             .overlay {
-                if let size = size ?? measured, size.width > 0 {
-                    Raster.view("edge\(size.width)x\(size.height)r\(radius)l\(lit)", scale: scale, pad: 0) {
-                        edge(shape, lit: lit).frame(width: size.width, height: size.height)
+                Group {
+                    if let size = size ?? measured, size.width > 0 {
+                        Raster.view("edge\(size.width)x\(size.height)r\(radius)l\(lit)", scale: scale, pad: 0) {
+                            edge(shape, lit: lit).frame(width: size.width, height: size.height)
+                        }
+                    } else {
+                        edge(shape, lit: lit)
                     }
-                } else {
-                    edge(shape, lit: lit)
                 }
+                // The edge is only light: clicks go through it to the buttons under it (Resume, Watched, Favorite)
+                .allowsHitTesting(false)
             }
-            .background { if hover && glow { HoverGlow(shape: shape, accent: accent) } }
+            .background { if hover && glow { HoverGlow(shape: shape, accent: accent).allowsHitTesting(false) } }
             .scrollHover($ownHover, animation: .easeOut(duration: 0.2), enabled: tracksHover)
     }
 
