@@ -127,8 +127,8 @@ struct ClassicGlassCard: ViewModifier {
                 }
             }
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
-            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
-            .onHover { h in if h && ScrollActivity.scrolling { return }; withAnimation(.easeOut(duration: 0.2)) { hover = h } }
+            .background { if hover { HoverGlow(shape: shape, accent: accent) } }
+            .scrollHover($hover, animation: .easeOut(duration: 0.2))
     }
 
     func finish(_ shape: RoundedRectangle) -> some View {
@@ -157,6 +157,22 @@ struct ClassicGlassCard: ViewModifier {
     }
 }
 
+/// The accent glow behind a hovered card: the card's outline casting a soft accent shadow, as the AppKit poster
+/// grid draws it (a shadow layer, see PosterGridCell), so both look the same. Only the part outside the card shows:
+/// a watched poster is see-through, and the shape under it turned it red.
+struct HoverGlow: View {
+    let shape: RoundedRectangle
+    let accent: Color
+    var body: some View {
+        shape.fill(accent).shadow(color: accent.opacity(0.45), radius: 14)
+            .mask {
+                Rectangle().padding(-60)
+                    .overlay(shape.blendMode(.destinationOut))
+                    .compositingGroup()
+            }
+    }
+}
+
 /// ClassicGlassCard's look in two layers, for posters in long grids: the top sheen and the bright corner edge,
 /// without the bevel strokes, the clip and a hover tracker of its own (the poster passes its hover in). The
 /// accent glow is drawn only behind the hovered poster.
@@ -168,6 +184,8 @@ struct ClassicLightCard: ViewModifier {
     var size: CGSize? = nil
     /// For cards that don't pass their hover in (episodes): follows the pointer itself
     var tracksHover = false
+    /// The accent glow behind a hovered card; the AppKit poster grid draws its own (a layer, see PosterGridCell)
+    var glow = true
     @State private var ownHover = false
     /// The card's size when it isn't fixed (episode tiles follow the window width), measured once per change
     @State private var measured: CGSize?
@@ -179,19 +197,20 @@ struct ClassicLightCard: ViewModifier {
         return content
             .modifier(MeasureSize(enabled: size == nil, size: $measured))
             .overlay {
-                if let size = size ?? measured, size.width > 0 {
-                    Raster.view("edge\(size.width)x\(size.height)r\(radius)l\(lit)", scale: scale, pad: 0) {
-                        edge(shape, lit: lit).frame(width: size.width, height: size.height)
+                Group {
+                    if let size = size ?? measured, size.width > 0 {
+                        Raster.view("edge\(size.width)x\(size.height)r\(radius)l\(lit)", scale: scale, pad: 0) {
+                            edge(shape, lit: lit).frame(width: size.width, height: size.height)
+                        }
+                    } else {
+                        edge(shape, lit: lit)
                     }
-                } else {
-                    edge(shape, lit: lit)
                 }
+                // The edge is only light: clicks go through it to the buttons under it (Resume, Watched, Favorite)
+                .allowsHitTesting(false)
             }
-            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
-            .onHover { h in
-                guard tracksHover, !(h && ScrollActivity.scrolling) else { return }
-                withAnimation(.easeOut(duration: 0.2)) { ownHover = h }
-            }
+            .background { if hover && glow { HoverGlow(shape: shape, accent: accent).allowsHitTesting(false) } }
+            .scrollHover($ownHover, animation: .easeOut(duration: 0.2), enabled: tracksHover)
     }
 
     func edge(_ shape: RoundedRectangle, lit: Double) -> some View {

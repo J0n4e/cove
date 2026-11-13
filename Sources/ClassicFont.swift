@@ -30,3 +30,24 @@ extension Font {
     /// The Classic theme's font at this size and weight.
     static func cv(_ size: CGFloat, weight: Font.Weight = .regular) -> Font { ClassicFont.font(size, weight) }
 }
+
+extension ClassicFont {
+    /// The same font for AppKit text (the AppKit poster grid's labels).
+    static func nsFont(_ size: CGFloat, _ weight: NSFont.Weight) -> NSFont {
+        let name: String?
+        switch current {
+        case "avenir": name = "Avenir Next"
+        case "helvetica": name = "Helvetica Neue"
+        case "futura": name = "Futura"
+        case "gill": name = "Gill Sans"
+        case "optima": name = "Optima"
+        default: name = nil
+        }
+        if let name, let f = NSFont(name: name, size: size) {
+            return NSFontManager.shared.convert(f, toHaveTrait: weight >= .semibold ? .boldFontMask : [])
+        }
+        let base = NSFont.systemFont(ofSize: size, weight: weight)
+        let design: NSFontDescriptor.SystemDesign = current == "standard" ? .default : current == "serif" ? .serif : .rounded
+        return base.fontDescriptor.withDesign(design).flatMap { NSFont(descriptor: $0, size: size) } ?? base
+    }
+}

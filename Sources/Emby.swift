@@ -260,7 +260,16 @@ final class Emby: ObservableObject {
     @Published var token = "" { didSet { updateImageAuth() } }
     @Published var userId = ""
     @Published var libs: [LibPref] = []
-    @Published var playing: PlayRequest?
+    @Published var playing: PlayRequest? {
+        didSet {
+            // Playback started from Home has ended (stopped or finished): show that movie or show, not Home
+            guard playing == nil, oldValue != nil, let it = returnAfterPlay else { return }
+            returnAfterPlay = nil
+            DispatchQueue.main.async { self.openPage(it) }
+        }
+    }
+    /// Set when playback starts from Home (Continue Watching, the banner): the page to open when it ends
+    var returnAfterPlay: Item?
     /// Set by anything that wants the main window to open an item's page (e.g. clicking a hover preview card).
     @Published var openRequest: Item?
     /// Season to pre-select when the opened item is a series (Continue Watching card click).
@@ -1002,6 +1011,24 @@ final class Emby: ObservableObject {
         for c in children { await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(c.id)") }
         favRevision += 1
     }
+    /// Plays from Home; when playback ends, the item's page opens (see returnAfterPlay).
+    func playFromHome(_ it: Item) async {
+        returnAfterPlay = it
+        await play(it)
+        if playing == nil { returnAfterPlay = nil }   // nothing started
+    }
+
+    /// Opens an item's page: an episode opens its series on that episode's season, anything else its own page.
+    func openPage(_ item: Item) {
+        guard item.isEpisode, let sid = item.SeriesId else { openRequest = item; return }
+        Task {
+            if let series = await itemRecord(sid) {
+                openSeason = item.ParentIndexNumber
+                openRequest = series
+            }
+        }
+    }
+
     func play(_ it: Item) async {
         if it.isSeries {
             let eps = await episodes(it.id)

@@ -114,7 +114,8 @@ private struct HoverTip: ViewModifier {
                 }
             }
             .zIndex(shown ? 1 : 0)
-            .onHover { hover = ScrollActivity.hover(hover, $0); if !$0 { shown = false } }
+            .scrollHover($hover, hand: false)   // a tooltip isn't clickable
+            .onHover { if !$0 { shown = false } }
             .onDisappear { center?.hide(id) }
             // Shows after the pointer rests a moment, as a system tooltip does
             .task(id: hover) {

@@ -407,7 +407,11 @@ struct ClassicHomeView: View {
             if navStyle == "topbar" { topLayout } else { splitLayout }
         }
         .task { await emby.loadLibs() }
-        .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
+        .onAppear {
+            updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
+            nav.open = { path.append($0) }
+            nav.push = { path.append($0) }
+        }
         .onAppear {
             if searchKey == nil {
                 searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
@@ -478,6 +482,10 @@ final class ClassicNavState: ObservableObject {
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
+    /// Pushes an item's page (for views outside SwiftUI navigation, as the AppKit poster grid)
+    var open: (Item) -> Void = { _ in }
+    /// Pushes any page (a person, from the AppKit grid's header)
+    var push: (any Hashable) -> Void = { _ in }
 }
 
 /// Window toolbar contents: the Back classicPill on pushed pages. (In the Top bar layout the navigation and Back
@@ -623,7 +631,7 @@ struct ClassicTopBackButton: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .keyboardShortcut("[", modifiers: .command)
         .accessibilityLabel("Back")
         .disabled(emby.playing != nil)
@@ -661,23 +669,42 @@ struct ClassicSearchBar: View {
 
 struct ClassicSearchView: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("accent") private var accentName = "red"
     @Environment(\.appBG) var bg
     let query: String
     @State private var results: [Item] = []
     @State private var people: [Item] = []
     @State private var busy = false
+    var heading: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Results for “\(query)”").font(.cv(17, weight: .bold))
+            if !people.isEmpty { peopleRow }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").font(.cv(15, weight: .bold)).padding(.top, 8) }
+        }
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Results for “\(query)”").font(.cv(17, weight: .bold))
-                if !people.isEmpty { peopleRow }
-                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.cv(15, weight: .bold)).padding(.top, 8) }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
-                    ForEach(results) { ClassicPosterCard(item: $0) }
+        Group {
+            if !results.isEmpty {
+                // The titles: AppKit grid (see PosterGrid), with the heading and people scrolling above them
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: results,
+                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 40, right: 40),
+                               header: AnyView(heading.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 40).padding(.top, 40)),
+                               topInset: g.safeAreaInsets.top, push: { ClassicNavState.shared.push($0) },
+                               open: { ClassicNavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)
                 }
-                if busy { Spinner() }
-                else if results.isEmpty && people.isEmpty { Text("No results").foregroundColor(.secondary) }
-            }.padding(40)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        heading
+                        if busy { Spinner() }
+                        else if people.isEmpty { Text("No results").foregroundColor(.secondary) }
+                    }.padding(40)
+                }
+            }
         }
         .background(bg)
         .task(id: query) {
@@ -696,10 +723,10 @@ struct ClassicSearchView: View {
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("People").font(.cv(15, weight: .bold))
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 18) {
+            // In rows like the titles below, not one line that scrolls sideways
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14, alignment: .top)], spacing: 18) {
                     ForEach(people) { p in
-                        NavigationLink(value: PersonRef(id: p.Id, name: p.Name)) {
+                        PageLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
@@ -708,7 +735,8 @@ struct ClassicSearchView: View {
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
+                                .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225),
+                                           tracksHover: true))   // the posters' light glass edge, and their glow
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
                                         FavHeart(size: 16).padding(8)
@@ -721,8 +749,7 @@ struct ClassicSearchView: View {
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
-                }.padding(.vertical, 8)
-            }
+            }.padding(.vertical, 8)
         }
         .task { _ = await emby.favoritePeople() }   // hearts on favorite people
     }
@@ -844,13 +871,15 @@ struct ClassicFavoriteGridView: View {
     @State private var items: [Item] = []
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ClassicPageTitle(text: title, icon: "heart.fill")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
-                    ForEach(items.filter { emby.isFav($0) }) { ClassicPosterCard(item: $0) }
-                }
-            }.padding(.horizontal, 32).padding(.vertical, 24)
+        // AppKit grid (see PosterGrid); the title scrolls with the posters
+        GeometryReader { g in
+            PosterGrid(emby: emby, items: items.filter { emby.isFav($0) },
+                       insets: NSEdgeInsets(top: 0, left: 32, bottom: 24, right: 32),
+                       header: AnyView(ClassicPageTitle(text: title, icon: "heart.fill")
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 32).padding(.top, 24)),
+                       topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
+                       open: { ClassicNavState.shared.open($0) })
+            .ignoresSafeArea(edges: .top)
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
@@ -1243,7 +1272,7 @@ struct GlassSlider: View {
                 .onEnded { _ in dragging = false; onEditing(false) })
         }
         .frame(height: 18)
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .animation(.easeOut(duration: 0.12), value: hover || dragging)
     }
 }
@@ -1455,7 +1484,7 @@ struct ClassicHero: View {
         .background(GeometryReader { g in
             Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
         })
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
         // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
         .task(id: "\(pos)-\(hover)-\(playback.active)") {
@@ -1497,7 +1526,7 @@ struct ClassicHero: View {
             Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
                 .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
             HStack(spacing: 12) {
-                Button { Task { await emby.play(item) } } label: {
+                Button { Task { await emby.playFromHome(item) } } label: {
                     Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
                         .classicGlassPill(size: 46, iconOnly: false)
                 }.buttonStyle(HoverButton())
@@ -1589,6 +1618,8 @@ struct ClassicResumeCard: View {
     @EnvironmentObject var emby: Emby
     let item: Item
     @State private var hover = false
+    /// The pointer is on the play button: only the button glows then, not the card (as the episode cards)
+    @State private var onPlay = false
     @AppStorage("accent") private var accentName = "red"
 
     var progress: Double { min(1, max(0, (item.UserData?.PlayedPercentage ?? 0) / 100)) }
@@ -1602,15 +1633,7 @@ struct ClassicResumeCard: View {
         return timeLeft
     }
     /// Card click: an episode opens its series page on that episode's season; a movie opens its own page.
-    func openPage() {
-        guard item.isEpisode, let sid = item.SeriesId else { emby.openRequest = item; return }
-        Task {
-            if let series = await emby.itemRecord(sid) {
-                emby.openSeason = item.ParentIndexNumber
-                emby.openRequest = series
-            }
-        }
-    }
+    func openPage() { emby.openPage(item) }
 
     /// Episodes have a landscape primary image; movies use their backdrop.
     var imageURL: URL? {
@@ -1649,19 +1672,21 @@ struct ClassicResumeCard: View {
                 // Play button: resumes playback; clicking anywhere else on the card opens the page
                 .overlay {
                     if hover {
-                        Button { Task { await emby.play(item) } } label: {
+                        Button { Task { await emby.playFromHome(item) } } label: {
                             Label("Resume", systemImage: "play.fill").classicGlassPill(size: 46)
                         }.buttonStyle(.plainHand).accessibilityLabel("Resume")
+                        .onHover { onPlay = $0 }
                     }
                 }
                 .cornerRadius(8)
-                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName),
+                .modifier(ClassicLightCard(radius: 8, hover: hover && !onPlay, accent: Theme.accent(accentName),
                                            size: CGSize(width: 260, height: 146)))   // the posters' light glass edge
                 .classicHoverLift()
             }
             .frame(width: 260, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
+            .onChange(of: hover) { _, h in if !h { onPlay = false } }   // the button goes with the hover
             .onTapGesture { openPage() }.handCursor()
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
@@ -1672,7 +1697,7 @@ struct ClassicResumeCard: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityValue(timeLeft ?? "")
             .accessibilityAction { openPage() }
-            .accessibilityAction(named: "Resume") { Task { await emby.play(item) } }
+            .accessibilityAction(named: "Resume") { Task { await emby.playFromHome(item) } }
             .accessibilityLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)   // no tooltip on these cards
         }
     }
@@ -1745,7 +1770,7 @@ struct ClassicPosterCard: View {
             }
             .frame(width: 150, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
+            .scrollHover($hover)   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
@@ -1807,11 +1832,28 @@ struct ClassicLibraryView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                header
-                if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
+        Group {
+            if tab != 2 && layout != "list" && !items.isEmpty {
+                // The posters: AppKit grid (see PosterGrid), which owns the scrolling; the header scrolls with them.
+                // While there are none yet (loading, an error, an empty library) the page below shows why.
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: items,
+                               header: AnyView(header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)),
+                               footer: loading ? AnyView(Spinner())
+                                   : loadFailed ? AnyView(LoadMoreFailedView { Task { await load(reset: false) } }) : nil,
+                               topInset: g.safeAreaInsets.top, willShow: { i in
+                        if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
+                    }, open: { ClassicNavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        header
+                        if tab == 2 { genreGrid } else { grid }
+                    }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
+                }
+            }
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -1933,15 +1975,7 @@ struct ClassicLibraryView: View {
                         }
                     }
                 }
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
-                    ForEach(items) { it in
-                        ClassicPosterCard(item: it).onAppear {
-                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
-                        }
-                    }
-                }
-            }
+            }   // grid: PosterGrid, see body
             if loading { Spinner() }
             else if loadFailed {
                 if items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { Task { await load(reset: true) } } }
@@ -2000,8 +2034,11 @@ struct ClassicLibraryView: View {
         guard let r else { loadFailed = true; return }
         if reset { items = r.Items } else { items += r.Items }
         total = r.TotalRecordCount ?? items.count
-        // Posters of the new page start downloading now, before they scroll into view
-        ImageCache.shared.prefetch(r.Items.prefix(40).map { emby.image($0.posterId, width: 360) })
+        // Posters of the new page start downloading now, before they scroll into view. A small library (Collections,
+        // up to 300) is loaded and fetched whole, so no poster has to load while you scroll through it.
+        let small = total <= 300
+        ImageCache.shared.prefetch(r.Items.prefix(small ? 100 : 40).map { emby.image($0.posterId, width: 360) })
+        if small && items.count < total { await load(reset: false) }
     }
 
     /// The next page is fetched when this item appears, 30 before the end, so it's there before you reach it.
@@ -2051,7 +2088,7 @@ struct ClassicCastTile: View {
                     }.padding(big ? 8 : 0)
                 }
             }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
             .classicHoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font(.cv(big ? 12 : 10, weight: .semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(.cv(10)).foregroundColor(.secondary).lineLimit(1)
@@ -3962,6 +3999,7 @@ struct ClassicAlphaLetter: View {
 /// One favorite person: poster-sized portrait and name; opens their page, heart on hover removes them.
 struct ClassicFavPersonCard: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("accent") private var accentName = "red"
     let p: Item
     var body: some View {
         NavigationLink(value: PersonRef(id: p.id, name: p.Name)) {
@@ -3972,7 +4010,8 @@ struct ClassicFavPersonCard: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
+                .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225),
+                                           tracksHover: true))   // the posters' light glass edge, and their glow
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
                 Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)

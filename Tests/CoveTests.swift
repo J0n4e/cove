@@ -141,4 +141,14 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(u.path, "/sync/history/movies")
         XCTAssertEqual(URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "page" }?.value, "2")
     }
+
+    func testPosterGridCentering() {
+        // 1,000 wide, 150 posters, 14 apart: 6 columns of (1000 - 70) / 6 = 155, so 2.5 either side
+        XCTAssertEqual(PosterGrid.centering(width: 1000, item: 150, spacing: 14), 2.5, accuracy: 0.001)
+        // Exactly fits: no extra room
+        XCTAssertEqual(PosterGrid.centering(width: 150 * 4 + 14 * 3, item: 150, spacing: 14), 0, accuracy: 0.001)
+        // Narrower than one poster: one column, never negative
+        XCTAssertEqual(PosterGrid.centering(width: 100, item: 150, spacing: 14), 0)
+    }
+
 }

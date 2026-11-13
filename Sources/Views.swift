@@ -1,5 +1,6 @@
 import IOKit.pwr_mgt
 import SwiftUI
+import Combine
 import MediaPlayer
 import AVKit
 
@@ -576,7 +577,11 @@ struct HomeView: View {
             if navStyle == "topbar" { topLayout } else { splitLayout }
         }
         .task { await emby.loadLibs() }
-        .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
+        .onAppear {
+            updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
+            nav.open = { path.append($0) }
+            nav.push = { path.append($0) }
+        }
         .onAppear {
             if searchKey == nil {
                 searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
@@ -653,6 +658,10 @@ final class NavState: ObservableObject {
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
+    /// Pushes an item's page (for views outside SwiftUI navigation, as the AppKit poster grid)
+    var open: (Item) -> Void = { _ in }
+    /// Pushes any page (a person, from the AppKit grid's header)
+    var push: (any Hashable) -> Void = { _ in }
 }
 
 /// Window toolbar contents: the Back pill on pushed pages. (In the Top bar layout the navigation and Back
@@ -809,7 +818,7 @@ struct TopBackButton: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .keyboardShortcut("[", modifiers: .command)
         .helpLabel("Back (⌘[)")
         .disabled(emby.playing != nil)
@@ -847,18 +856,36 @@ struct SearchView: View {
     @State private var results: [Item] = []
     @State private var people: [Item] = []
     @State private var busy = false
+    var heading: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Results for “\(query)”").font(.title2.bold())
+            if !people.isEmpty { peopleRow }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").font(.title3.bold()).padding(.top, 8) }
+        }
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Results for “\(query)”").font(.title2.bold())
-                if !people.isEmpty { peopleRow }
-                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.title3.bold()).padding(.top, 8) }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 18) {
-                    ForEach(results) { PosterCard(item: $0) }
+        Group {
+            if !results.isEmpty {
+                // The titles: AppKit grid (see PosterGrid), with the heading and people scrolling above them
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: results, look: PosterLook(glass3D: false),
+                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 40, right: 40),
+                               header: AnyView(heading.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 40).padding(.top, 40)),
+                               topInset: g.safeAreaInsets.top, push: { NavState.shared.push($0) },
+                               open: { NavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)
                 }
-                if busy { Spinner() }
-                else if results.isEmpty && people.isEmpty { Text("No results").foregroundColor(.secondary) }
-            }.padding(40)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        heading
+                        if busy { Spinner() }
+                        else if people.isEmpty { Text("No results").foregroundColor(.secondary) }
+                    }.padding(40)
+                }
+            }
         }
         .background(bg)
         .task(id: query) {
@@ -877,10 +904,10 @@ struct SearchView: View {
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("People").font(.title3.bold())
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 18) {
+            // In rows like the titles below, not one line that scrolls sideways
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14, alignment: .top)], spacing: 18) {
                     ForEach(people) { p in
-                        NavigationLink(value: PersonRef(id: p.Id, name: p.Name)) {
+                        PageLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
@@ -902,8 +929,7 @@ struct SearchView: View {
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
-                }.padding(.vertical, 8)
-            }
+            }.padding(.vertical, 8)
         }
         .task { _ = await emby.favoritePeople() }   // hearts on favorite people
     }
@@ -1032,13 +1058,15 @@ struct FavoriteGridView: View {
     @State private var items: [Item] = []
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(title).font(.title.bold())
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
-                    ForEach(items.filter { emby.isFav($0) }) { PosterCard(item: $0) }
-                }
-            }.padding(.horizontal, 32).padding(.vertical, 24)
+        // AppKit grid (see PosterGrid); the title scrolls with the posters
+        GeometryReader { g in
+            PosterGrid(emby: emby, items: items.filter { emby.isFav($0) }, look: PosterLook(glass3D: false),
+                       insets: NSEdgeInsets(top: 0, left: 32, bottom: 24, right: 32),
+                       header: AnyView(Text(title).font(.title.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 32).padding(.top, 24)),
+                       topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
+                       open: { NavState.shared.open($0) })
+            .ignoresSafeArea(edges: .top)
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
@@ -1549,7 +1577,7 @@ struct Hero: View {
                 Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 420, alignment: .leading)
                 HStack(spacing: 14) {
-                    Button { Task { await emby.play(item) } } label: {
+                    Button { Task { await emby.playFromHome(item) } } label: {
                         Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
                             .font(.system(size: 17, weight: .semibold))
                             .frame(width: 170, height: 46)
@@ -1594,7 +1622,7 @@ struct Hero: View {
                 }.padding(.horizontal, 14)
             }
         }
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .onChange(of: nav.bannerNudge) { _, n in if let n { step(n.dir) } }   // ← → keys
         .clipped()
         .background(GeometryReader { g in
@@ -1669,15 +1697,7 @@ struct ResumeCard: View {
         return timeLeft
     }
     /// Card click: an episode opens its series page on that episode's season; a movie opens its own page.
-    func openPage() {
-        guard item.isEpisode, let sid = item.SeriesId else { emby.openRequest = item; return }
-        Task {
-            if let series = await emby.itemRecord(sid) {
-                emby.openSeason = item.ParentIndexNumber
-                emby.openRequest = series
-            }
-        }
-    }
+    func openPage() { emby.openPage(item) }
 
     /// Episodes have a landscape primary image; movies use their backdrop.
     var imageURL: URL? {
@@ -1724,7 +1744,7 @@ struct ResumeCard: View {
         }
         .overlay {
             if hover {
-                Button { Task { await emby.play(item) } } label: {
+                Button { Task { await emby.playFromHome(item) } } label: {
                     Image(systemName: "play.fill").font(.system(size: 22)).foregroundColor(.white)
                         .frame(width: 54, height: 54).background(.ultraThinMaterial, in: Circle())
                 }.buttonStyle(.plainHand).accessibilityLabel("Resume")
@@ -1735,7 +1755,7 @@ struct ResumeCard: View {
         .hoverLift()
         .frame(width: 340, alignment: .leading)
         .contentShape(Rectangle())
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .onTapGesture { openPage() }.handCursor()
         // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
         // Resume button itself only shows under the pointer
@@ -1746,7 +1766,7 @@ struct ResumeCard: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityValue(timeLeft ?? "")
         .accessibilityAction { openPage() }
-        .accessibilityAction(named: "Resume") { Task { await emby.play(item) } }
+        .accessibilityAction(named: "Resume") { Task { await emby.playFromHome(item) } }
         .accessibilityLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)   // no tooltip on these cards
     }
 }
@@ -1762,23 +1782,36 @@ struct FeedView: View {
     @State private var loading = true
     var landscape: Bool { feed != .recent }
 
+    var title: some View { Text(feed.rawValue).font(.system(size: 30, weight: .bold)) }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(feed.rawValue).font(.system(size: 30, weight: .bold))
-                if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
-                else if items.isEmpty { Text("Nothing here yet.").foregroundColor(.secondary) }
-                if landscape {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 22)], alignment: .leading, spacing: 22) {
-                        ForEach(items) { ResumeCard(item: $0) }
+        Group {
+            if !landscape && !items.isEmpty {
+                // Recently Added: AppKit grid (see PosterGrid); the title scrolls with the posters
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: items, look: PosterLook(glass3D: false),
+                               insets: NSEdgeInsets(top: 0, left: 52, bottom: 24, right: 52),
+                               header: AnyView(title.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 52).padding(.top, 24)),
+                               topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
+                               open: { NavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)
+                }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        title
+                        if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
+                        else if items.isEmpty { Text("Nothing here yet.").foregroundColor(.secondary) }
+                        if landscape {   // Continue Watching and Up Next: wide cards, few of them
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 22)], alignment: .leading, spacing: 22) {
+                                ForEach(items) { ResumeCard(item: $0) }
+                            }
+                        }
                     }
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
-                        ForEach(items) { PosterCard(item: $0) }
-                    }
+                    .padding(.horizontal, 52).padding(.vertical, 24)
                 }
             }
-            .padding(.horizontal, 52).padding(.vertical, 24)
         }
         .background(bg)
         .task { items = await emby.feed(feed); loading = false }
@@ -1854,7 +1887,7 @@ struct PosterCard: View {
             }
             .frame(width: 170, alignment: .leading)
             .contentShape(Rectangle())
-            .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
+            .scrollHover($hover)   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
@@ -1870,7 +1903,7 @@ struct HoverItemActions: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(alignment: alignment) { if hover, let item { ItemActionsButton(item: item, children: children).padding(padding) } }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }   // after the overlay, so moving onto the buttons keeps them shown
+            .scrollHover($hover)   // after the overlay, so moving onto the buttons keeps them shown
     }
 }
 extension View {
@@ -2004,7 +2037,7 @@ struct HoverPersonHeart: ViewModifier {
                     }.padding(8)
                 }
             }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
     }
 }
 
@@ -2072,14 +2105,69 @@ struct ItemActionsButton: View {
 @MainActor
 enum ScrollActivity {
     private static var last = Date.distantPast
+    private static var settle: DispatchWorkItem?
     private static let monitor: Any? = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { e in
-        last = Date(); return e
+        last = Date()
+        // A moment after the last scroll event: the page has stopped (see `ended`)
+        settle?.cancel()
+        let w = DispatchWorkItem {
+            guard !scrolling else { return }
+            ended.send()
+            nudge(e.window)
+        }
+        settle = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
+        return e
     }
     static var scrolling: Bool { _ = monitor; return Date().timeIntervalSince(last) < 0.2 }
-    /// A view's next hover state: entering is ignored while the page scrolls under the pointer, leaving never is.
-    static func hover(_ old: Bool, _ new: Bool) -> Bool { new && scrolling ? old : new }
+    /// Sent when a scroll has stopped, so the card now under a resting pointer can light up (no mouse move comes)
+    static let ended = PassthroughSubject<Void, Never>()
     /// Installs the watcher (called once at launch).
     static func start() { _ = monitor }
+
+    /// A mouse move where the pointer already is, so AppKit checks what is under it again: views made during the
+    /// scroll (a row that just appeared) learn the pointer is over them, and the pointer takes their shape.
+    private static func nudge(_ window: NSWindow?) {
+        guard let window, window.isKeyWindow,
+              let e = NSEvent.mouseEvent(with: .mouseMoved, location: window.mouseLocationOutsideOfEventStream,
+                                         modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                         windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                                         clickCount: 0, pressure: 0) else { return }
+        NSApp.postEvent(e, atStart: false)
+    }
+}
+
+/// Hover that pauses while the page scrolls: a card sliding under a resting pointer doesn't light up on the way,
+/// and the one under the pointer when the scrolling stops does, with the hand pointer (macOS only updates the
+/// pointer when the mouse moves).
+struct ScrollHover: ViewModifier {
+    @Binding var hover: Bool
+    var animation: Animation? = nil
+    var enabled = true
+    /// Clickable (a card): the hand pointer when it lights up after a scroll. Off for tooltips.
+    var hand = true
+    @State private var inside = false
+    func body(content: Content) -> some View {
+        content
+            .onHover { h in
+                guard enabled else { return }
+                inside = h
+                if !h || !ScrollActivity.scrolling { set(h) }
+            }
+            .onReceive(ScrollActivity.ended) {
+                guard enabled else { return }
+                if inside != hover { set(inside) }
+                // Also when it lit up in the last moment of the scroll: the pointer still shows the arrow then
+                if inside && hand { NSCursor.pointingHand.set() }
+            }
+    }
+    private func set(_ h: Bool) { if let animation { withAnimation(animation) { hover = h } } else { hover = h } }
+}
+
+extension View {
+    func scrollHover(_ hover: Binding<Bool>, animation: Animation? = nil, enabled: Bool = true, hand: Bool = true) -> some View {
+        modifier(ScrollHover(hover: hover, animation: animation, enabled: enabled, hand: hand))
+    }
 }
 
 /// One row in the library list view: poster, title, year, overview and watched badge.
@@ -2108,7 +2196,7 @@ struct ListRow: View {
             .padding(8)
             .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(6)
             .contentShape(Rectangle())
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
         }.buttonStyle(.plainHand)
     }
 }
@@ -2132,7 +2220,7 @@ struct BackPill: View {
         }
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
         .animation(.easeOut(duration: 0.12), value: hover)
         .keyboardShortcut("[", modifiers: .command)
     }
@@ -2157,7 +2245,7 @@ struct HoverButton: ButtonStyle {
                 .brightness(hover ? 0.12 : 0)
                 .scaleEffect(c.isPressed ? 0.95 : hover ? 1.07 : 1)
                 .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
-                .onHover { hover = ScrollActivity.hover(hover, $0) }
+                .scrollHover($hover)
                 .handCursor()
                 .animation(.easeOut(duration: 0.15), value: hover)
                 .animation(.easeOut(duration: 0.1), value: c.isPressed)
@@ -2209,7 +2297,7 @@ struct HoverBacking: ViewModifier {
             .brightness(hover ? 0.12 : 0)
             .scaleEffect(hover ? 1.07 : 1)
             .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
             .handCursor()
             .animation(.easeOut(duration: 0.15), value: hover)
     }
@@ -2407,7 +2495,9 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
             HStack(alignment: .top, spacing: spacing) {
                 ForEach(ids, id: \.self) { id in content(id).id(id) }
             }
-            .padding(.vertical, 8)
+            // Room for a hovered card's glow and zoom (the scroll view clips at its edges); the row is pulled back by
+            // the extra 12 pt below, so the layout stays as it was and doesn't reach the section title above
+            .padding(.vertical, 20)
             .background(ScrollFinderView(finder: finder))
             // Click-and-drag to scroll with the mouse; a plain click still opens the item.
             .highPriorityGesture(
@@ -2426,6 +2516,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
         }
         .scrollIndicators(.never)
         .contentMargins(.horizontal, inset, for: .scrollContent)
+        .padding(.vertical, -12)
         .overlay(alignment: .leading) {
             if finder.canBack {
                 arrow("chevron.left", help: "Previous") { finder.page(-1, step: itemWidth + spacing) }.padding(.leading, 6)
@@ -2598,11 +2689,29 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                header
-                if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 94).padding(.vertical, 24)   // room for the A–Z bar
+        Group {
+            if tab != 2 && layout != "list" && !items.isEmpty {
+                // The posters: AppKit grid (see PosterGrid), which owns the scrolling; the header scrolls with them.
+                // While there are none yet (loading, an error, an empty library) the page below shows why.
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: items, look: PosterLook(glass3D: false),
+                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 94),
+                               header: AnyView(header.padding(.leading, 40).padding(.trailing, 94).padding(.top, 24)),
+                               footer: loading ? AnyView(Spinner())
+                                   : loadFailed ? AnyView(LoadMoreFailedView { Task { await load(reset: false) } }) : nil,
+                               topInset: g.safeAreaInsets.top, willShow: { i in
+                        if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
+                    }, open: { NavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        header
+                        if tab == 2 { genreGrid } else { grid }
+                    }.padding(.leading, 40).padding(.trailing, 94).padding(.vertical, 24)   // room for the A–Z bar
+                }
+            }
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
@@ -2720,15 +2829,7 @@ struct LibraryView: View {
                         }
                     }
                 }
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 18) {
-                    ForEach(items) { it in
-                        PosterCard(item: it).onAppear {
-                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
-                        }
-                    }
-                }
-            }
+            }   // grid: PosterGrid, see body
             if loading { Spinner() }
             else if loadFailed {
                 if items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { Task { await load(reset: true) } } }
@@ -2781,8 +2882,11 @@ struct LibraryView: View {
         guard let r else { loadFailed = true; return }
         if reset { items = r.Items } else { items += r.Items }
         total = r.TotalRecordCount ?? items.count
-        // Posters of the new page start downloading now, before they scroll into view
-        ImageCache.shared.prefetch(r.Items.prefix(40).map { emby.image($0.posterId, width: 360) })
+        // Posters of the new page start downloading now, before they scroll into view. A small library (Collections,
+        // up to 300) is loaded and fetched whole, so no poster has to load while you scroll through it.
+        let small = total <= 300
+        ImageCache.shared.prefetch(r.Items.prefix(small ? 100 : 40).map { emby.image($0.posterId, width: 360) })
+        if small && items.count < total { await load(reset: false) }
     }
 
     /// The next page is fetched when this item appears, 30 before the end, so it's there before you reach it.
@@ -2829,7 +2933,7 @@ struct CastTile: View {
                     }.padding(big ? 8 : 0)
                 }
             }
-            .onHover { hover = ScrollActivity.hover(hover, $0) }
+            .scrollHover($hover)
             .hoverLift()   // grows a little under the pointer, like posters
             Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
             Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
@@ -4661,7 +4765,7 @@ struct PanelRowStyle: ButtonStyle {
         var body: some View {
             c.label
                 .background { if hover || c.isPressed { Capsule().fill(Theme.accent(accentName).opacity(c.isPressed ? 0.7 : 0.55)) } }
-                .onHover { hover = ScrollActivity.hover(hover, $0) }
+                .scrollHover($hover)
         }
     }
 }
@@ -4838,7 +4942,7 @@ struct SelfHoverLift: ViewModifier {
                     } else { icon }
                 }
             }
-            .modifier(HoverLift(hover: hover)).onHover { hover = ScrollActivity.hover(hover, $0) }
+            .modifier(HoverLift(hover: hover)).scrollHover($hover)
     }
 }
 
@@ -4943,7 +5047,7 @@ struct FavPersonListRow<Link: Hashable>: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
-        .onHover { hover = ScrollActivity.hover(hover, $0) }
+        .scrollHover($hover)
     }
 }
 
