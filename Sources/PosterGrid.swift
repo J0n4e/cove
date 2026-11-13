@@ -25,6 +25,10 @@ struct PosterGrid: NSViewRepresentable {
     var header: AnyView? = nil
     /// Height of the see-through top bar the grid runs under: the content starts below it and scrolls up under it
     var topInset: CGFloat = 0
+    var spacing: CGFloat = 14
+    var lineSpacing: CGFloat = 18
+    /// Opens any page (a person from the header): links in the header can't reach the NavigationStack themselves
+    var push: ((any Hashable) -> Void)? = nil
     /// Called when the item at this index is about to show (for paging).
     var willShow: (Int) -> Void = { _ in }
     let open: (Item) -> Void
@@ -41,8 +45,6 @@ struct PosterGrid: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let layout = NSCollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = 14
-        layout.minimumLineSpacing = 18
         let cv = PosterCollectionView()
         cv.collectionViewLayout = layout
         cv.backgroundColors = [.clear]
@@ -77,8 +79,17 @@ struct PosterGrid: NSViewRepresentable {
             sv.contentInsets = NSEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
             if atTop { sv.contentView.scroll(to: NSPoint(x: 0, y: -topInset)); sv.reflectScrolledClipView(sv.contentView) }
         }
+        if let layout = c.cv?.collectionViewLayout as? NSCollectionViewFlowLayout,
+           layout.minimumInteritemSpacing != spacing || layout.minimumLineSpacing != lineSpacing {
+            layout.minimumInteritemSpacing = spacing
+            layout.minimumLineSpacing = lineSpacing
+        }
+        // On a Favorites page: no heart on the posters, everything there is a favorite
+        let inFavorites = context.environment.inFavorites
+        if c.inFavorites != inFavorites { c.inFavorites = inFavorites; c.refreshVisible() }
         c.setHeader(header.map {
             AnyView($0.environmentObject(emby).environment(\.classicGlass, look.glass3D)
+                .environment(\.pagePush, push).environment(\.inFavorites, inFavorites)
                 .environment(\.appBG, context.environment.appBG)
                 .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red")))
         })
@@ -109,6 +120,7 @@ struct PosterGrid: NSViewRepresentable {
         var scale: CGFloat = 2
         var insets = NSEdgeInsets()
         var look = PosterLook(glass3D: true)
+        var inFavorites = false
         private var watchers: [AnyCancellable] = []
         /// The page header, at the top of the scrolling content (see PosterGrid.header)
         private var headerHost: NSHostingController<AnyView>?
@@ -193,7 +205,7 @@ struct PosterGrid: NSViewRepresentable {
         func collectionView(_ cv: NSCollectionView, itemForRepresentedObjectAt ip: IndexPath) -> NSCollectionViewItem {
             let cell = cv.makeItem(withIdentifier: PosterGridCell.id, for: ip) as! PosterGridCell
             cell.view.isHidden = ip.item == hoverIndex
-            if let emby { cell.show(items[ip.item], emby: emby, look: look, scale: scale) }
+            if let emby { cell.show(items[ip.item], emby: emby, look: look, noHeart: inFavorites, scale: scale) }
             return cell
         }
 
@@ -204,7 +216,7 @@ struct PosterGrid: NSViewRepresentable {
         func refreshVisible() {
             guard let cv, let emby else { return }
             for ip in cv.indexPathsForVisibleItems() where ip.item < items.count {
-                (cv.item(at: ip) as? PosterGridCell)?.show(items[ip.item], emby: emby, look: look, scale: scale)
+                (cv.item(at: ip) as? PosterGridCell)?.show(items[ip.item], emby: emby, look: look, noHeart: inFavorites, scale: scale)
             }
         }
 
@@ -233,6 +245,7 @@ struct PosterGrid: NSViewRepresentable {
             let open: (Item) -> Void = { [weak self] in self?.hover(nil); self?.open($0) }
             let card = GridHoverCard(lit: lit, item: items[i], glass3D: look.glass3D)
                 .environment(\.posterOpen, open)
+                .environment(\.inFavorites, inFavorites)
                 .environment(\.classicGlass, look.glass3D)
                 .environmentObject(emby)
                 .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red"))
@@ -365,10 +378,10 @@ final class PosterGridCell: NSCollectionViewItem {
         CATransaction.commit()
     }
 
-    @MainActor func show(_ item: Item, emby: Emby, look: PosterLook, scale: CGFloat) {
+    @MainActor func show(_ item: Item, emby: Emby, look: PosterLook, noHeart: Bool, scale: CGFloat) {
         if look != self.look { self.look = look; view.needsLayout = true }
         let played = emby.isPlayed(item)
-        let fav = emby.isFav(item)
+        let fav = emby.isFav(item) && !noHeart
         let rating = Trakt.shared.rating(item)
         let pct = item.UserData?.PlayedPercentage.map { Int($0) } ?? 0
         let progress = (pct > 0 && pct < 100 && !played) ? pct : 0
@@ -512,6 +525,26 @@ extension EnvironmentValues {
     var posterOpen: ((Item) -> Void)? {
         get { self[PosterOpenKey.self] }
         set { self[PosterOpenKey.self] = newValue }
+    }
+}
+
+/// Set by the AppKit grid on its header: opens any page, as `posterOpen` does for posters (see PageLink).
+private struct PagePushKey: EnvironmentKey { static let defaultValue: ((any Hashable) -> Void)? = nil }
+extension EnvironmentValues {
+    var pagePush: ((any Hashable) -> Void)? {
+        get { self[PagePushKey.self] }
+        set { self[PagePushKey.self] = newValue }
+    }
+}
+
+/// A NavigationLink that also works in the AppKit grid's header, through `pagePush`.
+struct PageLink<V: Hashable, Label: View>: View {
+    let value: V
+    @ViewBuilder let label: () -> Label
+    @Environment(\.pagePush) private var push
+    var body: some View {
+        if let push { Button { push(value) } label: { label() } }
+        else { NavigationLink(value: value) { label() } }
     }
 }
 

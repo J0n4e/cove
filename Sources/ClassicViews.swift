@@ -410,6 +410,7 @@ struct ClassicHomeView: View {
         .onAppear {
             updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
             nav.open = { path.append($0) }
+            nav.push = { path.append($0) }
         }
         .onAppear {
             if searchKey == nil {
@@ -483,6 +484,8 @@ final class ClassicNavState: ObservableObject {
     var popToRoot: () -> Void = {}
     /// Pushes an item's page (for views outside SwiftUI navigation, as the AppKit poster grid)
     var open: (Item) -> Void = { _ in }
+    /// Pushes any page (a person, from the AppKit grid's header)
+    var push: (any Hashable) -> Void = { _ in }
 }
 
 /// Window toolbar contents: the Back classicPill on pushed pages. (In the Top bar layout the navigation and Back
@@ -671,18 +674,36 @@ struct ClassicSearchView: View {
     @State private var results: [Item] = []
     @State private var people: [Item] = []
     @State private var busy = false
+    var heading: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Results for “\(query)”").font(.cv(17, weight: .bold))
+            if !people.isEmpty { peopleRow }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").font(.cv(15, weight: .bold)).padding(.top, 8) }
+        }
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Results for “\(query)”").font(.cv(17, weight: .bold))
-                if !people.isEmpty { peopleRow }
-                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.cv(15, weight: .bold)).padding(.top, 8) }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
-                    ForEach(results) { ClassicPosterCard(item: $0) }
+        Group {
+            if !results.isEmpty {
+                // The titles: AppKit grid (see PosterGrid), with the heading and people scrolling above them
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: results,
+                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 40, right: 40),
+                               header: AnyView(heading.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 40).padding(.top, 40)),
+                               topInset: g.safeAreaInsets.top, push: { ClassicNavState.shared.push($0) },
+                               open: { ClassicNavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)
                 }
-                if busy { Spinner() }
-                else if results.isEmpty && people.isEmpty { Text("No results").foregroundColor(.secondary) }
-            }.padding(40)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        heading
+                        if busy { Spinner() }
+                        else if people.isEmpty { Text("No results").foregroundColor(.secondary) }
+                    }.padding(40)
+                }
+            }
         }
         .background(bg)
         .task(id: query) {
@@ -704,7 +725,7 @@ struct ClassicSearchView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(people) { p in
-                        NavigationLink(value: PersonRef(id: p.Id, name: p.Name)) {
+                        PageLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
@@ -849,13 +870,15 @@ struct ClassicFavoriteGridView: View {
     @State private var items: [Item] = []
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ClassicPageTitle(text: title, icon: "heart.fill")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
-                    ForEach(items.filter { emby.isFav($0) }) { ClassicPosterCard(item: $0) }
-                }
-            }.padding(.horizontal, 32).padding(.vertical, 24)
+        // AppKit grid (see PosterGrid); the title scrolls with the posters
+        GeometryReader { g in
+            PosterGrid(emby: emby, items: items.filter { emby.isFav($0) },
+                       insets: NSEdgeInsets(top: 0, left: 32, bottom: 24, right: 32),
+                       header: AnyView(ClassicPageTitle(text: title, icon: "heart.fill")
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 32).padding(.top, 24)),
+                       topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
+                       open: { ClassicNavState.shared.open($0) })
+            .ignoresSafeArea(edges: .top)
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite

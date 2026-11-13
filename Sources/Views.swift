@@ -579,6 +579,7 @@ struct HomeView: View {
         .onAppear {
             updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
             nav.open = { path.append($0) }
+            nav.push = { path.append($0) }
         }
         .onAppear {
             if searchKey == nil {
@@ -658,6 +659,8 @@ final class NavState: ObservableObject {
     var popToRoot: () -> Void = {}
     /// Pushes an item's page (for views outside SwiftUI navigation, as the AppKit poster grid)
     var open: (Item) -> Void = { _ in }
+    /// Pushes any page (a person, from the AppKit grid's header)
+    var push: (any Hashable) -> Void = { _ in }
 }
 
 /// Window toolbar contents: the Back pill on pushed pages. (In the Top bar layout the navigation and Back
@@ -852,18 +855,36 @@ struct SearchView: View {
     @State private var results: [Item] = []
     @State private var people: [Item] = []
     @State private var busy = false
+    var heading: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Results for “\(query)”").font(.title2.bold())
+            if !people.isEmpty { peopleRow }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").font(.title3.bold()).padding(.top, 8) }
+        }
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Results for “\(query)”").font(.title2.bold())
-                if !people.isEmpty { peopleRow }
-                if !people.isEmpty && !results.isEmpty { Text("Titles").font(.title3.bold()).padding(.top, 8) }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 18) {
-                    ForEach(results) { PosterCard(item: $0) }
+        Group {
+            if !results.isEmpty {
+                // The titles: AppKit grid (see PosterGrid), with the heading and people scrolling above them
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: results, look: PosterLook(glass3D: false),
+                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 40, right: 40),
+                               header: AnyView(heading.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 40).padding(.top, 40)),
+                               topInset: g.safeAreaInsets.top, push: { NavState.shared.push($0) },
+                               open: { NavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)
                 }
-                if busy { Spinner() }
-                else if results.isEmpty && people.isEmpty { Text("No results").foregroundColor(.secondary) }
-            }.padding(40)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        heading
+                        if busy { Spinner() }
+                        else if people.isEmpty { Text("No results").foregroundColor(.secondary) }
+                    }.padding(40)
+                }
+            }
         }
         .background(bg)
         .task(id: query) {
@@ -885,7 +906,7 @@ struct SearchView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(people) { p in
-                        NavigationLink(value: PersonRef(id: p.Id, name: p.Name)) {
+                        PageLink(value: PersonRef(id: p.Id, name: p.Name)) {
                             VStack(spacing: 6) {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
@@ -1037,13 +1058,15 @@ struct FavoriteGridView: View {
     @State private var items: [Item] = []
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(title).font(.title.bold())
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
-                    ForEach(items.filter { emby.isFav($0) }) { PosterCard(item: $0) }
-                }
-            }.padding(.horizontal, 32).padding(.vertical, 24)
+        // AppKit grid (see PosterGrid); the title scrolls with the posters
+        GeometryReader { g in
+            PosterGrid(emby: emby, items: items.filter { emby.isFav($0) }, look: PosterLook(glass3D: false),
+                       insets: NSEdgeInsets(top: 0, left: 32, bottom: 24, right: 32),
+                       header: AnyView(Text(title).font(.title.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 32).padding(.top, 24)),
+                       topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
+                       open: { NavState.shared.open($0) })
+            .ignoresSafeArea(edges: .top)
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
@@ -1767,23 +1790,36 @@ struct FeedView: View {
     @State private var loading = true
     var landscape: Bool { feed != .recent }
 
+    var title: some View { Text(feed.rawValue).font(.system(size: 30, weight: .bold)) }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(feed.rawValue).font(.system(size: 30, weight: .bold))
-                if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
-                else if items.isEmpty { Text("Nothing here yet.").foregroundColor(.secondary) }
-                if landscape {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 22)], alignment: .leading, spacing: 22) {
-                        ForEach(items) { ResumeCard(item: $0) }
+        Group {
+            if !landscape && !items.isEmpty {
+                // Recently Added: AppKit grid (see PosterGrid); the title scrolls with the posters
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: items, look: PosterLook(glass3D: false),
+                               insets: NSEdgeInsets(top: 0, left: 52, bottom: 24, right: 52),
+                               header: AnyView(title.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 52).padding(.top, 24)),
+                               topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
+                               open: { NavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)
+                }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        title
+                        if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
+                        else if items.isEmpty { Text("Nothing here yet.").foregroundColor(.secondary) }
+                        if landscape {   // Continue Watching and Up Next: wide cards, few of them
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), spacing: 22)], alignment: .leading, spacing: 22) {
+                                ForEach(items) { ResumeCard(item: $0) }
+                            }
+                        }
                     }
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
-                        ForEach(items) { PosterCard(item: $0) }
-                    }
+                    .padding(.horizontal, 52).padding(.vertical, 24)
                 }
             }
-            .padding(.horizontal, 52).padding(.vertical, 24)
         }
         .background(bg)
         .task { items = await emby.feed(feed); loading = false }
