@@ -49,14 +49,12 @@ struct ClassicRootView: View {
             Group { if emby.loggedIn { ClassicHomeView() } else { ClassicLoginView() } }
                 .opacity(emby.playing == nil ? 1 : 0)
                 .allowsHitTesting(emby.playing == nil)
-            ClassicHoverCardLayer()
             if let req = emby.playing {
                 ChosenPlayerView(req: req, theme: "classic").id(req.id).zIndex(10)
             }
         }
         .onChange(of: emby.playing?.id) { _, id in
             PlaybackFlag.shared.active = id != nil
-            if id != nil { ClassicHoverCardCenter.shared.hide() }
         }
         .dropdownLayer()   // glass lists for audio, subtitles, quality
         .tipLayer()   // inside the settings below, so the tooltips get the Classic look and font too
@@ -442,13 +440,12 @@ struct ClassicHomeView: View {
         }
         // Opening a search result clears the search box and stays on the opened page
         .onChange(of: path.count) { old, new in
-            ClassicHoverCardCenter.shared.hide()   // a preview card must not stay over the page just opened
             if old == 0 && new > 0 && !query.isEmpty {
                 keepPage = true; query = ""; nav.searchOpen = false; fromSearch = true
             }
             if new == 0 { fromSearch = false }
         }
-        .onChange(of: sel) { fromSearch = false; ClassicHoverCardCenter.shared.hide() }
+        .onChange(of: sel) { fromSearch = false }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
@@ -1702,7 +1699,6 @@ struct ClassicPosterCard: View {
     @AppStorage("posterShowYear") private var showYear = true
     @AppStorage("posterLabelAlign") private var labelAlign = "center"
     var centered: Bool { labelAlign == "center" }
-    @State private var ptr = PointerBox()    // pointer position on the poster (read lazily, no redraws)
     var body: some View {
         let played = emby.isPlayed(item)
         NavigationLink(value: item) {
@@ -1737,27 +1733,6 @@ struct ClassicPosterCard: View {
                 }
                 .cornerRadius(8)
                 .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
-                // The Netflix-style preview card is drawn by ClassicHoverCardLayer (window level), centered on this poster.
-                // Local + global pointer positions together give the poster's place in the window.
-                .onContinuousHover(coordinateSpace: .local) { phase in
-                    if case .active(let p) = phase { ptr.local = p }
-                }
-                .onContinuousHover(coordinateSpace: .global) { phase in
-                    switch phase {
-                    case .active(let p):
-                        ptr.global = p
-                        if !ptr.inside && !ScrollActivity.scrolling {   // not for posters scrolling past
-                            ptr.inside = true
-                            let box = ptr
-                            ClassicHoverCardCenter.shared.posterHover(item, inside: true) {
-                                CGRect(x: box.global.x - box.local.x, y: box.global.y - box.local.y, width: 150, height: 225)
-                            }
-                        }
-                    case .ended:
-                        ptr.inside = false
-                        ClassicHoverCardCenter.shared.posterHover(item, inside: false) { .zero }
-                    }
-                }
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
@@ -1773,178 +1748,6 @@ struct ClassicPosterCard: View {
             .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
             .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
-    }
-}
-
-/// Decides which poster's preview card is showing. Opens ~0.7 s after the pointer rests on a poster and stays
-/// while the pointer is on the poster or on the card; closes ~0.3 s after it leaves both. Never while a video is
-/// playing (the page behind the player is still alive). Closing is decided by polling the real pointer position,
-/// so it doesn't depend on hover enter/exit events firing for a card that appears right under a resting pointer.
-@MainActor
-final class ClassicHoverCardCenter: ObservableObject {
-    static let shared = ClassicHoverCardCenter()
-    @Published var item: Item?
-    @Published var anchor: CGRect = .zero        // the poster's frame in window coordinates
-    var cardRect: CGRect = .zero                 // the card's frame in window coordinates (set by ClassicHoverCardLayer)
-    private var overPoster: Item?
-    private var anchorFor: (() -> CGRect)?
-    private var openTask: Task<Void, Never>?
-    private var watchTask: Task<Void, Never>?
-
-    /// Settings → Libraries → Hover preview
-    private var enabled: Bool { UserDefaults.standard.object(forKey: "hoverPreviewEnabled") as? Bool ?? true }
-    private var openDelayMs: Int {
-        let d = UserDefaults.standard.double(forKey: "hoverPreviewDelay")      // seconds; unset = 0.7
-        return Int((d > 0 ? d : 0.7) * 1000)
-    }
-
-    func posterHover(_ it: Item, inside: Bool, anchorProvider: @escaping () -> CGRect) {
-        if inside { overPoster = it; anchorFor = anchorProvider }
-        else if overPoster?.id == it.id { overPoster = nil }
-        openTask?.cancel()
-        guard inside, enabled, !PlaybackFlag.shared.active, item?.id != it.id else { return }
-        openTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(openDelayMs))   // same delay for every poster
-            if Task.isCancelled || PlaybackFlag.shared.active { return }
-            guard overPoster?.id == it.id, let a = anchorFor?() else { return }
-            item = it
-            anchor = a
-            startWatching()
-        }
-    }
-
-    /// Closes everything (Play pressed, playback started).
-    func hide() {
-        openTask?.cancel(); watchTask?.cancel()
-        item = nil; overPoster = nil
-    }
-
-    /// Closes just the card because the pointer left it. A card that is already waiting to open for the poster
-    /// under the pointer must survive this (it used to be cancelled here, so the poster you moved onto never opened).
-    private func closeCard() {
-        watchTask?.cancel()
-        item = nil
-    }
-
-    /// Scrolling with the card open: close it, so the wheel scrolls the page under it (the card would take it)
-    private var scrollMonitor: Any?
-    private func watchScroll() {
-        guard scrollMonitor == nil else { return }
-        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] e in
-            guard let self, self.item != nil else { return e }
-            self.closeCard()
-            // Hand this tick to the page under the pointer, as the card is still in the way for it
-            if let w = e.window, let v = w.contentView?.hitTest(e.locationInWindow) {
-                var sv: NSView? = v
-                while let s = sv, !(s is NSScrollView) { sv = s.superview }
-                if let scroll = sv as? NSScrollView { scroll.scrollWheel(with: e); return nil }
-            }
-            return e
-        }
-    }
-
-    private func startWatching() {
-        watchScroll()
-        watchTask?.cancel()
-        watchTask = Task { @MainActor in
-            var away = 0
-            while !Task.isCancelled && item != nil {
-                try? await Task.sleep(for: .milliseconds(100))
-                if Task.isCancelled { return }
-                if PlaybackFlag.shared.active { hide(); return }
-                away = pointerInside() || RatingButton.pickerOpen ? 0 : away + 1   // the star picker sits outside the card
-                if away >= 3 { closeCard(); return }
-            }
-        }
-    }
-
-    /// Is the pointer over the poster or the card? (window coordinates with the origin at the top-left, like SwiftUI's .global)
-    private func pointerInside() -> Bool {
-        guard let w = NSApp.keyWindow ?? NSApp.mainWindow, let v = w.contentView else { return false }
-        let m = w.mouseLocationOutsideOfEventStream
-        let pt = CGPoint(x: m.x, y: v.bounds.height - m.y)
-        return anchor.insetBy(dx: -4, dy: -4).contains(pt) || cardRect.insetBy(dx: -4, dy: -4).contains(pt)
-    }
-}
-
-/// Window-level layer that draws the preview card centered on the hovered poster (kept inside the window),
-/// above every row and column, so nothing clips or covers it.
-/// The card zooms out of the middle of the poster when it opens and back into it when it closes
-/// (Settings → Libraries → Hover preview: zoom on/off and duration).
-struct ClassicHoverCardLayer: View {
-    @ObservedObject private var center = ClassicHoverCardCenter.shared
-    @AppStorage("hoverZoomEnabled") private var zoomOn = true
-    @AppStorage("hoverZoomDuration") private var zoomDur = 0.3
-    @AppStorage("hoverZoomStyle") private var zoomStyle = "spring"      // "smooth" | "spring"
-    @State private var cardH: CGFloat = 340
-    // The card stays on screen while it zooms back in, so the layer keeps its own copy of what it shows
-    @State private var shownItem: Item?
-    @State private var shownAnchor: CGRect = .zero
-    @State private var open = false
-    @State private var removeTask: Task<Void, Never>?
-
-    var body: some View {
-        GeometryReader { g in
-            if let it = shownItem {
-                let o: CGPoint = g.frame(in: .global).origin
-                let w: CGFloat = 320
-                let cx: CGFloat = shownAnchor.midX - o.x
-                let cy: CGFloat = shownAnchor.midY - o.y
-                let left: CGFloat = min(max(8, cx - w / 2), max(8, g.size.width - w - 8))
-                let top: CGFloat = min(max(8, cy - cardH / 2), max(8, g.size.height - cardH - 8))
-                let rect = CGRect(x: o.x + left, y: o.y + top, width: w, height: cardH)
-                // The card pivots on the poster's center and shrinks to poster size when it is not open
-                let ux: CGFloat = min(max((shownAnchor.midX - rect.minX) / w, 0), 1)
-                let uy: CGFloat = min(max((shownAnchor.midY - rect.minY) / cardH, 0), 1)
-                HoverPreview(item: it) { center.hide() }
-                    .frame(width: w)
-                    .background(GeometryReader { c in Color.clear.preference(key: CardHeightKey.self, value: c.size.height) })
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .modifier(ClassicLightCard(radius: 12))
-                    .shadow(color: .black.opacity(0.6), radius: 24)
-                    .scaleEffect(open ? 1 : 150 / w, anchor: UnitPoint(x: ux, y: uy))
-                    .opacity(open ? 1 : 0)
-                    .animation(zoomOn ? zoomAnimation : nil, value: open)
-                    .allowsHitTesting(open)
-                    .onAppear { center.cardRect = rect }
-                    .onChange(of: rect) { _, r in center.cardRect = r }
-                    .offset(x: left, y: top)
-                    .id(it.id)
-            }
-        }
-        .onPreferenceChange(CardHeightKey.self) { cardH = $0 }
-        .onChange(of: center.item?.id) { _, _ in sync() }
-    }
-
-    /// Smooth ease, or a spring with a small bounce; the same one is used for opening and closing.
-    private var zoomAnimation: Animation {
-        zoomStyle == "spring" ? .spring(response: zoomDur, dampingFraction: 0.82) : .easeInOut(duration: zoomDur)
-    }
-
-    /// Follows the hover center: a new poster zooms its card out, a closed card zooms back in and is then removed.
-    private func sync() {
-        removeTask?.cancel()
-        if let it = center.item {
-            if shownItem?.id != it.id {
-                shownItem = it
-                shownAnchor = center.anchor
-                if zoomOn {
-                    open = false
-                    DispatchQueue.main.async { open = true }   // next tick, so the change animates from poster size
-                } else {
-                    open = true
-                }
-            } else {
-                open = true
-            }
-        } else {
-            open = false
-            let wait: Double = zoomOn ? (zoomStyle == "spring" ? zoomDur * 1.4 : zoomDur) : 0   // a spring settles a bit later
-            removeTask = Task { @MainActor in
-                if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-                if !Task.isCancelled { shownItem = nil }
-            }
-        }
     }
 }
 
