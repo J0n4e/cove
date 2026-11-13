@@ -271,40 +271,43 @@ struct PosterGrid: NSViewRepresentable {
             let p = cv.convert(window.mouseLocationOutsideOfEventStream, from: nil)
             guard cv.visibleRect.contains(p) else { return }
             let i = item(at: p)
-            pending?.cancel(); pending = nil
-            if i != hoverIndex { show(nil); show(i) }
+            show(i)
             if i != nil { NSCursor.pointingHand.set() }
         }
 
         /// Lays the SwiftUI card over poster `i` (nil: removes it). The card comes in at rest and zooms up, and
         /// zooms back down before it goes, as the hover on the SwiftUI grid.
-        /// The pointer is over poster `i` (nil: none). The card under it goes at once; a new one comes only after
-        /// the pointer has rested 50 ms, so a fast sweep across the grid doesn't light every poster it crosses.
-        func hover(_ i: Int?) {
-            pending?.cancel(); pending = nil
-            guard i != hoverIndex else { return }
-            show(nil)
-            guard let i else { return }
-            let w = DispatchWorkItem { [weak self] in self?.show(i) }
-            pending = w
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: w)
-        }
-        private var pending: DispatchWorkItem?
+        /// The pointer is over poster `i` (nil: none): its card zooms in, the previous one zooms out.
+        func hover(_ i: Int?) { show(i) }
+
+        /// A card that is zooming out, by poster: going back onto that poster reverses it instead of starting
+        /// a new card from zero (a new card on top of a half-faded one made the glow jump)
+        private var fading: [Int: (host: NSHostingView<AnyView>, lit: GridHoverLit, remove: DispatchWorkItem)] = [:]
 
         private func show(_ i: Int?) {
             guard i != hoverIndex else { return }
             if let old = hoverIndex, let host = hoverHost, let lit = hoverLit {
                 withAnimation(.easeOut(duration: 0.2)) { lit.on = false }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                let remove = DispatchWorkItem { [weak self] in
                     host.removeFromSuperview()
-                    // The card covered the poster (both would draw the labels): show it again, unless lit again meanwhile
-                    if self?.hoverIndex != old { self?.cv?.item(at: IndexPath(item: old, section: 0))?.view.isHidden = false }
+                    self?.fading[old] = nil
+                    // The card covered the poster (both would draw the labels): show it again
+                    self?.cv?.item(at: IndexPath(item: old, section: 0))?.view.isHidden = false
                 }
+                fading[old] = (host, lit, remove)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: remove)
             }
             hoverIndex = i
             hoverHost = nil; hoverLit = nil
-            guard let i, i < items.count, let cv, let emby,
-                  let frame = cv.layoutAttributesForItem(at: IndexPath(item: i, section: 0))?.frame else { return }
+            guard let i, i < items.count, let cv, let emby else { return }
+            if let f = fading.removeValue(forKey: i) {
+                f.remove.cancel()
+                cv.addSubview(f.host)   // on top again
+                hoverHost = f.host; hoverLit = f.lit
+                withAnimation(.easeOut(duration: 0.2)) { f.lit.on = true }
+                return
+            }
+            guard let frame = cv.layoutAttributesForItem(at: IndexPath(item: i, section: 0))?.frame else { return }
             let pad: CGFloat = 24   // room for the lift and the glow around the card
             let lit = GridHoverLit()
             let open: (Item) -> Void = { [weak self] in self?.hover(nil); self?.open($0) }
@@ -324,7 +327,7 @@ struct PosterGrid: NSViewRepresentable {
             hoverHost = h; hoverLit = lit
             DispatchQueue.main.async { [weak self] in
                 // The poster under it hides only now that the card is on screen: hiding it in the same frame
-                // left the spot empty for a frame (a flash when moving fast)
+                // left the spot empty for a frame
                 if self?.hoverIndex == i { cv.item(at: IndexPath(item: i, section: 0))?.view.isHidden = true }
                 withAnimation(.easeOut(duration: 0.2)) { lit.on = true }
             }
