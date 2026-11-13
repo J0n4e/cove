@@ -1807,11 +1807,23 @@ struct ClassicLibraryView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                header
-                if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
+        Group {
+            if UserDefaults.standard.bool(forKey: "appkitGrid") && tab != 2 && layout != "list" {
+                // SPIKE: AppKit grid owns the scrolling; the header stays put above it
+                VStack(spacing: 18) {
+                    header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)
+                    PosterGrid(emby: emby, items: items, willShow: { i in
+                        if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
+                    }) { ClassicPosterCard(item: $0) }
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        header
+                        if tab == 2 { genreGrid } else { grid }
+                    }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
+                }
+            }
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
