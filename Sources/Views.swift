@@ -2503,7 +2503,9 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
             HStack(alignment: .top, spacing: spacing) {
                 ForEach(ids, id: \.self) { id in content(id).id(id) }
             }
-            .padding(.vertical, 8)
+            // Room for a hovered card's glow and zoom (the scroll view clips at its edges); the row is pulled back by
+            // the extra 12 pt below, so the layout stays as it was and doesn't reach the section title above
+            .padding(.vertical, 20)
             .background(ScrollFinderView(finder: finder))
             // Click-and-drag to scroll with the mouse; a plain click still opens the item.
             .highPriorityGesture(
@@ -2522,6 +2524,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
         }
         .scrollIndicators(.never)
         .contentMargins(.horizontal, inset, for: .scrollContent)
+        .padding(.vertical, -12)
         .overlay(alignment: .leading) {
             if finder.canBack {
                 arrow("chevron.left", help: "Previous") { finder.page(-1, step: itemWidth + spacing) }.padding(.leading, 6)

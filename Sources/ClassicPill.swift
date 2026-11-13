@@ -127,7 +127,7 @@ struct ClassicGlassCard: ViewModifier {
                 }
             }
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
-            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+            .background { if hover { HoverGlow(shape: shape, accent: accent) } }
             .scrollHover($hover, animation: .easeOut(duration: 0.2))
     }
 
@@ -154,6 +154,16 @@ struct ClassicGlassCard: ViewModifier {
                 }
                 .clipShape(shape)
                 .allowsHitTesting(false)
+    }
+}
+
+/// The accent glow behind a hovered card: the card's outline casting a soft accent shadow, as the AppKit poster
+/// grid draws it (a shadow layer, see PosterGridCell), so both look the same. The fill itself sits under the card.
+struct HoverGlow: View {
+    let shape: RoundedRectangle
+    let accent: Color
+    var body: some View {
+        shape.fill(accent).shadow(color: accent.opacity(0.45), radius: 14)
     }
 }
 
@@ -189,7 +199,7 @@ struct ClassicLightCard: ViewModifier {
                     edge(shape, lit: lit)
                 }
             }
-            .background { if hover && glow { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+            .background { if hover && glow { HoverGlow(shape: shape, accent: accent) } }
             .scrollHover($ownHover, animation: .easeOut(duration: 0.2), enabled: tracksHover)
     }
 
