@@ -271,13 +271,27 @@ struct PosterGrid: NSViewRepresentable {
             let p = cv.convert(window.mouseLocationOutsideOfEventStream, from: nil)
             guard cv.visibleRect.contains(p) else { return }
             let i = item(at: p)
-            hover(i)
+            pending?.cancel(); pending = nil
+            if i != hoverIndex { show(nil); show(i) }
             window.invalidateCursorRects(for: cv)
         }
 
         /// Lays the SwiftUI card over poster `i` (nil: removes it). The card comes in at rest and zooms up, and
         /// zooms back down before it goes, as the hover on the SwiftUI grid.
+        /// The pointer is over poster `i` (nil: none). The card under it goes at once; a new one comes only after
+        /// the pointer has rested 50 ms, so a fast sweep across the grid doesn't light every poster it crosses.
         func hover(_ i: Int?) {
+            pending?.cancel(); pending = nil
+            guard i != hoverIndex else { return }
+            show(nil)
+            guard let i else { return }
+            let w = DispatchWorkItem { [weak self] in self?.show(i) }
+            pending = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: w)
+        }
+        private var pending: DispatchWorkItem?
+
+        private func show(_ i: Int?) {
             guard i != hoverIndex else { return }
             if let old = hoverIndex, let host = hoverHost, let lit = hoverLit {
                 withAnimation(.easeOut(duration: 0.2)) { lit.on = false }
@@ -306,9 +320,14 @@ struct PosterGrid: NSViewRepresentable {
             h.sizingOptions = []
             h.frame = frame.insetBy(dx: -pad, dy: -pad)
             cv.addSubview(h)   // above every cell
-            cv.item(at: IndexPath(item: i, section: 0))?.view.isHidden = true
+            h.layoutSubtreeIfNeeded()   // the card draws now, in this frame
             hoverHost = h; hoverLit = lit
-            DispatchQueue.main.async { withAnimation(.easeOut(duration: 0.2)) { lit.on = true } }
+            DispatchQueue.main.async { [weak self] in
+                // The poster under it hides only now that the card is on screen: hiding it in the same frame
+                // left the spot empty for a frame (a flash when moving fast)
+                if self?.hoverIndex == i { cv.item(at: IndexPath(item: i, section: 0))?.view.isHidden = true }
+                withAnimation(.easeOut(duration: 0.2)) { lit.on = true }
+            }
         }
 
         func item(at p: NSPoint) -> Int? {
