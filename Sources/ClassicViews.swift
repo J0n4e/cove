@@ -1618,6 +1618,8 @@ struct ClassicResumeCard: View {
     @EnvironmentObject var emby: Emby
     let item: Item
     @State private var hover = false
+    /// The pointer is on the play button: only the button glows then, not the card (as the episode cards)
+    @State private var onPlay = false
     @AppStorage("accent") private var accentName = "red"
 
     var progress: Double { min(1, max(0, (item.UserData?.PlayedPercentage ?? 0) / 100)) }
@@ -1673,16 +1675,18 @@ struct ClassicResumeCard: View {
                         Button { Task { await emby.playFromHome(item) } } label: {
                             Label("Resume", systemImage: "play.fill").classicGlassPill(size: 46)
                         }.buttonStyle(.plainHand).accessibilityLabel("Resume")
+                        .onHover { onPlay = $0 }
                     }
                 }
                 .cornerRadius(8)
-                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName),
+                .modifier(ClassicLightCard(radius: 8, hover: hover && !onPlay, accent: Theme.accent(accentName),
                                            size: CGSize(width: 260, height: 146)))   // the posters' light glass edge
                 .classicHoverLift()
             }
             .frame(width: 260, alignment: .leading)
             .contentShape(Rectangle())
             .scrollHover($hover)
+            .onChange(of: hover) { _, h in if !h { onPlay = false } }   // the button goes with the hover
             .onTapGesture { openPage() }.handCursor()
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer
