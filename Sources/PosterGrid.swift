@@ -2,14 +2,25 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Library poster grid on NSCollectionView (Glass3D). LazyVGrid rebuilds a full SwiftUI card for every poster that
+/// Library poster grid on NSCollectionView (both themes, see PosterLook). LazyVGrid rebuilds a full SwiftUI card for every poster that
 /// scrolls in; here cells are reused and drawn natively: the poster picture, one picture of its badges and glass edge
 /// (drawn once per look, see Raster), and two text labels. Only the poster under the pointer becomes the real SwiftUI
 /// card, laid over the grid, so hover lift, glow and the action button look as before.
 /// On with `defaults write eu.jonae.cove appkitGrid -bool YES`.
+/// How the posters of one theme look: size, corners, label fonts, badges and hover card.
+struct PosterLook: Equatable {
+    let glass3D: Bool
+    var size: CGSize { glass3D ? CGSize(width: 150, height: 225) : CGSize(width: 170, height: 255) }
+    var radius: CGFloat { glass3D ? 8 : 12 }
+    var titleFont: NSFont { glass3D ? ClassicFont.nsFont(12, .semibold) : .systemFont(ofSize: 12, weight: .semibold) }
+    var yearFont: NSFont { glass3D ? ClassicFont.nsFont(10, .regular) : .systemFont(ofSize: 10, weight: .regular) }
+    static let titleH: CGFloat = 16, yearH: CGFloat = 13
+}
+
 struct PosterGrid: NSViewRepresentable {
     let emby: Emby
     let items: [Item]
+    var look = PosterLook(glass3D: true)
     var insets = NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 92)
     /// Called when the item at this index is about to show (for paging).
     var willShow: (Int) -> Void = { _ in }
@@ -50,6 +61,7 @@ struct PosterGrid: NSViewRepresentable {
     func updateNSView(_ sv: NSScrollView, context: Context) {
         let c = context.coordinator
         c.insets = insets
+        if c.look != look { c.look = look; c.cv?.reloadData() }
         c.applyLayout()
         c.emby = emby
         c.willShow = willShow
@@ -74,6 +86,7 @@ struct PosterGrid: NSViewRepresentable {
         var ids: [String] = []
         var scale: CGFloat = 2
         var insets = NSEdgeInsets()
+        var look = PosterLook(glass3D: true)
         private var watchers: [AnyCancellable] = []
         /// The settings the posters are drawn with, to redraw them only when one of these changes
         private var looks = ""
@@ -108,11 +121,21 @@ struct PosterGrid: NSViewRepresentable {
             let d = UserDefaults.standard
             let showTitle = d.object(forKey: "posterShowTitle") as? Bool ?? true
             let showYear = d.object(forKey: "posterShowYear") as? Bool ?? true
-            let labelH: CGFloat = (showTitle || showYear) ? 6 + (showTitle ? 16 : 0) + (showYear ? 13 : 0) : 0
-            guard let layout = cv?.collectionViewLayout as? NSCollectionViewFlowLayout else { return }
-            let size = CGSize(width: 150, height: 225 + labelH)
+            let labelH: CGFloat = (showTitle || showYear)
+                ? 6 + (showTitle ? PosterLook.titleH : 0) + (showYear ? PosterLook.yearH : 0) : 0
+            guard let cv, let layout = cv.collectionViewLayout as? NSCollectionViewFlowLayout else { return }
+            let size = CGSize(width: look.size.width, height: look.size.height + labelH)
             if layout.itemSize != size { layout.itemSize = size }
-            if !NSEdgeInsetsEqual(layout.sectionInset, insets) { layout.sectionInset = insets }
+            // As LazyVGrid's adaptive columns: the spare width is shared out, so each poster sits centered in
+            // its column (the flow layout alone would put the first poster at the very edge)
+            let spacing = layout.minimumInteritemSpacing
+            let avail = cv.bounds.width - insets.left - insets.right
+            let n = max(1, floor((avail + spacing) / (size.width + spacing)))
+            let column = (avail - spacing * (n - 1)) / n
+            let side = max(0, (column - size.width) / 2)
+            var inset = insets
+            inset.left += side; inset.right += side
+            if !NSEdgeInsetsEqual(layout.sectionInset, inset) { layout.sectionInset = inset }
         }
 
         var willShow: (Int) -> Void = { _ in }
@@ -127,7 +150,7 @@ struct PosterGrid: NSViewRepresentable {
         func collectionView(_ cv: NSCollectionView, itemForRepresentedObjectAt ip: IndexPath) -> NSCollectionViewItem {
             let cell = cv.makeItem(withIdentifier: PosterGridCell.id, for: ip) as! PosterGridCell
             cell.view.isHidden = ip.item == hoverIndex
-            if let emby { cell.show(items[ip.item], emby: emby, scale: scale) }
+            if let emby { cell.show(items[ip.item], emby: emby, look: look, scale: scale) }
             return cell
         }
 
@@ -138,7 +161,7 @@ struct PosterGrid: NSViewRepresentable {
         func refreshVisible() {
             guard let cv, let emby else { return }
             for ip in cv.indexPathsForVisibleItems() where ip.item < items.count {
-                (cv.item(at: ip) as? PosterGridCell)?.show(items[ip.item], emby: emby, scale: scale)
+                (cv.item(at: ip) as? PosterGridCell)?.show(items[ip.item], emby: emby, look: look, scale: scale)
             }
         }
 
@@ -165,9 +188,9 @@ struct PosterGrid: NSViewRepresentable {
             let pad: CGFloat = 24   // room for the lift and the glow around the card
             let lit = GridHoverLit()
             let open: (Item) -> Void = { [weak self] in self?.hover(nil); self?.open($0) }
-            let card = GridHoverCard(lit: lit, item: items[i])
+            let card = GridHoverCard(lit: lit, item: items[i], glass3D: look.glass3D)
                 .environment(\.posterOpen, open)
-                .environment(\.classicGlass, true)
+                .environment(\.classicGlass, look.glass3D)
                 .environmentObject(emby)
                 .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red"))
                 .environment(\.colorScheme, .dark)
@@ -197,13 +220,24 @@ final class GridHoverLit: ObservableObject { @Published var on = false }
 private struct GridHoverCard: View {
     @ObservedObject var lit: GridHoverLit
     let item: Item
-    var body: some View { ClassicPosterCard(item: item, forcedHover: lit.on) }
+    let glass3D: Bool
+    var body: some View {
+        if glass3D { ClassicPosterCard(item: item, forcedHover: lit.on) }
+        else { PosterCard(item: item, forcedHover: lit.on) }
+    }
 }
 
 /// Follows the pointer to show the hover card; a click on a poster opens it.
 final class PosterCollectionView: NSCollectionView {
     weak var coordinator: PosterGrid.Coordinator?
     private var tracking: NSTrackingArea?
+
+    /// A new width: the columns' spare space is shared out again (see applyLayout)
+    override func setFrameSize(_ newSize: NSSize) {
+        let changed = newSize.width != frame.width
+        super.setFrameSize(newSize)
+        if changed { coordinator?.applyLayout() }
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -255,12 +289,11 @@ final class PosterGridCell: NSCollectionViewItem {
     private var labelToken = 0
     private var url: URL?
     private var load: Task<Void, Never>?
+    private var look = PosterLook(glass3D: true)
 
     override func loadView() {
         let v = NSView()
         v.wantsLayer = true
-        poster.frame = CGRect(x: 0, y: 0, width: 150, height: 225)
-        poster.cornerRadius = 8
         poster.cornerCurve = .circular
         poster.masksToBounds = true
         poster.contentsGravity = .resizeAspectFill
@@ -279,17 +312,18 @@ final class PosterGridCell: NSCollectionViewItem {
     override func viewDidLayout() {
         super.viewDidLayout()
         // Flipped coordinates aren't used: the poster sits at the top of the cell
-        let h = view.bounds.height
-        poster.frame = CGRect(x: 0, y: h - 225, width: 150, height: 225)
-        decor.frame = poster.frame
-        var y = h - 225 - 6
+        let h = view.bounds.height, ps = look.size
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        if !nameLabel.isHidden { y -= 16; nameLabel.frame = CGRect(x: 0, y: y, width: 150, height: 16) }
-        if !year.isHidden { y -= 13; year.frame = CGRect(x: 0, y: y, width: 150, height: 13) }
+        poster.frame = CGRect(x: 0, y: h - ps.height, width: ps.width, height: ps.height)
+        decor.frame = poster.frame
+        var y = h - ps.height - 6
+        if !nameLabel.isHidden { y -= PosterLook.titleH; nameLabel.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.titleH) }
+        if !year.isHidden { y -= PosterLook.yearH; year.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.yearH) }
         CATransaction.commit()
     }
 
-    @MainActor func show(_ item: Item, emby: Emby, scale: CGFloat) {
+    @MainActor func show(_ item: Item, emby: Emby, look: PosterLook, scale: CGFloat) {
+        if look != self.look { self.look = look; view.needsLayout = true }
         let played = emby.isPlayed(item)
         let fav = emby.isFav(item)
         let rating = Trakt.shared.rating(item)
@@ -299,10 +333,11 @@ final class PosterGridCell: NSCollectionViewItem {
         let unwatched = item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0
         CATransaction.begin(); CATransaction.setDisableActions(true)
         poster.opacity = played ? 0.6 : 1
-        let key = "gridDecor|\(played)|\(unwatched)|\(fav)|\(rating ?? 0)|\(progress)|\(accent)"
+        poster.cornerRadius = look.radius
+        let key = "gridDecor|\(look.glass3D)|\(played)|\(unwatched)|\(fav)|\(rating ?? 0)|\(progress)|\(accent)"
         decor.contents = Raster.image(key, scale: scale, pad: 0) {
-            PosterDecor(item: item, played: played, fav: fav, progress: progress, accent: Theme.accent(accent))
-                .environmentObject(emby).environment(\.classicGlass, true)
+            PosterDecor(item: item, played: played, fav: fav, progress: progress, accent: Theme.accent(accent), look: look)
+                .environmentObject(emby).environment(\.classicGlass, look.glass3D)
         }
         decor.contentsScale = scale
         poster.contentsScale = scale
@@ -316,13 +351,13 @@ final class PosterGridCell: NSCollectionViewItem {
         // Labels are drawn into pictures on another core (CATextLayer loses the chosen font)
         labelToken += 1
         let token = labelToken
-        for (t, text, font, color, h) in [(nameLabel, item.Name, ClassicFont.nsFont(12, .semibold), NSColor.white, CGFloat(16)),
-                                          (year, item.yearText, ClassicFont.nsFont(10, .regular),
-                                           NSColor.white.withAlphaComponent(0.55), CGFloat(13))] {
+        for (t, text, font, color, h) in [(nameLabel, item.Name, look.titleFont, NSColor.white, PosterLook.titleH),
+                                          (year, item.yearText, look.yearFont,
+                                           NSColor.white.withAlphaComponent(0.55), PosterLook.yearH)] {
             t.contentsScale = scale
             if let img = LabelPicture.cached(text, font, align, scale) { t.contents = img; continue }
             t.contents = nil
-            LabelPicture.draw(text, font, color, align, CGSize(width: 150, height: h), scale) { [weak self, weak t] img in
+            LabelPicture.draw(text, font, color, align, CGSize(width: look.size.width, height: h), scale) { [weak self, weak t] img in
                 guard let self, self.labelToken == token else { return }
                 t?.contents = img
             }
@@ -391,16 +426,18 @@ enum LabelPicture {
     }
 }
 
-/// Everything drawn over the poster picture in the Glass3D card, without the picture: watched badge, heart,
-/// your rating, progress bar and the light glass edge. Drawn once per look and shared by every poster.
+/// Everything drawn over the poster picture, without the picture: watched badge, heart, your rating, progress bar
+/// and the edge (Glass3D: the light glass edge; Glass: a thin border). Drawn once per look and shared by every poster.
 private struct PosterDecor: View {
     let item: Item
     let played: Bool
     let fav: Bool
     let progress: Int
     let accent: Color
+    let look: PosterLook
     var body: some View {
-        Color.clear.frame(width: 150, height: 225)
+        let s = look.size
+        Color.clear.frame(width: s.width, height: s.height)
             .overlay(alignment: .topTrailing) { WatchBadge(item: item, played: played).padding(8) }
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 6) {
@@ -411,8 +448,17 @@ private struct PosterDecor: View {
             .overlay(alignment: .bottom) {
                 if progress > 0 { ProgressView(value: Double(progress) / 100).padding(.horizontal, 8).padding(.bottom, 8) }
             }
-            .modifier(ClassicLightCard(radius: 8, accent: accent, size: CGSize(width: 150, height: 225)))
+            .modifier(Edge(look: look, accent: accent))
             .tint(accent)
+    }
+
+    struct Edge: ViewModifier {
+        let look: PosterLook
+        let accent: Color
+        func body(content: Content) -> some View {
+            if look.glass3D { content.modifier(ClassicLightCard(radius: look.radius, accent: accent, size: look.size)) }
+            else { content.thinBorder(look.radius) }
+        }
     }
 }
 

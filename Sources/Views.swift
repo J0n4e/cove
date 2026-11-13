@@ -576,7 +576,10 @@ struct HomeView: View {
             if navStyle == "topbar" { topLayout } else { splitLayout }
         }
         .task { await emby.loadLibs() }
-        .onAppear { updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" } }
+        .onAppear {
+            updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
+            nav.open = { path.append($0) }
+        }
         .onAppear {
             if searchKey == nil {
                 searchKey = SearchKey.install(isPlaying: { PlaybackFlag.shared.active },
@@ -653,6 +656,8 @@ final class NavState: ObservableObject {
     @Published var activeCount = 0
     @Published var showSettings = false
     var popToRoot: () -> Void = {}
+    /// Pushes an item's page (for views outside SwiftUI navigation, as the AppKit poster grid)
+    var open: (Item) -> Void = { _ in }
 }
 
 /// Window toolbar contents: the Back pill on pushed pages. (In the Top bar layout the navigation and Back
@@ -1804,6 +1809,10 @@ struct PosterCard: View {
     @Environment(\.inFavorites) private var inFavorites
     let item: Item
     @State private var hover = false
+    @Environment(\.posterOpen) private var posterOpen
+    /// Set by the AppKit grid, which lays this card over the poster under the pointer and lights it itself
+    var forcedHover: Bool? = nil
+    var lit: Bool { forcedHover ?? hover }
     // Settings → Libraries → Poster labels
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -1811,7 +1820,7 @@ struct PosterCard: View {
     var centered: Bool { labelAlign == "center" }
     var body: some View {
         let played = emby.isPlayed(item)
-        NavigationLink(value: item) {
+        OpenLink(item: item, open: posterOpen) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack(alignment: .topTrailing) {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
@@ -1838,11 +1847,11 @@ struct PosterCard: View {
                     }
                 }
                 .overlay(alignment: .bottomTrailing) {
-                    if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
+                    if lit { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .thinBorder(12)
-                .modifier(HoverLift(hover: hover))
+                .modifier(HoverLift(hover: lit))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
                         if showTitle { Text(item.Name).font(.callout.weight(.semibold)).lineLimit(1) }
@@ -1855,7 +1864,7 @@ struct PosterCard: View {
             .frame(width: 170, alignment: .leading)
             .contentShape(Rectangle())
             .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
-            .zIndex(hover ? 1 : 0)
+            .zIndex(lit ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
 }
@@ -2598,11 +2607,24 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                header
-                if tab == 2 { genreGrid } else { grid }
-            }.padding(.leading, 40).padding(.trailing, 94).padding(.vertical, 24)   // room for the A–Z bar
+        Group {
+            if UserDefaults.standard.bool(forKey: "appkitGrid") && tab != 2 && layout != "list" {
+                // AppKit grid (see PosterGrid) owns the scrolling; the header stays put above it
+                VStack(spacing: 18) {
+                    header.padding(.leading, 40).padding(.trailing, 94).padding(.top, 24)
+                    PosterGrid(emby: emby, items: items, look: PosterLook(glass3D: false),
+                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 94), willShow: { i in
+                        if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
+                    }, open: { NavState.shared.open($0) })
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        header
+                        if tab == 2 { genreGrid } else { grid }
+                    }.padding(.leading, 40).padding(.trailing, 94).padding(.vertical, 24)   // room for the A–Z bar
+                }
+            }
         }
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
