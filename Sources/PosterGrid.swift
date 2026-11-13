@@ -351,7 +351,7 @@ private struct GridHoverCard: View {
     let item: Item
     let glass3D: Bool
     var body: some View {
-        if glass3D { ClassicPosterCard(item: item, forcedHover: lit.on) }
+        if glass3D { ClassicPosterCard(item: item, forcedHover: lit.on, glow: false) }   // zoom only, no glow
         else { PosterCard(item: item, forcedHover: lit.on) }
     }
 }

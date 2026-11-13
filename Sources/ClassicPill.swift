@@ -168,6 +168,8 @@ struct ClassicLightCard: ViewModifier {
     var size: CGSize? = nil
     /// For cards that don't pass their hover in (episodes): follows the pointer itself
     var tracksHover = false
+    /// The accent glow behind a hovered card (off in the AppKit poster grid, where it flickered)
+    var glow = true
     @State private var ownHover = false
     /// The card's size when it isn't fixed (episode tiles follow the window width), measured once per change
     @State private var measured: CGSize?
@@ -187,7 +189,7 @@ struct ClassicLightCard: ViewModifier {
                     edge(shape, lit: lit)
                 }
             }
-            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
+            .background { if hover && glow { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
             .onHover { h in
                 guard tracksHover, !(h && ScrollActivity.scrolling) else { return }
                 withAnimation(.easeOut(duration: 0.2)) { ownHover = h }
