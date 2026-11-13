@@ -273,7 +273,7 @@ struct PosterGrid: NSViewRepresentable {
             let i = item(at: p)
             pending?.cancel(); pending = nil
             if i != hoverIndex { show(nil); show(i) }
-            window.invalidateCursorRects(for: cv)
+            if i != nil { NSCursor.pointingHand.set() }
         }
 
         /// Lays the SwiftUI card over poster `i` (nil: removes it). The card comes in at rest and zooms up, and
@@ -365,19 +365,10 @@ final class PosterCollectionView: NSCollectionView {
         if changed { coordinator?.layoutHeader(); coordinator?.applyLayout() }
     }
 
-    /// The hand pointer over every poster on screen, kept by AppKit itself (also right after a scroll)
-    override func resetCursorRects() {
-        for ip in indexPathsForVisibleItems() {
-            // Only the part on screen; a poster fully off screen gives an empty (null) rect, which AppKit throws on
-            guard let f = layoutAttributesForItem(at: ip)?.frame.intersection(visibleRect), !f.isNull, !f.isEmpty else { continue }
-            addCursorRect(f, cursor: .pointingHand)
-        }
-    }
-
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let tracking { removeTrackingArea(tracking) }
-        let t = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+        let t = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .cursorUpdate, .activeInActiveApp, .inVisibleRect],
                                owner: self, userInfo: nil)
         addTrackingArea(t); tracking = t
     }
@@ -387,11 +378,20 @@ final class PosterCollectionView: NSCollectionView {
         guard !ScrollActivity.scrolling, let c = coordinator else { return }
         let i = c.item(at: convert(e.locationInWindow, from: nil))
         c.hover(i)
+        if i != nil { NSCursor.pointingHand.set() }
     }
 
+    /// AppKit also sends this when views are added over the grid (the hover card) while the pointer stays put:
+    /// only a pointer really outside the grid takes the card away, or every card flickered as it appeared
     override func mouseExited(with e: NSEvent) {
         super.mouseExited(with: e)
-        coordinator?.hover(nil)
+        if !visibleRect.contains(convert(e.locationInWindow, from: nil)) { coordinator?.hover(nil) }
+    }
+
+    /// The hand pointer over a poster (anywhere on it, not only where the card's own button is)
+    override func cursorUpdate(with e: NSEvent) {
+        if coordinator?.item(at: convert(e.locationInWindow, from: nil)) != nil { NSCursor.pointingHand.set() }
+        else { super.cursorUpdate(with: e) }
     }
 
     /// NSCollectionView's own mouseDown tracks a selection and keeps the mouse-up: a poster click is taken here
