@@ -5,7 +5,7 @@ import SwiftUI
 /// Library poster grid on NSCollectionView (both themes, see PosterLook). LazyVGrid rebuilds a full SwiftUI card for every poster that
 /// scrolls in; here cells are reused and drawn natively: the poster picture, one picture of its badges and glass edge
 /// (drawn once per look, see Raster), and two text labels. Hover is done on the cell itself with Core Animation (zoom,
-/// brighter edge) plus the watched/favorite buttons fading in; nothing is swapped, so nothing can flicker.
+/// brighter edge, accent glow in Glass3D) plus the watched/favorite buttons fading in; nothing is swapped.
 /// How the posters of one theme look: size, corners, label fonts and badges.
 struct PosterLook: Equatable {
     let glass3D: Bool
@@ -380,6 +380,8 @@ final class PosterGridCell: NSCollectionViewItem {
     private let decor = CALayer()
     private let edge = CALayer()
     private let edgeLit = CALayer()     // the brighter hover edge, faded in over `edge`
+    /// Glass3D: the accent glow behind the hovered poster, a blurred shadow faded in with the zoom
+    private let glow = CALayer()
     /// The watched/favorite buttons, shown on hover (SwiftUI, made the first time this cell is hovered)
     private var buttons: NSHostingView<AnyView>?
     private var item: Item?
@@ -400,8 +402,12 @@ final class PosterGridCell: NSCollectionViewItem {
         poster.masksToBounds = true
         poster.contentsGravity = .resizeAspectFill
         poster.backgroundColor = NSColor(white: 0.15, alpha: 1).cgColor
+        glow.shadowOffset = .zero
+        glow.shadowRadius = 14
+        glow.shadowOpacity = 0.45
+        card.addSublayer(glow)   // first: behind the poster
         for l in [poster, decor, edge, edgeLit] { card.addSublayer(l) }
-        edgeLit.opacity = 0
+        edgeLit.opacity = 0; glow.opacity = 0
         v.layer?.addSublayer(card)
         for t in [nameLabel, year] {
             t.contentsGravity = .topLeft
@@ -419,7 +425,8 @@ final class PosterGridCell: NSCollectionViewItem {
         // bounds and position, not frame: the card may be zoomed
         card.bounds = CGRect(origin: .zero, size: ps)
         card.position = CGPoint(x: ps.width / 2, y: h - ps.height / 2)
-        for l in [poster, decor, edge, edgeLit] { l.frame = card.bounds }
+        for l in [poster, decor, edge, edgeLit, glow] { l.frame = card.bounds }
+        glow.shadowPath = CGPath(roundedRect: card.bounds, cornerWidth: look.radius, cornerHeight: look.radius, transform: nil)
         var y = h - ps.height - 6
         if !nameLabel.isHidden { y -= PosterLook.titleH; nameLabel.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.titleH) }
         if !year.isHidden { y -= PosterLook.yearH; year.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.yearH) }
@@ -451,6 +458,8 @@ final class PosterGridCell: NSCollectionViewItem {
             }
         }
         for l in [poster, decor, edge, edgeLit] { l.contentsScale = scale }
+        // Follows the Settings accent; Glass has no glow (as its SwiftUI card)
+        glow.shadowColor = look.glass3D ? NSColor(Theme.accent(accent)).cgColor : NSColor.clear.cgColor
         CATransaction.commit()
         if hovered { buttons?.rootView = buttonsView() }
 
@@ -505,12 +514,14 @@ final class PosterGridCell: NSCollectionViewItem {
             let o = CABasicAnimation(keyPath: "opacity")
             o.fromValue = NSNumber(value: edgeLit.presentation()?.opacity ?? edgeLit.opacity); o.toValue = NSNumber(value: lit)
             for a in [z, o] { a.duration = 0.2; a.timingFunction = ease }
-            card.add(z, forKey: "zoom"); edgeLit.add(o, forKey: "lit")
+            let g = o.copy() as! CABasicAnimation
+            g.fromValue = NSNumber(value: glow.presentation()?.opacity ?? glow.opacity)
+            card.add(z, forKey: "zoom"); edgeLit.add(o, forKey: "lit"); glow.add(g, forKey: "lit")
         } else {
-            card.removeAnimation(forKey: "zoom"); edgeLit.removeAnimation(forKey: "lit")
+            card.removeAnimation(forKey: "zoom"); edgeLit.removeAnimation(forKey: "lit"); glow.removeAnimation(forKey: "lit")
         }
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        card.transform = zoom; edgeLit.opacity = lit
+        card.transform = zoom; edgeLit.opacity = lit; glow.opacity = lit
         CATransaction.commit()
         fadeButtons(on, animated: animated)
     }
@@ -626,7 +637,7 @@ struct PosterDecor: View {
         let look: PosterLook
         let lit: Bool
         func body(content: Content) -> some View {
-            if look.glass3D { content.modifier(ClassicLightCard(radius: look.radius, hover: lit, size: look.size)) }
+            if look.glass3D { content.modifier(ClassicLightCard(radius: look.radius, hover: lit, size: look.size, glow: false)) }
             else { content.thinBorder(look.radius) }
         }
     }
