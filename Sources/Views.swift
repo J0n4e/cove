@@ -2609,13 +2609,15 @@ struct LibraryView: View {
     var body: some View {
         Group {
             if UserDefaults.standard.bool(forKey: "appkitGrid") && tab != 2 && layout != "list" {
-                // AppKit grid (see PosterGrid) owns the scrolling; the header stays put above it
-                VStack(spacing: 18) {
-                    header.padding(.leading, 40).padding(.trailing, 94).padding(.top, 24)
+                // AppKit grid (see PosterGrid) owns the scrolling; the header scrolls with the posters
+                GeometryReader { g in
                     PosterGrid(emby: emby, items: items, look: PosterLook(glass3D: false),
-                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 94), willShow: { i in
+                               insets: NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 94),
+                               header: AnyView(header.padding(.leading, 40).padding(.trailing, 94).padding(.top, 24)),
+                               topInset: g.safeAreaInsets.top, willShow: { i in
                         if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
                     }, open: { NavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
                 }
             } else {
                 ScrollView {

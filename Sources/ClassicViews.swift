@@ -1818,12 +1818,14 @@ struct ClassicLibraryView: View {
     var body: some View {
         Group {
             if UserDefaults.standard.bool(forKey: "appkitGrid") && tab != 2 && layout != "list" {
-                // AppKit grid (see PosterGrid) owns the scrolling; the header stays put above it
-                VStack(spacing: 18) {
-                    header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)
-                    PosterGrid(emby: emby, items: items, willShow: { i in
+                // AppKit grid (see PosterGrid) owns the scrolling; the header scrolls with the posters
+                GeometryReader { g in
+                    PosterGrid(emby: emby, items: items,
+                               header: AnyView(header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)),
+                               topInset: g.safeAreaInsets.top, willShow: { i in
                         if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
                     }, open: { ClassicNavState.shared.open($0) })
+                    .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
                 }
             } else {
                 ScrollView {

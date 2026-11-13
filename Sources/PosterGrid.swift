@@ -22,6 +22,10 @@ struct PosterGrid: NSViewRepresentable {
     let items: [Item]
     var look = PosterLook(glass3D: true)
     var insets = NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 92)
+    /// The page header (title, tabs, controls): it scrolls with the posters, above them
+    var header: AnyView? = nil
+    /// Height of the see-through top bar the grid runs under: the content starts below it and scrolls up under it
+    var topInset: CGFloat = 0
     /// Called when the item at this index is about to show (for paging).
     var willShow: (Int) -> Void = { _ in }
     let open: (Item) -> Void
@@ -44,6 +48,7 @@ struct PosterGrid: NSViewRepresentable {
         let sv = NSScrollView()
         sv.documentView = cv
         sv.drawsBackground = false
+        sv.automaticallyAdjustsContentInsets = false
         sv.hasVerticalScroller = true
         sv.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.scrolled),
@@ -60,6 +65,16 @@ struct PosterGrid: NSViewRepresentable {
 
     func updateNSView(_ sv: NSScrollView, context: Context) {
         let c = context.coordinator
+        if sv.contentInsets.top != topInset {
+            let atTop = sv.contentView.bounds.origin.y <= -sv.contentInsets.top + 1
+            sv.contentInsets = NSEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
+            if atTop { sv.contentView.scroll(to: NSPoint(x: 0, y: -topInset)); sv.reflectScrolledClipView(sv.contentView) }
+        }
+        c.setHeader(header.map {
+            AnyView($0.environmentObject(emby).environment(\.classicGlass, look.glass3D)
+                .environment(\.appBG, context.environment.appBG)
+                .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red")))
+        })
         c.insets = insets
         if c.look != look { c.look = look; c.cv?.reloadData() }
         c.applyLayout()
@@ -88,6 +103,29 @@ struct PosterGrid: NSViewRepresentable {
         var insets = NSEdgeInsets()
         var look = PosterLook(glass3D: true)
         private var watchers: [AnyCancellable] = []
+        /// The page header, at the top of the scrolling content (see PosterGrid.header)
+        private var headerHost: NSHostingController<AnyView>?
+        private var headerH: CGFloat = 0
+
+        func setHeader(_ view: AnyView?) {
+            guard let view, let cv else { headerHost?.view.removeFromSuperview(); headerHost = nil; headerH = 0; return }
+            if let h = headerHost { h.rootView = view } else {
+                let h = NSHostingController(rootView: view)
+                h.sizingOptions = []
+                cv.addSubview(h.view, positioned: .below, relativeTo: nil)   // under the cells and the hover card
+                headerHost = h
+            }
+            layoutHeader()
+        }
+
+        /// Sizes the header to the grid's width; the posters start below it.
+        func layoutHeader() {
+            guard let h = headerHost, let cv else { return }
+            let w = cv.bounds.width
+            let height = ceil(h.sizeThatFits(in: CGSize(width: w, height: 10_000)).height)
+            h.view.frame = CGRect(x: 0, y: 0, width: w, height: height)   // the collection view is flipped: y 0 is the top
+            if abs(height - headerH) > 0.5 { headerH = height; applyLayout() }
+        }
         /// The settings the posters are drawn with, to redraw them only when one of these changes
         private var looks = ""
 
@@ -135,6 +173,7 @@ struct PosterGrid: NSViewRepresentable {
             let side = max(0, (column - size.width) / 2)
             var inset = insets
             inset.left += side; inset.right += side
+            if headerH > 0 { inset.top += headerH + 18 }
             if !NSEdgeInsetsEqual(layout.sectionInset, inset) { layout.sectionInset = inset }
         }
 
@@ -236,7 +275,7 @@ final class PosterCollectionView: NSCollectionView {
     override func setFrameSize(_ newSize: NSSize) {
         let changed = newSize.width != frame.width
         super.setFrameSize(newSize)
-        if changed { coordinator?.applyLayout() }
+        if changed { coordinator?.layoutHeader(); coordinator?.applyLayout() }
     }
 
     override func updateTrackingAreas() {
