@@ -1721,10 +1721,6 @@ struct ClassicPosterCard: View {
     @AppStorage("accent") private var accentName = "red"
     let item: Item
     @State private var hover = false
-    @Environment(\.posterOpen) private var posterOpen
-    /// Set by the AppKit grid, which lays this card over the poster under the pointer and lights it itself
-    var forcedHover: Bool? = nil
-    var lit: Bool { forcedHover ?? hover }
     // Settings → Libraries → Poster labels
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -1732,7 +1728,7 @@ struct ClassicPosterCard: View {
     var centered: Bool { labelAlign == "center" }
     var body: some View {
         let played = emby.isPlayed(item)
-        OpenLink(item: item, open: posterOpen) {
+        NavigationLink(value: item) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack(alignment: .topTrailing) {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
@@ -1760,11 +1756,11 @@ struct ClassicPosterCard: View {
                     }
                 }
                 .overlay(alignment: .bottomTrailing) {
-                    if lit { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
+                    if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .cornerRadius(8)
-                .modifier(ClassicLightCard(radius: 8, hover: lit, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
-                .modifier(HoverLift(hover: lit))
+                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
+                .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
                         if showTitle { Text(item.Name).font(.cv(12, weight: .semibold)).lineLimit(1) }
@@ -1777,7 +1773,7 @@ struct ClassicPosterCard: View {
             .frame(width: 150, alignment: .leading)
             .contentShape(Rectangle())
             .onHover { h in if !h || !ScrollActivity.scrolling { hover = h } }   // not while scrolling past
-            .zIndex(lit ? 1 : 0)
+            .zIndex(hover ? 1 : 0)
         }.buttonStyle(.plainHand)
     }
 }

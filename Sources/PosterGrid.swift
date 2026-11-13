@@ -4,9 +4,9 @@ import SwiftUI
 
 /// Library poster grid on NSCollectionView (both themes, see PosterLook). LazyVGrid rebuilds a full SwiftUI card for every poster that
 /// scrolls in; here cells are reused and drawn natively: the poster picture, one picture of its badges and glass edge
-/// (drawn once per look, see Raster), and two text labels. Only the poster under the pointer becomes the real SwiftUI
-/// card, laid over the grid, so the hover zoom and the action buttons look as before.
-/// How the posters of one theme look: size, corners, label fonts, badges and hover card.
+/// (drawn once per look, see Raster), and two text labels. Hover is done on the cell itself with Core Animation (zoom,
+/// brighter edge) plus the watched/favorite buttons fading in; nothing is swapped, so nothing can flicker.
+/// How the posters of one theme look: size, corners, label fonts and badges.
 struct PosterLook: Equatable {
     let glass3D: Bool
     var size: CGSize { glass3D ? CGSize(width: 150, height: 225) : CGSize(width: 170, height: 255) }
@@ -157,7 +157,7 @@ struct PosterGrid: NSViewRepresentable {
             if let h = headerHost { h.rootView = view } else {
                 let h = NSHostingController(rootView: view)
                 h.sizingOptions = []
-                cv.addSubview(h.view, positioned: .below, relativeTo: nil)   // under the cells and the hover card
+                cv.addSubview(h.view, positioned: .below, relativeTo: nil)   // under the cells
                 headerHost = h
             }
             layoutHeader()
@@ -221,24 +221,21 @@ struct PosterGrid: NSViewRepresentable {
 
         var willShow: (Int) -> Void = { _ in }
         var open: (Item) -> Void = { _ in }
-        /// The real SwiftUI card over the poster under the pointer
-        private var hoverHost: NSHostingView<AnyView>?
+        /// The poster under the pointer
         private var hoverIndex: Int?
-        private var hoverLit: GridHoverLit?
 
         func collectionView(_ cv: NSCollectionView, numberOfItemsInSection section: Int) -> Int { items.count }
 
         func collectionView(_ cv: NSCollectionView, itemForRepresentedObjectAt ip: IndexPath) -> NSCollectionViewItem {
             let cell = cv.makeItem(withIdentifier: PosterGridCell.id, for: ip) as! PosterGridCell
-            cell.view.isHidden = ip.item == hoverIndex
             if let emby { cell.show(items[ip.item], emby: emby, look: look, noHeart: inFavorites, scale: scale) }
+            cell.setHover(ip.item == hoverIndex, animated: false)   // a reused cell may come zoomed
             return cell
         }
 
         func collectionView(_ cv: NSCollectionView, willDisplay item: NSCollectionViewItem,
                             forRepresentedObjectAt ip: IndexPath) { willShow(ip.item) }
 
-        /// The hover card is left alone: it follows the same state itself, and rebuilding it flashed its glow.
         func refreshVisible() {
             guard let cv, let emby else { return }
             for ip in cv.indexPathsForVisibleItems() where ip.item < items.count {
@@ -246,8 +243,8 @@ struct PosterGrid: NSViewRepresentable {
             }
         }
 
-        /// The card would stay behind while posters slide under it. Only a real scroll: the bounds also change
-        /// when the next page of posters loads, and dropping the card then made it flash.
+        /// The zoom would stay on a poster sliding away under the pointer. Only a real scroll: the bounds also
+        /// change when the next page of posters loads.
         @objc func scrolled() {
             guard ScrollActivity.scrolling else { return }
             hover(nil)
@@ -271,70 +268,22 @@ struct PosterGrid: NSViewRepresentable {
             let p = cv.convert(window.mouseLocationOutsideOfEventStream, from: nil)
             guard cv.visibleRect.contains(p) else { return }
             let i = item(at: p)
-            show(i)
+            hover(i)
             if i != nil { NSCursor.pointingHand.set() }
         }
 
-        /// Lays the SwiftUI card over poster `i` (nil: removes it). The card comes in at rest and zooms up, and
-        /// zooms back down before it goes, as the hover on the SwiftUI grid.
-        /// The pointer is over poster `i` (nil: none): its card zooms in, the previous one zooms out.
-        func hover(_ i: Int?) { show(i) }
-
-        /// A card that is zooming out, by poster: going back onto that poster reverses it instead of starting
-        /// a new card from zero (a new card on top of a half-faded one made the glow jump)
-        private var fading: [Int: (host: NSHostingView<AnyView>, lit: GridHoverLit, remove: DispatchWorkItem)] = [:]
-
-        private func show(_ i: Int?) {
+        /// The pointer is over poster `i` (nil: none): that poster zooms in, the previous one zooms out.
+        func hover(_ i: Int?) {
             guard i != hoverIndex else { return }
-            if let old = hoverIndex, let host = hoverHost, let lit = hoverLit {
-                withAnimation(.easeOut(duration: 0.2)) { lit.on = false }
-                let remove = DispatchWorkItem { [weak self] in
-                    host.removeFromSuperview()
-                    self?.fading[old] = nil
-                    // The card covered the poster (both would draw the labels): show it again
-                    self?.cv?.item(at: IndexPath(item: old, section: 0))?.view.isHidden = false
-                }
-                fading[old] = (host, lit, remove)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: remove)
-            }
+            if let old = hoverIndex { cell(old)?.setHover(false) }
             hoverIndex = i
-            hoverHost = nil; hoverLit = nil
-            guard let i, i < items.count, let cv, let emby else { return }
-            if let f = fading.removeValue(forKey: i) {
-                f.remove.cancel()
-                cv.addSubview(f.host)   // on top again
-                hoverHost = f.host; hoverLit = f.lit
-                withAnimation(.easeOut(duration: 0.2)) { f.lit.on = true }
-                return
-            }
-            guard let frame = cv.layoutAttributesForItem(at: IndexPath(item: i, section: 0))?.frame else { return }
-            let pad: CGFloat = 24   // room for the zoom around the card
-            let lit = GridHoverLit()
-            let open: (Item) -> Void = { [weak self] in self?.hover(nil); self?.open($0) }
-            let card = GridHoverCard(lit: lit, item: items[i], glass3D: look.glass3D)
-                .environment(\.posterOpen, open)
-                .environment(\.inFavorites, inFavorites)
-                .environment(\.classicGlass, look.glass3D)
-                .environmentObject(emby)
-                .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red"))
-                .environment(\.colorScheme, .dark)
-                .padding(pad)
-            let h = NSHostingView(rootView: AnyView(card.frame(width: frame.width + 2 * pad, height: frame.height + 2 * pad, alignment: .top)))
-            h.sizingOptions = []
-            h.frame = frame.insetBy(dx: -pad, dy: -pad)
-            cv.addSubview(h)   // above every cell
-            h.layoutSubtreeIfNeeded()   // the card draws now, in this frame
-            hoverHost = h; hoverLit = lit
-            DispatchQueue.main.async { [weak self] in
-                // The poster under it hides only now that the card is on screen: hiding it in the same frame
-                // left the spot empty for a frame
-                if self?.hoverIndex == i { cv.item(at: IndexPath(item: i, section: 0))?.view.isHidden = true }
-                withAnimation(.easeOut(duration: 0.2)) { lit.on = true }
-            }
+            if let i { cell(i)?.setHover(true) }
         }
 
+        private func cell(_ i: Int) -> PosterGridCell? { cv?.item(at: IndexPath(item: i, section: 0)) as? PosterGridCell }
+
         func item(at p: NSPoint) -> Int? {
-            // From the layout, not the views: indexPathForItem(at:) hit-tests, and finds the hover card on top
+            // From the layout, not the views: indexPathForItem(at:) hit-tests views (a zoomed neighbour, a button)
             let hit = cv?.collectionViewLayout?.layoutAttributesForElements(in: NSRect(origin: p, size: NSSize(width: 1, height: 1)))
                 .first { $0.representedElementCategory == .item && $0.frame.contains(p) }
             guard let i = hit?.indexPath?.item, i < items.count else { return nil }
@@ -343,20 +292,7 @@ struct PosterGrid: NSViewRepresentable {
     }
 }
 
-/// Whether the grid's hover card is lit; changed with animation so it zooms in and out.
-final class GridHoverLit: ObservableObject { @Published var on = false }
-
-private struct GridHoverCard: View {
-    @ObservedObject var lit: GridHoverLit
-    let item: Item
-    let glass3D: Bool
-    var body: some View {
-        if glass3D { ClassicPosterCard(item: item, forcedHover: lit.on) }
-        else { PosterCard(item: item, forcedHover: lit.on) }
-    }
-}
-
-/// Follows the pointer to show the hover card; a click on a poster opens it.
+/// Follows the pointer to zoom the poster under it; a click on a poster opens it.
 final class PosterCollectionView: NSCollectionView {
     weak var coordinator: PosterGrid.Coordinator?
     private var tracking: NSTrackingArea?
@@ -384,14 +320,14 @@ final class PosterCollectionView: NSCollectionView {
         if i != nil { NSCursor.pointingHand.set() }
     }
 
-    /// AppKit also sends this when views are added over the grid (the hover card) while the pointer stays put:
-    /// only a pointer really outside the grid takes the card away, or every card flickered as it appeared
+    /// AppKit also sends this when views change under a resting pointer: only a pointer really outside the grid
+    /// ends the hover
     override func mouseExited(with e: NSEvent) {
         super.mouseExited(with: e)
         if !visibleRect.contains(convert(e.locationInWindow, from: nil)) { coordinator?.hover(nil) }
     }
 
-    /// The hand pointer over a poster (anywhere on it, not only where the card's own button is)
+    /// The hand pointer over a poster
     override func cursorUpdate(with e: NSEvent) {
         if coordinator?.item(at: convert(e.locationInWindow, from: nil)) != nil { NSCursor.pointingHand.set() }
         else { super.cursorUpdate(with: e) }
@@ -412,7 +348,7 @@ final class PosterCollectionView: NSCollectionView {
         c.open(c.items[i])
     }
 
-    /// Leaving the page (a movie opened over it): no card left lit for when it comes back
+    /// Leaving the page (a movie opened over it): no poster left zoomed for when it comes back
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); coordinator?.hover(nil) }
     override func viewDidHide() { super.viewDidHide(); coordinator?.hover(nil) }
 }
@@ -434,11 +370,21 @@ final class PosterGridFooter: NSView, NSCollectionViewElement {
     }
 }
 
-/// One poster drawn with layers: picture, badges-and-edge picture, title and year.
+/// One poster drawn with layers: picture, badges picture, edge pictures, title and year. On hover the poster part
+/// (`card`) zooms 6 %, its edge brightens and the watched/favorite buttons fade in.
 final class PosterGridCell: NSCollectionViewItem {
     static let id = NSUserInterfaceItemIdentifier("PosterGridCell")
+    /// The poster part, zoomed on hover: picture, badges and edge (the labels under it stay put)
+    private let card = CALayer()
     private let poster = CALayer()
     private let decor = CALayer()
+    private let edge = CALayer()
+    private let edgeLit = CALayer()     // the brighter hover edge, faded in over `edge`
+    /// The watched/favorite buttons, shown on hover (SwiftUI, made the first time this cell is hovered)
+    private var buttons: NSHostingView<AnyView>?
+    private var item: Item?
+    private weak var emby: Emby?
+    private(set) var hovered = false
     private let nameLabel = CALayer()
     private let year = CALayer()
     /// Which labels the cell shows now, so a label drawn late for an earlier poster is dropped
@@ -454,9 +400,9 @@ final class PosterGridCell: NSCollectionViewItem {
         poster.masksToBounds = true
         poster.contentsGravity = .resizeAspectFill
         poster.backgroundColor = NSColor(white: 0.15, alpha: 1).cgColor
-        decor.frame = poster.frame
-        v.layer?.addSublayer(poster)
-        v.layer?.addSublayer(decor)
+        for l in [poster, decor, edge, edgeLit] { card.addSublayer(l) }
+        edgeLit.opacity = 0
+        v.layer?.addSublayer(card)
         for t in [nameLabel, year] {
             t.contentsGravity = .topLeft
             t.actions = ["contents": NSNull(), "position": NSNull(), "bounds": NSNull(), "hidden": NSNull()]
@@ -470,16 +416,20 @@ final class PosterGridCell: NSCollectionViewItem {
         // Flipped coordinates aren't used: the poster sits at the top of the cell
         let h = view.bounds.height, ps = look.size
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        poster.frame = CGRect(x: 0, y: h - ps.height, width: ps.width, height: ps.height)
-        decor.frame = poster.frame
+        // bounds and position, not frame: the card may be zoomed
+        card.bounds = CGRect(origin: .zero, size: ps)
+        card.position = CGPoint(x: ps.width / 2, y: h - ps.height / 2)
+        for l in [poster, decor, edge, edgeLit] { l.frame = card.bounds }
         var y = h - ps.height - 6
         if !nameLabel.isHidden { y -= PosterLook.titleH; nameLabel.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.titleH) }
         if !year.isHidden { y -= PosterLook.yearH; year.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.yearH) }
         CATransaction.commit()
+        placeButtons()
     }
 
     @MainActor func show(_ item: Item, emby: Emby, look: PosterLook, noHeart: Bool, scale: CGFloat) {
         if look != self.look { self.look = look; view.needsLayout = true }
+        self.item = item; self.emby = emby
         let played = emby.isPlayed(item)
         let fav = emby.isFav(item) && !noHeart
         let rating = Trakt.shared.rating(item)
@@ -495,9 +445,14 @@ final class PosterGridCell: NSCollectionViewItem {
             PosterDecor(item: item, played: played, fav: fav, progress: progress, accent: Theme.accent(accent), look: look)
                 .environmentObject(emby).environment(\.classicGlass, look.glass3D)
         }
-        decor.contentsScale = scale
-        poster.contentsScale = scale
+        for (l, lit) in [(edge, false), (edgeLit, true)] {
+            l.contents = Raster.image("gridEdge|\(look.glass3D)|\(lit)", scale: scale, pad: 0) {
+                Color.clear.frame(width: look.size.width, height: look.size.height).modifier(PosterDecor.Edge(look: look, lit: lit))
+            }
+        }
+        for l in [poster, decor, edge, edgeLit] { l.contentsScale = scale }
         CATransaction.commit()
+        if hovered { buttons?.rootView = buttonsView() }
 
         let d = UserDefaults.standard
         let showTitle = d.object(forKey: "posterShowTitle") as? Bool ?? true
@@ -532,6 +487,65 @@ final class PosterGridCell: NSCollectionViewItem {
             guard let img = await ImageCache.shared.image(u), !Task.isCancelled, let self, self.url == u else { return }
             self.setPicture(img, fade: true)
         }
+    }
+
+    /// Zooms the poster in or out over 0.2 s; going the other way mid-way continues from where it is.
+    func setHover(_ on: Bool, animated: Bool = true) {
+        if on == hovered && animated { return }
+        hovered = on
+        view.layer?.zPosition = on ? 1 : 0   // over its neighbours while zoomed
+        let zoom = on ? CATransform3DMakeScale(1.06, 1.06, 1) : CATransform3DIdentity
+        let lit: Float = on ? 1 : 0
+        if animated {
+            let ease = CAMediaTimingFunction(name: .easeOut)
+            let z = CABasicAnimation(keyPath: "transform")
+            // As NSValue: a bare CATransform3D is ignored by Core Animation, and the zoom then jumped
+            z.fromValue = NSValue(caTransform3D: card.presentation()?.transform ?? card.transform)
+            z.toValue = NSValue(caTransform3D: zoom)
+            let o = CABasicAnimation(keyPath: "opacity")
+            o.fromValue = NSNumber(value: edgeLit.presentation()?.opacity ?? edgeLit.opacity); o.toValue = NSNumber(value: lit)
+            for a in [z, o] { a.duration = 0.2; a.timingFunction = ease }
+            card.add(z, forKey: "zoom"); edgeLit.add(o, forKey: "lit")
+        } else {
+            card.removeAnimation(forKey: "zoom"); edgeLit.removeAnimation(forKey: "lit")
+        }
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        card.transform = zoom; edgeLit.opacity = lit
+        CATransaction.commit()
+        fadeButtons(on, animated: animated)
+    }
+
+    private func buttonsView() -> AnyView {
+        guard let item, let emby else { return AnyView(EmptyView()) }
+        return AnyView(ItemActionsButton(item: item).environmentObject(emby).environment(\.classicGlass, look.glass3D)
+            .tint(Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red")).environment(\.colorScheme, .dark)
+            .fixedSize())
+    }
+
+    private func fadeButtons(_ on: Bool, animated: Bool) {
+        if on && buttons == nil {
+            let b = NSHostingView(rootView: buttonsView())
+            b.alphaValue = 0
+            view.addSubview(b)
+            buttons = b
+        }
+        guard let b = buttons else { return }
+        if on { b.rootView = buttonsView(); b.isHidden = false; placeButtons() }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = animated ? 0.2 : 0
+            b.animator().alphaValue = on ? 1 : 0
+        }, completionHandler: { [weak self, weak b] in
+            MainActor.assumeIsolated { if self?.hovered == false { b?.isHidden = true } }   // hidden: no clicks on it
+        })
+    }
+
+    /// The buttons in the zoomed poster's bottom-right corner, 8 pt in (as on the SwiftUI card)
+    private func placeButtons() {
+        guard let b = buttons else { return }
+        let s = b.fittingSize, ps = look.size, h = view.bounds.height
+        let center = CGPoint(x: ps.width / 2, y: h - ps.height / 2)
+        let corner = CGPoint(x: center.x + (ps.width / 2 - 8) * 1.06, y: center.y - (ps.height / 2 - 8) * 1.06)
+        b.frame = CGRect(x: corner.x - s.width, y: corner.y, width: s.width, height: s.height)
     }
 
     /// A picture arriving later fades in (the layer's own implicit animation) and goes to the screen with the
@@ -582,9 +596,9 @@ enum LabelPicture {
     }
 }
 
-/// Everything drawn over the poster picture, without the picture: watched badge, heart, your rating, progress bar
-/// and the edge (Glass3D: the light glass edge; Glass: a thin border). Drawn once per look and shared by every poster.
-private struct PosterDecor: View {
+/// Everything drawn over the poster picture, without the picture or the edge: watched badge, heart, your rating and
+/// progress bar. Drawn once per look and shared by every poster.
+struct PosterDecor: View {
     let item: Item
     let played: Bool
     let fav: Bool
@@ -604,31 +618,21 @@ private struct PosterDecor: View {
             .overlay(alignment: .bottom) {
                 if progress > 0 { ProgressView(value: Double(progress) / 100).padding(.horizontal, 8).padding(.bottom, 8) }
             }
-            .modifier(Edge(look: look, accent: accent))
             .tint(accent)
     }
 
+    /// The edge, at rest or lit (Glass3D: the light glass edge; Glass: a thin border, the same both ways)
     struct Edge: ViewModifier {
         let look: PosterLook
-        let accent: Color
+        let lit: Bool
         func body(content: Content) -> some View {
-            if look.glass3D { content.modifier(ClassicLightCard(radius: look.radius, accent: accent, size: look.size)) }
+            if look.glass3D { content.modifier(ClassicLightCard(radius: look.radius, hover: lit, size: look.size)) }
             else { content.thinBorder(look.radius) }
         }
     }
 }
 
-/// Set by the AppKit grid: its hover card opens the item through this instead of a NavigationLink, which
-/// can't reach the NavigationStack from its own hosting view.
-private struct PosterOpenKey: EnvironmentKey { static let defaultValue: ((Item) -> Void)? = nil }
-extension EnvironmentValues {
-    var posterOpen: ((Item) -> Void)? {
-        get { self[PosterOpenKey.self] }
-        set { self[PosterOpenKey.self] = newValue }
-    }
-}
-
-/// Set by the AppKit grid on its header: opens any page, as `posterOpen` does for posters (see PageLink).
+/// Set by the AppKit grid on its header: opens any page (see PageLink).
 private struct PagePushKey: EnvironmentKey { static let defaultValue: ((any Hashable) -> Void)? = nil }
 extension EnvironmentValues {
     var pagePush: ((any Hashable) -> Void)? {
@@ -645,16 +649,5 @@ struct PageLink<V: Hashable, Label: View>: View {
     var body: some View {
         if let push { Button { push(value) } label: { label() } }
         else { NavigationLink(value: value) { label() } }
-    }
-}
-
-/// A NavigationLink, or a plain button calling `open` when one is given (see posterOpen).
-struct OpenLink<Label: View>: View {
-    let item: Item
-    let open: ((Item) -> Void)?
-    @ViewBuilder let label: () -> Label
-    var body: some View {
-        if let open { Button { open(item) } label: { label() } }
-        else { NavigationLink(value: item) { label() } }
     }
 }
