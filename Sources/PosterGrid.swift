@@ -5,7 +5,7 @@ import SwiftUI
 /// Library poster grid on NSCollectionView (both themes, see PosterLook). LazyVGrid rebuilds a full SwiftUI card for every poster that
 /// scrolls in; here cells are reused and drawn natively: the poster picture, one picture of its badges and glass edge
 /// (drawn once per look, see Raster), and two text labels. Only the poster under the pointer becomes the real SwiftUI
-/// card, laid over the grid, so hover lift, glow and the action button look as before.
+/// card, laid over the grid, so the hover zoom and the action buttons look as before.
 /// How the posters of one theme look: size, corners, label fonts, badges and hover card.
 struct PosterLook: Equatable {
     let glass3D: Bool
@@ -308,7 +308,7 @@ struct PosterGrid: NSViewRepresentable {
                 return
             }
             guard let frame = cv.layoutAttributesForItem(at: IndexPath(item: i, section: 0))?.frame else { return }
-            let pad: CGFloat = 24   // room for the lift and the glow around the card
+            let pad: CGFloat = 24   // room for the zoom around the card
             let lit = GridHoverLit()
             let open: (Item) -> Void = { [weak self] in self?.hover(nil); self?.open($0) }
             let card = GridHoverCard(lit: lit, item: items[i], glass3D: look.glass3D)
@@ -351,7 +351,7 @@ private struct GridHoverCard: View {
     let item: Item
     let glass3D: Bool
     var body: some View {
-        if glass3D { ClassicPosterCard(item: item, forcedHover: lit.on, glow: false) }   // zoom only, no glow
+        if glass3D { ClassicPosterCard(item: item, forcedHover: lit.on) }
         else { PosterCard(item: item, forcedHover: lit.on) }
     }
 }

@@ -1725,8 +1725,6 @@ struct ClassicPosterCard: View {
     /// Set by the AppKit grid, which lays this card over the poster under the pointer and lights it itself
     var forcedHover: Bool? = nil
     var lit: Bool { forcedHover ?? hover }
-    /// The hover glow; the AppKit grid turns it off (only the zoom shows there)
-    var glow = true
     // Settings → Libraries → Poster labels
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -1765,7 +1763,7 @@ struct ClassicPosterCard: View {
                     if lit { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
                 }
                 .cornerRadius(8)
-                .modifier(ClassicLightCard(radius: 8, hover: lit, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225), glow: glow))
+                .modifier(ClassicLightCard(radius: 8, hover: lit, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
                 .modifier(HoverLift(hover: lit))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {

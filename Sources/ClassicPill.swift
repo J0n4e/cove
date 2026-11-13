@@ -104,17 +104,15 @@ struct ClassicGlassBacking<S: Shape>: View {
 
 /// Cards framed as a pane of glass: light catches the edge at the top-left and bottom-right corners (fading along
 /// the sides), the edge itself looks frosted (a soft light bevel just inside it), and a faint sheen lies over the
-/// top. Under the mouse the edge lights up and the card gives off a soft accent glow.
+/// top. Under the mouse the edge lights up (no glow: it flickered, and the zoom already shows the hover).
 struct ClassicGlassCard: ViewModifier {
     let radius: CGFloat
     /// The card's size, when it's fixed: the finish is then drawn once into a picture and reused (see Raster)
     var size: CGSize? = nil
-    @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     @Environment(\.displayScale) private var scale
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
-        let accent = Theme.accent(accentName)
         return content
             .overlay {
                 if let size {
@@ -126,8 +124,6 @@ struct ClassicGlassCard: ViewModifier {
                     finish(shape)
                 }
             }
-            // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
-            .background { if hover { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
             .onHover { h in if h && ScrollActivity.scrolling { return }; withAnimation(.easeOut(duration: 0.2)) { hover = h } }
     }
 
@@ -158,18 +154,16 @@ struct ClassicGlassCard: ViewModifier {
 }
 
 /// ClassicGlassCard's look in two layers, for posters in long grids: the top sheen and the bright corner edge,
-/// without the bevel strokes, the clip and a hover tracker of its own (the poster passes its hover in). The
-/// accent glow is drawn only behind the hovered poster.
+/// without the bevel strokes, the clip and a hover tracker of its own (the poster passes its hover in). Hovered,
+/// the edge lights up; there is no glow.
 struct ClassicLightCard: ViewModifier {
     let radius: CGFloat
     var hover = false
-    var accent: Color = .clear
+    var accent: Color = .clear   // unused since the hover glow went; kept so callers needn't change
     /// The card's size, when it's fixed: the edge is then drawn once into a picture and reused (see Raster)
     var size: CGSize? = nil
     /// For cards that don't pass their hover in (episodes): follows the pointer itself
     var tracksHover = false
-    /// The accent glow behind a hovered card (off in the AppKit poster grid, where it flickered)
-    var glow = true
     @State private var ownHover = false
     /// The card's size when it isn't fixed (episode tiles follow the window width), measured once per change
     @State private var measured: CGSize?
@@ -189,7 +183,6 @@ struct ClassicLightCard: ViewModifier {
                     edge(shape, lit: lit)
                 }
             }
-            .background { if hover && glow { shape.fill(accent.opacity(0.45)).blur(radius: 14) } }
             .onHover { h in
                 guard tracksHover, !(h && ScrollActivity.scrolling) else { return }
                 withAnimation(.easeOut(duration: 0.2)) { ownHover = h }
