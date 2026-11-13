@@ -158,12 +158,18 @@ struct ClassicGlassCard: ViewModifier {
 }
 
 /// The accent glow behind a hovered card: the card's outline casting a soft accent shadow, as the AppKit poster
-/// grid draws it (a shadow layer, see PosterGridCell), so both look the same. The fill itself sits under the card.
+/// grid draws it (a shadow layer, see PosterGridCell), so both look the same. Only the part outside the card shows:
+/// a watched poster is see-through, and the shape under it turned it red.
 struct HoverGlow: View {
     let shape: RoundedRectangle
     let accent: Color
     var body: some View {
         shape.fill(accent).shadow(color: accent.opacity(0.45), radius: 14)
+            .mask {
+                Rectangle().padding(-60)
+                    .overlay(shape.blendMode(.destinationOut))
+                    .compositingGroup()
+            }
     }
 }
 

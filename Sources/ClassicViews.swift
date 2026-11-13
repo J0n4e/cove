@@ -669,6 +669,7 @@ struct ClassicSearchBar: View {
 
 struct ClassicSearchView: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("accent") private var accentName = "red"
     @Environment(\.appBG) var bg
     let query: String
     @State private var results: [Item] = []
@@ -734,7 +735,8 @@ struct ClassicSearchView: View {
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
+                                .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225),
+                                           tracksHover: true))   // the posters' light glass edge, and their glow
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
                                         FavHeart(size: 16).padding(8)
@@ -3998,6 +4000,7 @@ struct ClassicAlphaLetter: View {
 /// One favorite person: poster-sized portrait and name; opens their page, heart on hover removes them.
 struct ClassicFavPersonCard: View {
     @EnvironmentObject var emby: Emby
+    @AppStorage("accent") private var accentName = "red"
     let p: Item
     var body: some View {
         NavigationLink(value: PersonRef(id: p.id, name: p.Name)) {
@@ -4008,7 +4011,8 @@ struct ClassicFavPersonCard: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
-                .modifier(ClassicLightCard(radius: 12, size: CGSize(width: 150, height: 225)))   // the posters' light glass edge
+                .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225),
+                                           tracksHover: true))   // the posters' light glass edge, and their glow
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
                 Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)

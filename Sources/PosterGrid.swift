@@ -426,7 +426,13 @@ final class PosterGridCell: NSCollectionViewItem {
         card.bounds = CGRect(origin: .zero, size: ps)
         card.position = CGPoint(x: ps.width / 2, y: h - ps.height / 2)
         for l in [poster, decor, edge, edgeLit, glow] { l.frame = card.bounds }
-        glow.shadowPath = CGPath(roundedRect: card.bounds, cornerWidth: look.radius, cornerHeight: look.radius, transform: nil)
+        let outline = CGPath(roundedRect: card.bounds, cornerWidth: look.radius, cornerHeight: look.radius, transform: nil)
+        glow.shadowPath = outline
+        // Only outside the card: a watched poster is see-through, and the shadow under it tinted it
+        let hole = CAShapeLayer()
+        let p = CGMutablePath(); p.addRect(card.bounds.insetBy(dx: -60, dy: -60)); p.addPath(outline)
+        hole.path = p; hole.fillRule = .evenOdd
+        glow.mask = hole
         var y = h - ps.height - 6
         if !nameLabel.isHidden { y -= PosterLook.titleH; nameLabel.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.titleH) }
         if !year.isHidden { y -= PosterLook.yearH; year.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.yearH) }
