@@ -81,6 +81,7 @@ struct PosterGrid: NSViewRepresentable {
         /// The real SwiftUI card over the poster under the pointer
         private var hoverHost: NSHostingView<AnyView>?
         private var hoverIndex: Int?
+        private var hoverLit: GridHoverLit?
 
         func collectionView(_ cv: NSCollectionView, numberOfItemsInSection section: Int) -> Int { items.count }
 
@@ -104,19 +105,26 @@ struct PosterGrid: NSViewRepresentable {
 
         @objc func scrolled() { hover(nil) }   // the card would stay behind while posters slide under it
 
-        /// Lays the SwiftUI card over poster `i` (nil: removes it).
+        /// Lays the SwiftUI card over poster `i` (nil: removes it). The card comes in at rest and zooms up, and
+        /// zooms back down before it goes, as the hover on the SwiftUI grid.
         func hover(_ i: Int?) {
             guard i != hoverIndex else { return }
-            // The card replaces the poster under it (both would draw the labels)
-            if let old = hoverIndex { cv?.item(at: IndexPath(item: old, section: 0))?.view.isHidden = false }
+            if let old = hoverIndex, let host = hoverHost, let lit = hoverLit {
+                withAnimation(.easeOut(duration: 0.2)) { lit.on = false }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                    host.removeFromSuperview()
+                    // The card covered the poster (both would draw the labels): show it again, unless lit again meanwhile
+                    if self?.hoverIndex != old { self?.cv?.item(at: IndexPath(item: old, section: 0))?.view.isHidden = false }
+                }
+            }
             hoverIndex = i
-            hoverHost?.removeFromSuperview(); hoverHost = nil
+            hoverHost = nil; hoverLit = nil
             guard let i, i < items.count, let cv, let emby,
                   let frame = cv.layoutAttributesForItem(at: IndexPath(item: i, section: 0))?.frame else { return }
             let pad: CGFloat = 24   // room for the lift and the glow around the card
-            let item = items[i]
+            let lit = GridHoverLit()
             let open: (Item) -> Void = { [weak self] in self?.hover(nil); self?.open($0) }
-            let card = ClassicPosterCard(item: item, startHover: true)
+            let card = GridHoverCard(lit: lit, item: items[i])
                 .environment(\.posterOpen, open)
                 .environment(\.classicGlass, true)
                 .environmentObject(emby)
@@ -128,7 +136,8 @@ struct PosterGrid: NSViewRepresentable {
             h.frame = frame.insetBy(dx: -pad, dy: -pad)
             cv.addSubview(h)   // above every cell
             cv.item(at: IndexPath(item: i, section: 0))?.view.isHidden = true
-            hoverHost = h
+            hoverHost = h; hoverLit = lit
+            DispatchQueue.main.async { withAnimation(.easeOut(duration: 0.2)) { lit.on = true } }
         }
 
         func item(at p: NSPoint) -> Int? {
@@ -139,6 +148,15 @@ struct PosterGrid: NSViewRepresentable {
             return i
         }
     }
+}
+
+/// Whether the grid's hover card is lit; changed with animation so it zooms in and out.
+final class GridHoverLit: ObservableObject { @Published var on = false }
+
+private struct GridHoverCard: View {
+    @ObservedObject var lit: GridHoverLit
+    let item: Item
+    var body: some View { ClassicPosterCard(item: item, forcedHover: lit.on) }
 }
 
 /// Follows the pointer to show the hover card; a click on a poster opens it.
