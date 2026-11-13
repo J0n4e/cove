@@ -2034,8 +2034,11 @@ struct ClassicLibraryView: View {
         guard let r else { loadFailed = true; return }
         if reset { items = r.Items } else { items += r.Items }
         total = r.TotalRecordCount ?? items.count
-        // Posters of the new page start downloading now, before they scroll into view
-        ImageCache.shared.prefetch(r.Items.prefix(40).map { emby.image($0.posterId, width: 360) })
+        // Posters of the new page start downloading now, before they scroll into view. A small library (Collections,
+        // up to 300) is loaded and fetched whole, so no poster has to load while you scroll through it.
+        let small = total <= 300
+        ImageCache.shared.prefetch(r.Items.prefix(small ? 100 : 40).map { emby.image($0.posterId, width: 360) })
+        if small && items.count < total { await load(reset: false) }
     }
 
     /// The next page is fetched when this item appears, 30 before the end, so it's there before you reach it.
