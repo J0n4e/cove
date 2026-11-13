@@ -248,7 +248,32 @@ struct PosterGrid: NSViewRepresentable {
 
         /// The card would stay behind while posters slide under it. Only a real scroll: the bounds also change
         /// when the next page of posters loads, and dropping the card then made it flash.
-        @objc func scrolled() { if ScrollActivity.scrolling { hover(nil) } }
+        @objc func scrolled() {
+            guard ScrollActivity.scrolling else { return }
+            hover(nil)
+            // When the scrolling stops, the poster now under a resting pointer lights up (no mouse move comes)
+            settle?.cancel()
+            let w = DispatchWorkItem { [weak self] in self?.pointerCheck() }
+            settle = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
+        }
+        private var settle: DispatchWorkItem?
+
+        /// Hover and pointer for wherever the mouse is now; waits while the page still scrolls.
+        func pointerCheck() {
+            guard let cv, let window = cv.window, window.isVisible else { return }
+            if ScrollActivity.scrolling {
+                let w = DispatchWorkItem { [weak self] in self?.pointerCheck() }
+                settle = w
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: w)
+                return
+            }
+            let p = cv.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            guard cv.visibleRect.contains(p) else { return }
+            let i = item(at: p)
+            hover(i)
+            window.invalidateCursorRects(for: cv)
+        }
 
         /// Lays the SwiftUI card over poster `i` (nil: removes it). The card comes in at rest and zooms up, and
         /// zooms back down before it goes, as the hover on the SwiftUI grid.
@@ -321,6 +346,15 @@ final class PosterCollectionView: NSCollectionView {
         if changed { coordinator?.layoutHeader(); coordinator?.applyLayout() }
     }
 
+    /// The hand pointer over every poster on screen, kept by AppKit itself (also right after a scroll)
+    override func resetCursorRects() {
+        for ip in indexPathsForVisibleItems() {
+            // Only the part on screen; a poster fully off screen gives an empty (null) rect, which AppKit throws on
+            guard let f = layoutAttributesForItem(at: ip)?.frame.intersection(visibleRect), !f.isNull, !f.isEmpty else { continue }
+            addCursorRect(f, cursor: .pointingHand)
+        }
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let tracking { removeTrackingArea(tracking) }
@@ -331,8 +365,9 @@ final class PosterCollectionView: NSCollectionView {
 
     override func mouseMoved(with e: NSEvent) {
         super.mouseMoved(with: e)
-        guard !ScrollActivity.scrolling else { return }
-        coordinator?.hover(coordinator?.item(at: convert(e.locationInWindow, from: nil)))
+        guard !ScrollActivity.scrolling, let c = coordinator else { return }
+        let i = c.item(at: convert(e.locationInWindow, from: nil))
+        c.hover(i)
     }
 
     override func mouseExited(with e: NSEvent) {
