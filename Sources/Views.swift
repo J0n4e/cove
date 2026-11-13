@@ -1577,7 +1577,7 @@ struct Hero: View {
                 Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
                     .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 420, alignment: .leading)
                 HStack(spacing: 14) {
-                    Button { Task { await emby.play(item) } } label: {
+                    Button { Task { await emby.playFromHome(item) } } label: {
                         Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
                             .font(.system(size: 17, weight: .semibold))
                             .frame(width: 170, height: 46)
@@ -1697,15 +1697,7 @@ struct ResumeCard: View {
         return timeLeft
     }
     /// Card click: an episode opens its series page on that episode's season; a movie opens its own page.
-    func openPage() {
-        guard item.isEpisode, let sid = item.SeriesId else { emby.openRequest = item; return }
-        Task {
-            if let series = await emby.itemRecord(sid) {
-                emby.openSeason = item.ParentIndexNumber
-                emby.openRequest = series
-            }
-        }
-    }
+    func openPage() { emby.openPage(item) }
 
     /// Episodes have a landscape primary image; movies use their backdrop.
     var imageURL: URL? {
@@ -1752,7 +1744,7 @@ struct ResumeCard: View {
         }
         .overlay {
             if hover {
-                Button { Task { await emby.play(item) } } label: {
+                Button { Task { await emby.playFromHome(item) } } label: {
                     Image(systemName: "play.fill").font(.system(size: 22)).foregroundColor(.white)
                         .frame(width: 54, height: 54).background(.ultraThinMaterial, in: Circle())
                 }.buttonStyle(.plainHand).accessibilityLabel("Resume")
@@ -1774,7 +1766,7 @@ struct ResumeCard: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityValue(timeLeft ?? "")
         .accessibilityAction { openPage() }
-        .accessibilityAction(named: "Resume") { Task { await emby.play(item) } }
+        .accessibilityAction(named: "Resume") { Task { await emby.playFromHome(item) } }
         .accessibilityLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)   // no tooltip on these cards
     }
 }
