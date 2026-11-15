@@ -45,9 +45,12 @@ struct AboutView: View {
             .buttonStyle(.plainHand).padding(.vertical, 20)
         }
         .frame(width: 440)
-        // Content starts at the top edge (under the transparent title bar); fill and paint the whole window
+        // Its natural height only: About sizes the window to its content (no stretching, so no empty band)
+        .fixedSize(horizontal: false, vertical: true)
+        // Content starts at the top edge (under the transparent title bar); the window is painted with the
+        // same Background, so nothing grey can show around it
         .ignoresSafeArea(.container, edges: .top)
-        .coveWindowBackground()
+        .background(Theme.bg(bgName).ignoresSafeArea())
         .tint(accent)
         .preferredColorScheme(.dark)
         .focusEffectDisabled()
@@ -143,7 +146,7 @@ enum AboutWindow {
     static func show() {
         if window == nil {
             let host = NSHostingController(rootView: AboutView())
-            host.sizingOptions = [.minSize]
+            host.sizingOptions = [.preferredContentSize]
             let w = PanelWindow(contentViewController: host)
             w.title = "About Cove"
             w.styleMask = [.titled, .closable, .fullSizeContentView]
@@ -154,11 +157,10 @@ enum AboutWindow {
         }
         guard let w = window else { return }
         if !w.isVisible, let host = w.contentViewController as? NSHostingController<AboutView> {
-            // Fit the window to the laid-out content (fittingSize already accounts for the ignored top inset),
-            // so there's no empty band below the footer
-            host.view.layoutSubtreeIfNeeded()
-            let fit = host.view.fittingSize
-            w.setContentSize(fit.height > 0 ? fit : host.sizeThatFits(in: NSSize(width: 440, height: 10_000)))
+            // Fit the window to the content's natural size (the view doesn't stretch), so no empty band
+            let fit = host.sizeThatFits(in: NSSize(width: 440, height: 2_000))
+            let h = min(max(fit.height, 160), 400)   // sane bounds, whatever happens
+            w.setContentSize(NSSize(width: 440, height: h))
             w.center()
         }
         NSApp.activate(ignoringOtherApps: true)
