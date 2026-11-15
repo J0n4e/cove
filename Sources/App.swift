@@ -81,10 +81,14 @@ struct CoveApp: App {
                 }
                     .keyboardShortcut(",", modifiers: .command)
             }
-            CommandGroup(after: .appInfo) {
+            // Cove → About Cove opens Cove's own About window (instead of the standard panel), then updates
+            CommandGroup(replacing: .appInfo) {
+                Button("About Cove") { AboutWindow.show() }
                 Button("Check for Updates…") { Task { await Updater.shared.check(interactive: true) } }
                 Button("What's New in Cove…") { WhatsNew.show() }
             }
+            // No Services submenu in the Cove menu (Hide, Hide Others, Show All and Quit stay)
+            CommandGroup(replacing: .systemServices) {}
         }
         // Videos play in their own window, like the Apple TV app
         Window("Player", id: "player") {
