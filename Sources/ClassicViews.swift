@@ -2839,6 +2839,7 @@ struct ClassicPlayerView: View {
     /// Classic theme: glass buttons. These controls can also be picked under the Glass theme (Settings →
     /// Playback → Player controls); there they keep their plain look.
     @Environment(\.classicGlass) private var classic
+    @Environment(\.dropdownCenter) private var dropdowns
 
     enum Panel { case subtitles, appearance, chapters, episodes }
     @State private var panel: Panel?
@@ -2987,7 +2988,10 @@ struct ClassicPlayerView: View {
         hideTask?.cancel()
         hideTask = Task {
             try? await Task.sleep(for: .seconds(3))
-            if !Task.isCancelled && model.playing && panel == nil {
+            guard !Task.isCancelled else { return }
+            // A glass list (subtitles, quality) is open: keep the controls until it closes
+            if dropdowns?.list != nil { poke(); return }
+            if model.playing && panel == nil {
                 withAnimation { showUI = false }
                 // Full screen: hide the pointer with the controls; it comes back when the mouse moves
                 if isFullScreen { NSCursor.setHiddenUntilMouseMoves(true) }
