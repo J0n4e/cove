@@ -34,7 +34,9 @@ final class PlayerModel: ObservableObject {
     private var cues: [Cue] = []
     /// The film's seconds the downloaded cues cover (infinity: the whole track)
     private var cuesUpTo: Double = 0
-    private var subJump: Task<Void, Never>?
+    private var subTask: Task<Void, Never>?
+    /// The track is still downloading: "Loading subtitles…" shows wherever its cues haven't come yet
+    private var subFetching = false
     private var timeObs: Any?
     private var req: PlayRequest?
     private var pendingSeek: Double = 0
@@ -300,32 +302,34 @@ final class PlayerModel: ObservableObject {
     }
 
     /// Downloads a text subtitle in the background; playback keeps going meanwhile. The server reads it from the
-    /// start of the file, so it comes in growing pieces: the next minutes first, then more, then the whole track.
-    /// `keep`: a jump past the downloaded part: the cues so far stay while the pieces from there come.
-    private func loadCues(_ emby: Emby, _ itemId: String, _ sourceId: String?, _ idx: Int, from pos: Double,
-                          keep: Bool = false) {
+    /// start of the file up to the end asked for (each request reads it again), so: the next minutes first, so
+    /// they show quickly, then the whole track.
+    private func loadCues(_ emby: Emby, _ itemId: String, _ sourceId: String?, _ idx: Int, from pos: Double) {
         subGen += 1
         let gen = subGen
-        if !keep { cues = []; caption = ""; cuesUpTo = 0 }
+        subTask?.cancel()
+        cues = []; caption = ""; cuesUpTo = 0
         if let c = emby.cachedCues(itemId, sourceId, idx) {
-            cues = c; cuesUpTo = .infinity; updateCaption(now); loadingSubs = false; return
+            cues = c; cuesUpTo = .infinity; subFetching = false; updateCaption(now); return
         }
-        loadingSubs = true
-        Task {
-            for end in [pos + 300, pos + 1200, pos + 2700, nil] as [Double?] {
+        subFetching = true; updateCaption(now)
+        subTask = Task {
+            for end in [pos + 300, nil] as [Double?] {
                 let c = await emby.subtitleCues(itemId, sourceId, idx, upTo: end)
-                guard gen == subGen else { return }   // user picked another track meanwhile
+                guard gen == subGen, !Task.isCancelled else { return }   // another track (or film) meanwhile
                 guard let c else {
-                    if end != nil { continue }   // nothing said yet in these minutes (or a hiccup): ask for more
-                    loadingSubs = false
+                    if end != nil { continue }   // nothing said yet in these minutes (or a hiccup): get it all
+                    subFetching = false; updateCaption(now)
                     // Couldn't read as text: burn it in (a later piece failing keeps what came)
                     if cues.isEmpty { await restart(emby) { $0.sub = idx; $0.burnIn = true } }
                     return
                 }
-                loadingSubs = false
-                cues = c; updateCaption(now)
+                cues = c
                 cuesUpTo = end ?? .infinity
-                if let end, (c.last?.end ?? 0) > end + 120 { cuesUpTo = .infinity; return }   // the server sent it all already
+                if let end, (c.last?.end ?? 0) > end + 120 { cuesUpTo = .infinity }   // the server sent it all already
+                if cuesUpTo == .infinity { subFetching = false }
+                updateCaption(now)
+                if !subFetching { return }
             }
         }
     }
@@ -351,7 +355,8 @@ final class PlayerModel: ObservableObject {
             }
         } else {
             subGen += 1
-            cues = []; caption = ""; loadingSubs = false; sub = nil; req?.sub = nil; req?.noSub = true
+            subTask?.cancel(); subFetching = false
+        cues = []; caption = ""; loadingSubs = false; sub = nil; req?.sub = nil; req?.noSub = true
             if wasBurned { await restart(emby) { $0.sub = nil; $0.noSub = true; $0.burnIn = false } }
         }
     }
@@ -591,16 +596,6 @@ final class PlayerModel: ObservableObject {
         time = c
         player?.seek(to: CMTime(seconds: c, preferredTimescale: 600))
         updateCaption(c)
-        // Jumped past the subtitle downloaded so far: fetch the part from here now, not after the pieces before it
-        // (once the scrubbing settles: each request makes the server read the file)
-        subJump?.cancel()
-        if cuesUpTo.isFinite, c > cuesUpTo - 30, let emby, let r = req, let s = sub, !isImageSub(s), !r.burnIn {
-            subJump = Task {
-                try? await Task.sleep(for: .milliseconds(600))
-                guard !Task.isCancelled, sub == s, cuesUpTo.isFinite, c > cuesUpTo - 30 else { return }
-                loadCues(emby, r.item.id, r.sourceId, s, from: c, keep: true)
-            }
-        }
     }
 
     func skip(_ d: Double) { seek(to: now + d) }
@@ -622,12 +617,17 @@ final class PlayerModel: ObservableObject {
         }
         let text = lines.joined(separator: "\n")
         if text != caption { caption = text }
+        // (a jump past the part downloaded so far waits for the whole track already coming: asking again from
+        // there would make the server read the file once more)
+        let waiting = subFetching && raw >= cuesUpTo
+        if waiting != loadingSubs { loadingSubs = waiting }
     }
 
     func stop() {
         startGen += 1
         if let f = failObs { NotificationCenter.default.removeObserver(f); failObs = nil }
         subGen += 1; loadingSubs = false          // a subtitle still downloading must not restart playback later
+        subTask?.cancel(); subFetching = false
         if Self.active === self { Self.active = nil }
         if let p = player, let ps = session, reportedStart {
             let t = p.currentTime().seconds
