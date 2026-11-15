@@ -367,6 +367,7 @@ enum InternalPrefs {
 struct AboutSettings: View {
     @EnvironmentObject var emby: Emby
     @State private var cacheBytes = 0
+    @State private var subtitleBytes = 0
     @State private var confirmReset = false
     @State private var backupMessage: String?
 
@@ -425,6 +426,16 @@ struct AboutSettings: View {
         }
     }
 
+    /// Sizes are read off the main thread so Settings opens at once.
+    private func refreshStorage() {
+        Task {
+            let (img, subs) = await Task.detached(priority: .userInitiated) {
+                (ImageCache.shared.diskUsage, SubtitleCache.shared.totalBytes())
+            }.value
+            cacheBytes = img; subtitleBytes = subs
+        }
+    }
+
     var body: some View {
         PrefSection(title: "Cove") {
             PrefRow(label: "Version") { Text("Cove " + AppVersion.label).textSelection(.enabled) }
@@ -438,12 +449,19 @@ struct AboutSettings: View {
                 HStack(spacing: 10) {
                     Text(ByteCountFormatter.string(fromByteCount: Int64(cacheBytes), countStyle: .file))
                         .foregroundColor(.secondary).monospacedDigit()
-                    Button("Clear") { ImageCache.shared.clear(); cacheBytes = ImageCache.shared.diskUsage }
+                    Button("Clear") { ImageCache.shared.clear(); refreshStorage() }
                 }
             }
-            PrefNote("Posters and banners are saved on this Mac so they show instantly next time (up to 500 MB).")
+            PrefRow(label: "Subtitles") {
+                HStack(spacing: 10) {
+                    Text(ByteCountFormatter.string(fromByteCount: Int64(subtitleBytes), countStyle: .file))
+                        .foregroundColor(.secondary).monospacedDigit()
+                    Button("Clear") { SubtitleCache.shared.clear(); refreshStorage() }
+                }
+            }
+            PrefNote("Posters and banners are saved on this Mac so they show instantly next time (up to 500 MB). Subtitle tracks too (up to 100 MB, unused ones go after 90 days).")
         }
-        .onAppear { cacheBytes = ImageCache.shared.diskUsage }
+        .onAppear { refreshStorage() }
         PrefSection(title: "Backup") {
             PrefRow(label: "Settings file") {
                 HStack(spacing: 10) {
