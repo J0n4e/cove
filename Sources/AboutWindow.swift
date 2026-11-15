@@ -45,7 +45,7 @@ struct AboutView: View {
             .buttonStyle(.plainHand).padding(.vertical, 20)
         }
         .frame(width: 440)
-        .background(Theme.bg(bgName))
+        .background(Theme.bg(bgName).ignoresSafeArea())
         .ignoresSafeArea(.container, edges: .top)
         .tint(accent)
         .preferredColorScheme(.dark)
@@ -113,6 +113,7 @@ enum AboutWindow {
             window = w
         }
         guard let w = window else { return }
+        w.backgroundColor = NSColor(Theme.bg(UserDefaults.standard.string(forKey: "bg") ?? "black"))
         if !w.isVisible, let host = w.contentViewController as? NSHostingController<AboutView> {
             w.setContentSize(host.sizeThatFits(in: NSSize(width: 440, height: 10_000)))
             w.center()
