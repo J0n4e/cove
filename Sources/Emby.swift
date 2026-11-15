@@ -1195,6 +1195,7 @@ final class Emby: ObservableObject {
 
     private func cueFile(_ itemId: String, _ sourceId: String, _ index: Int) -> URL? {
         guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "eu.jonae.cove", isDirectory: true)
             .appendingPathComponent("Subtitles", isDirectory: true) else { return nil }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let key = "\(server)|\(itemId)|\(sourceId)|\(index)".data(using: .utf8)!.base64EncodedString()
