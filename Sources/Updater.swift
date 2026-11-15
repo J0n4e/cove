@@ -14,6 +14,14 @@ final class Updater: ObservableObject {
 
     enum Status: Equatable { case idle, checking, upToDate, available(String), installing, failed(String) }
     @Published var status: Status = .idle
+    /// Bytes received / expected while the update downloads (nil until the size is known).
+    @Published var progress: (received: Int64, total: Int64)?
+    @Published var progressText = ""
+    /// An install failure, shown in red in the Software Update window.
+    @Published var windowError: String?
+    static let windowID = "softwareUpdate"
+    /// The tag the user chose "Skip This Version" for; automatic checks don't offer it again.
+    static let skippedKey = "SkippedUpdateVersion"
     private var latest: Release?
     private var checkedThisLaunch = false
 
@@ -49,25 +57,49 @@ final class Updater: ObservableObject {
             if interactive { alert("Can't check for updates", "This copy isn't a built app bundle.") }
             return
         }
+        if status == .installing { showWindow(); return }
         status = .checking
-        var r = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repo)/releases/latest")!)
-        r.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        r.timeoutInterval = 20
-        guard let (d, resp) = try? await URLSession.shared.data(for: r),
-              (resp as? HTTPURLResponse)?.statusCode == 200,
-              let rel = try? JSONDecoder().decode(Release.self, from: d) else {
+        guard let rel = await Self.fetch("releases/latest") else {
             status = .failed("Couldn't reach GitHub.")
             if interactive { alert("Couldn't check for updates", "GitHub didn't answer. Try again later.") }
             return
         }
         latest = rel
         if Self.isNewer(rel.tag_name, than: cur) {
+            let d = UserDefaults.standard
+            let skipped = d.string(forKey: Self.skippedKey)
+            if Self.suppressed(rel.tag_name, skipped: skipped, interactive: interactive) { status = .idle; return }
+            // A newer release than the skipped one, or asked for by hand: the skip no longer applies
+            if skipped != nil { d.removeObject(forKey: Self.skippedKey) }
             status = .available(rel.tag_name)
-            prompt(rel, current: cur)
+            showWindow()
         } else {
             status = .upToDate
             if interactive { alert("You're up to date", "\(AppVersion.pretty(cur)) is the latest version.") }
         }
+    }
+
+    /// Automatic checks stay quiet about the exact version the user skipped; a manual check, or any other
+    /// (newer) version, is shown.
+    nonisolated static func suppressed(_ tag: String, skipped: String?, interactive: Bool) -> Bool {
+        !interactive && skipped == tag
+    }
+
+    /// GET https://api.github.com/repos/<repo>/<path> as a release; nil on any failure.
+    nonisolated static func fetch(_ path: String) async -> Release? {
+        guard let url = URL(string: "https://api.github.com/repos/\(repo)/\(path)") else { return nil }
+        var r = URLRequest(url: url)
+        r.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        r.timeoutInterval = 20
+        guard let (d, resp) = try? await URLSession.shared.data(for: r),
+              (resp as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return try? JSONDecoder().decode(Release.self, from: d)
+    }
+
+    /// The release with this tag ("v1.17.1", as the release tags are written).
+    nonisolated static func fetchRelease(tag: String) async -> Release? {
+        guard let t = tag.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: ".-_"))) else { return nil }
+        return await fetch("releases/tags/\(t)")
     }
 
     static var signingKey: Curve25519.Signing.PublicKey? {
@@ -83,14 +115,14 @@ final class Updater: ObservableObject {
 
     // MARK: Version compare ("v1.2" > "v1.1" > "v1.0" > "v0.10Beta"; a release beats a beta of the same number)
 
-    static func key(_ tag: String) -> (nums: [Int], release: Bool) {
+    nonisolated static func key(_ tag: String) -> (nums: [Int], release: Bool) {
         let t = tag.hasPrefix("v") || tag.hasPrefix("V") ? String(tag.dropFirst()) : tag
         let numPart = t.prefix { $0.isNumber || $0 == "." }
         let nums = numPart.split(separator: ".").compactMap { Int($0) }
         return (nums, numPart.count == t.count)
     }
 
-    static func isNewer(_ a: String, than b: String) -> Bool {
+    nonisolated static func isNewer(_ a: String, than b: String) -> Bool {
         let x = key(a), y = key(b)
         for i in 0..<max(x.nums.count, y.nums.count) {
             let p = i < x.nums.count ? x.nums[i] : 0, q = i < y.nums.count ? y.nums[i] : 0
@@ -108,20 +140,20 @@ final class Updater: ObservableObject {
         a.runModal()
     }
 
-    private func prompt(_ rel: Release, current: String) {
-        var notes = (rel.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if notes.count > 700 { notes = String(notes.prefix(700)) + "…" }
-        let a = NSAlert()
-        a.messageText = "Version \(AppVersion.pretty(rel.tag_name)) is available"
-        a.informativeText = "You have \(AppVersion.pretty(current)).\n\n\(notes)"
-        a.addButton(withTitle: "Install and Relaunch")
-        a.addButton(withTitle: "Later")
-        a.addButton(withTitle: "Release Notes")
-        switch a.runModal() {
-        case .alertFirstButtonReturn: Task { await install() }
-        case .alertThirdButtonReturn: if let u = URL(string: rel.html_url) { NSWorkspace.shared.open(u) }
-        default: break
+    /// Opens (or brings to the front) the Software Update window for the pending release.
+    func showWindow() {
+        guard let rel = latest, let cur = current else { return }
+        switch status {
+        case .available, .installing, .failed: break
+        default: return
         }
+        if status != .installing { windowError = nil }
+        CoveWindows.show(Self.windowID, title: "Software Update", UpdateWindowView(rel: rel, current: cur))
+    }
+
+    func skip(_ tag: String) {
+        UserDefaults.standard.set(tag, forKey: Self.skippedKey)
+        CoveWindows.close(Self.windowID)
     }
 
     // MARK: Install
@@ -146,14 +178,23 @@ final class Updater: ObservableObject {
             return
         }
         status = .installing
+        windowError = nil
+        progress = nil
+        progressText = "Downloading \(AppVersion.pretty(rel.tag_name))…"
         do {
             let work = FileManager.default.temporaryDirectory.appendingPathComponent("CoveUpdate-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true,
                                                     attributes: [.posixPermissions: 0o700])
-            let (tmp, resp) = try await URLSession.shared.download(from: url)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw Err("Download failed.") }
             let zip = work.appendingPathComponent("update.zip")
-            try FileManager.default.moveItem(at: tmp, to: zip)
+            let resp = try await Self.download(url, to: zip) { got, total in
+                Task { @MainActor in
+                    guard Updater.shared.status == .installing else { return }
+                    Updater.shared.progress = total > 0 ? (got, total) : nil
+                }
+            }
+            guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw Err("Download failed.") }
+            progress = nil
+            progressText = "Verifying…"
             // Before anything in the download is opened: it must be exactly what Cove's release key signed
             let zipData = try Data(contentsOf: zip)
             if let d = asset.digest?.lowercased(), d.hasPrefix("sha256:"),
@@ -174,6 +215,9 @@ final class Updater: ObservableObject {
             let found = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)) ?? []
             guard let newApp = found.first(where: { $0.pathExtension == "app" }) else { throw Err("The download didn't contain the app.") }
             guard await run("/usr/bin/codesign", ["-v", newApp.path]) == 0 else { throw Err("The downloaded app failed its signature check.") }
+            // What's New after the relaunch shows these notes (no second request to GitHub)
+            UserDefaults.standard.set(["version": rel.tag_name, "body": rel.body ?? ""], forKey: WhatsNew.pendingKey)
+            progressText = "Restarting…"
             try relaunch(replacing: target, with: newApp, work: work)
         } catch {
             fail((error as? Err)?.msg ?? error.localizedDescription)
@@ -220,6 +264,26 @@ final class Updater: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exit(0) }
     }
 
+    /// Downloads to `dest` (moved there before the temporary file goes away), reporting bytes received / expected.
+    nonisolated private static func download(_ url: URL, to dest: URL,
+                                             progress: @escaping @Sendable (Int64, Int64) -> Void) async throws -> URLResponse {
+        final class Box: @unchecked Sendable { var obs: NSKeyValueObservation? }
+        let box = Box()
+        return try await withCheckedThrowingContinuation { c in
+            let task = URLSession.shared.downloadTask(with: url) { file, resp, err in
+                box.obs?.invalidate()
+                guard let file, let resp else { c.resume(throwing: err ?? Err("Download failed.")); return }
+                do { try FileManager.default.moveItem(at: file, to: dest); c.resume(returning: resp) }
+                catch { c.resume(throwing: error) }
+            }
+            box.obs = task.progress.observe(\.completedUnitCount) { [weak task] _, _ in
+                guard let task else { return }
+                progress(task.countOfBytesReceived, task.countOfBytesExpectedToReceive)
+            }
+            task.resume()
+        }
+    }
+
     private func run(_ tool: String, _ args: [String]) async -> Int32 {
         await withCheckedContinuation { c in
             let p = Process()
@@ -234,7 +298,9 @@ final class Updater: ObservableObject {
 
     private func fail(_ m: String) {
         status = .failed(m)
-        alert("Update failed", m)
+        progress = nil
+        // In the window when it's open (buttons enabled again for a retry), otherwise an alert
+        if CoveWindows.isOpen(Self.windowID) { windowError = m } else { alert("Update failed", m) }
     }
 
     private struct Err: Error { let msg: String; init(_ m: String) { msg = m } }
@@ -260,7 +326,9 @@ struct UpdateRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 if case .available = up.status {
-                    Button("Install Update") { Task { await up.install() } }
+                    Button("Install Update…") { up.showWindow() }
+                } else if up.status == .installing {
+                    Button("Show Progress…") { up.showWindow() }
                 } else {
                     Button("Check for Updates") { Task { await up.check(interactive: true) } }
                         .disabled(up.status == .checking || up.status == .installing)
@@ -269,6 +337,8 @@ struct UpdateRow: View {
                 Text(statusText).foregroundColor(.secondary).lineLimit(2)
             }
             Toggle("Check for updates automatically", isOn: $auto)
+            Button("What's New in Cove…") { WhatsNew.show() }
+                .buttonStyle(.link).font(.caption)
         }
     }
 }

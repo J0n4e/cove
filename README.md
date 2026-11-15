@@ -14,7 +14,7 @@ A native macOS client for [Emby](https://emby.media) and [Jellyfin](https://jell
 
 Closing the window quits the app; click the Dock icon to open it again.
 
-After that, Cove keeps itself up to date. It checks for new releases at launch and installs them with one click. You can also check yourself under **Cove → Check for Updates…**.
+After that, Cove keeps itself up to date. It checks for new releases at launch and shows a **Software Update** window with the release notes: **Install and Restart**, **Later** or **Skip This Version** (a skipped version isn't offered again at launch; Check for Updates still shows it). You can also check yourself under **Cove → Check for Updates…**. After an update, **What's New in Cove** shows the notes once; it's also in the Cove menu.
 
 ## Features
 
