@@ -237,7 +237,8 @@ enum NavOrder {
     }
 }
 
-/// A server the user has signed in to; the token is kept so switching back needs no password.
+/// A server the user has signed in to; the token is kept so switching back needs no password. In the preferences
+/// file the list is saved without tokens; the tokens are sealed separately (see ServerStore).
 
 struct SavedServer: Codable, Identifiable, Hashable {
     var url: String
@@ -246,6 +247,62 @@ struct SavedServer: Codable, Identifiable, Hashable {
     var token: String?
     var userId: String?
     var id: String { url.lowercased() }
+}
+
+/// Saves the server list: the non-secret part (name, address, user) as JSON under "servers", the tokens as one
+/// sealed dictionary (server id -> token, see SealedPrefs) under "serverTokens". Before 1.18 the tokens were in
+/// the "servers" JSON in plain text (and before 1.15 under "token"); `load` moves them over once.
+enum ServerStore {
+    static let listKey = "servers"
+    static let tokensKey = "serverTokens"
+    static let legacyTokenKey = "token"
+
+    static func sealedTokens(_ d: UserDefaults) -> [String: String]? {
+        guard let s = SealedPrefs.get(tokensKey, in: d), let data = s.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode([String: String].self, from: data)
+    }
+
+    /// Seals the tokens, reads them back, and only then writes the list without them. If sealing fails the
+    /// plaintext list is kept (never lose a sign-in). Returns true when the tokens are sealed.
+    @discardableResult
+    static func save(_ servers: [SavedServer], to d: UserDefaults) -> Bool {
+        var tokens: [String: String] = [:]
+        for e in servers { if let t = e.token, !t.isEmpty { tokens[e.id] = t } }
+        var sealed = tokens.isEmpty
+        if tokens.isEmpty { SealedPrefs.set(nil, for: tokensKey, in: d) }
+        else if let data = try? JSONEncoder().encode(tokens), let json = String(data: data, encoding: .utf8) {
+            SealedPrefs.set(json, for: tokensKey, in: d)
+            sealed = sealedTokens(d) == tokens
+        }
+        let list = sealed ? servers.map { var x = $0; x.token = nil; return x } : servers
+        if !sealed { coveLog.error("Server sign-ins could not be sealed; kept in the preferences as before") }
+        if let data = try? JSONEncoder().encode(list) { d.set(data, forKey: listKey) }
+        return sealed
+    }
+
+    /// Reads the list with its tokens. Moves plaintext tokens (in "servers" or the legacy "token" key) into the
+    /// sealed store once; the plaintext is removed only after the sealed copy reads back the same.
+    static func load(from d: UserDefaults, server: String, userId: String) -> [SavedServer] {
+        let legacyToken = d.string(forKey: legacyTokenKey) ?? ""
+        var list: [SavedServer] = []
+        if let data = d.data(forKey: listKey) {
+            do { list = try JSONDecoder().decode([SavedServer].self, from: data) }
+            catch { coveLog.error("Saved servers could not be read: \(String(describing: error), privacy: .public)") }
+        }
+        // Remember the server from before saved servers existed.
+        if list.isEmpty, !server.isEmpty, !legacyToken.isEmpty {
+            list = [SavedServer(url: server, name: server, user: "", token: legacyToken, userId: userId)]
+        }
+        var plaintext = !legacyToken.isEmpty
+        let sealed = sealedTokens(d) ?? [:]
+        for i in list.indices {
+            if list[i].token != nil { plaintext = true }
+            if let t = sealed[list[i].id] { list[i].token = t }
+            if list[i].token == nil, list[i].id == server.lowercased(), !legacyToken.isEmpty { list[i].token = legacyToken }
+        }
+        if plaintext, save(list, to: d) { d.removeObject(forKey: legacyTokenKey) }
+        return list
+    }
 }
 
 enum LoginError: LocalizedError {
@@ -384,12 +441,10 @@ final class Emby: ObservableObject {
         if server == s { isJellyfin = j }       // the user may have switched server meanwhile
     }
 
-    /// The list, sign-in tokens included, goes to the preferences file (as before 1.15). Keychain storage is
+    /// The list goes to the preferences file, its sign-in tokens sealed (ServerStore). Keychain storage is
     /// paused until Cove is signed with an Apple Developer ID: with our self-signed certificate macOS ties each
     /// Keychain item to one exact build, so every update would ask for Keychain access.
-    private func saveServers() {
-        if let data = try? JSONEncoder().encode(servers) { d.set(data, forKey: "servers") }
-    }
+    private func saveServers() { ServerStore.save(servers, to: d) }
 
     private func upsert(_ e: SavedServer) {
         if let i = servers.firstIndex(where: { $0.id == e.id }) { servers[i] = e } else { servers.append(e) }
@@ -426,6 +481,7 @@ final class Emby: ObservableObject {
         servers.removeAll { $0.id == e.id }
         saveServers()
         ImageCache.shared.clear()
+        SubtitleCache.shared.removeServer(e.url)
     }
 
     /// Ends the session on the server too, so the token stops working there (and leaves its Devices list).
@@ -513,24 +569,12 @@ final class Emby: ObservableObject {
     init() {
         server = d.string(forKey: "server") ?? ""
         userId = d.string(forKey: "uid") ?? ""
-        let legacyToken = d.string(forKey: "token") ?? ""      // versions before 1.15 kept it in preferences
-        var list: [SavedServer] = []
-        if let data = d.data(forKey: "servers") {
-            do { list = try JSONDecoder().decode([SavedServer].self, from: data) }
-            catch { coveLog.error("Saved servers could not be read: \(String(describing: error), privacy: .public)") }
-        }
-        // Remember the server from before saved servers existed.
-        if list.isEmpty, !server.isEmpty, !legacyToken.isEmpty {
-            list = [SavedServer(url: server, name: server, user: "", token: legacyToken, userId: userId)]
-        }
+        var list = ServerStore.load(from: d, server: server, userId: userId)
         // Test builds of the Keychain change put tokens in the Keychain: move any such token back once and delete
         // the item (Macs that never ran those builds have none, so nothing is asked)
         var moved = false
         for i in list.indices where list[i].token == nil {
             if let t = TokenStore.get(list[i].id) { list[i].token = t; moved = true }
-            if list[i].token == nil, list[i].id == server.lowercased(), !legacyToken.isEmpty {
-                list[i].token = legacyToken; moved = true
-            }
         }
         servers = list
         if moved {
@@ -585,6 +629,7 @@ final class Emby: ObservableObject {
     func logout() {
         revoke(server: server, token: token)
         ImageCache.shared.clear()
+        SubtitleCache.shared.removeServer(server)
         if let i = servers.firstIndex(where: { $0.id == server.lowercased() }) {
             servers[i].token = nil; servers[i].userId = nil; saveServers()
         }
@@ -1193,24 +1238,20 @@ final class Emby: ObservableObject {
     }
 
     private func cueFile(_ itemId: String, _ sourceId: String, _ index: Int) -> URL? {
-        guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
-            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "eu.jonae.cove", isDirectory: true)
-            .appendingPathComponent("Subtitles", isDirectory: true) else { return nil }
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let key = "\(server)|\(itemId)|\(sourceId)|\(index)".data(using: .utf8)!.base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-        return dir.appendingPathComponent(key + ".srt")
+        SubtitleCache.shared.file("\(server)|\(itemId)|\(sourceId)|\(index)")
     }
 
     /// A whole track downloaded before.
     func cachedCues(_ itemId: String, _ sourceId: String?, _ index: Int) -> [Cue]? {
         guard let sourceId, let f = cueFile(itemId, sourceId, index), let text = try? String(contentsOf: f, encoding: .utf8) else { return nil }
         let c = Cue.parseSRT(text)
+        if !c.isEmpty { SubtitleCache.shared.touch(f) }
         return c.isEmpty ? nil : c
     }
 
     private func saveCues(_ itemId: String, _ sourceId: String, _ index: Int, _ text: String) {
         if let f = cueFile(itemId, sourceId, index) { try? text.write(to: f, atomically: true, encoding: .utf8) }
+        Task.detached(priority: .utility) { SubtitleCache.shared.prune() }
     }
 
     /// The HLS profile for the server. HEVC (4K, HDR) must come in fMP4 segments: AVPlayer rejects HEVC inside

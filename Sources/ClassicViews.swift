@@ -804,14 +804,15 @@ struct ClassicFavoritesView: View {
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
-        .onAppear {
-            Task { items = await emby.favorites(); loading = false }
-            Task { people = await emby.favoritePeople() }
-        }
-        // Something was added or removed elsewhere (a cast photo, an episode): show it without leaving the page
-        .onChange(of: emby.favRevision) {
-            Task { items = await emby.favorites() }
-            Task { people = await emby.favoritePeople() }
+        // Loads on appear and again when something was added or removed elsewhere (a cast photo, an episode).
+        // .task(id:) cancels the previous fetch on each change and when the page goes away, so an older
+        // response can't land last and overwrite a newer one.
+        .task(id: emby.favRevision) {
+            async let f = emby.favorites()
+            async let p = emby.favoritePeople()
+            let (newItems, newPeople) = await (f, p)
+            guard !Task.isCancelled else { return }
+            items = newItems; people = newPeople; loading = false
         }
     }
 
@@ -1000,8 +1001,8 @@ struct ClassicHomeContent: View {
                         if (wide ? resumeLayout : homeLayout) == "grid" {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 260 : 150), spacing: 14)],
                                       alignment: .leading, spacing: 18) {
-                                ForEach(row.items.indices, id: \.self) { i in
-                                    if wide { ClassicResumeCard(item: row.items[i]) } else { ClassicPosterCard(item: row.items[i]) }
+                                ForEach(row.items) { it in
+                                    if wide { ClassicResumeCard(item: it) } else { ClassicPosterCard(item: it) }
                                 }
                             }.padding(.horizontal, 32)
                         } else if wide {
@@ -1598,7 +1599,7 @@ struct ClassicHero: View {
     /// Page bullets: small glass pills; the current one stretches longer and is lit.
     var thumbs: some View {
         HStack(spacing: 8) {
-            ForEach(items.indices, id: \.self) { i in
+            ForEach(Array(items.enumerated()), id: \.element.id) { i, _ in
                 let on = i == index % items.count
                 Button { go(i) } label: {
                     Capsule().fill(Color.white.opacity(on ? 0.85 : 0.25))
@@ -1794,6 +1795,7 @@ struct ClassicLibraryView: View {
     @State private var loading = false
     @State private var loadFailed = false
     @State private var gen = 0
+    @State private var pageTask: Task<Void, Never>?   // the one next-page load in flight (see loadMore)
     @State private var sort: String
     @State private var desc: Bool
     @State private var watch: String
@@ -1847,7 +1849,7 @@ struct ClassicLibraryView: View {
                                footer: loading ? AnyView(Spinner())
                                    : loadFailed ? AnyView(LoadMoreFailedView { Task { await load(reset: false) } }) : nil,
                                topInset: g.safeAreaInsets.top, willShow: { i in
-                        if i == items.count - 30 || i == items.count - 1 { Task { await load(reset: false) } }
+                        if i == items.count - 30 || i == items.count - 1 { loadMore() }
                     }, open: { ClassicNavState.shared.open($0) })
                     .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
                 }
@@ -1863,6 +1865,7 @@ struct ClassicLibraryView: View {
         .background(bg)
         .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
         .task(id: key) { await load(reset: true) }
+        .onDisappear { pageTask?.cancel(); pageTask = nil }
         .task { genres = await emby.genres(lib) }
         .onChange(of: sort) { desc = (sort != "name") }
         .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
@@ -1976,7 +1979,7 @@ struct ClassicLibraryView: View {
                 LazyVStack(spacing: 6) {
                     ForEach(items) { it in
                         ListRow(item: it).onAppear {
-                            if it.id == nextPageAt || it.id == items.last?.id { Task { await load(reset: false) } }
+                            if it.id == nextPageAt || it.id == items.last?.id { loadMore() }
                         }
                     }
                 }
@@ -2027,7 +2030,15 @@ struct ClassicLibraryView: View {
                                 groupCollections: grouping)
     }
 
+    /// Next page from a scroll trigger: one task at a time, cancelled on reset and when the page goes away,
+    /// instead of a new Task for every cell that scrolls past the trigger.
+    func loadMore() {
+        guard pageTask == nil else { return }
+        pageTask = Task { await load(reset: false); pageTask = nil }
+    }
+
     func load(reset: Bool) async {
+        if reset { pageTask?.cancel(); pageTask = nil }
         if !reset && (loading || loadFailed || items.count >= total) { return }
         gen += 1
         let my = gen
@@ -2766,8 +2777,8 @@ struct ClassicDetailView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Links").bold()
                         HStack(spacing: 10) {
-                            ForEach(links.indices, id: \.self) { i in
-                                if let n = links[i].Name, let u = SafeLink.url(links[i].Url) { Link(n, destination: u).handCursor() }
+                            ForEach(Array(links.enumerated()), id: \.offset) { _, l in
+                                if let n = l.Name, let u = SafeLink.url(l.Url) { Link(n, destination: u).handCursor() }
                             }
                         }
                     }
@@ -4050,8 +4061,11 @@ struct ClassicFavoritePeopleView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar { ClassicTitleBarItems(back: { dismiss() }) }
         .classicHideToolbarTitle()
-        .task { people = await emby.favoritePeople() }
-        .onChange(of: emby.favRevision) { Task { people = await emby.favoritePeople() } }
+        .task(id: emby.favRevision) {
+            let p = await emby.favoritePeople()
+            guard !Task.isCancelled else { return }
+            people = p
+        }
     }
 }
 

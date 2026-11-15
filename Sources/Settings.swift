@@ -367,6 +367,7 @@ enum InternalPrefs {
 struct AboutSettings: View {
     @EnvironmentObject var emby: Emby
     @State private var cacheBytes = 0
+    @State private var subtitleBytes = 0
     @State private var confirmReset = false
     @State private var backupMessage: String?
 
@@ -425,6 +426,16 @@ struct AboutSettings: View {
         }
     }
 
+    /// Sizes are read off the main thread so Settings opens at once.
+    private func refreshStorage() {
+        Task {
+            let (img, subs) = await Task.detached(priority: .userInitiated) {
+                (ImageCache.shared.diskUsage, SubtitleCache.shared.totalBytes())
+            }.value
+            cacheBytes = img; subtitleBytes = subs
+        }
+    }
+
     var body: some View {
         PrefSection(title: "Cove") {
             PrefRow(label: "Version") { Text("Cove " + AppVersion.label).textSelection(.enabled) }
@@ -438,12 +449,19 @@ struct AboutSettings: View {
                 HStack(spacing: 10) {
                     Text(ByteCountFormatter.string(fromByteCount: Int64(cacheBytes), countStyle: .file))
                         .foregroundColor(.secondary).monospacedDigit()
-                    Button("Clear") { ImageCache.shared.clear(); cacheBytes = ImageCache.shared.diskUsage }
+                    Button("Clear") { ImageCache.shared.clear(); refreshStorage() }
                 }
             }
-            PrefNote("Posters and banners are saved on this Mac so they show instantly next time (up to 500 MB).")
+            PrefRow(label: "Subtitles") {
+                HStack(spacing: 10) {
+                    Text(ByteCountFormatter.string(fromByteCount: Int64(subtitleBytes), countStyle: .file))
+                        .foregroundColor(.secondary).monospacedDigit()
+                    Button("Clear") { SubtitleCache.shared.clear(); refreshStorage() }
+                }
+            }
+            PrefNote("Posters and banners are saved on this Mac so they show instantly next time (up to 500 MB). Subtitle tracks too (up to 100 MB, unused ones go after 90 days).")
         }
-        .onAppear { cacheBytes = ImageCache.shared.diskUsage }
+        .onAppear { refreshStorage() }
         PrefSection(title: "Backup") {
             PrefRow(label: "Settings file") {
                 HStack(spacing: 10) {
@@ -1084,7 +1102,8 @@ struct ServerSettings: View {
                 PrefRow(label: "Client ID") {
                     HStack(spacing: 8) {
                         // Shown as dots once saved; typing a new one replaces it
-                        SecureField(trakt.isConfigured ? "Saved (encrypted)" : "Paste the Client ID", text: $clientIdDraft)
+                        SecureField(trakt.isConfigured ? "Saved on this Mac" : "Paste the Client ID", text: $clientIdDraft)
+                            .help("Stored in Cove's preferences, scrambled with a key tied to this Mac. Not readable if the file is copied elsewhere.")
                             .textFieldStyle(.roundedBorder).frame(width: 300)
                             .onSubmit(saveClientId)
                         Button("Save", action: saveClientId).disabled(clientIdDraft.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -1120,7 +1139,7 @@ struct ServerSettings: View {
                     })
                 }
             }
-            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are stored encrypted.")
+            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are saved on this Mac, scrambled with a key tied to it.")
         }
     }
 }

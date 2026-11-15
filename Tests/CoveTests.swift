@@ -368,4 +368,117 @@ final class CoveTests: XCTestCase {
         XCTAssertTrue(ro.contains("/Volumes/Disk"))
         XCTAssertTrue(ro.contains("Applications folder"))
     }
+
+    // MARK: Playback fallback
+
+    func testPlaybackFailureAction() {
+        // First player failure (e.g. CoreMedia -12927 on direct play): convert and continue
+        XCTAssertEqual(PlayerModel.failureAction(.player, alreadyConverted: false), .retryConverted)
+        // The converted stream failed too: show the error (no loop)
+        XCTAssertEqual(PlayerModel.failureAction(.player, alreadyConverted: true), .showError)
+        // PlaybackInfo 401 / server error / no stream: show the error, never retry
+        XCTAssertEqual(PlayerModel.failureAction(.streamRequest, alreadyConverted: false), .showError)
+        XCTAssertEqual(PlayerModel.failureAction(.streamRequest, alreadyConverted: true), .showError)
+    }
+
+    // MARK: Subtitle cache
+
+    private func subtitleCache() throws -> SubtitleCache {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("subs-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return SubtitleCache(dir: dir)
+    }
+
+    private func put(_ c: SubtitleCache, _ key: String, bytes: Int, age: TimeInterval = 0) throws -> URL {
+        let f = c.file(key)
+        try Data(repeating: 65, count: bytes).write(to: f)
+        let d = Date().addingTimeInterval(-age)
+        try FileManager.default.setAttributes([.modificationDate: d], ofItemAtPath: f.path)
+        var v = URLResourceValues(); v.contentAccessDate = d
+        var u = f; try? u.setResourceValues(v)
+        return f
+    }
+
+    func testSubtitleCacheTotalAndClear() throws {
+        let c = try subtitleCache()
+        _ = try put(c, "http://a|1|s|0", bytes: 1000)
+        _ = try put(c, "http://a|2|s|0", bytes: 3000)
+        XCTAssertGreaterThanOrEqual(c.totalBytes(), 4000)
+        c.clear()
+        XCTAssertEqual(c.totalBytes(), 0)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: c.dir.path).isEmpty)
+    }
+
+    func testSubtitleCachePrune() throws {
+        let c = try subtitleCache()
+        let old = try put(c, "http://a|old|s|0", bytes: 100, age: 100 * 86400)
+        let oldest = try put(c, "http://a|1|s|0", bytes: 50_000, age: 3000)
+        let newer = try put(c, "http://a|2|s|0", bytes: 50_000, age: 1000)
+        c.prune(maxBytes: 80_000, maxAge: 90 * 86400)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: old.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: oldest.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: newer.path))
+    }
+
+    func testSubtitleCacheRemoveServer() throws {
+        let c = try subtitleCache()
+        let a = try put(c, "http://a:8096|1|s|0", bytes: 10)
+        let b = try put(c, "http://b:8096|1|s|0", bytes: 10)
+        XCTAssertEqual(SubtitleCache.key(ofFile: a.lastPathComponent), "http://a:8096|1|s|0")
+        try Data().write(to: c.dir.appendingPathComponent("not-base64!.srt"))
+        c.removeServer("http://a:8096")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: a.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: b.path))
+    }
+
+    // MARK: Token storage
+
+    private func isolatedDefaults() -> UserDefaults {
+        let name = "cove.tests.\(UUID().uuidString)"
+        let d = UserDefaults(suiteName: name)!
+        d.removePersistentDomain(forName: name)
+        return d
+    }
+
+    func testSealedTokenStoreRoundTrip() {
+        let d = isolatedDefaults()
+        let list = [SavedServer(url: "https://A.example", name: "A", user: "u", token: "tokA", userId: "1"),
+                    SavedServer(url: "http://b.local:8096", name: "B", user: "v", token: "tokB", userId: "2")]
+        XCTAssertTrue(ServerStore.save(list, to: d))
+        XCTAssertEqual(ServerStore.sealedTokens(d), ["https://a.example": "tokA", "http://b.local:8096": "tokB"])
+        let raw = String(decoding: d.data(forKey: "servers")!, as: UTF8.self)
+        XCTAssertFalse(raw.contains("tokA")); XCTAssertFalse(raw.contains("tokB")); XCTAssertFalse(raw.contains("\"token\""))
+        XCTAssertFalse(String(decoding: d.data(forKey: "serverTokens")!, as: UTF8.self).contains("tokA"))
+        XCTAssertEqual(ServerStore.load(from: d, server: "https://a.example", userId: "1"), list)
+        XCTAssertEqual(SealedPrefs.get("serverTokens", in: isolatedDefaults()), nil)
+    }
+
+    func testPlaintextTokensMigrate() throws {
+        let d = isolatedDefaults()
+        let old = [SavedServer(url: "https://a.example", name: "A", user: "u", token: "tokA", userId: "1"),
+                   SavedServer(url: "https://b.example", name: "B", user: "v", token: nil, userId: "2")]
+        d.set(try JSONEncoder().encode(old), forKey: "servers")
+        d.set("tokB", forKey: "token")              // legacy key for the current server
+        let list = ServerStore.load(from: d, server: "https://b.example", userId: "2")
+        XCTAssertEqual(list.map(\.token), ["tokA", "tokB"])
+        XCTAssertNil(d.object(forKey: "token"))
+        let raw = String(decoding: d.data(forKey: "servers")!, as: UTF8.self)
+        XCTAssertFalse(raw.contains("tokA")); XCTAssertFalse(raw.contains("tokB"))
+        XCTAssertEqual(ServerStore.sealedTokens(d), ["https://a.example": "tokA", "https://b.example": "tokB"])
+        // Second launch reads the sealed copy
+        XCTAssertEqual(ServerStore.load(from: d, server: "https://b.example", userId: "2").map(\.token), ["tokA", "tokB"])
+        // Signing out of every server removes the sealed store
+        XCTAssertTrue(ServerStore.save(list.map { var x = $0; x.token = nil; return x }, to: d))
+        XCTAssertNil(d.object(forKey: "serverTokens"))
+    }
+
+    func testLegacyTokenOnlyMigrates() {
+        let d = isolatedDefaults()
+        d.set("tokL", forKey: "token")
+        let list = ServerStore.load(from: d, server: "https://old.example", userId: "9")
+        XCTAssertEqual(list.first?.token, "tokL")
+        XCTAssertNil(d.object(forKey: "token"))
+        XCTAssertEqual(ServerStore.sealedTokens(d), ["https://old.example": "tokL"])
+    }
 }
