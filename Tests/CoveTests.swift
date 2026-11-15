@@ -357,4 +357,15 @@ final class CoveTests: XCTestCase {
         let e = Updater.verifyBundle(info: info(id, "v1.0"), expectedId: id, tag: "v1.17.3", current: "v1.17.2") as? Updater.Err
         XCTAssertEqual(e?.msg, Updater.mismatchMessage)
     }
+
+    // MARK: Update location message
+
+    func testCantReplaceMessage() {
+        let tr = Updater.cantReplaceMessage(appPath: "/private/var/folders/d9/x/T/AppTranslocation/0FDF3AAA/d/Cove.app")
+        XCTAssertTrue(tr.contains("Applications folder"))
+        XCTAssertFalse(tr.contains("/private/var"))          // no random hidden path
+        let ro = Updater.cantReplaceMessage(appPath: "/Volumes/Disk/Cove.app")
+        XCTAssertTrue(ro.contains("/Volumes/Disk"))
+        XCTAssertTrue(ro.contains("Applications folder"))
+    }
 }
