@@ -99,7 +99,7 @@ private struct WindowHeader: View {
     let subtitle: String?
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 56, height: 56)
+            AppIconView(size: 56)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.system(size: 15, weight: .bold))
                 if let subtitle { Text(subtitle).foregroundColor(.secondary) }
@@ -231,5 +231,24 @@ enum WhatsNew {
         d.removeObject(forKey: pendingKey)
         guard let v = p["version"] as? String, sameVersion(v, cur) else { return nil }
         return p["body"] as? String
+    }
+}
+
+/// The app icon for Cove's own windows (Software Update, What's New, About). AppIcon.png carries the Dock's
+/// 3 px translucent white rim and a drop shadow around the rounded square; drawn inside a window that rim read
+/// as a grey frame. Here only the rounded square itself is shown: the picture is scaled so the square fills the
+/// frame and clipped just inside the rim, high-quality interpolation, no extra background, stroke or shadow.
+struct AppIconView: View {
+    var size: CGFloat = 64
+    /// The opaque square in the 1024 px AppIcon.png runs from 103 to 921 px; a little inside that, so no rim shows.
+    private static let inner: CGFloat = 812
+    var body: some View {
+        let scale = 1024 / Self.inner
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable().interpolation(.high).antialiased(true)
+            .frame(width: size * scale, height: size * scale)
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
+            .accessibilityHidden(true)
     }
 }

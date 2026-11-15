@@ -39,7 +39,20 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             // Apple TV style: the section name on top, then a row of icon tabs
             Text(section.rawValue).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+                .frame(maxWidth: .infinity)
                 .padding(.top, 12)
+                // Every setting applies as soon as it's changed, so there is nothing to confirm or cancel: just Done
+                // (a sheet has no close button), top right like the Apple TV app's settings. Esc does the same.
+                .overlay(alignment: .topTrailing) {
+                    Button { close() } label: {
+                        Text("Done").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.onAccent(accentName))
+                            .padding(.horizontal, 14).padding(.vertical, 5)
+                            .background(Capsule().fill(accent))
+                    }
+                    .buttonStyle(.plainHand).focusEffectDisabled()
+                    .keyboardShortcut(.defaultAction)
+                    .padding(.top, 8).padding(.trailing, 14)
+                }
             HStack(spacing: 4) {
                 ForEach(sections) { s in
                     let on = section == s
@@ -74,23 +87,18 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 30).padding(.vertical, 10)
             }
-            Divider()
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.handCursor().controlSize(.large).settingsWhiteText()
-                Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent).handCursor().tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
-            }.padding(.horizontal, 20).padding(.vertical, 12)
         }
         .frame(width: 760, height: 640)
         // Disconnected while on the Trakt tab: go to Connect, where Trakt is set up again
         .onChange(of: trakt.isConnected) { _, on in if !on && section == .trakt { section = .servers } }
         .tint(accent)     // switches, menus and links inside Settings too
         .background(bg)   // follows Appearance → Background, like the rest of the app
-        // Esc closes Settings and keeps the changes, like OK / Done
-        .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
+        // Esc closes Settings and keeps the changes, like Done
+        .background(Button("") { close() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
     }
+
+    /// Settings apply as they're changed; closing saves the library choices and reloads the pages.
+    private func close() { emby.saveLibs(); onDone(); dismiss() }
 }
 
 // MARK: - Building blocks
