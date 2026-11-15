@@ -1231,6 +1231,17 @@ final class Emby: ObservableObject {
     /// (also used whenever a subtitle, a different audio track or a lower quality is chosen).
     /// `hevc`: the source video is HEVC, so ask for fMP4 segments that may carry it unchanged.
     /// `maxWidth`: the screen's width in pixels; a video the server converts is scaled down to it.
+    enum PlaybackInfoStatus: Equatable { case ok, sessionEnded, serverError(Int) }
+
+    /// How to treat the PlaybackInfo reply's HTTP status. No status (network error): carry on with the fallback.
+    nonisolated static func playbackInfoStatus(_ code: Int?) -> PlaybackInfoStatus {
+        guard let code, !(200..<300).contains(code) else { return .ok }
+        return code == 401 ? .sessionEnded : .serverError(code)
+    }
+
+    /// Why the last resolveStream returned nil, when the server said so (shown by the player).
+    var lastStreamError: String?
+
     func resolveStream(_ req: PlayRequest, direct: Bool = true, reencode: Bool = false, hevc: Bool = false,
                        maxWidth: Int? = nil) async -> URL? {
         let id = req.item.id
@@ -1262,7 +1273,19 @@ final class Emby: ObservableObject {
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
         authorize(&r)
         r.httpBody = try? JSONSerialization.data(withJSONObject: ["DeviceProfile": profile])
-        if let (data, _) = try? await Net.session.data(for: r),
+        lastStreamError = nil
+        let got = try? await Net.session.data(for: r)
+        switch Self.playbackInfoStatus((got?.1 as? HTTPURLResponse)?.statusCode) {
+        case .ok: break
+        case .sessionEnded:
+            checkSession()
+            lastStreamError = "Your session on the server has ended. Sign in again."
+            return nil
+        case .serverError(let code):
+            lastStreamError = "The server couldn't prepare this video (HTTP \(code))."
+            return nil
+        }
+        if let (data, _) = got,
            let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let list = j["MediaSources"] as? [[String: Any]],
            let src = list.first(where: { ($0["Id"] as? String) == req.sourceId }) ?? list.first {
