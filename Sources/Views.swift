@@ -13,7 +13,7 @@ enum SearchKey {
                         home: @escaping () -> Void, back: @escaping () -> Void,
                         banner: @escaping (Int) -> Bool) -> Any? {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-            guard let w = ev.window, w.title != "Player", w.attachedSheet == nil, w.sheetParent == nil,
+            guard let w = ev.window, w.title != "Player", !(w is PanelWindow), w.attachedSheet == nil, w.sheetParent == nil,
                   !(w.firstResponder is NSText), !isPlaying() else { return ev }
             let mods = ev.modifierFlags.intersection([.command, .control, .option, .shift])
             if ev.keyCode == 123 && mods == .command { back(); return nil }   // ⌘←
@@ -630,7 +630,12 @@ struct HomeView: View {
             path.append(item)
             emby.openRequest = nil
         }
-        .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
+        // Settings open in their own window (traffic lights, no Done); closing it reloads the pages
+        .onChange(of: nav.showSettings) { _, on in
+            guard on else { return }
+            nav.showSettings = false
+            SettingsWindow.show(emby: emby) { reloadToken += 1 }
+        }
         .overlay {
             if navStyle == "topbar" {
                 SearchDock(query: queryB, open: Binding(get: { nav.searchOpen }, set: { nav.searchOpen = $0 }),

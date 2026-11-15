@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Cove → About Cove: icon and name, the version in a card, what Cove is with links, the license.
+/// Cove → About Cove: one line with the icon and name, what Cove is, two buttons and the license.
 /// Laid out like the Nexview Mac app's About, in Cove's dark look and accent color.
 struct AboutView: View {
     @AppStorage("accent") private var accentName = "red"
@@ -17,52 +17,34 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Icon and name on one line keeps the window compact
-            HStack(spacing: 14) {
-                AppIconView(size: 72)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Cove").font(.system(size: 30, weight: .heavy))
-                    Text("for Mac").font(.system(size: 13)).foregroundColor(.secondary)
-                }
-            }
-            .padding(.top, 34).padding(.bottom, 20)
-
-            VStack(spacing: 0) {
-                infoRow("Version", versionText)
-            }
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
-            .padding(.horizontal, 28)
-
             VStack(spacing: 10) {
-                HStack(spacing: 7) {
-                    Image(systemName: "play.rectangle.fill").foregroundColor(accent)
-                    Text("Cove").font(.system(size: 16, weight: .bold))
+                HStack(spacing: 8) {
+                    AppIconView(size: 22)
+                    (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
+                        .font(.system(size: 16, weight: .bold))
                 }
-                Text("A native macOS client for Emby and Jellyfin, written in SwiftUI. Found a bug or have an idea? Let us know on GitHub.")
+                Text("A native macOS client for Emby and Jellyfin. Found a bug or have an idea? Let us know on GitHub.")
                     .multilineTextAlignment(.center).font(.system(size: 13)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
-                    pill("Cove on GitHub", "chevron.left.forwardslash.chevron.right", primary: true) { open(Self.repo) }
-                    pill("Releases", "shippingbox") { open(Self.repo.appendingPathComponent("releases")) }
-                    pill("Report an issue", "exclamationmark.bubble") { open(Self.repo.appendingPathComponent("issues")) }
+                    Button { open(Self.repo) } label: {
+                        Label("Cove on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }.buttonStyle(AboutButton(primary: true, accentName: accentName))
+                    Button { open(Self.repo.appendingPathComponent("issues")) } label: {
+                        Label("Report an issue", systemImage: "exclamationmark.bubble")
+                    }.buttonStyle(AboutButton(accentName: accentName))
                 }
                 .padding(.top, 6)
-                HStack(spacing: 16) {
-                    Button("What's New in Cove…") { WhatsNew.show() }
-                    Button("Check for Updates…") { Task { await Updater.shared.check(interactive: true) } }
-                }
-                .buttonStyle(.plainHand).font(.system(size: 12)).foregroundColor(accent)
-                .padding(.top, 4)
             }
-            .padding(.horizontal, 30).padding(.top, 24)
+            .padding(.horizontal, 34).padding(.top, 34)
 
             Button { open(Self.repo.appendingPathComponent("blob/main/LICENSE")) } label: {
-                Text("Cove © J0n4e · GNU GPL-3.0").font(.system(size: 10)).foregroundColor(.secondary)
+                Text("Cove \(versionText) · © 2026 J0n4e · GNU GPL-3.0")
+                    .font(.system(size: 10)).foregroundColor(Color.white.opacity(0.4))
             }
             .buttonStyle(.plainHand).padding(.vertical, 20)
         }
-        .frame(width: 460)
+        .frame(width: 440)
         .background(Theme.bg(bgName))
         .ignoresSafeArea(.container, edges: .top)
         .tint(accent)
@@ -71,26 +53,43 @@ struct AboutView: View {
     }
 
     func open(_ u: URL) { NSWorkspace.shared.open(u) }
+}
 
-    /// A capsule button: filled with the accent (primary) or a soft glass fill.
-    func pill(_ title: String, _ icon: String, primary: Bool = false, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: icon).font(.system(size: 12, weight: .semibold))
-                .foregroundColor(primary ? Theme.onAccent(accentName) : .primary)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Capsule().fill(primary ? accent : Color.white.opacity(0.1)))
-                .overlay(Capsule().stroke(Color.white.opacity(primary ? 0 : 0.12), lineWidth: 1))
-        }
-        .buttonStyle(.plainHand)
+/// Nexview's button style in Cove's accent: a gradient-filled primary, a dark outlined secondary.
+/// Labels never wrap, so both buttons stay on one line and the same height.
+struct AboutButton: ButtonStyle {
+    var primary = false
+    var accentName = "red"
+    func makeBody(configuration c: Configuration) -> some View {
+        let a = Theme.accent(accentName)
+        return c.label
+            .font(.system(size: 13, weight: .semibold))
+            .lineLimit(1).fixedSize()
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .foregroundColor(primary ? Theme.onAccent(accentName) : .white)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(primary
+                          ? AnyShapeStyle(LinearGradient(colors: [a.opacity(0.85), a, a.opacity(0.7)],
+                                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                          : AnyShapeStyle(Color.white.opacity(0.08)))
+            )
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(primary ? Color.clear : Color.white.opacity(0.12), lineWidth: 1))
+            .opacity(c.isPressed ? 0.75 : 1)
+            .contentShape(Rectangle())
     }
+}
 
-    func infoRow(_ k: String, _ v: String) -> some View {
-        HStack {
-            Text(k).font(.system(size: 13)).foregroundColor(.secondary)
-            Spacer()
-            Text(v).font(.system(size: 13, weight: .semibold).monospacedDigit()).textSelection(.enabled)
+/// A window that Esc and ⌘W close (About and Settings).
+final class PanelWindow: NSWindow {
+    override func cancelOperation(_ sender: Any?) { performClose(sender) }
+    override func performKeyEquivalent(with ev: NSEvent) -> Bool {
+        if ev.modifierFlags.intersection([.command, .control, .option, .shift]) == .command,
+           ev.charactersIgnoringModifiers?.lowercased() == "w" {
+            performClose(nil); return true
         }
-        .padding(.horizontal, 16).padding(.vertical, 11)
+        return super.performKeyEquivalent(with: ev)
     }
 }
 
@@ -103,7 +102,7 @@ enum AboutWindow {
         if window == nil {
             let host = NSHostingController(rootView: AboutView())
             host.sizingOptions = [.minSize]
-            let w = NSWindow(contentViewController: host)
+            let w = PanelWindow(contentViewController: host)
             w.title = "About Cove"
             w.styleMask = [.titled, .closable, .fullSizeContentView]
             w.isReleasedWhenClosed = false
@@ -111,11 +110,14 @@ enum AboutWindow {
             w.titleVisibility = .hidden
             w.appearance = NSAppearance(named: .darkAqua)
             w.isMovableByWindowBackground = true
-            w.setContentSize(host.sizeThatFits(in: NSSize(width: 460, height: 10_000)))
-            w.center()
             window = w
         }
+        guard let w = window else { return }
+        if !w.isVisible, let host = w.contentViewController as? NSHostingController<AboutView> {
+            w.setContentSize(host.sizeThatFits(in: NSSize(width: 440, height: 10_000)))
+            w.center()
+        }
         NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
+        w.makeKeyAndOrderFront(nil)
     }
 }
