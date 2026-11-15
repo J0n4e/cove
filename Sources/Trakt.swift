@@ -32,6 +32,9 @@ final class Trakt: ObservableObject {
     private let d = UserDefaults.standard
     private var lastFetch: Date?
     private var signInTask: Task<Void, Never>?
+    /// One token renewal at a time: Trakt rotates the refresh token, so a second renewal with the same one fails.
+    private let renewal = SingleFlight<Void>()
+    private var flushing = false
 
     /// The Client ID of the user's Trakt app, from Settings → Connect.
     @Published private(set) var clientId: String
@@ -136,7 +139,9 @@ final class Trakt: ObservableObject {
 
     /// Sends the waiting ratings to Trakt; whatever fails stays in the queue.
     func flush() async {
-        guard isConnected, !pending.isEmpty else { return }
+        guard isConnected, !pending.isEmpty, !flushing else { return }   // one flush at a time, or ratings go twice
+        flushing = true
+        defer { flushing = false }
         for p in pending {
             let entry: [String: Any] = p.rating == 0 ? ["ids": p.ids] : ["ids": p.ids, "rating": p.rating]
             let body: [String: Any] = [p.kind + "s": [entry]]
@@ -500,21 +505,41 @@ final class Trakt: ObservableObject {
     private func loadUser() async {
         struct Settings: Decodable { struct U: Decodable { let username: String }; let user: U }
         guard let data = try? await send("/users/settings"),
-              let s = try? JSONDecoder().decode(Settings.self, from: data) else { user = "Trakt"; return }
+              let s = try? JSONDecoder().decode(Settings.self, from: data) else {
+            user = "Trakt"   // kept too, or the sign-in is lost on the next launch although the tokens are stored
+            d.set(user, forKey: "traktUser")
+            return
+        }
         user = s.user.username
         d.set(user, forKey: "traktUser")
     }
 
     /// A fresh access token a day before the old one runs out.
     private func renewIfNeeded() async throws {
-        guard let exp = expiresAt, exp.timeIntervalSinceNow < 86_400, let r = refreshToken else { return }
-        let (body, status) = try await postRaw("/oauth/token", withClient([
-            "refresh_token": r, "redirect_uri": "urn:ietf:wg:oauth:2.0:oob", "grant_type": "refresh_token"]))
-        guard status == 200 else {
-            if status == 401 || status == 400 { signedOutByTrakt() }
-            throw TraktError.status(status)
+        guard let exp = expiresAt, exp.timeIntervalSinceNow < 86_400, refreshToken != nil else { return }
+        try await renew()
+    }
+
+    /// Renews the tokens; callers at the same time share one request. `unless` is the access token a call was
+    /// refused with: when another call already replaced it, there's nothing to renew.
+    private func renew(unless rejected: String? = nil) async throws {
+        try await renewal.run { [self] in
+            if let rejected, accessToken != rejected { return }
+            guard let r = refreshToken else { signedOutByTrakt(); throw TraktError.status(401) }
+            let (body, status) = try await postRaw("/oauth/token", withClient([
+                "refresh_token": r, "redirect_uri": "urn:ietf:wg:oauth:2.0:oob", "grant_type": "refresh_token"]))
+            guard status == 200 else {
+                if Self.shouldSignOut(renewStatus: status) { signedOutByTrakt() }   // 5xx etc.: keep the tokens, try later
+                throw TraktError.status(status)
+            }
+            try store(try JSONDecoder().decode(TokenAnswer.self, from: body))
         }
-        try store(try JSONDecoder().decode(TokenAnswer.self, from: body))
+    }
+
+    /// Only Trakt refusing the refresh token (invalid_grant: 400, or 401) ends the sign-in; a network error
+    /// (no status) or Trakt being down (5xx) doesn't.
+    nonisolated static func shouldSignOut(renewStatus: Int?) -> Bool {
+        renewStatus == 400 || renewStatus == 401
     }
 
     /// Trakt no longer accepts the sign-in (revoked on the website): forget it, keep the local ratings.
@@ -549,17 +574,26 @@ final class Trakt: ObservableObject {
     }
 
     /// A signed-in call; returns the body of a 2xx answer.
+    /// A 401 gets one renewal and one retry; only a refused renewal signs out.
     private func send(_ path: String, method: String = "GET", json: [String: Any]? = nil) async throws -> Data {
         try await renewIfNeeded()
-        guard let token = accessToken else { throw TraktError.status(401) }
-        var r = request(path, method: method)
-        r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        if let json { r.httpBody = try JSONSerialization.data(withJSONObject: json) }
-        let (data, resp) = try await URLSession.shared.data(for: r)
-        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 401 { signedOutByTrakt() }
-        guard (200..<300).contains(status) else { throw TraktError.status(status) }
-        return data
+        let body = try json.map { try JSONSerialization.data(withJSONObject: $0) }
+        var retried = false
+        while true {
+            guard let token = accessToken else { throw TraktError.status(401) }
+            var r = request(path, method: method)
+            r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            r.httpBody = body
+            let (data, resp) = try await URLSession.shared.data(for: r)
+            let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            if status == 401 && !retried {
+                retried = true
+                try await renew(unless: token)
+                continue
+            }
+            guard (200..<300).contains(status) else { throw TraktError.status(status) }
+            return data
+        }
     }
 
     private func postRaw(_ path: String, _ body: [String: String]) async throws -> (Data, Int) {

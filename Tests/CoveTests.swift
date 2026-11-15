@@ -283,4 +283,50 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: nil), 0)
         XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: -1), 0)
     }
+
+    // MARK: Trakt renewal
+
+    func testSingleFlightRunsOnceForConcurrentCallers() async throws {
+        let flight = SingleFlight<Int>()
+        var runs = 0
+        let op: @MainActor () async throws -> Int = {
+            runs += 1
+            try await Task.sleep(nanoseconds: 50_000_000)
+            return 42
+        }
+        let results = try await withThrowingTaskGroup(of: Int.self, returning: [Int].self) { g in
+            for _ in 0..<8 { g.addTask { @MainActor in try await flight.run(op) } }
+            var all: [Int] = []
+            for try await v in g { all.append(v) }
+            return all
+        }
+        XCTAssertEqual(runs, 1)
+        XCTAssertEqual(results, Array(repeating: 42, count: 8))
+        XCTAssertFalse(flight.isRunning)
+        _ = try await flight.run(op)            // a later call starts a new one
+        XCTAssertEqual(runs, 2)
+    }
+
+    func testSingleFlightSharesErrors() async {
+        struct Boom: Error {}
+        let flight = SingleFlight<Void>()
+        var runs = 0
+        let op: @MainActor () async throws -> Void = { runs += 1; try await Task.sleep(nanoseconds: 20_000_000); throw Boom() }
+        let failures = await withTaskGroup(of: Bool.self, returning: Int.self) { g in
+            for _ in 0..<3 { g.addTask { @MainActor in do { try await flight.run(op); return false } catch { return error is Boom } } }
+            var n = 0
+            for await failed in g where failed { n += 1 }
+            return n
+        }
+        XCTAssertEqual(failures, 3)
+        XCTAssertEqual(runs, 1)
+        XCTAssertFalse(flight.isRunning)
+    }
+
+    func testTraktSignsOutOnlyWhenRenewalIsRefused() {
+        XCTAssertTrue(Trakt.shouldSignOut(renewStatus: 400))
+        XCTAssertTrue(Trakt.shouldSignOut(renewStatus: 401))
+        XCTAssertFalse(Trakt.shouldSignOut(renewStatus: nil))     // network error
+        for s in [0, 403, 429, 500, 502, 503] { XCTAssertFalse(Trakt.shouldSignOut(renewStatus: s)) }
+    }
 }
