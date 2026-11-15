@@ -23,6 +23,9 @@ struct AboutView: View {
                     (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
                         .font(.system(size: 16, weight: .bold))
                 }
+                Text("Version \(versionText.hasPrefix("v") ? String(versionText.dropFirst()) : versionText)")
+                    .font(.system(size: 12)).foregroundColor(Color.white.opacity(0.55))
+                    .padding(.top, -4)
                 Text("A native macOS client for Emby and Jellyfin. Found a bug or have an idea? Let us know on GitHub.")
                     .multilineTextAlignment(.center).font(.system(size: 13)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -39,7 +42,7 @@ struct AboutView: View {
             .padding(.horizontal, 34).padding(.top, 34)
 
             Button { open(Self.repo.appendingPathComponent("blob/main/LICENSE")) } label: {
-                Text("Cove \(versionText) · © 2026 J0n4e · GNU GPL-3.0")
+                Text("© 2026 J0n4e · GNU GPL-3.0")
                     .font(.system(size: 10)).foregroundColor(Color.white.opacity(0.4))
             }
             .buttonStyle(.plainHand).padding(.vertical, 20)
