@@ -301,6 +301,16 @@ final class PlayerModel: ObservableObject {
         imageSubCodecs.contains((streams.first { $0.Index == idx }?.Codec ?? "").lowercased())
     }
 
+    enum CueStep: Equatable { case use, askAll, keep, burnIn }
+
+    /// What to do with one subtitle download result. `piece`: it was the first part (the next minutes), not the
+    /// whole track. `haveCues`: cues from an earlier part are already shown.
+    nonisolated static func cueStep(_ got: [Cue]?, piece: Bool, haveCues: Bool) -> CueStep {
+        if got != nil { return .use }
+        if piece { return .askAll }
+        return haveCues ? .keep : .burnIn
+    }
+
     /// Downloads a text subtitle in the background; playback keeps going meanwhile. The server reads it from the
     /// start of the file up to the end asked for (each request reads it again), so: the next minutes first, so
     /// they show quickly, then the whole track.
@@ -320,13 +330,23 @@ final class PlayerModel: ObservableObject {
                 let c = await emby.subtitleCues(itemId, sourceId, idx, upTo: end)
                 dlog("subs \(idx): \(c.map { "\($0.count) cues, last at \(fmt($0.last?.end ?? 0))" } ?? "nothing") in \(Int(Date().timeIntervalSince(t0)))s, cancelled \(Task.isCancelled), current \(gen == subGen)")
                 guard gen == subGen, !Task.isCancelled else { return }   // another track (or film) meanwhile
-                guard let c else {
-                    if end != nil { continue }   // nothing said yet in these minutes (or a hiccup): get it all
+                switch Self.cueStep(c, piece: end != nil, haveCues: !cues.isEmpty) {
+                case .use: break
+                case .askAll: continue   // nothing said yet in these minutes (or a hiccup): get it all
+                case .keep:              // a later piece failing keeps what came
+                    subFetching = false; updateCaption(now); return
+                case .burnIn:
                     subFetching = false; updateCaption(now)
-                    // Couldn't read as text: burn it in (a later piece failing keeps what came)
-                    if cues.isEmpty { await restart(emby) { $0.sub = idx; $0.burnIn = true } }
+                    // Couldn't read as text: burn it in. Not from inside subTask: the restart stops playback,
+                    // which cancels subTask, and the new start() would see itself cancelled and give up.
+                    subTask = nil
+                    Task { @MainActor [weak self] in
+                        guard let self, gen == self.subGen else { return }   // track or film changed meanwhile
+                        await self.restart(emby) { $0.sub = idx; $0.burnIn = true }
+                    }
                     return
                 }
+                guard let c else { return }
                 cues = c
                 cuesUpTo = end ?? .infinity
                 if let end, (c.last?.end ?? 0) > end + 120 { cuesUpTo = .infinity }   // the server sent it all already
