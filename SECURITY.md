@@ -13,6 +13,8 @@ Only the latest release gets security fixes. Cove updates itself (Cove → Check
 ## What Cove does to protect you
 
 - Updates install only if they are signed with Cove's release key (Ed25519) and match GitHub's checksum.
+- Only releases tagged `vX.Y[.Z]` are offered, and the app in the download must be Cove (same bundle id),
+  carry exactly that version, and be newer than the running one, so an older signed build can't be replayed.
 - Releases are built by GitHub Actions and carry a build attestation:
   `gh attestation verify Cove.zip -R J0n4e/cove`.
 - Cove talks only to the media servers you add and to `api.github.com` (update check, can be turned off).

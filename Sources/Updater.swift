@@ -64,6 +64,14 @@ final class Updater: ObservableObject {
             if interactive { alert("Couldn't check for updates", "GitHub didn't answer. Try again later.") }
             return
         }
+        // Only tags in the protected v* form count; anything else (e.g. "99.0", "V99") is never offered
+        guard Self.isValidReleaseTag(rel.tag_name) else {
+            status = .upToDate
+            if interactive {
+                alert("No valid update found", "The latest release on GitHub (\(rel.tag_name)) isn't a proper Cove release tag, so it won't be installed.")
+            }
+            return
+        }
         latest = rel
         if Self.isNewer(rel.tag_name, than: cur) {
             let d = UserDefaults.standard
@@ -113,6 +121,25 @@ final class Updater: ObservableObject {
         return v.range(of: #"-\d+-g[0-9a-f]+$"#, options: .regularExpression) != nil
     }
 
+    /// Release tags as the protected ruleset allows them: lowercase "v" and 2 to 4 numbers ("v1.17.2").
+    nonisolated static func isValidReleaseTag(_ tag: String) -> Bool {
+        tag.range(of: #"^v[0-9]+(\.[0-9]+){1,3}$"#, options: .regularExpression) != nil
+    }
+
+    static let mismatchMessage = "The update doesn't match the release it came from, so it was not installed."
+
+    /// Checks the unzipped app's Info.plist against the release: same bundle id, CoveVersion equal to the tag,
+    /// and strictly newer than the running version. Nil when it's fine. (The signature covers only the zip, so
+    /// without this an older signed zip could be republished under a new tag.)
+    nonisolated static func verifyBundle(info: [String: Any], expectedId: String?, tag: String, current: String) -> Error? {
+        guard let expectedId, !expectedId.isEmpty,
+              info["CFBundleIdentifier"] as? String == expectedId,
+              isValidReleaseTag(tag),
+              let v = info["CoveVersion"] as? String, v == tag,
+              isNewer(v, than: current) else { return Err(mismatchMessage) }
+        return nil
+    }
+
     // MARK: Version compare ("v1.2" > "v1.1" > "v1.0" > "v0.10Beta"; a release beats a beta of the same number)
 
     nonisolated static func key(_ tag: String) -> (nums: [Int], release: Bool) {
@@ -159,7 +186,7 @@ final class Updater: ObservableObject {
     // MARK: Install
 
     func install() async {
-        guard let rel = latest,
+        guard let rel = latest, let cur = current, Self.isValidReleaseTag(rel.tag_name),
               let asset = rel.assets.first(where: { $0.name.hasSuffix(".zip") }),
               let url = URL(string: asset.browser_download_url) else {
             fail("This release has no app download."); return
@@ -181,8 +208,8 @@ final class Updater: ObservableObject {
         windowError = nil
         progress = nil
         progressText = "Downloading \(AppVersion.pretty(rel.tag_name))…"
+        let work = FileManager.default.temporaryDirectory.appendingPathComponent("CoveUpdate-\(UUID().uuidString)")
         do {
-            let work = FileManager.default.temporaryDirectory.appendingPathComponent("CoveUpdate-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true,
                                                     attributes: [.posixPermissions: 0o700])
             let zip = work.appendingPathComponent("update.zip")
@@ -215,11 +242,21 @@ final class Updater: ObservableObject {
             let found = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)) ?? []
             guard let newApp = found.first(where: { $0.pathExtension == "app" }) else { throw Err("The download didn't contain the app.") }
             guard await run("/usr/bin/codesign", ["-v", newApp.path]) == 0 else { throw Err("The downloaded app failed its signature check.") }
+            // The app inside must be Cove, of exactly the release's version, and newer than this one (no downgrade)
+            let plist = newApp.appendingPathComponent("Contents/Info.plist")
+            guard let pd = try? Data(contentsOf: plist),
+                  let info = try? PropertyListSerialization.propertyList(from: pd, format: nil) as? [String: Any] else {
+                throw Err(Self.mismatchMessage)
+            }
+            if let e = Self.verifyBundle(info: info, expectedId: Bundle.main.bundleIdentifier, tag: rel.tag_name, current: cur) {
+                throw e
+            }
             // What's New after the relaunch shows these notes (no second request to GitHub)
             UserDefaults.standard.set(["version": rel.tag_name, "body": rel.body ?? ""], forKey: WhatsNew.pendingKey)
             progressText = "Restarting…"
             try relaunch(replacing: target, with: newApp, work: work)
         } catch {
+            try? FileManager.default.removeItem(at: work)
             fail((error as? Err)?.msg ?? error.localizedDescription)
         }
     }
@@ -304,7 +341,7 @@ final class Updater: ObservableObject {
         if CoveWindows.isOpen(Self.windowID) { windowError = m } else { alert("Update failed", m) }
     }
 
-    private struct Err: Error { let msg: String; init(_ m: String) { msg = m } }
+    struct Err: Error { let msg: String; init(_ m: String) { msg = m } }
 }
 
 /// Settings → About row.
