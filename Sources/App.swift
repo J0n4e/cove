@@ -136,6 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                           queue: .main) { _ in
             MainActor.assumeIsolated { PlayerModel.active?.pauseForSleep() }
         }
+        // Keeps the subtitle cache bounded (size and age), quietly in the background
+        Task.detached(priority: .utility) { SubtitleCache.shared.prune() }
     }
 
     /// Quitting while a video plays (⌘Q, or closing the last window): tell the server where playback stopped

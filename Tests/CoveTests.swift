@@ -380,4 +380,55 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(PlayerModel.failureAction(.streamRequest, alreadyConverted: false), .showError)
         XCTAssertEqual(PlayerModel.failureAction(.streamRequest, alreadyConverted: true), .showError)
     }
+
+    // MARK: Subtitle cache
+
+    private func subtitleCache() throws -> SubtitleCache {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("subs-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return SubtitleCache(dir: dir)
+    }
+
+    private func put(_ c: SubtitleCache, _ key: String, bytes: Int, age: TimeInterval = 0) throws -> URL {
+        let f = c.file(key)
+        try Data(repeating: 65, count: bytes).write(to: f)
+        let d = Date().addingTimeInterval(-age)
+        try FileManager.default.setAttributes([.modificationDate: d], ofItemAtPath: f.path)
+        var v = URLResourceValues(); v.contentAccessDate = d
+        var u = f; try? u.setResourceValues(v)
+        return f
+    }
+
+    func testSubtitleCacheTotalAndClear() throws {
+        let c = try subtitleCache()
+        _ = try put(c, "http://a|1|s|0", bytes: 1000)
+        _ = try put(c, "http://a|2|s|0", bytes: 3000)
+        XCTAssertGreaterThanOrEqual(c.totalBytes(), 4000)
+        c.clear()
+        XCTAssertEqual(c.totalBytes(), 0)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: c.dir.path).isEmpty)
+    }
+
+    func testSubtitleCachePrune() throws {
+        let c = try subtitleCache()
+        let old = try put(c, "http://a|old|s|0", bytes: 100, age: 100 * 86400)
+        let oldest = try put(c, "http://a|1|s|0", bytes: 50_000, age: 3000)
+        let newer = try put(c, "http://a|2|s|0", bytes: 50_000, age: 1000)
+        c.prune(maxBytes: 80_000, maxAge: 90 * 86400)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: old.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: oldest.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: newer.path))
+    }
+
+    func testSubtitleCacheRemoveServer() throws {
+        let c = try subtitleCache()
+        let a = try put(c, "http://a:8096|1|s|0", bytes: 10)
+        let b = try put(c, "http://b:8096|1|s|0", bytes: 10)
+        XCTAssertEqual(SubtitleCache.key(ofFile: a.lastPathComponent), "http://a:8096|1|s|0")
+        try Data().write(to: c.dir.appendingPathComponent("not-base64!.srt"))
+        c.removeServer("http://a:8096")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: a.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: b.path))
+    }
 }

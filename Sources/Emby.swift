@@ -426,6 +426,7 @@ final class Emby: ObservableObject {
         servers.removeAll { $0.id == e.id }
         saveServers()
         ImageCache.shared.clear()
+        SubtitleCache.shared.removeServer(e.url)
     }
 
     /// Ends the session on the server too, so the token stops working there (and leaves its Devices list).
@@ -585,6 +586,7 @@ final class Emby: ObservableObject {
     func logout() {
         revoke(server: server, token: token)
         ImageCache.shared.clear()
+        SubtitleCache.shared.removeServer(server)
         if let i = servers.firstIndex(where: { $0.id == server.lowercased() }) {
             servers[i].token = nil; servers[i].userId = nil; saveServers()
         }
@@ -1193,24 +1195,20 @@ final class Emby: ObservableObject {
     }
 
     private func cueFile(_ itemId: String, _ sourceId: String, _ index: Int) -> URL? {
-        guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
-            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "eu.jonae.cove", isDirectory: true)
-            .appendingPathComponent("Subtitles", isDirectory: true) else { return nil }
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let key = "\(server)|\(itemId)|\(sourceId)|\(index)".data(using: .utf8)!.base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-        return dir.appendingPathComponent(key + ".srt")
+        SubtitleCache.shared.file("\(server)|\(itemId)|\(sourceId)|\(index)")
     }
 
     /// A whole track downloaded before.
     func cachedCues(_ itemId: String, _ sourceId: String?, _ index: Int) -> [Cue]? {
         guard let sourceId, let f = cueFile(itemId, sourceId, index), let text = try? String(contentsOf: f, encoding: .utf8) else { return nil }
         let c = Cue.parseSRT(text)
+        if !c.isEmpty { SubtitleCache.shared.touch(f) }
         return c.isEmpty ? nil : c
     }
 
     private func saveCues(_ itemId: String, _ sourceId: String, _ index: Int, _ text: String) {
         if let f = cueFile(itemId, sourceId, index) { try? text.write(to: f, atomically: true, encoding: .utf8) }
+        Task.detached(priority: .utility) { SubtitleCache.shared.prune() }
     }
 
     /// The HLS profile for the server. HEVC (4K, HDR) must come in fMP4 segments: AVPlayer rejects HEVC inside
