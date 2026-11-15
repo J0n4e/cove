@@ -930,6 +930,8 @@ struct ServerSettings: View {
             text().fixedSize(horizontal: false, vertical: true)
         }
     }
+    /// Switching or signing out closes Settings (its own window now, no longer a sheet).
+    func dismiss() { SettingsWindow.close() }
     @State private var busy: String?
 
     func connect(_ srv: SavedServer) {
