@@ -264,4 +264,23 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(links, [URL(string: "https://a.b")!])
         XCTAssertEqual(ReleaseNotes.render("  ").string, "No release notes.")
     }
+
+    // MARK: Playback state
+
+    func testPlaybackInfoStatus() {
+        XCTAssertEqual(Emby.playbackInfoStatus(200), .ok)
+        XCTAssertEqual(Emby.playbackInfoStatus(204), .ok)
+        XCTAssertEqual(Emby.playbackInfoStatus(nil), .ok)
+        XCTAssertEqual(Emby.playbackInfoStatus(401), .sessionEnded)
+        XCTAssertEqual(Emby.playbackInfoStatus(500), .serverError(500))
+        XCTAssertEqual(Emby.playbackInfoStatus(404), .serverError(404))
+    }
+
+    func testEffectiveStart() {
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: 120, requestStart: 30), 120)   // restart keeps its position
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: 30), 30)    // new film: its own resume point
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: 0, requestStart: 30), 30)
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: nil), 0)
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: -1), 0)
+    }
 }

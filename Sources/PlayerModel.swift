@@ -103,15 +103,16 @@ final class PlayerModel: ObservableObject {
     var subStreams: [MStream] { streams.filter { $0.`Type` == "Subtitle" } }
     var now: Double { player?.currentTime().seconds ?? 0 }
 
-    func start(_ emby: Emby, _ req: PlayRequest, direct: Bool = true) async {
+    /// `seek`: the position a restart keeps (nil: a new start, which uses the request's resume point).
+    func start(_ emby: Emby, _ req: PlayRequest, direct: Bool = true, seek: Double? = nil) async {
         stop()
+        pendingSeek = Self.effectiveStart(keep: seek, requestStart: req.start)
         startGen += 1
         let gen = startGen
         func current() -> Bool { gen == startGen && !Task.isCancelled }
         error = ""; cues = []; cuesUpTo = 0; isReady = false
         self.emby = emby
         Self.active = self
-        if pendingSeek == 0, let s = req.start, s > 0 { pendingSeek = s }
         self.req = req
         sub = req.sub; quality = req.maxBitrate ?? 0
         let f = (streams.isEmpty || metaFor != req.item.id) ? await emby.full(req.item.id) : nil
@@ -164,7 +165,7 @@ final class PlayerModel: ObservableObject {
         let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
                                                 hevc: passHEVC, maxWidth: Self.screenWidth)
         guard let u = resolved else {
-            if current() { error = "Couldn't get a stream from the server." }
+            if current() { error = emby.lastStreamError ?? "Couldn't get a stream from the server." }
             return
         }
         let method = u.absoluteString.contains("Static=true") ? "DirectPlay" : "Transcode"
@@ -193,7 +194,8 @@ final class PlayerModel: ObservableObject {
             }
             if i.status == .readyToPlay {
                 Task { @MainActor in
-                    guard let self else { return }
+                    // A stale event from a stream that was restarted meanwhile must not mark the new one ready
+                    guard let self, gen == self.startGen, self.player?.currentItem === i else { return }
                     self.isReady = true
                     if self.resumeTarget > 0 {
                         let t = self.resumeTarget; self.resumeTarget = 0
@@ -209,6 +211,7 @@ final class PlayerModel: ObservableObject {
                             self?.logServer()
                         }
                     }
+                    guard gen == self.startGen else { return }
                     if !self.reportedStart, let ps = self.session {
                         self.reportedStart = true
                         await self.emby?.reportStart(ps, self.now)
@@ -226,7 +229,10 @@ final class PlayerModel: ObservableObject {
         let p = AVPlayer(playerItem: it)
         p.volume = volume
         timeObs = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { [weak self] t in
-            MainActor.assumeIsolated { self?.tick(t.seconds) }
+            MainActor.assumeIsolated {
+                guard let self, gen == self.startGen else { return }
+                self.tick(t.seconds)
+            }
         }
         player = p
         p.defaultRate = speed
@@ -284,8 +290,7 @@ final class PlayerModel: ObservableObject {
         guard let r = req else { return }
         forceTranscode = true
         let pos = player != nil && now > 1 ? now : time
-        pendingSeek = pos > 1 ? pos : 0
-        await start(emby, r)
+        await start(emby, r, seek: pos > 1 ? pos : 0)
     }
 
     /// Restart the stream with new settings, keeping the playback position.
@@ -293,8 +298,14 @@ final class PlayerModel: ObservableObject {
         guard var r = req else { return }
         change(&r)
         // While an earlier restart is still loading there is no player yet (`now` reads 0): keep its position
-        pendingSeek = player != nil ? now : max(pendingSeek, time)
-        await start(emby, r)
+        await start(emby, r, seek: player != nil ? now : max(pendingSeek, time))
+    }
+
+    /// Where a stream starts: the position a restart keeps, else the request's resume point, else 0.
+    nonisolated static func effectiveStart(keep: Double?, requestStart: Double?) -> Double {
+        if let k = keep, k > 0 { return k }
+        if let s = requestStart, s > 0 { return s }
+        return 0
     }
 
     func isImageSub(_ idx: Int) -> Bool {
@@ -669,5 +680,6 @@ final class PlayerModel: ObservableObject {
         keepAlive?.invalidate(); keepAlive = nil
         if pip?.isPictureInPictureActive == true { pip?.stopPictureInPicture() }
         player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
+        pendingSeek = 0                           // a start that was interrupted must not leak its position
     }
 }
