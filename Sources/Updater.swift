@@ -180,25 +180,33 @@ final class Updater: ObservableObject {
         }
     }
 
+    /// The swap script. Arguments: pid to wait for, the app to replace, the new app, the work folder (removed at
+    /// the end), and optionally the command that opens the app afterwards (`open`; the tests pass `true`).
+    /// The running app is only ever moved aside, never deleted, until the new one is fully in place; whatever
+    /// fails, the original app ends up back where it was and is opened again.
+    nonisolated static let swapScript = """
+        #!/bin/sh
+        PATH=/usr/bin:/bin:/usr/sbin:/sbin
+        while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
+        T="$2"; N="$3"; W="$4"; OPEN="${5:-open}"
+        reopen() { xattr -dr com.apple.quarantine "$T" 2>/dev/null; "$OPEN" "$T"; rm -rf "$W"; }
+        # A leftover from an earlier attempt: clear it, and if that fails don't touch the app
+        rm -rf "$T.old" 2>/dev/null
+        if [ -e "$T.old" ]; then echo "swap: couldn't remove $T.old" >&2; reopen; exit 1; fi
+        if ! mv "$T" "$T.old"; then echo "swap: couldn't move the app aside" >&2; reopen; exit 1; fi
+        if ! ditto "$N" "$T"; then
+          echo "swap: couldn't copy the new app, restoring the old one" >&2
+          rm -rf "$T"; mv "$T.old" "$T"; reopen; exit 1
+        fi
+        rm -rf "$T.old"
+        reopen
+        """
+
     /// Hands off to a small shell script that waits for us to quit, swaps the bundle (restoring the old one if
     /// anything fails), clears quarantine and opens the new app. The new app goes exactly where the running one is,
     /// under the same name, so no other copy of Cove in that folder is touched.
     private func relaunch(replacing target: URL, with newApp: URL, work: URL) throws {
-        let script = """
-        #!/bin/sh
-        PATH=/usr/bin:/bin:/usr/sbin:/sbin
-        while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
-        T="$2"; N="$3"
-        rm -rf "$T.old"
-        if mv "$T" "$T.old" && ditto "$N" "$T"; then
-          rm -rf "$T.old"
-        else
-          rm -rf "$T"; mv "$T.old" "$T"
-        fi
-        xattr -dr com.apple.quarantine "$T" 2>/dev/null
-        open "$T"
-        rm -rf "$4"
-        """
+        let script = Self.swapScript
         let s = work.appendingPathComponent("swap.sh")
         try script.write(to: s, atomically: true, encoding: .utf8)
         let p = Process()
