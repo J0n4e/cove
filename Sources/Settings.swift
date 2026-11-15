@@ -1102,7 +1102,8 @@ struct ServerSettings: View {
                 PrefRow(label: "Client ID") {
                     HStack(spacing: 8) {
                         // Shown as dots once saved; typing a new one replaces it
-                        SecureField(trakt.isConfigured ? "Saved (encrypted)" : "Paste the Client ID", text: $clientIdDraft)
+                        SecureField(trakt.isConfigured ? "Saved on this Mac" : "Paste the Client ID", text: $clientIdDraft)
+                            .help("Stored in Cove's preferences, scrambled with a key tied to this Mac. Not readable if the file is copied elsewhere.")
                             .textFieldStyle(.roundedBorder).frame(width: 300)
                             .onSubmit(saveClientId)
                         Button("Save", action: saveClientId).disabled(clientIdDraft.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -1138,7 +1139,7 @@ struct ServerSettings: View {
                     })
                 }
             }
-            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are stored encrypted.")
+            PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are saved on this Mac, scrambled with a key tied to it.")
         }
     }
 }

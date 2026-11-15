@@ -177,29 +177,50 @@ struct ConnectionBadge: View {
     }
 }
 
-/// Small secrets in the preferences file, encrypted (AES-GCM) with a key made from this Mac's hardware id, so
-/// they never appear as plain text there and a copied preferences file is useless on another Mac. Not as strong
-/// as the Keychain (another program running as you could do the same), which waits for an Apple Developer ID
-/// for the same reason as the server tokens (see TokenStore).
+/// Small secrets in the preferences file, sealed (AES-GCM) with a key made from this Mac's hardware id, so they
+/// never appear as plain text there and a copied preferences file is useless on another Mac. This is scrambling,
+/// not real protection: another program running as you on this Mac can rebuild the key. The Keychain waits for an
+/// Apple Developer ID for the same reason as the server tokens (see TokenStore).
 enum SealedPrefs {
-    private static let key: SymmetricKey = {
-        let hw = IORegistryEntryCreateCFProperty(
-            IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice")),
-            kIOPlatformUUIDKey as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String ?? "cove"
-        return SymmetricKey(data: SHA256.hash(data: Data("eu.jonae.cove.sealed.\(hw)".utf8)))
+    private static func derive(_ seed: String) -> SymmetricKey {
+        SymmetricKey(data: SHA256.hash(data: Data("eu.jonae.cove.sealed.\(seed)".utf8)))
+    }
+
+    private static let hardwareId: String? = {
+        let svc = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"))
+        defer { if svc != 0 { IOObjectRelease(svc) } }
+        let id = IORegistryEntryCreateCFProperty(svc, kIOPlatformUUIDKey as CFString, kCFAllocatorDefault, 0)?
+            .takeRetainedValue() as? String
+        if id?.isEmpty ?? true { coveLog.error("This Mac's hardware id could not be read; sealing with a random key") }
+        return id?.isEmpty == false ? id : nil
     }()
 
-    static func get(_ name: String) -> String? {
-        guard let data = UserDefaults.standard.data(forKey: name),
-              let box = try? AES.GCM.SealedBox(combined: data),
-              let plain = try? AES.GCM.open(box, using: key) else { return nil }
-        return String(data: plain, encoding: .utf8)
+    /// Before 1.18 a missing hardware id silently gave the same key on every Mac; still opened, never written.
+    private static let legacyKey = derive("cove")
+
+    /// Key for new data: from the hardware id, or (if it can't be read) a random seed saved once in `d`.
+    private static func key(_ d: UserDefaults) -> SymmetricKey {
+        if let hw = hardwareId { return derive(hw) }
+        if let r = d.string(forKey: "sealedSeed") { return derive("random." + r) }
+        let r = UUID().uuidString
+        d.set(r, forKey: "sealedSeed")
+        return derive("random." + r)
+    }
+
+    static func get(_ name: String, in d: UserDefaults = .standard) -> String? {
+        guard let data = d.data(forKey: name), let box = try? AES.GCM.SealedBox(combined: data) else { return nil }
+        for k in [key(d), legacyKey] {
+            if let plain = try? AES.GCM.open(box, using: k) { return String(data: plain, encoding: .utf8) }
+        }
+        return nil
     }
 
     /// nil (or empty) removes it.
-    static func set(_ value: String?, for name: String) {
-        guard let value, !value.isEmpty, let box = try? AES.GCM.seal(Data(value.utf8), using: key).combined
-        else { UserDefaults.standard.removeObject(forKey: name); return }
-        UserDefaults.standard.set(box, forKey: name)
+    static func set(_ value: String?, for name: String, in d: UserDefaults = .standard) {
+        guard let value, !value.isEmpty else { d.removeObject(forKey: name); return }
+        guard let box = try? AES.GCM.seal(Data(value.utf8), using: key(d)).combined else {
+            coveLog.error("Could not seal \(name, privacy: .public)"); return
+        }
+        d.set(box, forKey: name)
     }
 }

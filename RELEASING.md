@@ -27,7 +27,7 @@ without any secrets (ad-hoc signature).
    Save `update-key.private` in your password manager, then delete it. **Never commit it.**
 3. **Code-signing certificate** (self-signed, gives every release the same identity). Note: without an Apple
    Developer ID (Team ID) macOS still ties Keychain items to each exact build, so Cove keeps sign-ins in its
-   preferences file for now; Keychain storage returns once releases are signed with a Developer ID:
+   preferences file for now (sealed with a per-Mac key, see SECURITY.md); Keychain storage returns once releases are signed with a Developer ID:
    ```sh
    scripts/make-signing-cert.sh --github     # creates cove-signing.p12, sets CODESIGN_P12 / CODESIGN_P12_PASSWORD in "release"
    ```
