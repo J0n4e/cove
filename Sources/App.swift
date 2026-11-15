@@ -87,8 +87,9 @@ struct CoveApp: App {
                 Button("Check for Updates…") { Task { await Updater.shared.check(interactive: true) } }
                 Button("What's New in Cove…") { WhatsNew.show() }
             }
-            // No Services submenu in the Cove menu (Hide, Hide Others, Show All and Quit stay)
+            // No Services, Hide Cove, Hide Others or Show All in the Cove menu (Quit stays)
             CommandGroup(replacing: .systemServices) {}
+            CommandGroup(replacing: .appVisibility) {}
         }
         // Videos play in their own window, like the Apple TV app
         Window("Player", id: "player") {

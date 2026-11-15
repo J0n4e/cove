@@ -6,11 +6,9 @@ import UniformTypeIdentifiers
 /// Values live in UserDefaults (the same keys the rest of the app reads).
 struct SettingsView: View {
     @EnvironmentObject var emby: Emby
-    @Environment(\.dismiss) var dismiss
     @Environment(\.appBG) var bg
     @AppStorage("accent") private var accentName = "red"
     var accent: Color { Theme.accent(accentName) }
-    var onDone: () -> Void
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "General", home = "Home", libraries = "Libraries",
@@ -41,18 +39,6 @@ struct SettingsView: View {
             Text(section.rawValue).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
-                // Every setting applies as soon as it's changed, so there is nothing to confirm or cancel: just Done
-                // (a sheet has no close button), top right like the Apple TV app's settings. Esc does the same.
-                .overlay(alignment: .topTrailing) {
-                    Button { close() } label: {
-                        Text("Done").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.onAccent(accentName))
-                            .padding(.horizontal, 14).padding(.vertical, 5)
-                            .background(Capsule().fill(accent))
-                    }
-                    .buttonStyle(.plainHand).focusEffectDisabled()
-                    .keyboardShortcut(.defaultAction)
-                    .padding(.top, 8).padding(.trailing, 14)
-                }
             HStack(spacing: 4) {
                 ForEach(sections) { s in
                     let on = section == s
@@ -93,12 +79,63 @@ struct SettingsView: View {
         .onChange(of: trakt.isConnected) { _, on in if !on && section == .trakt { section = .servers } }
         .tint(accent)     // switches, menus and links inside Settings too
         .background(bg)   // follows Appearance → Background, like the rest of the app
-        // Esc closes Settings and keeps the changes, like Done
-        .background(Button("") { close() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
+        // Room for the traffic lights in the transparent title bar
+        .padding(.top, 18)
+        .ignoresSafeArea(.container, edges: .top)
+    }
+}
+
+/// The Settings window's content, with what the main window's scene injects (Background follows the setting live).
+struct SettingsWindowRoot: View {
+    let emby: Emby
+    @AppStorage("bg") private var bgName = "black"
+    var body: some View {
+        SettingsView().environmentObject(emby).environment(\.appBG, Theme.bg(bgName))
+            .preferredColorScheme(.dark).focusEffectDisabled()
+    }
+}
+
+/// Settings in their own window with the traffic lights (one at a time; opening again brings it to the front).
+/// Every setting applies as soon as it's changed; closing (red button, Esc or ⌘W) saves the library choices
+/// and reloads the pages, as Done did.
+@MainActor
+final class SettingsWindow: NSObject, NSWindowDelegate {
+    static let shared = SettingsWindow()
+    private var window: NSWindow?
+    private var onClose: () -> Void = {}
+    private weak var emby: Emby?
+
+    static func show(emby: Emby, onClose: @escaping () -> Void) { shared.show(emby: emby, onClose: onClose) }
+    /// Closes the window (runs the close work); used before quitting for an update.
+    static func close() { shared.window?.close() }
+
+    private func show(emby: Emby, onClose: @escaping () -> Void) {
+        self.emby = emby
+        self.onClose = onClose
+        if window == nil {
+            let host = NSHostingController(rootView: SettingsWindowRoot(emby: emby))
+            let w = PanelWindow(contentViewController: host)
+            w.title = "Settings"
+            w.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            w.titlebarAppearsTransparent = true
+            w.titleVisibility = .hidden
+            w.appearance = NSAppearance(named: .darkAqua)
+            w.isReleasedWhenClosed = false
+            w.standardWindowButton(.zoomButton)?.isEnabled = false
+            w.delegate = self
+            w.setContentSize(NSSize(width: 760, height: 640))
+            window = w
+        }
+        guard let w = window else { return }
+        if !w.isVisible { w.center() }
+        NSApp.activate(ignoringOtherApps: true)
+        w.makeKeyAndOrderFront(nil)
     }
 
-    /// Settings apply as they're changed; closing saves the library choices and reloads the pages.
-    private func close() { emby.saveLibs(); onDone(); dismiss() }
+    func windowWillClose(_ notification: Notification) {
+        emby?.saveLibs()
+        onClose()
+    }
 }
 
 // MARK: - Building blocks
@@ -893,7 +930,6 @@ struct ServerSettings: View {
             text().fixedSize(horizontal: false, vertical: true)
         }
     }
-    @Environment(\.dismiss) var dismiss
     @State private var busy: String?
 
     func connect(_ srv: SavedServer) {

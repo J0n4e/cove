@@ -260,6 +260,7 @@ final class Updater: ObservableObject {
         // An open sheet (Settings, where the update is usually started) can keep the app from quitting, and the
         // script then waits forever. Close sheets first, and if the app is still running a moment later, quit anyway.
         for w in NSApp.windows { for sheet in w.sheets { w.endSheet(sheet) } }
+        SettingsWindow.close()
         NSApp.terminate(nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exit(0) }
     }
