@@ -368,4 +368,16 @@ final class CoveTests: XCTestCase {
         XCTAssertTrue(ro.contains("/Volumes/Disk"))
         XCTAssertTrue(ro.contains("Applications folder"))
     }
+
+    // MARK: Playback fallback
+
+    func testPlaybackFailureAction() {
+        // First player failure (e.g. CoreMedia -12927 on direct play): convert and continue
+        XCTAssertEqual(PlayerModel.failureAction(.player, alreadyConverted: false), .retryConverted)
+        // The converted stream failed too: show the error (no loop)
+        XCTAssertEqual(PlayerModel.failureAction(.player, alreadyConverted: true), .showError)
+        // PlaybackInfo 401 / server error / no stream: show the error, never retry
+        XCTAssertEqual(PlayerModel.failureAction(.streamRequest, alreadyConverted: false), .showError)
+        XCTAssertEqual(PlayerModel.failureAction(.streamRequest, alreadyConverted: true), .showError)
+    }
 }

@@ -165,7 +165,10 @@ final class PlayerModel: ObservableObject {
         let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
                                                 hevc: passHEVC, maxWidth: Self.screenWidth)
         guard let u = resolved else {
-            if current() { error = emby.lastStreamError ?? "Couldn't get a stream from the server." }
+            // (a 401 or a server error from PlaybackInfo is shown as is: converting wouldn't help)
+            if current(), Self.failureAction(.streamRequest, alreadyConverted: forceTranscode) == .showError {
+                error = emby.lastStreamError ?? "Couldn't get a stream from the server."
+            }
             return
         }
         let method = u.absoluteString.contains("Static=true") ? "DirectPlay" : "Transcode"
@@ -275,14 +278,30 @@ final class PlayerModel: ObservableObject {
         let how = "\(session?.method ?? "?")\(sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR) ? ", HEVC fMP4" : "")"
         dlog("playback failed (\(how)): \(info)")
         coveLog.error("Playback failed (\(how, privacy: .public)): \(info, privacy: .public)")
-        if !forceTranscode {
+        if Self.failureAction(.player, alreadyConverted: forceTranscode) == .retryConverted {
             dlog("retrying with the video converted by the server")
+            forceTranscode = true          // at most one automatic retry per item
             retrying = true
-            Task { await retryTranscoded(emby); retrying = false }
+            Task {
+                // Stopped or switched to another film meanwhile: don't start anything
+                if gen == startGen { await retryTranscoded(emby) }
+                retrying = false
+            }
             return
         }
         error = "Cove couldn't play this video, even converted by the server.\n(\(code))"
             + (sourceIsHDR ? "\nFor HDR videos, turn on tone mapping in the server's transcoding settings." : "")
+    }
+
+    /// What went wrong: AVPlayer couldn't play the stream (item failed, or failed part-way), or the server
+    /// didn't give a stream at all (PlaybackInfo 401 / server error / no URL).
+    enum FailureKind: Equatable { case player, streamRequest }
+    enum FailureAction: Equatable { case retryConverted, showError }
+
+    /// A player failure on a stream not yet converted by the server is retried once, converted; anything
+    /// else (already converted, or the server refused the stream) shows the error.
+    nonisolated static func failureAction(_ kind: FailureKind, alreadyConverted: Bool) -> FailureAction {
+        kind == .player && !alreadyConverted ? .retryConverted : .showError
     }
 
     /// Plays the video again converted by the server, from the same position with the same audio and subtitles.
