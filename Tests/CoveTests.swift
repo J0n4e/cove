@@ -329,4 +329,32 @@ final class CoveTests: XCTestCase {
         XCTAssertFalse(Trakt.shouldSignOut(renewStatus: nil))     // network error
         for s in [0, 403, 429, 500, 502, 503] { XCTAssertFalse(Trakt.shouldSignOut(renewStatus: s)) }
     }
+
+    // MARK: Updater downgrade
+
+    func testValidReleaseTag() {
+        for ok in ["v1.17.2", "v1.0", "v2.0.0.1"] { XCTAssertTrue(Updater.isValidReleaseTag(ok), ok) }
+        for bad in ["V1.17.2", "1.17.2", "99", "v99", "v1.17.2-beta", "v1..2", "", "v1.2.3.4.5", " v1.2", "v1.2\n"] {
+            XCTAssertFalse(Updater.isValidReleaseTag(bad), bad)
+        }
+    }
+
+    func testVerifyBundle() {
+        let id = "eu.jonae.cove"
+        func info(_ i: String, _ v: String) -> [String: Any] { ["CFBundleIdentifier": i, "CoveVersion": v] }
+        XCTAssertNil(Updater.verifyBundle(info: info(id, "v1.17.3"), expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        // Wrong bundle id
+        XCTAssertNotNil(Updater.verifyBundle(info: info("com.evil.app", "v1.17.3"), expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.17.3"), expectedId: nil, tag: "v1.17.3", current: "v1.17.2"))
+        // Version doesn't match the tag (old signed zip republished under a new tag)
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.10.0"), expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        XCTAssertNotNil(Updater.verifyBundle(info: ["CFBundleIdentifier": id], expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        // Not newer than the running version
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.17.2"), expectedId: id, tag: "v1.17.2", current: "v1.17.2"))
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.16.0"), expectedId: id, tag: "v1.16.0", current: "v1.17.2"))
+        // Invalid tag
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "V99"), expectedId: id, tag: "V99", current: "v1.17.2"))
+        let e = Updater.verifyBundle(info: info(id, "v1.0"), expectedId: id, tag: "v1.17.3", current: "v1.17.2") as? Updater.Err
+        XCTAssertEqual(e?.msg, Updater.mismatchMessage)
+    }
 }
