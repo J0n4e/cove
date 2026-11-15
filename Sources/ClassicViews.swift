@@ -3167,10 +3167,10 @@ struct ClassicPlayerView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     Spinner(inPlayer: true).controlSize(.small)
-                    Text("Loading subtitles…").font(.cv(14, weight: .medium))
+                    Text("Loading subtitles…").font(.cv(14, weight: .medium)).glossyLettering()
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Capsule().fill(Color.black.opacity(0.6)))
+                .modifier(TimeBubble(classic: true))   // dark glass, as the time above the timeline
                 .padding(.bottom, subLift(size))
             }.frame(maxWidth: .infinity).allowsHitTesting(false)
         }
