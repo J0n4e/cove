@@ -3656,14 +3656,14 @@ extension ClassicPlayerView {
         if let x, model.duration > 0 {
             let t = Double(max(0, min(x, sliderW)) / max(sliderW, 1)) * model.duration
             let img = model.hasThumbs ? model.thumb(at: t) : nil
-            let w: CGFloat = img == nil ? 64 : 220
+            let w: CGFloat = img == nil ? 96 : 220   // (room for "1:30:00" in the glass bubble)
             VStack(spacing: 4) {
                 if let img {
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
                         .frame(width: w).cornerRadius(classic ? 10 : 6)
                         .modifier(PreviewFrame(classic: classic))
                 }
-                Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit())
+                Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit()).lineLimit(1).fixedSize()
                     .padding(.horizontal, classic ? 10 : 6).padding(.vertical, classic ? 4 : 2)
                     .modifier(TimeBubble(classic: classic))
             }

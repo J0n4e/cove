@@ -4523,14 +4523,14 @@ extension PlayerView {
         if let x, model.duration > 0 {
             let t = Double(max(0, min(x, sliderW)) / max(sliderW, 1)) * model.duration
             let img = model.hasThumbs ? model.thumb(at: t) : nil
-            let w: CGFloat = img == nil ? 64 : 220
+            let w: CGFloat = img == nil ? 96 : 220   // (room for "1:30:00" in the glass bubble)
             VStack(spacing: 4) {
                 if let img {
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
                         .frame(width: w).cornerRadius(6)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1))
                 }
-                Text(fmt(t)).font(.system(size: 13, weight: .semibold).monospacedDigit())
+                Text(fmt(t)).font(.system(size: 13, weight: .semibold).monospacedDigit()).lineLimit(1).fixedSize()
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Capsule().fill(Color.black.opacity(0.7)))
             }
