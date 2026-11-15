@@ -2,7 +2,9 @@
 
 Releases are built, signed and attested by GitHub Actions (`.github/workflows/build-app.yml`). The in-app
 updater installs a release only if `Cove.zip.sig` verifies against the public key built into the app, so a
-zip uploaded by hand is refused.
+zip uploaded by hand is refused. It also ignores tags that aren't `v` plus 2–4 numbers (`v1.17.2`) and refuses a
+zip whose app has a different bundle id, a `CoveVersion` other than the tag, or a version that isn't newer, so
+always release with `VERSION` equal to the tag.
 
 The signing secrets live in the GitHub **Environment `release`**, which only `v*` tags may use, and a **tag
 ruleset** lets only the repository owner create `v*` tags. So a pull request, a branch, or someone with write

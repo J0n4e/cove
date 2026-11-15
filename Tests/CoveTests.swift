@@ -264,4 +264,108 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(links, [URL(string: "https://a.b")!])
         XCTAssertEqual(ReleaseNotes.render("  ").string, "No release notes.")
     }
+
+    // MARK: Playback state
+
+    func testPlaybackInfoStatus() {
+        XCTAssertEqual(Emby.playbackInfoStatus(200), .ok)
+        XCTAssertEqual(Emby.playbackInfoStatus(204), .ok)
+        XCTAssertEqual(Emby.playbackInfoStatus(nil), .ok)
+        XCTAssertEqual(Emby.playbackInfoStatus(401), .sessionEnded)
+        XCTAssertEqual(Emby.playbackInfoStatus(500), .serverError(500))
+        XCTAssertEqual(Emby.playbackInfoStatus(404), .serverError(404))
+    }
+
+    func testEffectiveStart() {
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: 120, requestStart: 30), 120)   // restart keeps its position
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: 30), 30)    // new film: its own resume point
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: 0, requestStart: 30), 30)
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: nil), 0)
+        XCTAssertEqual(PlayerModel.effectiveStart(keep: nil, requestStart: -1), 0)
+    }
+
+    // MARK: Trakt renewal
+
+    func testSingleFlightRunsOnceForConcurrentCallers() async throws {
+        let flight = SingleFlight<Int>()
+        var runs = 0
+        let op: @MainActor () async throws -> Int = {
+            runs += 1
+            try await Task.sleep(nanoseconds: 50_000_000)
+            return 42
+        }
+        let results = try await withThrowingTaskGroup(of: Int.self, returning: [Int].self) { g in
+            for _ in 0..<8 { g.addTask { @MainActor in try await flight.run(op) } }
+            var all: [Int] = []
+            for try await v in g { all.append(v) }
+            return all
+        }
+        XCTAssertEqual(runs, 1)
+        XCTAssertEqual(results, Array(repeating: 42, count: 8))
+        XCTAssertFalse(flight.isRunning)
+        _ = try await flight.run(op)            // a later call starts a new one
+        XCTAssertEqual(runs, 2)
+    }
+
+    func testSingleFlightSharesErrors() async {
+        struct Boom: Error {}
+        let flight = SingleFlight<Void>()
+        var runs = 0
+        let op: @MainActor () async throws -> Void = { runs += 1; try await Task.sleep(nanoseconds: 20_000_000); throw Boom() }
+        let failures = await withTaskGroup(of: Bool.self, returning: Int.self) { g in
+            for _ in 0..<3 { g.addTask { @MainActor in do { try await flight.run(op); return false } catch { return error is Boom } } }
+            var n = 0
+            for await failed in g where failed { n += 1 }
+            return n
+        }
+        XCTAssertEqual(failures, 3)
+        XCTAssertEqual(runs, 1)
+        XCTAssertFalse(flight.isRunning)
+    }
+
+    func testTraktSignsOutOnlyWhenRenewalIsRefused() {
+        XCTAssertTrue(Trakt.shouldSignOut(renewStatus: 400))
+        XCTAssertTrue(Trakt.shouldSignOut(renewStatus: 401))
+        XCTAssertFalse(Trakt.shouldSignOut(renewStatus: nil))     // network error
+        for s in [0, 403, 429, 500, 502, 503] { XCTAssertFalse(Trakt.shouldSignOut(renewStatus: s)) }
+    }
+
+    // MARK: Updater downgrade
+
+    func testValidReleaseTag() {
+        for ok in ["v1.17.2", "v1.0", "v2.0.0.1"] { XCTAssertTrue(Updater.isValidReleaseTag(ok), ok) }
+        for bad in ["V1.17.2", "1.17.2", "99", "v99", "v1.17.2-beta", "v1..2", "", "v1.2.3.4.5", " v1.2", "v1.2\n"] {
+            XCTAssertFalse(Updater.isValidReleaseTag(bad), bad)
+        }
+    }
+
+    func testVerifyBundle() {
+        let id = "eu.jonae.cove"
+        func info(_ i: String, _ v: String) -> [String: Any] { ["CFBundleIdentifier": i, "CoveVersion": v] }
+        XCTAssertNil(Updater.verifyBundle(info: info(id, "v1.17.3"), expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        // Wrong bundle id
+        XCTAssertNotNil(Updater.verifyBundle(info: info("com.evil.app", "v1.17.3"), expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.17.3"), expectedId: nil, tag: "v1.17.3", current: "v1.17.2"))
+        // Version doesn't match the tag (old signed zip republished under a new tag)
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.10.0"), expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        XCTAssertNotNil(Updater.verifyBundle(info: ["CFBundleIdentifier": id], expectedId: id, tag: "v1.17.3", current: "v1.17.2"))
+        // Not newer than the running version
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.17.2"), expectedId: id, tag: "v1.17.2", current: "v1.17.2"))
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "v1.16.0"), expectedId: id, tag: "v1.16.0", current: "v1.17.2"))
+        // Invalid tag
+        XCTAssertNotNil(Updater.verifyBundle(info: info(id, "V99"), expectedId: id, tag: "V99", current: "v1.17.2"))
+        let e = Updater.verifyBundle(info: info(id, "v1.0"), expectedId: id, tag: "v1.17.3", current: "v1.17.2") as? Updater.Err
+        XCTAssertEqual(e?.msg, Updater.mismatchMessage)
+    }
+
+    // MARK: Update location message
+
+    func testCantReplaceMessage() {
+        let tr = Updater.cantReplaceMessage(appPath: "/private/var/folders/d9/x/T/AppTranslocation/0FDF3AAA/d/Cove.app")
+        XCTAssertTrue(tr.contains("Applications folder"))
+        XCTAssertFalse(tr.contains("/private/var"))          // no random hidden path
+        let ro = Updater.cantReplaceMessage(appPath: "/Volumes/Disk/Cove.app")
+        XCTAssertTrue(ro.contains("/Volumes/Disk"))
+        XCTAssertTrue(ro.contains("Applications folder"))
+    }
 }
