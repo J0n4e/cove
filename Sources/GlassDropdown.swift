@@ -15,6 +15,8 @@ final class DropdownCenter: ObservableObject {
         var checked: Set<Int>? = nil
         /// Lines that are small section titles, not choices
         var headers: Set<Int> = []
+        /// Closes as soon as the pointer leaves it (the player's subtitle and quality lists)
+        var closeOnLeave = false
     }
     @Published var list: List?
     func close() { list = nil }
@@ -96,6 +98,7 @@ private struct DropdownLayer: View {
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(bg.opacity(0.75)))
         .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: 16, style: .continuous)))
         .shadow(color: .black.opacity(0.45), radius: 16, y: 6)
+        .onHover { inside in if !inside && l.closeOnLeave { center.close() } }
     }
 }
 
@@ -166,7 +169,7 @@ struct GlassMenuButton: View {
         Button {
             guard let center else { return }
             if center.list != nil { center.close(); return }
-            center.list = .init(anchor: frame, options: options, selected: selected, pick: pick)
+            center.list = .init(anchor: frame, options: options, selected: selected, pick: pick, closeOnLeave: true)
         } label: {
             Label(icon, systemImage: icon).classicGlassPill(size: size)
                 .overlay { if on { Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1) } }

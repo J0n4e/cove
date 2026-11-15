@@ -2839,6 +2839,7 @@ struct ClassicPlayerView: View {
     /// Classic theme: glass buttons. These controls can also be picked under the Glass theme (Settings →
     /// Playback → Player controls); there they keep their plain look.
     @Environment(\.classicGlass) private var classic
+    @Environment(\.dropdownCenter) private var dropdowns
 
     enum Panel { case subtitles, appearance, chapters, episodes }
     @State private var panel: Panel?
@@ -2987,7 +2988,10 @@ struct ClassicPlayerView: View {
         hideTask?.cancel()
         hideTask = Task {
             try? await Task.sleep(for: .seconds(3))
-            if !Task.isCancelled && model.playing && panel == nil {
+            guard !Task.isCancelled else { return }
+            // A glass list (subtitles, quality) is open: keep the controls until it closes
+            if dropdowns?.list != nil { poke(); return }
+            if model.playing && panel == nil {
                 withAnimation { showUI = false }
                 // Full screen: hide the pointer with the controls; it comes back when the mouse moves
                 if isFullScreen { NSCursor.setHiddenUntilMouseMoves(true) }
@@ -3167,10 +3171,10 @@ struct ClassicPlayerView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     Spinner(inPlayer: true).controlSize(.small)
-                    Text("Loading subtitles…").font(.cv(14, weight: .medium))
+                    Text("Loading subtitles…").font(.cv(14, weight: .medium)).glossyLettering()
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Capsule().fill(Color.black.opacity(0.6)))
+                .modifier(TimeBubble(classic: true))   // dark glass, as the time above the timeline
                 .padding(.bottom, subLift(size))
             }.frame(maxWidth: .infinity).allowsHitTesting(false)
         }
@@ -3652,14 +3656,14 @@ extension ClassicPlayerView {
         if let x, model.duration > 0 {
             let t = Double(max(0, min(x, sliderW)) / max(sliderW, 1)) * model.duration
             let img = model.hasThumbs ? model.thumb(at: t) : nil
-            let w: CGFloat = img == nil ? 64 : 220
+            let w: CGFloat = img == nil ? 96 : 220   // (room for "1:30:00" in the glass bubble)
             VStack(spacing: 4) {
                 if let img {
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
                         .frame(width: w).cornerRadius(classic ? 10 : 6)
                         .modifier(PreviewFrame(classic: classic))
                 }
-                Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit())
+                Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit()).lineLimit(1).fixedSize()
                     .padding(.horizontal, classic ? 10 : 6).padding(.vertical, classic ? 4 : 2)
                     .modifier(TimeBubble(classic: classic))
             }
