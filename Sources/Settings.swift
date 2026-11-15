@@ -96,9 +96,6 @@ struct SettingsWindowRoot: View {
         SettingsView().environmentObject(emby).environment(\.appBG, Theme.bg(bgName))
             .frame(width: 760, height: 640)
             .preferredColorScheme(.dark).focusEffectDisabled()
-            // The window itself shows the same colour, so no default grey can appear (resize, animation)
-            .onAppear { SettingsWindow.setBackground(bgName) }
-            .onChange(of: bgName) { _, n in SettingsWindow.setBackground(n) }
     }
 }
 
@@ -115,8 +112,6 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     static func show(emby: Emby, onClose: @escaping () -> Void) { shared.show(emby: emby, onClose: onClose) }
     /// Closes the window (runs the close work); used before quitting for an update.
     static func close() { shared.window?.close() }
-    /// Paints the window with the selected Background (behind the SwiftUI content).
-    static func setBackground(_ name: String) { shared.window?.backgroundColor = NSColor(Theme.bg(name)) }
 
     private func show(emby: Emby, onClose: @escaping () -> Void) {
         self.emby = emby
@@ -126,14 +121,11 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             let w = PanelWindow(contentViewController: host)
             w.title = "Settings"
             w.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-            w.titlebarAppearsTransparent = true
-            w.titleVisibility = .hidden
-            w.appearance = NSAppearance(named: .darkAqua)
             w.isReleasedWhenClosed = false
+            CoveWindowLook.apply(w)   // dark, transparent title bar, window painted with the Background
             w.standardWindowButton(.zoomButton)?.isEnabled = false
             w.delegate = self
             w.setContentSize(NSSize(width: 760, height: 640))
-            w.backgroundColor = NSColor(Theme.bg(UserDefaults.standard.string(forKey: "bg") ?? "black"))
             window = w
         }
         guard let w = window else { return }
