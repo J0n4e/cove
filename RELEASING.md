@@ -55,7 +55,7 @@ Only the repository owner can add environments, secrets and rulesets.
 3. The `release` job builds the app, signs it with the certificate, signs `Cove.zip` with the update key, adds a
    build attestation and creates a **draft** release with `Cove.zip` and `Cove.zip.sig`. With required reviewers
    on, approve the deployment first (Actions → the run → *Review deployments*).
-4. Open the draft on GitHub, write the release notes and **Publish**. Pre-releases are ignored by the updater.
+4. Open the draft on GitHub, write the release notes and **Publish**. Pre-releases are ignored by the updater. The notes (Markdown) are what the Software Update and What's New windows show, so write them for users.
 
 Anyone can check that a download came from this repository's workflow:
 `gh attestation verify Cove.zip -R J0n4e/cove`.

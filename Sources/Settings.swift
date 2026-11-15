@@ -6,11 +6,9 @@ import UniformTypeIdentifiers
 /// Values live in UserDefaults (the same keys the rest of the app reads).
 struct SettingsView: View {
     @EnvironmentObject var emby: Emby
-    @Environment(\.dismiss) var dismiss
     @Environment(\.appBG) var bg
     @AppStorage("accent") private var accentName = "red"
     var accent: Color { Theme.accent(accentName) }
-    var onDone: () -> Void
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "General", home = "Home", libraries = "Libraries",
@@ -39,6 +37,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             // Apple TV style: the section name on top, then a row of icon tabs
             Text(section.rawValue).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+                .frame(maxWidth: .infinity)
                 .padding(.top, 12)
             HStack(spacing: 4) {
                 ForEach(sections) { s in
@@ -72,24 +71,72 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 30).padding(.vertical, 10)
+                .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 16)
             }
-            Divider()
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.handCursor().controlSize(.large).settingsWhiteText()
-                Button { emby.saveLibs(); onDone(); dismiss() } label: { Text("OK").frame(minWidth: 60) }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent).handCursor().tint(Color(red: 0.2, green: 0.5, blue: 1)).controlSize(.large)
-            }.padding(.horizontal, 20).padding(.vertical, 12)
+            .frame(maxHeight: .infinity)   // the scroll area runs to the window's bottom edge
         }
-        .frame(width: 760, height: 640)
         // Disconnected while on the Trakt tab: go to Connect, where Trakt is set up again
         .onChange(of: trakt.isConnected) { _, on in if !on && section == .trakt { section = .servers } }
         .tint(accent)     // switches, menus and links inside Settings too
-        .background(bg)   // follows Appearance → Background, like the rest of the app
-        // Esc closes Settings and keeps the changes, like OK / Done
-        .background(Button("") { emby.saveLibs(); onDone(); dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0))
+        // Room for the traffic lights in the transparent title bar
+        .padding(.top, 18)
+        // Fill the whole window; the background goes on last so it also covers the top padding and
+        // every safe-area edge (it used to sit inside a fixed 640pt frame, leaving a grey strip at the bottom).
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(bg.ignoresSafeArea())   // follows Appearance → Background, like the rest of the app
+        .ignoresSafeArea(.container, edges: .top)
+    }
+}
+
+/// The Settings window's content, with what the main window's scene injects (Background follows the setting live).
+struct SettingsWindowRoot: View {
+    let emby: Emby
+    @AppStorage("bg") private var bgName = "black"
+    var body: some View {
+        SettingsView().environmentObject(emby).environment(\.appBG, Theme.bg(bgName))
+            .frame(width: 760, height: 640)
+            .preferredColorScheme(.dark).focusEffectDisabled()
+    }
+}
+
+/// Settings in their own window with the traffic lights (one at a time; opening again brings it to the front).
+/// Every setting applies as soon as it's changed; closing (red button, Esc or ⌘W) saves the library choices
+/// and reloads the pages, as Done did.
+@MainActor
+final class SettingsWindow: NSObject, NSWindowDelegate {
+    static let shared = SettingsWindow()
+    private var window: NSWindow?
+    private var onClose: () -> Void = {}
+    private weak var emby: Emby?
+
+    static func show(emby: Emby, onClose: @escaping () -> Void) { shared.show(emby: emby, onClose: onClose) }
+    /// Closes the window (runs the close work); used before quitting for an update.
+    static func close() { shared.window?.close() }
+
+    private func show(emby: Emby, onClose: @escaping () -> Void) {
+        self.emby = emby
+        self.onClose = onClose
+        if window == nil {
+            let host = NSHostingController(rootView: SettingsWindowRoot(emby: emby))
+            let w = PanelWindow(contentViewController: host)
+            w.title = "Settings"
+            w.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            w.isReleasedWhenClosed = false
+            CoveWindowLook.apply(w)   // dark, transparent title bar, window painted with the Background
+            w.standardWindowButton(.zoomButton)?.isEnabled = false
+            w.delegate = self
+            w.setContentSize(NSSize(width: 760, height: 640))
+            window = w
+        }
+        guard let w = window else { return }
+        if !w.isVisible { w.center() }
+        NSApp.activate(ignoringOtherApps: true)
+        w.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        emby?.saveLibs()
+        onClose()
     }
 }
 
@@ -885,7 +932,8 @@ struct ServerSettings: View {
             text().fixedSize(horizontal: false, vertical: true)
         }
     }
-    @Environment(\.dismiss) var dismiss
+    /// Switching or signing out closes Settings (its own window now, no longer a sheet).
+    func dismiss() { SettingsWindow.close() }
     @State private var busy: String?
 
     func connect(_ srv: SavedServer) {

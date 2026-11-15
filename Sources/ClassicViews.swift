@@ -456,7 +456,12 @@ struct ClassicHomeView: View {
             emby.openRequest = nil
         }
         // Settings always use the Glass window, whichever theme is chosen
-        .sheet(isPresented: showSettingsB) { SettingsView { reloadToken += 1 } }
+        // Settings open in their own window (traffic lights, no Done); closing it reloads the pages
+        .onChange(of: nav.showSettings) { _, on in
+            guard on else { return }
+            nav.showSettings = false
+            SettingsWindow.show(emby: emby) { reloadToken += 1 }
+        }
         .overlay {
             if navStyle == "topbar" {
                 SearchDock(query: queryB, open: Binding(get: { nav.searchOpen }, set: { nav.searchOpen = $0 }),

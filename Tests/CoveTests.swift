@@ -151,4 +151,117 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(PosterGrid.centering(width: 100, item: 150, spacing: 14), 0)
     }
 
+    /// A failed subtitle download only burns the track in when it was the whole track and nothing came before.
+    func testCueStep() {
+        let c = [Cue(start: 1, end: 2, text: "x")]
+        XCTAssertEqual(PlayerModel.cueStep(c, piece: true, haveCues: false), .use)
+        XCTAssertEqual(PlayerModel.cueStep(c, piece: false, haveCues: true), .use)
+        XCTAssertEqual(PlayerModel.cueStep(nil, piece: true, haveCues: false), .askAll)
+        XCTAssertEqual(PlayerModel.cueStep(nil, piece: false, haveCues: true), .keep)
+        XCTAssertEqual(PlayerModel.cueStep(nil, piece: false, haveCues: false), .burnIn)
+    }
+
+    // MARK: Update swap script
+
+    /// Runs the real swap script on dummy apps. Returns the exit status.
+    private func runSwap(_ dir: URL, target: URL, new: URL) throws -> Int32 {
+        let script = dir.appendingPathComponent("swap.sh")
+        try Updater.swapScript.write(to: script, atomically: true, encoding: .utf8)
+        let work = dir.appendingPathComponent("work")
+        try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        // pid 999999: no such process, so it doesn't wait. `true` instead of `open`.
+        p.arguments = [script.path, "999999", target.path, new.path, work.path, "true"]
+        try p.run()
+        p.waitUntilExit()
+        return p.terminationStatus
+    }
+
+    private func makeApp(_ url: URL, _ marker: String) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try marker.write(to: url.appendingPathComponent("marker"), atomically: true, encoding: .utf8)
+    }
+
+    private func marker(_ app: URL) -> String? {
+        try? String(contentsOf: app.appendingPathComponent("marker"), encoding: .utf8)
+    }
+
+    private func tempDir() throws -> URL {
+        let d = FileManager.default.temporaryDirectory.appendingPathComponent("cove-swap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: d) }
+        return d
+    }
+
+    func testSwapSuccess() throws {
+        let d = try tempDir()
+        let apps = d.appendingPathComponent("Applications")
+        let t = apps.appendingPathComponent("Cove.app"), n = d.appendingPathComponent("New.app")
+        try makeApp(t, "old"); try makeApp(n, "new")
+        try makeApp(apps.appendingPathComponent("Cove.app.old"), "stale")   // leftover from an earlier attempt
+        XCTAssertEqual(try runSwap(d, target: t, new: n), 0)
+        XCTAssertEqual(marker(t), "new")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: t.path + ".old"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: d.appendingPathComponent("work").path))
+    }
+
+    /// The app can't be moved aside (read-only folder): the original stays exactly where it was.
+    func testSwapMoveAsideFails() throws {
+        let d = try tempDir()
+        let apps = d.appendingPathComponent("Applications")
+        let t = apps.appendingPathComponent("Cove.app"), n = d.appendingPathComponent("New.app")
+        try makeApp(t, "old"); try makeApp(n, "new")
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: apps.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: apps.path) }
+        XCTAssertNotEqual(try runSwap(d, target: t, new: n), 0)
+        XCTAssertEqual(marker(t), "old")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: t.path + ".old"))
+    }
+
+    /// Copying the new app fails (it isn't there): the original is put back.
+    func testSwapCopyFails() throws {
+        let d = try tempDir()
+        let apps = d.appendingPathComponent("Applications")
+        let t = apps.appendingPathComponent("Cove.app")
+        try makeApp(t, "old")
+        XCTAssertNotEqual(try runSwap(d, target: t, new: d.appendingPathComponent("Missing.app")), 0)
+        XCTAssertEqual(marker(t), "old")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: t.path + ".old"))
+    }
+
+    func testShouldShowWhatsNew() {
+        XCTAssertFalse(WhatsNew.shouldShow(lastSeen: nil, current: "1.16"))       // fresh install
+        XCTAssertTrue(WhatsNew.shouldShow(lastSeen: "1.15.13", current: "1.16"))
+        XCTAssertFalse(WhatsNew.shouldShow(lastSeen: "1.16", current: "1.16"))
+        XCTAssertFalse(WhatsNew.shouldShow(lastSeen: "1.16", current: "1.15"))    // downgrade
+        XCTAssertTrue(WhatsNew.shouldShow(lastSeen: "v1.17.1", current: "v1.17.2"))
+        XCTAssertTrue(WhatsNew.sameVersion("v1.16", "1.16.0"))
+    }
+
+    func testSkipVersion() {
+        XCTAssertTrue(Updater.suppressed("v1.18.0", skipped: "v1.18.0", interactive: false))
+        XCTAssertFalse(Updater.suppressed("v1.18.0", skipped: "v1.18.0", interactive: true))   // Check for Updates
+        XCTAssertFalse(Updater.suppressed("v1.18.1", skipped: "v1.18.0", interactive: false))  // a newer one
+        XCTAssertFalse(Updater.suppressed("v1.18.0", skipped: nil, interactive: false))
+    }
+
+    func testReleaseNoteLinks() {
+        let u = { (s: String) in URL(string: s) }
+        XCTAssertEqual(ReleaseNotes.safeLink(u("https://github.com/J0n4e/cove")), u("https://github.com/J0n4e/cove"))
+        XCTAssertNil(ReleaseNotes.safeLink(u("javascript:alert(1)")))
+        XCTAssertNil(ReleaseNotes.safeLink(u("file:///etc/passwd")))
+        XCTAssertNil(ReleaseNotes.safeLink(u("http://example.com")))
+        XCTAssertNil(ReleaseNotes.safeLink(nil))
+    }
+
+    func testRenderNotes() {
+        let r = ReleaseNotes.render("## Fixes\n\n- **One** [ok](https://a.b) [bad](javascript:x)\n- `two`")
+        XCTAssertTrue(r.string.contains("Fixes\n"))
+        XCTAssertTrue(r.string.contains("•  One"))
+        var links: [URL] = []
+        r.enumerateAttribute(.link, in: NSRange(location: 0, length: r.length)) { v, _, _ in if let l = v as? URL { links.append(l) } }
+        XCTAssertEqual(links, [URL(string: "https://a.b")!])
+        XCTAssertEqual(ReleaseNotes.render("  ").string, "No release notes.")
+    }
 }

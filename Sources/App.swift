@@ -59,7 +59,10 @@ struct CoveApp: App {
                 .focusEffectDisabled()
                 .frame(minWidth: 1000, minHeight: 650)
                 .sessionExpiredAlert(emby)
-                .task { await Updater.shared.checkOnLaunch() }
+                .task {
+                    await WhatsNew.onLaunch()
+                    await Updater.shared.checkOnLaunch()
+                }
                 // Trakt: your ratings (for the posters) and, when switched on, watched sync of plays from other
                 // apps; at launch and every hour
                 .task(id: emby.token) {
@@ -78,9 +81,15 @@ struct CoveApp: App {
                 }
                     .keyboardShortcut(",", modifiers: .command)
             }
-            CommandGroup(after: .appInfo) {
+            // Cove → About Cove opens Cove's own About window (instead of the standard panel), then updates
+            CommandGroup(replacing: .appInfo) {
+                Button("About Cove") { AboutWindow.show() }
                 Button("Check for Updates…") { Task { await Updater.shared.check(interactive: true) } }
+                Button("What's New in Cove…") { WhatsNew.show() }
             }
+            // No Services, Hide Cove, Hide Others or Show All in the Cove menu (Quit stays)
+            CommandGroup(replacing: .systemServices) {}
+            CommandGroup(replacing: .appVisibility) {}
         }
         // Videos play in their own window, like the Apple TV app
         Window("Player", id: "player") {
