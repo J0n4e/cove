@@ -431,4 +431,54 @@ final class CoveTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: a.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: b.path))
     }
+
+    // MARK: Token storage
+
+    private func isolatedDefaults() -> UserDefaults {
+        let name = "cove.tests.\(UUID().uuidString)"
+        let d = UserDefaults(suiteName: name)!
+        d.removePersistentDomain(forName: name)
+        return d
+    }
+
+    func testSealedTokenStoreRoundTrip() {
+        let d = isolatedDefaults()
+        let list = [SavedServer(url: "https://A.example", name: "A", user: "u", token: "tokA", userId: "1"),
+                    SavedServer(url: "http://b.local:8096", name: "B", user: "v", token: "tokB", userId: "2")]
+        XCTAssertTrue(ServerStore.save(list, to: d))
+        XCTAssertEqual(ServerStore.sealedTokens(d), ["https://a.example": "tokA", "http://b.local:8096": "tokB"])
+        let raw = String(decoding: d.data(forKey: "servers")!, as: UTF8.self)
+        XCTAssertFalse(raw.contains("tokA")); XCTAssertFalse(raw.contains("tokB")); XCTAssertFalse(raw.contains("\"token\""))
+        XCTAssertFalse(String(decoding: d.data(forKey: "serverTokens")!, as: UTF8.self).contains("tokA"))
+        XCTAssertEqual(ServerStore.load(from: d, server: "https://a.example", userId: "1"), list)
+        XCTAssertEqual(SealedPrefs.get("serverTokens", in: isolatedDefaults()), nil)
+    }
+
+    func testPlaintextTokensMigrate() throws {
+        let d = isolatedDefaults()
+        let old = [SavedServer(url: "https://a.example", name: "A", user: "u", token: "tokA", userId: "1"),
+                   SavedServer(url: "https://b.example", name: "B", user: "v", token: nil, userId: "2")]
+        d.set(try JSONEncoder().encode(old), forKey: "servers")
+        d.set("tokB", forKey: "token")              // legacy key for the current server
+        let list = ServerStore.load(from: d, server: "https://b.example", userId: "2")
+        XCTAssertEqual(list.map(\.token), ["tokA", "tokB"])
+        XCTAssertNil(d.object(forKey: "token"))
+        let raw = String(decoding: d.data(forKey: "servers")!, as: UTF8.self)
+        XCTAssertFalse(raw.contains("tokA")); XCTAssertFalse(raw.contains("tokB"))
+        XCTAssertEqual(ServerStore.sealedTokens(d), ["https://a.example": "tokA", "https://b.example": "tokB"])
+        // Second launch reads the sealed copy
+        XCTAssertEqual(ServerStore.load(from: d, server: "https://b.example", userId: "2").map(\.token), ["tokA", "tokB"])
+        // Signing out of every server removes the sealed store
+        XCTAssertTrue(ServerStore.save(list.map { var x = $0; x.token = nil; return x }, to: d))
+        XCTAssertNil(d.object(forKey: "serverTokens"))
+    }
+
+    func testLegacyTokenOnlyMigrates() {
+        let d = isolatedDefaults()
+        d.set("tokL", forKey: "token")
+        let list = ServerStore.load(from: d, server: "https://old.example", userId: "9")
+        XCTAssertEqual(list.first?.token, "tokL")
+        XCTAssertNil(d.object(forKey: "token"))
+        XCTAssertEqual(ServerStore.sealedTokens(d), ["https://old.example": "tokL"])
+    }
 }
