@@ -207,7 +207,9 @@ enum WhatsNew {
         d.set(cur, forKey: lastSeenKey)
         let saved = takePending(for: cur)
         guard shouldShow(lastSeen: last, current: cur) else { return }
-        guard let notes = saved ?? (await Updater.fetchRelease(tag: cur))?.body else { return }
+        var notes = saved
+        if notes == nil { notes = await Updater.fetchRelease(tag: cur)?.body }
+        guard let notes else { return }
         CoveWindows.show(windowID, title: "What's New in Cove", WhatsNewView(version: cur, notes: notes))
     }
 
