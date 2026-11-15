@@ -315,7 +315,10 @@ final class PlayerModel: ObservableObject {
         subFetching = true; updateCaption(now)
         subTask = Task {
             for end in [pos + 300, nil] as [Double?] {
+                let t0 = Date()
+                dlog("subs \(idx): asking up to \(end.map(fmt) ?? "the end")")
                 let c = await emby.subtitleCues(itemId, sourceId, idx, upTo: end)
+                dlog("subs \(idx): \(c.map { "\($0.count) cues, last at \(fmt($0.last?.end ?? 0))" } ?? "nothing") in \(Int(Date().timeIntervalSince(t0)))s, cancelled \(Task.isCancelled), current \(gen == subGen)")
                 guard gen == subGen, !Task.isCancelled else { return }   // another track (or film) meanwhile
                 guard let c else {
                     if end != nil { continue }   // nothing said yet in these minutes (or a hiccup): get it all
@@ -626,6 +629,7 @@ final class PlayerModel: ObservableObject {
     func stop() {
         startGen += 1
         if let f = failObs { NotificationCenter.default.removeObserver(f); failObs = nil }
+        if subFetching { dlog("subs: download stopped (stop)") }
         subGen += 1; loadingSubs = false          // a subtitle still downloading must not restart playback later
         subTask?.cancel(); subFetching = false
         if Self.active === self { Self.active = nil }
