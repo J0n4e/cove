@@ -146,9 +146,15 @@ final class PlayerModel: ObservableObject {
         // Text subtitles are drawn by the app and load in the background, so the video starts right away
         // (embedded ones can take a while the first time). Image subtitles are burned in by the server.
         if let s = req.sub, !isImageSub(s), !req.burnIn {
-            req.sub = nil
-            loadCues(emby, req.item.id, req.sourceId, s)
+            if pendingSeek > Self.bridgeFrom, emby.cachedCues(req.item.id, req.sourceId, s) == nil {
+                // Far into the film the text would take minutes: burn it in meanwhile (see bridgeSub)
+                req.burnIn = true; req.subBridge = true; self.req?.burnIn = true; self.req?.subBridge = true
+            } else {
+                req.sub = nil
+                loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
+            }
         }
+        if req.subBridge, let s = req.sub { bridgeSub(emby, req.item.id, req.sourceId, s) }
         await emby.killStaleEncodings()
         guard current() else { return }
         // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
@@ -296,18 +302,52 @@ final class PlayerModel: ObservableObject {
         imageSubCodecs.contains((streams.first { $0.Index == idx }?.Codec ?? "").lowercased())
     }
 
-    /// Downloads a text subtitle in the background; playback keeps going meanwhile.
-    private func loadCues(_ emby: Emby, _ itemId: String, _ sourceId: String?, _ idx: Int) {
+    /// Past this point (seconds) a subtitle not downloaded before is burned in until its text arrives.
+    static let bridgeFrom: Double = 600
+
+    /// Downloads a text subtitle in the background; playback keeps going meanwhile. The server reads it from the
+    /// start of the file, so it comes in growing pieces: the next minutes first, then more, then the whole track.
+    private func loadCues(_ emby: Emby, _ itemId: String, _ sourceId: String?, _ idx: Int, from pos: Double) {
         subGen += 1
         let gen = subGen
-        cues = []; caption = ""; loadingSubs = true
+        cues = []; caption = ""
+        if let c = emby.cachedCues(itemId, sourceId, idx) { cues = c; updateCaption(now); loadingSubs = false; return }
+        loadingSubs = true
+        Task {
+            for end in [pos + 300, pos + 1200, pos + 2700, nil] as [Double?] {
+                let c = await emby.subtitleCues(itemId, sourceId, idx, upTo: end)
+                guard gen == subGen else { return }   // user picked another track meanwhile
+                guard let c else {
+                    if end != nil { continue }   // nothing said yet in these minutes (or a hiccup): ask for more
+                    loadingSubs = false
+                    // Couldn't read as text: burn it in (a later piece failing keeps what came)
+                    if cues.isEmpty { await restart(emby) { $0.sub = idx; $0.burnIn = true } }
+                    return
+                }
+                loadingSubs = false
+                cues = c; updateCaption(now)
+                if let end, (c.last?.end ?? 0) > end + 120 { return }   // the server sent it all already
+            }
+        }
+    }
+
+    /// The burned-in subtitle (resumed far into the film) is swapped for the app's own once its text is here.
+    private func bridgeSub(_ emby: Emby, _ itemId: String, _ sourceId: String?, _ idx: Int) {
+        subGen += 1
+        let gen = subGen
         Task {
             let c = await emby.subtitleCues(itemId, sourceId, idx)
-            guard gen == subGen else { return }   // user picked another track meanwhile
-            loadingSubs = false
-            if let c { cues = c; updateCaption(now) }
-            else { await restart(emby) { $0.sub = idx; $0.burnIn = true } }   // couldn't read as text: burn it in
+            guard gen == subGen, sub == idx else { return }
+            if c != nil { await restart(emby) { $0.sub = idx; $0.burnIn = false; $0.subBridge = false } }
+            else { req?.subBridge = false }   // stays burned in
         }
+    }
+
+    /// A text track picked while playing.
+    private func pickText(_ emby: Emby, _ r: PlayRequest, _ idx: Int) async {
+        if now > Self.bridgeFrom, emby.cachedCues(r.item.id, r.sourceId, idx) == nil {
+            await restart(emby) { $0.sub = idx; $0.burnIn = true; $0.subBridge = true }
+        } else { loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
     }
 
     func setSub(_ emby: Emby, _ idx: Int?) async {
@@ -320,16 +360,16 @@ final class PlayerModel: ObservableObject {
         let wasBurned = (sub.map(isImageSub) ?? false) || (req?.burnIn ?? false)
         if let idx {
             if isImageSub(idx) {
-                await restart(emby) { $0.sub = idx; $0.burnIn = false }
+                await restart(emby) { $0.sub = idx; $0.burnIn = false; $0.subBridge = false }
             } else {
                 sub = idx; req?.sub = idx
-                if wasBurned { await restart(emby) { $0.sub = idx; $0.burnIn = false } }
-                else { loadCues(emby, r.item.id, r.sourceId, idx) }
+                if wasBurned { await restart(emby) { $0.sub = idx; $0.burnIn = false; $0.subBridge = false } }
+                else { await pickText(emby, r, idx) }
             }
         } else {
             subGen += 1
             cues = []; caption = ""; loadingSubs = false; sub = nil; req?.sub = nil; req?.noSub = true
-            if wasBurned { await restart(emby) { $0.sub = nil; $0.noSub = true; $0.burnIn = false } }
+            if wasBurned { await restart(emby) { $0.sub = nil; $0.noSub = true; $0.burnIn = false; $0.subBridge = false } }
         }
     }
 

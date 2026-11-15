@@ -62,6 +62,7 @@ struct PlayRequest: Identifiable {
     var start: Double? = nil      // seconds to resume from
     var noSub = false             // user chose "Off": don't auto-load the preferred language
     var burnIn = false            // subtitle couldn't be read as text: have the server burn it in
+    var subBridge = false         // burned in only until its text has downloaded (resumed far into the film)
     var trailer: URL? = nil       // a YouTube trailer of the item, played with YouTube's player instead
     var id: String { item.id }
     var transcode: Bool { audio != nil || sub != nil || maxBitrate != nil }
@@ -1167,10 +1168,17 @@ final class Emby: ObservableObject {
 
     /// Downloads a subtitle track as SRT (the server converts embedded text subs too).
     /// Returns nil for image subtitles (PGS etc.) that can't be converted.
-    func subtitleCues(_ itemId: String, _ sourceId: String?, _ index: Int) async -> [Cue]? {
+    /// `upTo`: only the cues up to this many seconds. The server reads an embedded track from the start of the
+    /// file up to there and stops (about a second per minute of film), so the first minutes come back quickly; the
+    /// start position it takes is ignored. Whole tracks are kept on disk, so a film opened again has them at once.
+    func subtitleCues(_ itemId: String, _ sourceId: String?, _ index: Int, upTo: Double? = nil) async -> [Cue]? {
         var sid = sourceId
         if sid == nil { sid = await full(itemId)?.MediaSources?.first?.Id }
-        guard let sid, let u = URL(string: "\(server)/Videos/\(itemId)/\(sid)/Subtitles/\(index)/Stream.srt") else { return nil }
+        guard let sid else { return nil }
+        if let c = cachedCues(itemId, sid, index) { return c }
+        let path = upTo.map { "\(server)/Videos/\(itemId)/\(sid)/Subtitles/\(index)/0/Stream.srt?EndPositionTicks=\(Int64($0 * 10_000_000))" }
+            ?? "\(server)/Videos/\(itemId)/\(sid)/Subtitles/\(index)/Stream.srt"
+        guard let u = URL(string: path) else { return nil }
         // Embedded subtitles are extracted from the whole video file the first time, which can take minutes.
         var r = URLRequest(url: u)
         authorize(&r)
@@ -1179,7 +1187,30 @@ final class Emby: ObservableObject {
               (resp as? HTTPURLResponse)?.statusCode == 200,
               let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else { return nil }
         let cues = Cue.parseSRT(text)
-        return cues.isEmpty ? nil : cues
+        if cues.isEmpty { return nil }
+        // Whole track (a server that ignores the end returns it all too)
+        if upTo == nil || (cues.last?.end ?? 0) > (upTo ?? 0) + 120 { saveCues(itemId, sid, index, text) }
+        return cues
+    }
+
+    private func cueFile(_ itemId: String, _ sourceId: String, _ index: Int) -> URL? {
+        guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Subtitles", isDirectory: true) else { return nil }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let key = "\(server)|\(itemId)|\(sourceId)|\(index)".data(using: .utf8)!.base64EncodedString()
+            .replacingOccurrences(of: "/", with: "_")
+        return dir.appendingPathComponent(key + ".srt")
+    }
+
+    /// A whole track downloaded before.
+    func cachedCues(_ itemId: String, _ sourceId: String?, _ index: Int) -> [Cue]? {
+        guard let sourceId, let f = cueFile(itemId, sourceId, index), let text = try? String(contentsOf: f, encoding: .utf8) else { return nil }
+        let c = Cue.parseSRT(text)
+        return c.isEmpty ? nil : c
+    }
+
+    private func saveCues(_ itemId: String, _ sourceId: String, _ index: Int, _ text: String) {
+        if let f = cueFile(itemId, sourceId, index) { try? text.write(to: f, atomically: true, encoding: .utf8) }
     }
 
     /// The HLS profile for the server. HEVC (4K, HDR) must come in fMP4 segments: AVPlayer rejects HEVC inside
