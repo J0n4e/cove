@@ -121,6 +121,19 @@ final class Updater: ObservableObject {
         return v.range(of: #"-\d+-g[0-9a-f]+$"#, options: .regularExpression) != nil
     }
 
+    /// Why an update can't replace the app, in words the user can act on. macOS runs a downloaded app that was
+    /// opened where it was saved (still quarantined) from a hidden read-only copy ("App Translocation"), which can
+    /// never be replaced, so say how to get out of that instead of showing the random path.
+    nonisolated static func cantReplaceMessage(appPath: String) -> String {
+        if appPath.contains("/AppTranslocation/") {
+            return "Cove is running from a temporary location macOS uses for downloaded apps. Move Cove to your "
+                + "Applications folder, open it from there, and try again."
+        }
+        let folder = (appPath as NSString).deletingLastPathComponent
+        return "Cove can't replace itself in \(folder). Move Cove to your Applications folder, or download the "
+            + "update from GitHub instead."
+    }
+
     /// Release tags as the protected ruleset allows them: lowercase "v" and 2 to 4 numbers ("v1.17.2").
     nonisolated static func isValidReleaseTag(_ tag: String) -> Bool {
         tag.range(of: #"^v[0-9]+(\.[0-9]+){1,3}$"#, options: .regularExpression) != nil
@@ -201,7 +214,7 @@ final class Updater: ObservableObject {
         let target = Bundle.main.bundleURL
         guard target.pathExtension == "app",
               FileManager.default.isWritableFile(atPath: target.deletingLastPathComponent().path) else {
-            fail("Can't replace the app in \(target.deletingLastPathComponent().path). Download it from GitHub instead.")
+            fail(Self.cantReplaceMessage(appPath: target.path))
             return
         }
         status = .installing
