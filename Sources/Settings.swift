@@ -71,16 +71,19 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 30).padding(.vertical, 10)
+                .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 16)
             }
+            .frame(maxHeight: .infinity)   // the scroll area runs to the window's bottom edge
         }
-        .frame(width: 760, height: 640)
         // Disconnected while on the Trakt tab: go to Connect, where Trakt is set up again
         .onChange(of: trakt.isConnected) { _, on in if !on && section == .trakt { section = .servers } }
         .tint(accent)     // switches, menus and links inside Settings too
-        .background(bg)   // follows Appearance → Background, like the rest of the app
         // Room for the traffic lights in the transparent title bar
         .padding(.top, 18)
+        // Fill the whole window; the background goes on last so it also covers the top padding and
+        // every safe-area edge (it used to sit inside a fixed 640pt frame, leaving a grey strip at the bottom).
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(bg.ignoresSafeArea())   // follows Appearance → Background, like the rest of the app
         .ignoresSafeArea(.container, edges: .top)
     }
 }
@@ -91,6 +94,7 @@ struct SettingsWindowRoot: View {
     @AppStorage("bg") private var bgName = "black"
     var body: some View {
         SettingsView().environmentObject(emby).environment(\.appBG, Theme.bg(bgName))
+            .frame(width: 760, height: 640)
             .preferredColorScheme(.dark).focusEffectDisabled()
     }
 }
@@ -117,10 +121,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             let w = PanelWindow(contentViewController: host)
             w.title = "Settings"
             w.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-            w.titlebarAppearsTransparent = true
-            w.titleVisibility = .hidden
-            w.appearance = NSAppearance(named: .darkAqua)
             w.isReleasedWhenClosed = false
+            CoveWindowLook.apply(w)   // dark, transparent title bar, window painted with the Background
             w.standardWindowButton(.zoomButton)?.isEnabled = false
             w.delegate = self
             w.setContentSize(NSSize(width: 760, height: 640))

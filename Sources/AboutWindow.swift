@@ -45,8 +45,9 @@ struct AboutView: View {
             .buttonStyle(.plainHand).padding(.vertical, 20)
         }
         .frame(width: 440)
-        .background(Theme.bg(bgName))
+        // Content starts at the top edge (under the transparent title bar); fill and paint the whole window
         .ignoresSafeArea(.container, edges: .top)
+        .coveWindowBackground()
         .tint(accent)
         .preferredColorScheme(.dark)
         .focusEffectDisabled()
@@ -57,7 +58,7 @@ struct AboutView: View {
 
 /// Nexview's button style in Cove's accent: a gradient-filled primary, a dark outlined secondary.
 /// Labels never wrap, so both buttons stay on one line and the same height.
-struct AboutButton: ButtonStyle {
+struct AboutButton: ButtonStyle {   // shared by About, Software Update and What's New
     var primary = false
     var accentName = "red"
     func makeBody(configuration c: Configuration) -> some View {
@@ -80,6 +81,47 @@ struct AboutButton: ButtonStyle {
             .contentShape(Rectangle())
     }
 }
+
+/// One look for every Cove window (Settings, About, Software Update, What's New): dark appearance, a transparent
+/// full-size title bar and the window itself painted with the selected Background (kept in sync live), so no
+/// default grey can show anywhere — not under the title bar, not below the SwiftUI content, not while resizing.
+@MainActor
+enum CoveWindowLook {
+    private static let windows = NSHashTable<NSWindow>.weakObjects()
+    private static var observer: NSObjectProtocol?
+
+    static var background: NSColor { NSColor(Theme.bg(UserDefaults.standard.string(forKey: "bg") ?? "black")) }
+
+    static func apply(_ w: NSWindow) {
+        w.styleMask.insert(.fullSizeContentView)
+        w.titlebarAppearsTransparent = true
+        w.titleVisibility = .hidden
+        w.appearance = NSAppearance(named: .darkAqua)
+        w.backgroundColor = background
+        windows.add(w)
+        if observer == nil {
+            observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
+                                                              object: nil, queue: .main) { _ in
+                Task { @MainActor in CoveWindowLook.refresh() }
+            }
+        }
+    }
+
+    static func refresh() {
+        let c = background
+        for w in windows.allObjects where w.backgroundColor != c { w.backgroundColor = c }
+    }
+}
+
+/// The selected Background behind a window's content, filling the whole window (title bar included).
+struct CoveWindowBackground: ViewModifier {
+    @AppStorage("bg") private var bgName = "black"
+    func body(content: Content) -> some View {
+        content.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Theme.bg(bgName).ignoresSafeArea())
+    }
+}
+extension View { func coveWindowBackground() -> some View { modifier(CoveWindowBackground()) } }
 
 /// A window that Esc and ⌘W close (About and Settings).
 final class PanelWindow: NSWindow {
@@ -106,15 +148,17 @@ enum AboutWindow {
             w.title = "About Cove"
             w.styleMask = [.titled, .closable, .fullSizeContentView]
             w.isReleasedWhenClosed = false
-            w.titlebarAppearsTransparent = true
-            w.titleVisibility = .hidden
-            w.appearance = NSAppearance(named: .darkAqua)
+            CoveWindowLook.apply(w)
             w.isMovableByWindowBackground = true
             window = w
         }
         guard let w = window else { return }
         if !w.isVisible, let host = w.contentViewController as? NSHostingController<AboutView> {
-            w.setContentSize(host.sizeThatFits(in: NSSize(width: 440, height: 10_000)))
+            // Fit the window to the laid-out content (fittingSize already accounts for the ignored top inset),
+            // so there's no empty band below the footer
+            host.view.layoutSubtreeIfNeeded()
+            let fit = host.view.fittingSize
+            w.setContentSize(fit.height > 0 ? fit : host.sizeThatFits(in: NSSize(width: 440, height: 10_000)))
             w.center()
         }
         NSApp.activate(ignoringOtherApps: true)

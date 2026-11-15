@@ -52,7 +52,8 @@ struct NotesText: NSViewRepresentable {
     let markdown: String
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
-        scroll.borderType = .bezelBorder
+        scroll.borderType = .noBorder
+        scroll.drawsBackground = false
         if let tv = scroll.documentView as? NSTextView {
             tv.isEditable = false
             tv.isSelectable = true
@@ -65,6 +66,18 @@ struct NotesText: NSViewRepresentable {
     func updateNSView(_ v: NSScrollView, context: Context) {}
 }
 
+/// Release notes in a subtle dark card, like the Settings cards.
+private struct NotesCard: View {
+    let markdown: String
+    var body: some View {
+        NotesText(markdown: markdown).frame(minHeight: 160)
+            .padding(4)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
 /// The Software Update and What's New windows: one plain window each, in the app's dark look and accent color.
 @MainActor
 enum CoveWindows {
@@ -75,11 +88,12 @@ enum CoveWindows {
     static func show<V: View>(_ id: String, title: String, _ view: V) {
         windows[id]?.close()
         let accent = UserDefaults.standard.string(forKey: "accent") ?? "red"
-        let host = NSHostingController(rootView: view.tint(Theme.accent(accent)).preferredColorScheme(.dark))
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+        let host = NSHostingController(rootView: view.tint(Theme.accent(accent)).preferredColorScheme(.dark)
+            .coveWindowBackground())
+        let w = PanelWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
                          styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         w.title = title
-        w.appearance = NSAppearance(named: .darkAqua)
+        CoveWindowLook.apply(w)   // same Background as Settings/About, transparent title bar
         w.isReleasedWhenClosed = false
         w.contentViewController = host
         w.setContentSize(NSSize(width: 520, height: 420))
@@ -114,6 +128,7 @@ struct UpdateWindowView: View {
     let rel: Updater.Release
     let current: String
     @ObservedObject var up = Updater.shared
+    @AppStorage("accent") private var accentName = "red"
 
     var installing: Bool { up.status == .installing }
 
@@ -121,9 +136,9 @@ struct UpdateWindowView: View {
         VStack(alignment: .leading, spacing: 12) {
             WindowHeader(title: "Cove \(AppVersion.pretty(rel.tag_name)) is available",
                          subtitle: "You have \(AppVersion.pretty(current)). Here's what's new:")
-            NotesText(markdown: rel.body ?? "").frame(minHeight: 160)
+            NotesCard(markdown: rel.body ?? "")
             if let u = ReleaseNotes.safeLink(URL(string: rel.html_url)) {
-                Link("View on GitHub", destination: u).font(.caption)
+                Link("View on GitHub", destination: u).font(.caption).foregroundColor(Color.white.opacity(0.55))
             }
             if installing {
                 if let p = up.progress, p.total > 0 {
@@ -138,17 +153,22 @@ struct UpdateWindowView: View {
             if let e = up.windowError {
                 Text(e).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
             }
-            HStack {
+            HStack(spacing: 10) {
                 Button("Skip This Version") { up.skip(rel.tag_name) }
+                    .buttonStyle(AboutButton(accentName: accentName))
                 Spacer()
                 Button("Later") { CoveWindows.close(Updater.windowID) }
+                    .buttonStyle(AboutButton(accentName: accentName))
                 Button("Install and Restart") { Task { await up.install() } }
+                    .buttonStyle(AboutButton(primary: true, accentName: accentName))
                     .keyboardShortcut(.defaultAction)
             }
             .disabled(installing)
+            .opacity(installing ? 0.45 : 1)   // visibly dimmed while installing
         }
-        .padding(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
+        .padding(EdgeInsets(top: 34, leading: 20, bottom: 16, trailing: 20))   // below the transparent title bar
         .frame(minWidth: 420, minHeight: 320)
+        .ignoresSafeArea(.container, edges: .top)
     }
 
     static func mb(_ n: Int64) -> String { String(format: "%.1f MB", Double(n) / 1_000_000) }
@@ -159,25 +179,30 @@ struct WhatsNewView: View {
     let version: String
     /// nil: the notes couldn't be loaded
     let notes: String?
+    @AppStorage("accent") private var accentName = "red"
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             WindowHeader(title: "What's New in Cove \(AppVersion.pretty(version))", subtitle: nil)
             if let notes {
-                NotesText(markdown: notes).frame(minHeight: 160)
+                NotesCard(markdown: notes)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Couldn't load the release notes.").foregroundColor(.secondary)
                     Link("See all releases on GitHub", destination: URL(string: "https://github.com/\(Updater.repo)/releases")!)
+                        .foregroundColor(Color.white.opacity(0.55))
                 }
                 Spacer()
             }
             HStack {
                 Spacer()
-                Button("Continue") { CoveWindows.close(WhatsNew.windowID) }.keyboardShortcut(.defaultAction)
+                Button("Continue") { CoveWindows.close(WhatsNew.windowID) }
+                    .buttonStyle(AboutButton(primary: true, accentName: accentName))
+                    .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
+        .padding(EdgeInsets(top: 34, leading: 20, bottom: 16, trailing: 20))   // below the transparent title bar
         .frame(minWidth: 420, minHeight: 320)
+        .ignoresSafeArea(.container, edges: .top)
     }
 }
 
