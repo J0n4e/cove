@@ -229,4 +229,39 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(marker(t), "old")
         XCTAssertFalse(FileManager.default.fileExists(atPath: t.path + ".old"))
     }
+
+    func testShouldShowWhatsNew() {
+        XCTAssertFalse(WhatsNew.shouldShow(lastSeen: nil, current: "1.16"))       // fresh install
+        XCTAssertTrue(WhatsNew.shouldShow(lastSeen: "1.15.13", current: "1.16"))
+        XCTAssertFalse(WhatsNew.shouldShow(lastSeen: "1.16", current: "1.16"))
+        XCTAssertFalse(WhatsNew.shouldShow(lastSeen: "1.16", current: "1.15"))    // downgrade
+        XCTAssertTrue(WhatsNew.shouldShow(lastSeen: "v1.17.1", current: "v1.17.2"))
+        XCTAssertTrue(WhatsNew.sameVersion("v1.16", "1.16.0"))
+    }
+
+    func testSkipVersion() {
+        XCTAssertTrue(Updater.suppressed("v1.18.0", skipped: "v1.18.0", interactive: false))
+        XCTAssertFalse(Updater.suppressed("v1.18.0", skipped: "v1.18.0", interactive: true))   // Check for Updates
+        XCTAssertFalse(Updater.suppressed("v1.18.1", skipped: "v1.18.0", interactive: false))  // a newer one
+        XCTAssertFalse(Updater.suppressed("v1.18.0", skipped: nil, interactive: false))
+    }
+
+    func testReleaseNoteLinks() {
+        let u = { (s: String) in URL(string: s) }
+        XCTAssertEqual(ReleaseNotes.safeLink(u("https://github.com/J0n4e/cove")), u("https://github.com/J0n4e/cove"))
+        XCTAssertNil(ReleaseNotes.safeLink(u("javascript:alert(1)")))
+        XCTAssertNil(ReleaseNotes.safeLink(u("file:///etc/passwd")))
+        XCTAssertNil(ReleaseNotes.safeLink(u("http://example.com")))
+        XCTAssertNil(ReleaseNotes.safeLink(nil))
+    }
+
+    func testRenderNotes() {
+        let r = ReleaseNotes.render("## Fixes\n\n- **One** [ok](https://a.b) [bad](javascript:x)\n- `two`")
+        XCTAssertTrue(r.string.contains("Fixes\n"))
+        XCTAssertTrue(r.string.contains("•  One"))
+        var links: [URL] = []
+        r.enumerateAttribute(.link, in: NSRange(location: 0, length: r.length)) { v, _, _ in if let l = v as? URL { links.append(l) } }
+        XCTAssertEqual(links, [URL(string: "https://a.b")!])
+        XCTAssertEqual(ReleaseNotes.render("  ").string, "No release notes.")
+    }
 }
