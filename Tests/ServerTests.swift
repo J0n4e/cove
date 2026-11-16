@@ -28,7 +28,7 @@ final class ServerStub: URLProtocol {
     }()
     static func install() {
         _ = swizzled
-        ServerStub.install()
+        URLProtocol.registerClass(ServerStub.self)
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -72,7 +72,7 @@ final class ServerStub: URLProtocol {
 
 extension URLSessionConfiguration {
     /// Swapped with `defaultSessionConfiguration`, so calling it here runs the original.
-    @objc class func coveStubbedDefault() -> URLSessionConfiguration {
+    @objc dynamic class func coveStubbedDefault() -> URLSessionConfiguration {
         let c = coveStubbedDefault()
         c.protocolClasses = [ServerStub.self] + (c.protocolClasses ?? [])
         return c
