@@ -1,8 +1,12 @@
 import XCTest
 @testable import Cove
 
-/// Answers the app's server requests with recorded responses and remembers every request it saw.
-/// Registered globally before the app's session (Net.session) is first used, so it sees that session's traffic.
+import ObjectiveC
+
+/// Answers the app's server requests with recorded responses and remembers every request it saw. It only takes
+/// `*.test` hosts. URLProtocol.registerClass alone doesn't reach sessions made from a configuration (Net.session),
+/// so `install()` also puts ServerStub first in every `URLSessionConfiguration.default` made from then on; it must
+/// run before Net.session is first used (nothing in the other test classes touches it).
 final class ServerStub: URLProtocol {
     enum Reply { case json(Int, String), status(Int), fail(URLError.Code) }
     struct Seen { let url: URL; let method: String; let headers: [String: String]; let body: Data? }
@@ -15,6 +19,17 @@ final class ServerStub: URLProtocol {
     static func on(_ path: String, _ r: Reply) { lock.withLock { routes[path] = r } }
     static var requests: [Seen] { lock.withLock { log } }
     static func reset() { lock.withLock { routes = [:]; log = [] } }
+
+    private static let swizzled: Void = {
+        let c: AnyClass = URLSessionConfiguration.self
+        guard let a = class_getClassMethod(c, NSSelectorFromString("defaultSessionConfiguration")),
+              let b = class_getClassMethod(c, #selector(URLSessionConfiguration.coveStubbedDefault)) else { return }
+        method_exchangeImplementations(a, b)
+    }()
+    static func install() {
+        _ = swizzled
+        ServerStub.install()
+    }
 
     override class func canInit(with request: URLRequest) -> Bool {
         guard let h = request.url?.host else { return false }
@@ -55,6 +70,15 @@ final class ServerStub: URLProtocol {
     override func stopLoading() {}
 }
 
+extension URLSessionConfiguration {
+    /// Swapped with `defaultSessionConfiguration`, so calling it here runs the original.
+    @objc class func coveStubbedDefault() -> URLSessionConfiguration {
+        let c = coveStubbedDefault()
+        c.protocolClasses = [ServerStub.self] + (c.protocolClasses ?? [])
+        return c
+    }
+}
+
 /// Request building, auth, decoding and error handling of Emby.swift against recorded Emby and Jellyfin answers.
 /// Only talks to *.test hosts through ServerStub; nothing is saved to the preferences.
 @MainActor
@@ -64,7 +88,7 @@ final class ServerTests: XCTestCase {
 
     override class func setUp() {
         super.setUp()
-        URLProtocol.registerClass(ServerStub.self)
+        ServerStub.install()
     }
     override class func tearDown() {
         URLProtocol.unregisterClass(ServerStub.self)
@@ -95,6 +119,8 @@ final class ServerTests: XCTestCase {
     // MARK: Request building and auth
 
     func testStubSeesAppSession() async {
+        XCTAssertTrue((Net.session.configuration.protocolClasses ?? []).contains { ObjectIdentifier($0) == ObjectIdentifier(ServerStub.self) },
+                      "Net.session was created before ServerStub.install()")
         ServerStub.on("/System/Info/Public", .json(200, Fixtures.embySystemInfoPublic))
         let j = await Emby.detectJellyfin(Self.host)
         XCTAssertEqual(j, false)
