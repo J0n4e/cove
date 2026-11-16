@@ -19,7 +19,11 @@ cp "$BIN/Cove" "$APP/Contents/MacOS/Cove"
 cp -R "$BIN/Cove_Cove.bundle" "$APP/Contents/Resources/"
 
 # Icon: build .icns from Sources/Resources/AppIcon.png
-ICONSET=$(mktemp -d)/AppIcon.iconset
+ICON_TMP=$(mktemp -d)
+# Remove the temp dir on exit, keeping any EXIT trap already set
+OLD_EXIT_TRAP=$(trap -p EXIT | sed -E "s/^trap -- '(.*)' EXIT$/\1/")
+trap "${OLD_EXIT_TRAP:+$OLD_EXIT_TRAP; }rm -rf \"\$ICON_TMP\"" EXIT
+ICONSET=$ICON_TMP/AppIcon.iconset
 mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
   sips -z $s $s Sources/Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null

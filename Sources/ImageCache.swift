@@ -271,11 +271,15 @@ enum Raster {
 enum BlurHash {
     /// Hashes by "itemId|Kind", filled from the item lists the server sends (Jellyfin only).
     nonisolated(unsafe) static var hashes: [String: String] = [:]
+    static let hashCap = 2_000
     static let lock = NSLock()
     static let cache = NSCache<NSString, NSImage>()
 
     static func remember(_ id: String, _ kind: String, _ hash: String) {
-        lock.withLock { hashes[id + "|" + kind] = hash }
+        lock.withLock {
+            if hashes.count >= hashCap { hashes.removeAll() }   // simple bound for long sessions
+            hashes[id + "|" + kind] = hash
+        }
     }
 
     /// The blurred preview for an image link (…/Items/{id}/Images/{Kind}?…), if the server sent a hash.
