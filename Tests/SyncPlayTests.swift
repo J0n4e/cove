@@ -351,7 +351,8 @@ final class SyncPlayTests: XCTestCase {
         // SyncPlay joins a group: the socket opens; leaving closes it
         svc.setSocketNeeded(true)
         XCTAssertNotNil(svc.socket)
-        XCTAssertEqual(made, 1)
+        let one = await waitUntil { made == 1 }     // the transport is made on the socket's own task
+        XCTAssertTrue(one, "made = \(made)")
         let up = await waitUntil { svc.connected }
         XCTAssertTrue(up)
         svc.setSocketNeeded(false)
@@ -362,7 +363,8 @@ final class SyncPlayTests: XCTestCase {
         live = true
         svc.liveSettingChanged()
         XCTAssertNotNil(svc.socket)
-        XCTAssertEqual(made, 2)
+        let two = await waitUntil { made == 2 }
+        XCTAssertTrue(two, "made = \(made)")
         live = false
         svc.liveSettingChanged()
         XCTAssertNil(svc.socket)
