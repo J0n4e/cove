@@ -94,68 +94,26 @@ struct LibraryView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let lib: LibPref
-    @State private var tab = 0
-    @State private var items: [Item] = []
-    @State private var total = 0
-    @State private var loading = false
-    @State private var loadFailed = false
-    @State private var gen = 0
-    @State private var pageTask: Task<Void, Never>?   // the one next-page load in flight (see loadMore)
-    @State private var sort: String
-    @State private var desc: Bool
-    @State private var watch: String
-    @State private var genre: String
-    @State private var genres: [String] = []
-    @State private var letter = ""
-    @State private var layout: String
-    @State private var groupCol: Bool
+    @StateObject private var model: LibraryModel
 
     init(lib: LibPref) {
         self.lib = lib
-        let d = UserDefaults.standard.dictionary(forKey: "lf-" + lib.id) ?? [:]
-        _sort = State(initialValue: d["sort"] as? String ?? "name")
-        _desc = State(initialValue: d["desc"] as? Bool ?? false)
-        _watch = State(initialValue: d["watch"] as? String ?? "all")
-        _genre = State(initialValue: d["genre"] as? String ?? "")
-        _groupCol = State(initialValue: d["groupCollections"] as? Bool ?? false)
-        _layout = State(initialValue: d["layout"] as? String
-                        ?? UserDefaults.standard.string(forKey: "defaultLibraryLayout") ?? "grid")
-    }
-
-    var key: String { "\(tab)|\(sort)|\(desc)|\(watch)|\(genre)|\(letter)|\(grouping)" }
-    /// "Group by Collection" applies to the main tab of movie libraries.
-    var canGroup: Bool { lib.kind == "movies" && tab == 0 }
-    var grouping: Bool { canGroup && groupCol }
-    var filtered: Bool { watch != "all" || !genre.isEmpty }
-    var types: String { (tab == 1 || lib.kind == "boxsets") ? "BoxSet" : "Movie,Series,Video,MusicVideo" }
-    var sortLabel: String {
-        switch sort {
-        case "latest": return "Recently Added"
-        case "release": return "Release Date"
-        case "top": return "Rating"
-        default: return "Name"
-        }
-    }
-
-    func save() {
-        let d: [String: Any] = ["sort": sort, "desc": desc, "watch": watch, "genre": genre, "layout": layout,
-                                "groupCollections": groupCol]
-        UserDefaults.standard.set(d, forKey: "lf-" + lib.id)
+        _model = StateObject(wrappedValue: LibraryModel(lib: lib))
     }
 
     var body: some View {
         Group {
-            if tab != 2 && layout != "list" && !items.isEmpty {
+            if model.tab != 2 && model.layout != "list" && !model.items.isEmpty {
                 // The posters: AppKit grid (see PosterGrid), which owns the scrolling; the header scrolls with them.
                 // While there are none yet (loading, an error, an empty library) the page below shows why.
                 GeometryReader { g in
-                    PosterGrid(emby: emby, items: items, look: PosterLook(glass3D: false),
+                    PosterGrid(emby: emby, items: model.items, look: PosterLook(glass3D: false),
                                insets: NSEdgeInsets(top: 0, left: 40, bottom: 24, right: 94),
                                header: AnyView(header.padding(.leading, 40).padding(.trailing, 94).padding(.top, 24)),
-                               footer: loading ? AnyView(Spinner())
-                                   : loadFailed ? AnyView(LoadMoreFailedView { Task { await load(reset: false) } }) : nil,
+                               footer: model.loading ? AnyView(Spinner())
+                                   : model.loadFailed ? AnyView(LoadMoreFailedView { model.retry() }) : nil,
                                topInset: g.safeAreaInsets.top, willShow: { i in
-                        if i == items.count - 30 || i == items.count - 1 { loadMore() }
+                        model.cellWillShow(i)
                     }, open: { NavState.shared.open($0) })
                     .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
                 }
@@ -163,18 +121,18 @@ struct LibraryView: View {
                 ScrollView {
                     VStack(spacing: 18) {
                         header
-                        if tab == 2 { genreGrid } else { grid }
+                        if model.tab == 2 { genreGrid } else { grid }
                     }.padding(.leading, 40).padding(.trailing, 94).padding(.vertical, 24)   // room for the A–Z bar
                 }
             }
         }
         .background(bg)
-        .overlay(alignment: .trailing) { if tab != 2 { alphaBar } }
-        .task(id: key) { await load(reset: true) }
-        .onDisappear { pageTask?.cancel(); pageTask = nil }
-        .task { genres = await emby.genres(lib) }
-        .onChange(of: sort) { desc = (sort != "name") }
-        .onChange(of: "\(sort)|\(desc)|\(watch)|\(genre)|\(layout)|\(groupCol)") { save() }
+        .overlay(alignment: .trailing) { if model.tab != 2 { alphaBar } }
+        .task(id: model.key) { model.bind(emby); await model.load(reset: true) }
+        .onDisappear { model.cancel() }
+        .task { model.bind(emby); await model.loadGenres() }
+        .onChange(of: model.sort) { model.sortChanged() }
+        .onChange(of: model.savedKey) { model.save() }
     }
 
     /// The letter under the pointer, for the Dock-style zoom of the A–Z bar.
@@ -189,7 +147,7 @@ struct LibraryView: View {
     var alphaBar: some View {
         VStack(spacing: 1) {
             ForEach(Array(alphaLetters.enumerated()), id: \.element) { i, l in
-                AlphaLetter(l: l, on: letter == l, action: { letter = (letter == l) ? "" : l },
+                AlphaLetter(l: l, on: model.letter == l, action: { model.letter = (model.letter == l) ? "" : l },
                             scale: alphaScale(i), hovering: { inside in
                     if inside { alphaHover = i } else if alphaHover == i { alphaHover = nil }
                 })
@@ -209,67 +167,67 @@ struct LibraryView: View {
                 HStack { Text(lib.title).font(.title2.bold()); Spacer() }
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
-                        Button { tab = i } label: {
+                        Button { model.tab = i } label: {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
-                                .font(.callout.weight(tab == i ? .semibold : .regular))
+                                .font(.callout.weight(model.tab == i ? .semibold : .regular))
                                 .padding(.horizontal, 18).frame(height: 32)
-                                .background(Capsule().fill(tab == i ? Color.white.opacity(0.22) : Color.clear))
-                                .foregroundColor(tab == i ? .white : .secondary)
+                                .background(Capsule().fill(model.tab == i ? Color.white.opacity(0.22) : Color.clear))
+                                .foregroundColor(model.tab == i ? .white : .secondary)
                                 .contentShape(Capsule())
                         }.buttonStyle(.plainHand).focusEffectDisabled()
                     }
                 }.padding(4).frame(height: 40).glassCapsule()
             }
-            if tab != 2 { controls }
+            if model.tab != 2 { controls }
         }
     }
 
     var controls: some View {
         HStack(spacing: 10) {
-            Text("\(total) Items").foregroundColor(.secondary).padding(.trailing, 4)
-            Button { Task { if let f = items.first { await emby.play(f) } } } label: {
+            Text("\(model.total) Items").foregroundColor(.secondary).padding(.trailing, 4)
+            Button { Task { await model.playFirst() } } label: {
                 Label("Play", systemImage: "play.fill").pill()
             }.buttonStyle(.plainHand)
-            Button { Task { await shuffle() } } label: {
+            Button { Task { await model.shuffle() } } label: {
                 Label("Shuffle", systemImage: "shuffle").pill()
             }.buttonStyle(.plainHand)
             Menu {
-                Picker("Sort by", selection: $sort) {
+                Picker("Sort by", selection: $model.sort) {
                     Text("Recently Added").tag("latest")
                     Text("Name").tag("name")
                     Text("Release Date").tag("release")
                     Text("Rating").tag("top")
                 }.pickerStyle(.inline)
-                Picker("Order", selection: $desc) {
+                Picker("Order", selection: $model.desc) {
                     Text("Ascending").tag(false)
                     Text("Descending").tag(true)
                 }.pickerStyle(.inline)
             } label: {
-                Label(sortLabel, systemImage: desc ? "arrow.down" : "arrow.up").pill()
+                Label(model.sortLabel, systemImage: model.desc ? "arrow.down" : "arrow.up").pill()
             }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
             Menu {
-                Picker("Status", selection: $watch) {
+                Picker("Status", selection: $model.watch) {
                     Text("All").tag("all")
                     Text("Unwatched").tag("unwatched")
                     Text("Watched").tag("watched")
                 }.pickerStyle(.inline)
-                Picker("Genre", selection: $genre) {
+                Picker("Genre", selection: $model.genre) {
                     Text("All Genres").tag("")
-                    ForEach(genres, id: \.self) { Text($0).tag($0) }
+                    ForEach(model.genres, id: \.self) { Text($0).tag($0) }
                 }.pickerStyle(.inline)
             } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle").pill(active: filtered)
+                Image(systemName: "line.3.horizontal.decrease.circle").pill(active: model.filtered)
             }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
-            if !genre.isEmpty {
-                Button { genre = "" } label: { Label(genre, systemImage: "xmark").pill(active: true) }.buttonStyle(.plainHand)
+            if !model.genre.isEmpty {
+                Button { model.genre = "" } label: { Label(model.genre, systemImage: "xmark").pill(active: true) }.buttonStyle(.plainHand)
             }
             layoutToggle
             Menu {
-                if canGroup {
-                    Toggle("Group by Collection", isOn: $groupCol)
+                if model.canGroup {
+                    Toggle("Group by Collection", isOn: $model.groupCol)
                     Divider()
                 }
-                Button("Refresh") { Task { await load(reset: true) } }
+                Button("Refresh") { model.reload() }
             } label: { Image(systemName: "ellipsis").pill() }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
         }
@@ -277,32 +235,32 @@ struct LibraryView: View {
 
     var grid: some View {
         VStack(spacing: 20) {
-            if layout == "list" {
+            if model.layout == "list" {
                 LazyVStack(spacing: 6) {
-                    ForEach(items) { it in
+                    ForEach(model.items) { it in
                         ListRow(item: it).onAppear {
-                            if it.id == nextPageAt || it.id == items.last?.id { loadMore() }
+                            model.listRowAppeared(it.id)
                         }
                     }
                 }
             }   // grid: PosterGrid, see body
-            if loading { Spinner() }
-            else if loadFailed {
-                if items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { Task { await load(reset: true) } } }
-                else { LoadMoreFailedView { Task { await load(reset: false) } } }
+            if model.loading { Spinner() }
+            else if model.loadFailed {
+                if model.items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { model.reload() } }
+                else { LoadMoreFailedView { model.retry() } }
             }
-            else if items.isEmpty { Text("Nothing here.").foregroundColor(.secondary).padding(40) }
+            else if model.items.isEmpty { Text("Nothing here.").foregroundColor(.secondary).padding(40) }
         }
     }
 
     var layoutToggle: some View {
         HStack(spacing: 0) {
             ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
-                Button { layout = m.0 } label: {
+                Button { model.layout = m.0 } label: {
                     Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
                         .frame(width: 36, height: 28)
-                        .background(Capsule().fill(layout == m.0 ? Color.white.opacity(0.22) : Color.clear))
-                        .foregroundColor(layout == m.0 ? .white : .secondary)
+                        .background(Capsule().fill(model.layout == m.0 ? Color.white.opacity(0.22) : Color.clear))
+                        .foregroundColor(model.layout == m.0 ? .white : .secondary)
                         .contentShape(Capsule())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
@@ -311,53 +269,12 @@ struct LibraryView: View {
 
     var genreGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
-            ForEach(genres, id: \.self) { g in
-                Button { genre = g; tab = 0 } label: {
+            ForEach(model.genres, id: \.self) { g in
+                Button { model.genre = g; model.tab = 0 } label: {
                     Text(g).font(.headline).frame(maxWidth: .infinity, minHeight: 70)
                         .background(Color.white.opacity(0.1)).cornerRadius(8)
                 }.buttonStyle(.plainHand)
             }
         }
-    }
-
-    func fetch(start: Int, limit: Int, sort s: String) async -> ItemList? {
-        await emby.libraryItems(lib, limit: limit, start: start, sort: s, desc: s == sort ? desc : nil,
-                                watch: watch, genre: genre, letter: letter, favorites: tab == 3, types: types,
-                                groupCollections: grouping)
-    }
-
-    /// Next page from a scroll trigger: one task at a time, cancelled on reset and when the page goes away,
-    /// instead of a new Task for every cell that scrolls past the trigger.
-    func loadMore() {
-        guard pageTask == nil else { return }
-        pageTask = Task { await load(reset: false); pageTask = nil }
-    }
-
-    func load(reset: Bool) async {
-        if reset { pageTask?.cancel(); pageTask = nil }
-        if !reset && (loading || loadFailed || items.count >= total) { return }
-        gen += 1
-        let my = gen
-        loading = true; loadFailed = false
-        let r = await fetch(start: reset ? 0 : items.count, limit: 100, sort: sort)
-        guard my == gen else { return }
-        loading = false
-        // A failed page keeps what's already shown and offers to try again (it used to end paging for good)
-        guard let r else { loadFailed = true; return }
-        if reset { items = r.Items } else { items += r.Items }
-        total = r.TotalRecordCount ?? items.count
-        // Posters of the new page start downloading now, before they scroll into view. A small library (Collections,
-        // up to 300) is loaded and fetched whole, so no poster has to load while you scroll through it.
-        let small = total <= 300
-        ImageCache.shared.prefetch(r.Items.prefix(small ? 100 : 40).map { emby.image($0.posterId, width: 360) })
-        if small && items.count < total { await load(reset: false) }
-    }
-
-    /// The next page is fetched when this item appears, 30 before the end, so it's there before you reach it.
-    var nextPageAt: String? { items.count > 30 ? items[items.count - 30].id : nil }
-
-    func shuffle() async {
-        let r = await fetch(start: 0, limit: 1, sort: "random")
-        if let f = r?.Items.first { await emby.play(f) }
     }
 }

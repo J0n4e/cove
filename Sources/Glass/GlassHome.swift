@@ -30,27 +30,15 @@ struct HomeContent: View {
     @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     @State private var pageH: CGFloat = .infinity
     let reloadToken: Int
-    @State private var retry = 0
-    @State private var rows: [Row] = []
-    @State private var loading = true
-
-    var heroItems: [Item] {
-        var seen = Set<String>()
-        var out: [Item] = []
-        for row in rows {
-            for it in row.items.filter({ $0.backdropId != nil }).prefix(2) where !seen.contains(it.heroTitle) {
-                seen.insert(it.heroTitle); out.append(it)
-            }
-        }
-        return Array(out.prefix(8))
-    }
+    /// Rows, banner items and loading (shared with Classic); Glass prefetches the rows' first pictures.
+    @StateObject private var model = HomeModel(prefetchRows: true)
 
     var body: some View {
-        let hero = heroItems
+        let hero = model.heroItems
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 if !hero.isEmpty { Hero(items: hero, pageH: pageH) }
-                ForEach(rows) { row in
+                ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         rowTitle(row).padding(.leading, 52)
                         let wide = row.feed == .resume || row.feed == .nextUp
@@ -73,10 +61,10 @@ struct HomeContent: View {
                         }
                     }
                 }
-                if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
-                else if rows.isEmpty, let m = emby.lastFailure {
+                if model.loading { Spinner().frame(maxWidth: .infinity).padding(60) }
+                else if model.rows.isEmpty, let m = emby.lastFailure {
                     // The server couldn't be reached: say so, instead of an empty black page
-                    ErrorStateView(message: m, retry: { loading = true; retry += 1 },
+                    ErrorStateView(message: m, retry: { model.retry() },
                                    switchServer: { emby.switchServer() }).padding(.top, 120)
                 }
             }.padding(.bottom, 40)
@@ -86,22 +74,7 @@ struct HomeContent: View {
             Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
         })
         .background(bg)
-        .task(id: "\(reloadToken)-\(retry)") {
-            rows = await emby.loadHome(); loading = false
-            // Look ahead: the first pictures of every row start downloading right away (low priority)
-            var urls: [URL?] = []
-            for row in rows {
-                for it in row.items.prefix(10) {
-                    if row.feed == .resume || row.feed == .nextUp {
-                        urls.append(it.isEpisode ? emby.image(it.Id, width: 520, plain: true)
-                                                 : emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520))
-                    } else {
-                        urls.append(emby.image(it.posterId, width: 360))
-                    }
-                }
-            }
-            ImageCache.shared.prefetch(urls)
-        }
+        .task(id: model.taskKey(reloadToken)) { model.bind(emby); await model.load() }
     }
 }
 
