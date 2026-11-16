@@ -32,9 +32,10 @@ struct SearchView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let query: String
-    @State private var results: [Item] = []
-    @State private var people: [Item] = []
-    @State private var busy = false
+    @StateObject private var model = SearchModel()
+    private var results: [Item] { model.results }
+    private var people: [Item] { model.people }
+    private var busy: Bool { model.busy }
     var heading: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Results for “\(query)”").font(.title2.bold())
@@ -67,16 +68,7 @@ struct SearchView: View {
             }
         }
         .background(bg)
-        .task(id: query) {
-            busy = true
-            try? await Task.sleep(nanoseconds: 350_000_000)
-            if Task.isCancelled { return }
-            async let titles = emby.search(query)
-            async let persons = emby.searchPeople(query)
-            results = await titles
-            people = await persons
-            busy = false
-        }
+        .task(id: query) { await model.run(query, source: emby) }
     }
 
     /// Matching people as poster-sized portraits; each opens the person's page.

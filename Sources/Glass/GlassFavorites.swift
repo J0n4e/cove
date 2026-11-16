@@ -13,16 +13,13 @@ struct FavoritesView: View {
     /// "row" (scrolling row per section), "grid" or "list"; set in Settings → Libraries.
     @AppStorage("favoritesLayout") private var layout = "row"
     @Environment(\.appBG) var bg
-    @State private var items: [Item] = []
-    @State private var people: [Item] = []
-    @State private var loading = true
+    @StateObject private var model = FavoritesModel()
 
     var body: some View {
+        let items = model.items, people = model.people, loading = model.loading
         let favs = items.filter { emby.isFav($0) }
-        let movies = favs.filter { !$0.isSeries && !$0.isBox && !$0.isEpisode }
-        let shows = favs.filter { $0.isSeries }
-        let episodes = favs.filter { $0.isEpisode }
-        let collections = favs.filter { $0.isBox }
+        let s = FavoritesModel.sections(favs)
+        let movies = s.movies, shows = s.shows, episodes = s.episodes, collections = s.collections
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -51,13 +48,7 @@ struct FavoritesView: View {
         // Loads on appear and again when something was added or removed elsewhere (a cast photo, an episode).
         // .task(id:) cancels the previous fetch on each change and when the page goes away, so an older
         // response can't land last and overwrite a newer one.
-        .task(id: emby.favRevision) {
-            async let f = emby.favorites()
-            async let p = emby.favoritePeople()
-            let (newItems, newPeople) = await (f, p)
-            guard !Task.isCancelled else { return }
-            items = newItems; people = newPeople; loading = false
-        }
+        .task(id: emby.favRevision) { await model.load(emby) }
     }
 
     /// Emby-style row: "Favorite Movies ›" heading (opens the full grid) and a scrolling row of posters.
@@ -125,12 +116,12 @@ struct FavoriteGridView: View {
     @Environment(\.dismiss) var dismiss
     let title: String
     let ids: [String]
-    @State private var items: [Item] = []
+    @StateObject private var model = FavoriteGridModel()
 
     var body: some View {
         // AppKit grid (see PosterGrid); the title scrolls with the posters
         GeometryReader { g in
-            PosterGrid(emby: emby, items: items.filter { emby.isFav($0) }, look: PosterLook(glass3D: false),
+            PosterGrid(emby: emby, items: model.items.filter { emby.isFav($0) }, look: PosterLook(glass3D: false),
                        insets: NSEdgeInsets(top: 0, left: 32, bottom: 24, right: 32),
                        header: AnyView(Text(title).font(.title.bold())
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 32).padding(.top, 24)),
@@ -145,11 +136,7 @@ struct FavoriteGridView: View {
         .toolbar { TitleBarItems(back: { dismiss() }) }
         .hideToolbarTitle()
         .toolbarBackground(.hidden, for: .windowToolbar)
-        .task {
-            let all = await emby.favorites()
-            let set = Set(ids)
-            items = all.filter { set.contains($0.Id) }
-        }
+        .task { await model.load(emby, ids: ids) }
     }
 }
 
@@ -211,14 +198,14 @@ struct FavoritePeopleView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @Environment(\.dismiss) var dismiss
-    @State private var people: [Item] = []
+    @StateObject private var model = FavoritePeopleModel()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Favorite People").font(.title.bold())
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
-                    ForEach(people.filter { emby.isFav($0) }) { FavPersonCard(p: $0) }
+                    ForEach(model.people.filter { emby.isFav($0) }) { FavPersonCard(p: $0) }
                 }
             }.padding(.horizontal, 32).padding(.vertical, 24)
         }
@@ -228,10 +215,6 @@ struct FavoritePeopleView: View {
         .toolbar { TitleBarItems(back: { dismiss() }) }
         .hideToolbarTitle()
         .toolbarBackground(.hidden, for: .windowToolbar)
-        .task(id: emby.favRevision) {
-            let p = await emby.favoritePeople()
-            guard !Task.isCancelled else { return }
-            people = p
-        }
+        .task(id: emby.favRevision) { await model.load(emby) }
     }
 }

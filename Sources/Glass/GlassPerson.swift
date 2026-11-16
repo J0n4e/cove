@@ -15,13 +15,11 @@ struct PersonView: View {
     @Environment(\.appBG) var bg
     let person: PersonRef
     @Environment(\.dismiss) var dismiss
-    @State private var items: [Item] = []
-    @State private var record: Item?
-    @State private var loading = true
+    @StateObject private var model = PersonModel()
 
     var body: some View {
-        let movies = items.filter { !$0.isSeries }
-        let shows = items.filter { $0.isSeries }
+        let items = model.items, record = model.record, loading = model.loading
+        let movies = model.movies, shows = model.shows
         ScrollView {
             VStack(alignment: .leading, spacing: 34) {
                 PersonHeader(id: person.id, name: person.name, record: record, items: items, loading: loading)
@@ -44,13 +42,7 @@ struct PersonView: View {
         .toolbar { TitleBarItems(back: noBack ? nil : { dismiss() }) }
         .hideToolbarTitle()
         .toolbarBackground(.hidden, for: .windowToolbar)
-        .task {
-            async let list = emby.itemsWithPerson(person.id)
-            async let me = emby.person(person.id)
-            items = await list
-            record = await me
-            loading = false
-        }
+        .task { await model.load(person.id, source: emby) }
     }
 
     func section(_ title: String, _ list: [Item]) -> some View {
