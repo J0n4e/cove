@@ -329,4 +329,54 @@ final class SyncPlayTests: XCTestCase {
         XCTAssertFalse(SyncPlayService.available(version: nil, access: "JoinGroups"))
         XCTAssertFalse(SyncPlayService.available(version: "10.9.0", access: nil))
     }
+
+    // MARK: live connection setting
+
+    func testLiveConnectionOffOpensNoSocketUntilNeededOrSwitchedOn() async throws {
+        let http = HTTPRecorder()
+        http.answers = ["/System/Info/Public": SyncPlayFixtures.publicInfo, "/Users/u1": SyncPlayFixtures.user,
+                        "/GetUtcTime": SyncPlayFixtures.utcTime, "/Sessions/Capabilities/Full": ""]
+        var made = 0
+        var live = false
+        let svc = SyncPlayService(enabled: true, http: http.handle,
+                                  makeTransport: { _ in made += 1; return StubTransport() },
+                                  sleep: SleepRecorder().sleep, log: { _ in }, liveSetting: { live })
+        // Off: sign-in opens no socket, but capabilities, server info and time sync still run
+        svc.update(creds, isJellyfin: true)
+        let ok = await waitUntil { http.paths.contains("/Sessions/Capabilities/Full") && svc.syncPlayAccess != nil }
+        XCTAssertTrue(ok)
+        XCTAssertNil(svc.socket)
+        XCTAssertEqual(made, 0)
+
+        // SyncPlay joins a group: the socket opens; leaving closes it
+        svc.setSocketNeeded(true)
+        XCTAssertNotNil(svc.socket)
+        let one = await waitUntil { made == 1 }     // the transport is made on the socket's own task
+        XCTAssertTrue(one, "made = \(made)")
+        let up = await waitUntil { svc.connected }
+        XCTAssertTrue(up)
+        svc.setSocketNeeded(false)
+        XCTAssertNil(svc.socket)
+        XCTAssertFalse(svc.connected)
+
+        // Switching the setting on starts the socket right away; off again closes it
+        live = true
+        svc.liveSettingChanged()
+        XCTAssertNotNil(svc.socket)
+        let two = await waitUntil { made == 2 }
+        XCTAssertTrue(two, "made = \(made)")
+        live = false
+        svc.liveSettingChanged()
+        XCTAssertNil(svc.socket)
+    }
+
+    func testLiveConnectionDefaultsOn() {
+        let d = UserDefaults.standard
+        let saved = d.object(forKey: SyncPlayService.liveSocketKey)
+        d.removeObject(forKey: SyncPlayService.liveSocketKey)
+        XCTAssertTrue(SyncPlayService.liveSocketDefault())
+        d.set(false, forKey: SyncPlayService.liveSocketKey)
+        XCTAssertFalse(SyncPlayService.liveSocketDefault())
+        if let saved { d.set(saved, forKey: SyncPlayService.liveSocketKey) } else { d.removeObject(forKey: SyncPlayService.liveSocketKey) }
+    }
 }

@@ -860,6 +860,7 @@ struct PlaybackSettings: View {
     @AppStorage("separatePlayer") private var separatePlayer = false
     @AppStorage("debugLog") private var debugLog = false
     @AppStorage("playerControls") private var controls = "theme"
+    @AppStorage(SyncPlayService.liveSocketKey) private var liveSocket = true
 
     var body: some View {
         PrefSection(title: "Player") {
@@ -888,6 +889,10 @@ struct PlaybackSettings: View {
                     Toggle("Skip intros", isOn: $autoSkipIntro)
                 }
             }
+        }
+        PrefSection(title: "Connection") {
+            PrefRow { Toggle("Live connection to the server", isOn: $liveSocket) }
+            PrefNote("Jellyfin servers only. Keeps a small live connection open so remote control from the Jellyfin dashboard works and updates arrive instantly. When off, Cove connects only while you use SyncPlay.")
         }
         PrefSection(title: "Troubleshooting", last: true) {
             PrefRow(label: "Debug log") { Toggle("Write a player debug log", isOn: $debugLog) }

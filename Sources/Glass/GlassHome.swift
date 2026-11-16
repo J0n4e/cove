@@ -29,6 +29,7 @@ struct HomeContent: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
     @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     @State private var pageH: CGFloat = .infinity
+    @State private var topInset: CGFloat = 0   // the title bar the banner runs up under
     let reloadToken: Int
     /// Rows, banner items and loading (shared with Classic); Glass prefetches the rows' first pictures.
     @StateObject private var model = HomeModel(prefetchRows: true)
@@ -37,7 +38,15 @@ struct HomeContent: View {
         let hero = model.heroItems
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                if !hero.isEmpty { Hero(items: hero, pageH: pageH) }
+                if !hero.isEmpty {
+                    Hero(items: hero, pageH: pageH)
+                        // The server pill over the banner's top left, below the title bar and the traffic lights
+                        .overlay(alignment: .topLeading) {
+                            ServerPillMenu(classic: false).padding(.top, topInset + 12).padding(.leading, 52)
+                        }
+                } else {
+                    ServerPillMenu(classic: false).padding(.leading, 52).padding(.top, topInset + 12)
+                }
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         rowTitle(row).padding(.leading, 52)
@@ -72,6 +81,8 @@ struct HomeContent: View {
         .ignoresSafeArea(edges: .top)          // banner runs up under the title bar, as in Apple TV
         .background(GeometryReader { g in
             Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
+                .onAppear { topInset = g.safeAreaInsets.top }
+                .onChange(of: g.safeAreaInsets.top) { _, t in topInset = t }
         })
         .background(bg)
         .task(id: model.taskKey(reloadToken)) { model.bind(emby); await model.load() }

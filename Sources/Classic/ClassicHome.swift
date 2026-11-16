@@ -14,12 +14,24 @@ struct ClassicHomeContent: View {
     /// Rows, banner items and loading (shared with Glass); Classic doesn't prefetch the rows' pictures (it never did).
     @StateObject private var model = HomeModel(prefetchRows: false)
     @State private var pageH: CGFloat = .infinity
+    @State private var topInset: CGFloat = 0   // the top bar / title bar the banner runs up under
 
     var body: some View {
         let hero = model.heroItems
+        let underBar = !hero.isEmpty && bannerStyle != "card"
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                if !hero.isEmpty { ClassicHero(items: hero, pageH: pageH) }
+                if !hero.isEmpty {
+                    ClassicHero(items: hero, pageH: pageH)
+                        // The server pill over the banner's top left, below the top bar and the traffic lights
+                        .overlay(alignment: .topLeading) {
+                            ServerPillMenu(classic: true)
+                                .padding(.top, (underBar ? topInset : 0) + 12)
+                                .padding(.leading, bannerStyle == "card" ? 44 : 32)
+                        }
+                } else {
+                    ServerPillMenu(classic: true).padding(.leading, 32).padding(.top, 12)
+                }
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         Text(row.title).cvFont(15, weight: .bold).padding(.leading, 32)
@@ -58,6 +70,11 @@ struct ClassicHomeContent: View {
         .background(GeometryReader { g in
             Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
         }.ignoresSafeArea(edges: bannerStyle == "card" ? [] : .top))
+        // Height of the top bar / title bar above the page (where the server pill must stay clear of)
+        .background(GeometryReader { g in
+            Color.clear.onAppear { topInset = g.safeAreaInsets.top }
+                .onChange(of: g.safeAreaInsets.top) { _, t in topInset = t }
+        })
         .background(bg)
         .task(id: model.taskKey(reloadToken)) { model.bind(emby); await model.load() }
     }
