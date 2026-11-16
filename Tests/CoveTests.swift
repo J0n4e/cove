@@ -482,3 +482,24 @@ final class CoveTests: XCTestCase {
         XCTAssertEqual(ServerStore.sealedTokens(d), ["https://old.example": "tokL"])
     }
 }
+
+// MARK: Security lows
+
+final class SecurityLowsTests: XCTestCase {
+    private func u(_ s: String) -> URL { URL(string: s)! }
+
+    func testSameOriginRequiresSameScheme() {
+        // https server, reply points at http on port 443: not ours, no token
+        XCTAssertFalse(Net.sameOrigin(u("https://h/emby"), u("http://h:443/Videos/1")))
+        XCTAssertFalse(Net.sameOrigin(u("http://h:443/Videos/1"), u("https://h/emby")))
+        XCTAssertFalse(Net.sameOrigin(u("https://h:8920"), u("http://h:8920/a")))
+        XCTAssertFalse(Net.sameOrigin(u("file:///h"), u("file:///h")))
+    }
+
+    func testSameOriginLegitCases() {
+        XCTAssertTrue(Net.sameOrigin(u("http://192.168.1.5:8096"), u("http://192.168.1.5:8096/Items/1/Images/Primary")))
+        XCTAssertTrue(Net.sameOrigin(u("http://h"), u("http://H:80/a")))
+        XCTAssertTrue(Net.sameOrigin(u("https://h:443/a"), u("HTTPS://h/b")))
+        XCTAssertFalse(Net.sameOrigin(u("https://h"), u("https://h:8920")))
+    }
+}

@@ -43,8 +43,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
-  <!-- Many home Emby servers use plain http (e.g. http://host:8096); allow it. -->
-  <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+  <!-- Many home Emby servers use plain http (e.g. http://host:8096); allow it for the app (see SECURITY.md).
+       Web views (YouTube trailers, https only) keep full ATS: with this key present, the one above is ignored for them. -->
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/><key>NSAllowsArbitraryLoadsInWebContent</key><false/></dict>
 </dict></plist>
 PLIST
 

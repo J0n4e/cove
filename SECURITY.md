@@ -39,3 +39,20 @@ of the file and against copying it (or a backup of it) to another Mac. It does *
 software running as you on this Mac, which can derive the same key. The macOS Keychain would do better, but
 without an Apple Developer ID it asks for access after every update (see RELEASING.md). Turn on FileVault so
 the file is encrypted at rest.
+
+## Plain http and App Transport Security
+
+Cove allows plain http app-wide (`NSAllowsArbitraryLoads`) because many Emby/Jellyfin servers run on a LAN IP or
+hostname over http (`http://host:8096`), and remote http servers are supported on purpose after a confirmation
+prompt. `NSAllowsLocalNetworking` alone would not cover those remote servers. What protects the sign-in token:
+
+- Redirects are followed only to the same scheme, host and port, or as an http → https upgrade on the same host;
+  never from https down to http.
+- The token is added to links (`api_key=`) and image requests only for URLs with the same scheme, host and port
+  as the server (default ports filled in), so an https server's reply can't send it to `http://host:443/`.
+- Web views (YouTube trailers) keep full ATS: `NSAllowsArbitraryLoadsInWebContent` is set to false, and when that key
+  is present macOS ignores `NSAllowsArbitraryLoads` for web content, so the trailer page can only load https.
+
+The release signing script copies the `.p12` password to the clipboard instead of printing it
+(`--show-password` prints it; `--github` stores it as a secret and doesn't show it).
+
