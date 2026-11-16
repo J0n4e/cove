@@ -8,8 +8,8 @@ always release with `VERSION` equal to the tag.
 
 The signing secrets live in the GitHub **Environment `release`**, which only `v*` tags may use, and a **tag
 ruleset** lets only the repository owner create `v*` tags. So a pull request, a branch, or someone with write
-access (or a stolen write-access account) cannot get a build signed. Pull requests and *Run workflow* build
-without any secrets (ad-hoc signature).
+access (or a stolen write-access account) cannot get a build signed. Pull requests, pushes to `main`/`Development` and
+*Run workflow* run the unit tests and build without any secrets (ad-hoc signature).
 
 ## One-time setup (repository owner)
 
@@ -54,7 +54,7 @@ Only the repository owner can add environments, secrets and rulesets.
    git checkout main && git pull
    git tag v1.16.0 && git push origin v1.16.0
    ```
-3. The `release` job builds the app, signs it with the certificate, signs `Cove.zip` with the update key, adds a
+3. The `release` job runs the unit tests (a failure stops the release), builds the app, signs it with the certificate, signs `Cove.zip` with the update key, adds a
    build attestation and creates a **draft** release with `Cove.zip` and `Cove.zip.sig`. With required reviewers
    on, approve the deployment first (Actions → the run → *Review deployments*).
 4. Open the draft on GitHub, write the release notes and **Publish**. Pre-releases are ignored by the updater. The notes (Markdown) are what the Software Update and What's New windows show, so write them for users.
