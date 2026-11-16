@@ -425,7 +425,7 @@ struct ClassicPlayerView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     Spinner(inPlayer: true).controlSize(.small)
-                    Text("Loading subtitles…").font(.cv(14, weight: .medium)).glossyLettering()
+                    Text("Loading subtitles…").cvFont(14, weight: .medium).glossyLettering()
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .modifier(TimeBubble(classic: true))   // dark glass, as the time above the timeline
@@ -439,7 +439,7 @@ struct ClassicPlayerView: View {
             VStack {
                 Spacer()
                 Text(model.caption)
-                    .font(.cv(fs, weight: .medium))
+                    .cvFont(fs, weight: .medium)
                     .foregroundColor(color)
                     .multilineTextAlignment(.center)
                     .modifier(SubShadow(style: subShadow, color: shade))
@@ -509,8 +509,8 @@ struct ClassicPlayerView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
-                    if let l = episodeLine { Text(l).font(.cv(16, weight: .medium)).opacity(0.85) }
-                    Text(item.heroTitle).font(.cv(28, weight: .bold))
+                    if let l = episodeLine { Text(l).cvFont(16, weight: .medium).opacity(0.85) }
+                    Text(item.heroTitle).cvFont(28, weight: .bold)
                 }
                 Spacer()
                 HStack(spacing: 26) {
@@ -535,7 +535,7 @@ struct ClassicPlayerView: View {
                 Spacer()
                 Text("-\(fmt(max(0, model.duration - (scrubbing ? scrub : model.time))))  /  \(endClock)")
             }
-            .font(.cv(14).monospacedDigit()).opacity(0.85)
+            .cvFont(14) { $0.monospacedDigit() }.opacity(0.85)
 
             HStack(spacing: 30) {
                 iconButton("backward.end.fill", size: 18) { if let p = prevEp { play(p) } else { model.seek(to: 0) } }
@@ -546,7 +546,7 @@ struct ClassicPlayerView: View {
                         Label(model.playing ? "Pause" : "Play", systemImage: model.playing ? "pause.fill" : "play.fill")
                             .classicGlassPill(size: 60)
                     } else {
-                        Image(systemName: model.playing ? "pause.fill" : "play.fill").font(.cv(22, weight: .bold))
+                        Image(systemName: model.playing ? "pause.fill" : "play.fill").cvFont(22, weight: .bold)
                             .foregroundColor(.black)
                             .frame(width: 56, height: 56)
                             .background(Circle().fill(Color.white))
@@ -581,7 +581,7 @@ struct ClassicPlayerView: View {
 
     func plainIconButton(_ name: String, size: CGFloat, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button { action(); poke() } label: {
-            Image(systemName: name).font(.cv(size, weight: .medium))
+            Image(systemName: name).cvFont(size, weight: .medium)
                 .frame(width: size + 12, height: size + 12)
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
@@ -622,7 +622,7 @@ struct ClassicPlayerView: View {
         let reset = { subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10 }
         if classic {
             Button(action: reset) {
-                Text("Reset to Default").font(.cv(13, weight: .semibold)).padding(.horizontal, 16).frame(height: 34).classicGlassPill()
+                Text("Reset to Default").cvFont(13, weight: .semibold).padding(.horizontal, 16).frame(minHeight: 34).classicGlassPill()
             }.buttonStyle(HoverButton())
         } else {
             Button("Reset to Default", action: reset)
@@ -642,13 +642,13 @@ struct ClassicPlayerView: View {
     func row(_ icon: String, _ title: String, sub: String? = nil, checked: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: classic ? 12 : 18) {
-                Image(systemName: icon).font(.cv(classic ? 14 : 18)).frame(width: classic ? 20 : 26)
+                Image(systemName: icon).cvFont(classic ? 14 : 18).frame(width: classic ? 20 : 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.cv(classic ? 13 : 16, weight: classic ? .medium : .regular)).lineLimit(1)
-                    if let sub { Text(sub).font(.cv(classic ? 11 : 13)).foregroundColor(.secondary) }
+                    Text(title).cvFont(classic ? 13 : 16, weight: classic ? .medium : .regular).lineLimit(1)
+                    if let sub { Text(sub).cvFont(classic ? 11 : 13).foregroundColor(.secondary) }
                 }
                 Spacer()
-                if checked { Image(systemName: "checkmark").font(.cv(classic ? 12 : 15, weight: .semibold)) }
+                if checked { Image(systemName: "checkmark").cvFont(classic ? 12 : 15, weight: .semibold) }
             }
             .foregroundColor(classic ? .white : (checked ? accent : .white))
             .padding(.horizontal, classic ? 12 : 22).padding(.vertical, classic ? 7 : 11)
@@ -659,7 +659,7 @@ struct ClassicPlayerView: View {
     }
 
     func sectionTitle(_ t: String) -> some View {
-        Text(classic ? t.uppercased() : t).font(.cv(classic ? 10 : 13, weight: .semibold)).foregroundColor(.secondary)
+        Text(classic ? t.uppercased() : t).cvFont(classic ? 10 : 13, weight: .semibold).foregroundColor(.secondary)
             .kerning(classic ? 0.6 : 0)
             .padding(.horizontal, classic ? 18 : 22).padding(.top, classic ? 8 : 10).padding(.bottom, 4)
     }
@@ -678,10 +678,10 @@ struct ClassicPlayerView: View {
                     }
                 }
                 HStack(spacing: 18) {
-                    Image(systemName: "timer").font(.cv(18)).frame(width: 26)
+                    Image(systemName: "timer").cvFont(18).frame(width: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Subtitle Offset").font(.cv(16))
-                        Text("\(model.subOffset) ms").font(.cv(13)).foregroundColor(.secondary)
+                        Text("Subtitle Offset").cvFont(16)
+                        Text("\(model.subOffset) ms").cvFont(13).foregroundColor(.secondary)
                     }
                     Spacer()
                     Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plainHand)
@@ -691,7 +691,7 @@ struct ClassicPlayerView: View {
                     Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms later")
                 }
-                .font(.cv(classic ? 14 : 18))
+                .cvFont(classic ? 14 : 18)
                 .padding(.horizontal, classic ? 18 : 22).padding(.vertical, classic ? 6 : 9)
                 row("textformat.size", "Subtitle Appearance") { withAnimation { panel = .appearance } }
 
@@ -717,7 +717,7 @@ struct ClassicPlayerView: View {
                     ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0] as [Float], id: \.self) { r in
                         let on = model.speed == r
                         Button { model.setSpeed(r) } label: {
-                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.cv(classic ? 12 : 14, weight: .semibold))
+                            Text(r == 1 ? "1×" : String(format: "%g×", r)).cvFont(classic ? 12 : 14, weight: .semibold)
                                 .frame(maxWidth: .infinity).frame(height: classic ? 28 : 36)
                                 .foregroundColor(classic || !on ? .white : .black)
                                 .background {
@@ -748,12 +748,12 @@ struct ClassicPlayerView: View {
         if classic {
             // Classic: the glass pill and glass list
             VStack(alignment: .leading, spacing: 6) {
-                Text(label).font(.cv(12, weight: .medium)).foregroundColor(.white.opacity(0.75))
+                Text(label).cvFont(12, weight: .medium).foregroundColor(.white.opacity(0.75))
                 GlassPicker(selection: sel, options: opts, maxWidth: 300)
             }
         } else {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.cv(15)).foregroundColor(.white.opacity(0.85))
+            Text(label).cvFont(15).foregroundColor(.white.opacity(0.85))
             Menu {
                 ForEach(opts, id: \.0) { o in
                     Button { sel.wrappedValue = o.0 } label: {
@@ -762,9 +762,9 @@ struct ClassicPlayerView: View {
                 }
             } label: {
                 HStack {
-                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").font(.cv(16))
+                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").cvFont(16)
                     Spacer()
-                    Image(systemName: "chevron.down").font(.cv(13, weight: .bold))
+                    Image(systemName: "chevron.down").cvFont(13, weight: .bold)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 11)
                 .background(Color.white.opacity(0.1)).cornerRadius(6)
@@ -778,9 +778,9 @@ struct ClassicPlayerView: View {
     var appearancePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 20) {
-                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.cv(18, weight: .semibold)) }
+                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").cvFont(18, weight: .semibold) }
                     .buttonStyle(.plainHand)
-                Text("Subtitle Appearance").font(.cv(18, weight: .bold))
+                Text("Subtitle Appearance").cvFont(18, weight: .bold)
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
             ScrollView {
@@ -789,11 +789,11 @@ struct ClassicPlayerView: View {
                     dropdown("Text color", $subColor, Self.colors.map { ($0.0, $0.1) })
                     dropdown("Drop shadow", $subShadow, Self.shadows)
                     dropdown("Background color", $subBg, Self.bgs.map { ($0.0, $0.1) })
-                    Text("Subtitle Position").font(.cv(20, weight: .bold)).padding(.top, 8)
+                    Text("Subtitle Position").cvFont(20, weight: .bold).padding(.top, 8)
                     VStack(alignment: .leading, spacing: 8) {
                         dropdown("Bottom Edge Position", $subBottom, [0, 5, 10, 15, 20, 25, 30].map { (Double($0), "\($0)%") })
                         Text("Set the vertical position of the subtitles relative to the bottom of the screen.")
-                            .font(.cv(13)).foregroundColor(.secondary)
+                            .cvFont(13).foregroundColor(.secondary)
                     }
                     resetAppearanceButton.padding(.top, 6)
                 }
@@ -849,7 +849,7 @@ extension ClassicPlayerView {
     }
 
     func classicMenuIcon(_ name: String, on: Bool) -> some View {
-        Image(systemName: name).font(.cv(18, weight: .medium))
+        Image(systemName: name).cvFont(18, weight: .medium)
             .frame(width: 30, height: 30)
             .foregroundColor(on ? accent : .white)
             .contentShape(Rectangle())
@@ -898,8 +898,8 @@ extension ClassicPlayerView {
 
     var classicPipPlaceholder: some View {
         VStack(spacing: 10) {
-            Image(systemName: "pip").font(.cv(44))
-            Text("Playing in picture in picture").font(.cv(16, weight: .medium))
+            Image(systemName: "pip").cvFont(44)
+            Text("Playing in picture in picture").cvFont(16, weight: .medium)
         }.opacity(0.6).allowsHitTesting(false)
     }
 
@@ -917,7 +917,7 @@ extension ClassicPlayerView {
                         .frame(width: w).cornerRadius(classic ? 10 : 6)
                         .modifier(PreviewFrame(classic: classic))
                 }
-                Text(fmt(t)).font(.cv(13, weight: .semibold).monospacedDigit()).lineLimit(1).fixedSize()
+                Text(fmt(t)).cvFont(13, weight: .semibold) { $0.monospacedDigit() }.lineLimit(1).fixedSize()
                     .padding(.horizontal, classic ? 10 : 6).padding(.vertical, classic ? 4 : 2)
                     .modifier(TimeBubble(classic: classic))
             }
@@ -943,16 +943,16 @@ extension ClassicPlayerView {
             if model.skippedIntro {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
-                    Text("Intro skipped").font(.cv(15, weight: .semibold))
+                    Text("Intro skipped").cvFont(15, weight: .semibold)
                     Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
-                        .font(.cv(15, weight: .semibold)).foregroundColor(accent)
+                        .cvFont(15, weight: .semibold).foregroundColor(accent)
                 }
                 .padding(.horizontal, 18).frame(height: 44)
                 .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
-                    Label("Skip Intro", systemImage: "forward.fill").font(.cv(16, weight: .semibold))
+                    Label("Skip Intro", systemImage: "forward.fill").cvFont(16, weight: .semibold)
                         .foregroundColor(.white)
                         .padding(.horizontal, 22).frame(height: 44)
                         .searchGlass()
@@ -973,24 +973,24 @@ extension ClassicPlayerView {
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").font(.cv(12, weight: .semibold)).foregroundColor(.secondary)
+                Text("Up next").cvFont(12, weight: .semibold).foregroundColor(.secondary)
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
-                    .font(.cv(15, weight: .semibold)).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
+                    .cvFont(15, weight: .semibold).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
-                        Text("Play now").font(.cv(14, weight: .semibold))
+                        Text("Play now").cvFont(14, weight: .semibold)
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
-                        Text("Cancel").font(.cv(14, weight: .semibold))
+                        Text("Cancel").cvFont(14, weight: .semibold)
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
                 }
                 if autoNext {
                     Text("Next starts in \(classicSecsLeft)s")
-                        .font(.cv(11)).foregroundColor(.secondary)
+                        .cvFont(11).foregroundColor(.secondary)
                 }
             }
         }
@@ -1006,7 +1006,7 @@ extension ClassicPlayerView {
         VStack {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Playback info").font(.cv(13, weight: .bold))
+                    Text("Playback info").cvFont(13, weight: .bold)
                     ForEach(Array(infoLines.enumerated()), id: \.offset) { _, l in
                         HStack(alignment: .top, spacing: 10) {
                             Text(l.0).foregroundColor(.white.opacity(0.6)).frame(width: 120, alignment: .leading)
@@ -1014,7 +1014,7 @@ extension ClassicPlayerView {
                         }
                     }
                 }
-                .font(.cv(12).monospacedDigit())
+                .cvFont(12) { $0.monospacedDigit() }
                 .padding(14)
                 .modifier(InfoSurface(classic: classic))
                 Spacer()
@@ -1032,7 +1032,7 @@ extension ClassicPlayerView {
         let list = episodes.filter { ($0.ParentIndexNumber ?? 0) == pickerSeason }
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Episodes").font(.cv(18, weight: .bold))
+                Text("Episodes").cvFont(18, weight: .bold)
                 Spacer()
                 if seasons.count > 1 {
                     if classic {
@@ -1070,20 +1070,20 @@ extension ClassicPlayerView {
                 .frame(width: 120, height: 68).clipped().cornerRadius(5)
                 .overlay {
                     if current {
-                        Image(systemName: "speaker.wave.2.fill").font(.cv(18)).foregroundColor(.white)
+                        Image(systemName: "speaker.wave.2.fill").cvFont(18).foregroundColor(.white)
                             .padding(6).background(Circle().fill(Color.black.opacity(0.6)))
                     }
                 }
                 .overlay(alignment: .topTrailing) {
                     if played && !current {
-                        Image(systemName: "checkmark.circle.fill").font(.cv(14))
+                        Image(systemName: "checkmark.circle.fill").cvFont(14)
                             .foregroundColor(.white).shadow(radius: 2).padding(4)
                     }
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").font(.cv(14, weight: .semibold)).lineLimit(2)
+                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").cvFont(14, weight: .semibold).lineLimit(2)
                     if let t = ep.RunTimeTicks, t > 0 {
-                        Text(runtimeText(t)).font(.cv(12)).foregroundColor(.secondary)
+                        Text(runtimeText(t)).cvFont(12).foregroundColor(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -1130,8 +1130,8 @@ extension ClassicPlayerView {
                 }
                 .frame(width: 112, height: 63).clipped().cornerRadius(5)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(c.Name ?? "Chapter \(i + 1)").font(.cv(15)).lineLimit(2)
-                    Text(fmt(c.start)).font(.cv(13).monospacedDigit()).foregroundColor(.secondary)
+                    Text(c.Name ?? "Chapter \(i + 1)").cvFont(15).lineLimit(2)
+                    Text(fmt(c.start)).cvFont(13) { $0.monospacedDigit() }.foregroundColor(.secondary)
                 }
                 Spacer()
             }

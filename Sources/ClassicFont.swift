@@ -27,7 +27,8 @@ enum ClassicFont {
 }
 
 extension Font {
-    /// The Classic theme's font at this size and weight.
+    /// The Classic theme's font at this size and weight. Views use `.cvFont(size, weight:)`, which passes the size
+    /// through the text-size setting (TextScale.swift) first.
     static func cv(_ size: CGFloat, weight: Font.Weight = .regular) -> Font { ClassicFont.font(size, weight) }
 }
 

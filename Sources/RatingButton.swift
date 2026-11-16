@@ -60,7 +60,7 @@ struct RatingButton: View {
     @ViewBuilder var badge: some View {
         if trakt.isConnected && trakt.isPending(kind: kind, ids: ids) {
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                .font(.system(size: 13)).foregroundColor(.orange)
+                .coveFont(size: 13).foregroundColor(.orange)
                 .background(Circle().fill(.black))
                 .offset(x: 3, y: -3)
                 .help(trakt.lastError ?? "Waiting to be sent to Trakt")
@@ -219,12 +219,12 @@ struct RatingPicker: View {
     var body: some View {
         let shown = hover ?? current ?? 0
         VStack(spacing: 10) {
-            Text(shown > 0 ? "\(shown)/10" : "Your rating").font(.system(size: 15, weight: .semibold))
+            Text(shown > 0 ? "\(shown)/10" : "Your rating").coveFont(size: 15, weight: .semibold)
             HStack(spacing: 2) {
                 ForEach(1...10, id: \.self) { n in
                     Button { pick(n) } label: {
                         Image(systemName: n <= shown ? "star.fill" : "star")
-                            .font(.system(size: 20)).foregroundColor(n <= shown ? accent : .secondary)
+                            .coveFont(size: 20).foregroundColor(n <= shown ? accent : .secondary)
                             .frame(width: 26, height: 28).contentShape(Rectangle())
                     }
                     .buttonStyle(.plainHand).accessibilityLabel("\(n) out of 10")

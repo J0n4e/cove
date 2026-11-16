@@ -83,7 +83,7 @@ struct SearchView: View {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").coveFont(size: 50).foregroundColor(.secondary) }
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 170, height: 255).clipShape(RoundedRectangle(cornerRadius: 12))
@@ -117,12 +117,12 @@ struct SearchDock: View {
             Spacer()
             if open {
                 HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold)).foregroundColor(.secondary)
+                    Image(systemName: "magnifyingglass").coveFont(size: 15, weight: .semibold).foregroundColor(.secondary)
                     // Typing counts only while the box is open: after closing, the field could hold on to the
                     // keyboard while sliding away, and typing then opened search results
                     TextField("Search movies, shows, people", text: Binding(get: { query }, set: { if open { query = $0 } }))
                         .textFieldStyle(.plain)
-                        .font(.system(size: 15)).frame(width: 320)
+                        .coveFont(size: 15).frame(width: 320)
                         .focused($focused)
                         .onExitCommand { close() }   // Esc closes it
                     if !query.isEmpty {

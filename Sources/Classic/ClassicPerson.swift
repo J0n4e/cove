@@ -47,7 +47,7 @@ struct ClassicPersonView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text3D(text: title, size: 17)
-                Text("\(list.count)").font(.cv(15, weight: .regular)).foregroundColor(.secondary)
+                Text("\(list.count)").cvFont(15, weight: .regular).foregroundColor(.secondary)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
                 ForEach(list) { ClassicPosterCard(item: $0) }

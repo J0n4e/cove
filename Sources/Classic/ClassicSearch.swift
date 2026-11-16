@@ -42,9 +42,9 @@ struct ClassicSearchView: View {
     private var busy: Bool { model.busy }
     var heading: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Results for “\(query)”").font(.cv(17, weight: .bold))
+            Text("Results for “\(query)”").cvFont(17, weight: .bold)
             if !people.isEmpty { peopleRow }
-            if !people.isEmpty && !results.isEmpty { Text("Titles").font(.cv(15, weight: .bold)).padding(.top, 8) }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").cvFont(15, weight: .bold).padding(.top, 8) }
         }
     }
 
@@ -78,7 +78,7 @@ struct ClassicSearchView: View {
     /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("People").font(.cv(15, weight: .bold))
+            Text("People").cvFont(15, weight: .bold)
             // In rows like the titles below, not one line that scrolls sideways
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14, alignment: .top)], spacing: 18) {
                     ForEach(people) { p in
@@ -87,7 +87,7 @@ struct ClassicSearchView: View {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
+                                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").cvFont(50).foregroundColor(.secondary) }
                                 }
                                 // Poster-sized portrait, like the other result cards
                                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
@@ -100,7 +100,7 @@ struct ClassicSearchView: View {
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
                                 .classicHoverLift()
-                                Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(2).multilineTextAlignment(.center)
+                                Text(p.Name).cvFont(12, weight: .semibold).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 150)
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors

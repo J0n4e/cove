@@ -112,7 +112,7 @@ struct HomeView: View {
             Text(title).foregroundColor(.white)
         } icon: {
             Image(systemName: icon).foregroundStyle(TintShapeStyle())
-        }.font(.system(size: 15))
+        }.coveFont(size: 15)
     }
 
     func icon(_ lib: LibPref) -> String {
@@ -187,7 +187,7 @@ struct HomeView: View {
                             }.buttonStyle(.plainHand)
                         }
                     }
-                    .font(.system(size: 14))
+                    .coveFont(size: 14)
                     .padding(.horizontal, 10).padding(.vertical, 7)
                     .background(Color.white.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 8))
                 }
@@ -425,7 +425,7 @@ struct TopNavButtons: View {
         } label: {
             // Small icon before each name, as in the sidebar
             HStack(spacing: 6) {
-                if labels != "names" { Image(systemName: icon).font(.system(size: labels == "icons" ? 14 : 12)) }
+                if labels != "names" { Image(systemName: icon).coveFont(size: labels == "icons" ? 14 : 12) }
                 if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
                 else if badge > 0 { Text("\(badge)") }
             }
@@ -481,7 +481,7 @@ struct TopNavTools: View {
         HStack(spacing: 8) {
             // The search box itself floats at the bottom of the window (SearchDock)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
-                Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold))
+                Image(systemName: "magnifyingglass").coveFont(size: 15, weight: .semibold)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(Color.black.opacity(0.4)))
                     .background(.ultraThinMaterial, in: Circle())
@@ -508,7 +508,7 @@ struct TopBackButton: View {
     var body: some View {
         Button(action: action) {
             // Apple TV style: a round glass ‹ button
-            Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+            Image(systemName: "chevron.left").coveFont(size: 15, weight: .semibold)
                 .foregroundStyle(Color.white)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(Color.black.opacity(hover ? 0.55 : 0.4)))
@@ -534,7 +534,7 @@ struct ToastOverlay: View {
             Spacer()
             if let t = emby.toast {
                 Label(t.text, systemImage: t.icon)
-                    .font(.system(size: 14, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                    .coveFont(size: 14, weight: .semibold).foregroundColor(.white).lineLimit(1)
                     .padding(.horizontal, 18).frame(height: 44)
                     .searchGlass()
                     .padding(.bottom, raised ? 80 : 28)

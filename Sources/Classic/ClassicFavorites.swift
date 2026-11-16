@@ -33,8 +33,8 @@ struct ClassicFavoritesView: View {
                 if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
-                        Image(systemName: "heart").font(.cv(40)).foregroundColor(.secondary)
-                        Text("No favorites yet").font(.cv(13, weight: .bold))
+                        Image(systemName: "heart").cvFont(40).foregroundColor(.secondary)
+                        Text("No favorites yet").cvFont(13, weight: .bold)
                         Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 }
@@ -57,8 +57,8 @@ struct ClassicFavoritesView: View {
             // "Favorite People ›" opens all of them on their own page, like the other sections
             NavigationLink(value: FavoritePeopleRef()) {
                 HStack(spacing: 6) {
-                    Text("Favorite People").font(.cv(15, weight: .bold))
-                    Image(systemName: "chevron.right").font(.cv(15, weight: .bold)).foregroundColor(.secondary)
+                    Text("Favorite People").cvFont(15, weight: .bold)
+                    Image(systemName: "chevron.right").cvFont(15, weight: .bold).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
             if layout == "grid" {
@@ -141,14 +141,14 @@ struct ClassicFavPersonCard: View {
                 CachedImage(url: emby.image(p.id, width: 360)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(50)).foregroundColor(.secondary) }
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").cvFont(50).foregroundColor(.secondary) }
                 }
                 .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
                 .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225),
                                            tracksHover: true))   // the posters' light glass edge, and their glow
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .classicHoverLift()
-                Text(p.Name).font(.cv(12, weight: .semibold)).lineLimit(1)
+                Text(p.Name).cvFont(12, weight: .semibold).lineLimit(1)
             }.frame(width: 150)
         }.buttonStyle(.plainHand)
     }

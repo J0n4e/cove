@@ -93,10 +93,10 @@ struct ClassicHomeView: View {
         let on = sel == id
         return Button { if on { popToRoot() } else { selB.wrappedValue = id } } label: {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.cv(13)).frame(width: 18).foregroundStyle(.tint)
-                Text(title).font(.cv(13, weight: on ? .semibold : .regular)).lineLimit(1)
+                Image(systemName: icon).cvFont(13).frame(width: 18).foregroundStyle(.tint)
+                Text(title).cvFont(13, weight: on ? .semibold : .regular).lineLimit(1)
                 Spacer(minLength: 0)
-                if badge > 0 { Text("\(badge)").font(.cv(11, weight: .semibold)).foregroundColor(.secondary) }
+                if badge > 0 { Text("\(badge)").cvFont(11, weight: .semibold).foregroundColor(.secondary) }
             }
             .foregroundColor(.white)
             .padding(.horizontal, 12).frame(height: 32)
@@ -119,7 +119,7 @@ struct ClassicHomeView: View {
                     sideRow("Home", "house.fill", "home")
                     let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
                     ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
-                    Text("MY MEDIA").font(.cv(10, weight: .semibold)).kerning(0.6).foregroundColor(.secondary)
+                    Text("MY MEDIA").cvFont(10, weight: .semibold).kerning(0.6).foregroundColor(.secondary)
                         .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 2)
                     ForEach(emby.libs) { lib in
                         if lib.visible { sideRow(lib.title, icon(lib), lib.id) }
@@ -133,12 +133,12 @@ struct ClassicHomeView: View {
                     Button { emby.switchServer() } label: {
                         HStack(spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(emby.currentServerName).font(.cv(12, weight: .semibold)).lineLimit(1)
+                                Text(emby.currentServerName).cvFont(12, weight: .semibold).lineLimit(1)
                                 Text(emby.currentServer?.user.isEmpty == false ? emby.currentServer!.user : (URL(string: emby.server)?.host ?? ""))
-                                    .font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                                    .cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
                             }
                             Spacer(minLength: 0)
-                            Image(systemName: "chevron.up.chevron.down").font(.cv(10, weight: .regular)).foregroundColor(.secondary)
+                            Image(systemName: "chevron.up.chevron.down").cvFont(10, weight: .regular).foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
@@ -153,7 +153,7 @@ struct ClassicHomeView: View {
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 12) {
                     Button { nav.showSettings = true } label: {
-                        Label("Settings", systemImage: "gearshape").font(.cv(12, weight: .medium))
+                        Label("Settings", systemImage: "gearshape").cvFont(12, weight: .medium)
                             .padding(.horizontal, 14).frame(height: 32).classicGlassPill()
                     }
                     .helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
@@ -446,7 +446,7 @@ struct ClassicTopNavTools: View {
             // The search box itself floats at the bottom of the window (SearchDock)
             // Same 44-pt glass as Back, the sections and the Play button; Settings is in the Cove menu (⌘,)
             Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
-                Image(systemName: "magnifyingglass").font(.cv(14, weight: .semibold))
+                Image(systemName: "magnifyingglass").cvFont(14, weight: .semibold)
                     .frame(width: 44, height: 44).classicGlassPill().contentShape(Capsule())
             }.buttonStyle(HoverButton()).accessibilityLabel("Search")
         }
@@ -462,7 +462,7 @@ struct ClassicTopBackButton: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            Image(systemName: "chevron.left").font(.cv(15, weight: .semibold))
+            Image(systemName: "chevron.left").cvFont(15, weight: .semibold)
             .frame(width: 44, height: 44)
             .brightness(hover ? 0.1 : 0)
             .classicGlassPill()

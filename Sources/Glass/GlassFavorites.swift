@@ -35,7 +35,7 @@ struct FavoritesView: View {
                 if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
-                        Image(systemName: "heart").font(.system(size: 40)).foregroundColor(.secondary)
+                        Image(systemName: "heart").coveFont(size: 40).foregroundColor(.secondary)
                         Text("No favorites yet").font(.headline)
                         Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
@@ -60,7 +60,7 @@ struct FavoritesView: View {
             NavigationLink(value: FavoritePeopleRef()) {
                 HStack(spacing: 6) {
                     Text("Favorite People").font(.title3.bold())
-                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                    Image(systemName: "chevron.right").coveFont(size: 15, weight: .bold).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
             if layout == "grid" {
@@ -85,7 +85,7 @@ struct FavoritesView: View {
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
                     Text(title).font(.title3.bold())
-                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundColor(.secondary)
+                    Image(systemName: "chevron.right").coveFont(size: 15, weight: .bold).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
@@ -153,7 +153,7 @@ struct FavPersonCard: View {
                 CachedImage(url: emby.image(p.id, width: 360)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 50)).foregroundColor(.secondary) }
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").coveFont(size: 50).foregroundColor(.secondary) }
                 }
                 .frame(width: 170, height: 255).clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))

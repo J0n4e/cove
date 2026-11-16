@@ -37,7 +37,7 @@ struct LoginView: View {
                 ForEach(emby.servers) { s in serverCard(s) }
                 Button { startAdd() } label: {
                     VStack(spacing: 10) {
-                        Image(systemName: "plus").font(.system(size: 34, weight: .light))
+                        Image(systemName: "plus").coveFont(size: 34, weight: .light)
                             .frame(width: 150, height: 100)
                             .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [6])))
                         Text("Add Server").font(.headline)
@@ -53,7 +53,7 @@ struct LoginView: View {
         Button { open(s) } label: {
             VStack(spacing: 10) {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "server.rack").font(.system(size: 38))
+                    Image(systemName: "server.rack").coveFont(size: 38)
                         .frame(width: 150, height: 100)
                         .background(Color.white.opacity(0.08)).cornerRadius(10)
                     if s.token != nil {

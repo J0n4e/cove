@@ -115,7 +115,7 @@ private struct WindowHeader: View {
         HStack(alignment: .center, spacing: 12) {
             AppIconView(size: 56)
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.system(size: 15, weight: .bold))
+                Text(title).coveFont(size: 15, weight: .bold)
                 if let subtitle { Text(subtitle).foregroundColor(.secondary) }
             }
             Spacer(minLength: 0)

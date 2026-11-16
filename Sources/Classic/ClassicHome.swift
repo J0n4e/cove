@@ -22,7 +22,7 @@ struct ClassicHomeContent: View {
                 if !hero.isEmpty { ClassicHero(items: hero, pageH: pageH) }
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(row.title).font(.cv(15, weight: .bold)).padding(.leading, 32)
+                        Text(row.title).cvFont(15, weight: .bold).padding(.leading, 32)
                         let wide = row.title == "Continue Watching"
                         // Continue Watching has its own Row / Grid choice; every other section follows Home's
                         if (wide ? resumeLayout : homeLayout) == "grid" {
@@ -206,7 +206,7 @@ struct ClassicHero: View {
     func info(_ item: Item) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if item.isEpisode {
-                Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").font(.cv(13, weight: .semibold))
+                Text("S\(item.ParentIndexNumber ?? 0) · E\(item.IndexNumber ?? 0)").cvFont(13, weight: .semibold)
                     .foregroundColor(.white.opacity(0.85))
             }
             TitleLogo(item: item, height: style == "cinematic" ? 110 : 90, font: style == "cinematic" ? 56 : 46)
@@ -215,8 +215,8 @@ struct ClassicHero: View {
                 if let r = item.CommunityRating {
                     HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
                 }
-            }.font(.cv(15, weight: .medium)).foregroundColor(.white.opacity(0.9))
-            Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
+            }.cvFont(15, weight: .medium).foregroundColor(.white.opacity(0.9))
+            Text(item.Overview ?? "").cvFont(15).lineLimit(3)
                 .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
             HStack(spacing: 12) {
                 Button { Task { await emby.playFromHome(item) } } label: {
@@ -339,14 +339,14 @@ struct ClassicResumeCard: View {
                 CachedImage(url: imageURL) { p in
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.15); Text(item.heroTitle).font(.cv(10, weight: .regular)).padding(6) }
+                    ZStack { Color(white: 0.15); Text(item.heroTitle).cvFont(10, weight: .regular).padding(6) }
                 }
                 .frame(width: 260, height: 146).clipped()
                 // Title, bottom-left
                 .overlay(alignment: .bottomLeading) {
                     // No background: a black outline keeps it readable
                     Text(item.heroTitle)
-                        .font(.cv(12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                        .cvFont(12, weight: .semibold).foregroundColor(.white).lineLimit(1)
                         .classicBlackOutline()
                         .padding(.leading, 10).padding(.trailing, 44).padding(.bottom, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -354,7 +354,7 @@ struct ClassicResumeCard: View {
                 // Series info (S3·E3 · 42m left), top-left
                 .overlay(alignment: .topLeading) {
                     if let subtitle {
-                        Text(subtitle).font(.cv(10, weight: .semibold)).foregroundColor(.white)
+                        Text(subtitle).cvFont(10, weight: .semibold).foregroundColor(.white)
                             .classicBlackOutline().padding(10)
                     }
                 }

@@ -9,7 +9,7 @@ struct ErrorStateView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "wifi.exclamationmark").font(.system(size: 40, weight: .light)).foregroundStyle(.secondary)
+            Image(systemName: "wifi.exclamationmark").coveFont(size: 40, weight: .light).foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(message).font(.headline).multilineTextAlignment(.center).frame(maxWidth: 460)
             if classic {
