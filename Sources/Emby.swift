@@ -408,6 +408,8 @@ final class Emby: ObservableObject {
     /// The signed-in server is Jellyfin (not Emby). Jellyfin speaks the same API, but takes the token in the
     /// `Authorization` header and as `ApiKey=` in links, where Emby uses `X-Emby-Token` and `api_key=`.
     @Published var isJellyfin = false
+    /// SyncPlay phase 1 (Jellyfin only): socket, time sync, capabilities. Follows this object's sign-in state itself.
+    let syncPlay = SyncPlayService()
     /// Query name for the token in image / stream / subtitle links.
     var keyName: String { isJellyfin ? "ApiKey" : "api_key" }
 
@@ -589,6 +591,7 @@ final class Emby: ObservableObject {
         isJellyfin = d.bool(forKey: "jellyfin-" + server.lowercased())
         if !server.isEmpty { Task { await refreshServerKind() } }
         updateImageAuth()      // didSet doesn't run inside init
+        syncPlay.attach(to: self)
     }
 
     /// The server lists Cove under Devices / Activity with this version: the installed app's own number
