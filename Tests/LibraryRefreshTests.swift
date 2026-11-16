@@ -47,13 +47,13 @@ final class LibraryRefreshTests: XCTestCase {
         let all = items()
         let m = LibraryModel(lib: LibPref(id: "LR", name: "Movies", title: "Movies", kind: "movies"),
                              defaults: UserDefaults(suiteName: "LibraryRefreshTests-\(UUID().uuidString)")!,
-                             fetch: { _, _, _ in ItemList(Items: all, TotalRecordCount: 10) })
+                             fetch: { start, _, _ in ItemList(Items: start == 0 ? all : [], TotalRecordCount: 3) })
         m.watch = "unwatched"
         await m.load(reset: true)
-        XCTAssertEqual(m.visibleCount, 9)          // i1 already hidden by its UserData
+        XCTAssertEqual(m.visibleCount, 2)          // i1 already hidden by its UserData
         m.played = ["i0": true]
         XCTAssertEqual(ids(m.visibleItems), ["i2"])
-        XCTAssertEqual(m.visibleCount, 8)
+        XCTAssertEqual(m.visibleCount, 1)
         XCTAssertEqual(m.items.count, 3)           // paging still counts every loaded item
     }
 }
