@@ -29,8 +29,11 @@ struct ClassicRootView: View {
         // text picks it up
         .fontDesign(classicFont == "rounded" ? .rounded : classicFont == "serif" ? .serif : .default)
         .id(classicFont)
-        // No scroll bars popping up over the pages (scroll with the wheel, trackpad or the row arrows)
+        // No scroll bars in the rows (scroll with the wheel, trackpad or the row arrows); pages that scroll
+        // vertically turn on thin overlay bars of their own (classicScrollBars)
         .scrollIndicators(.hidden)
+        // Transparent title bar: banners and the video run to the top edge under the traffic lights
+        .background(ClassicWindowChrome().frame(width: 0, height: 0))
     }
 }
 
@@ -189,13 +192,14 @@ struct ClassicHomeView: View {
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib, refresh: nav.reselect).id(lib.id) }
                     else { Color.black }
                 }
-                .modifier(NoTopScrollEdge())
                 // A page opened from search results is the only page: no Back (deeper pages get one)
                 .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: PersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: FavoriteGridRef.self) { ClassicFavoriteGridView(title: $0.title, ids: $0.ids) }
                 .navigationDestination(for: FavoritePeopleRef.self) { _ in ClassicFavoritePeopleView() }
             }
+            // Readable under the see-through bar, on every page of the stack (see ClassicTopScrollEdge)
+            .modifier(ClassicTopScrollEdge())
             // Back button in the title bar, left of the window title, on every page
             .toolbar { ClassicTitleBarItems(back: nil) }   // top-level pages: no Back (pushed pages add their own)
             .classicHideToolbarTitle()
@@ -214,7 +218,6 @@ struct ClassicHomeView: View {
             // Back sits in the bar on pushed pages.
             detailPane(withSearch: false)
                 .frame(width: geo.size.width)
-                .modifier(NoTopScrollEdge())   // no dark edge line where the bar ends
                 .safeAreaInset(edge: .top, spacing: 0) {
                     ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
                         .frame(width: geo.size.width)
@@ -353,12 +356,6 @@ struct ClassicTitleBarItems: ToolbarContent {
 /// Top bar layout: the row under the title bar with Back (on pushed pages) on the left,
 /// the navigation classicPill in the middle and search and Settings on the right. It stays in place on every page.
 /// Laid out side by side, so a long classicPill never covers search and Settings.
-/// macOS 26 draws an edge effect (a dark line) where a page scrolls under the top bar; hide it.
-struct NoTopScrollEdge: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 26, *) { content.scrollEdgeEffectHidden(true, for: .top) } else { content }
-    }
-}
 
 struct ClassicTopNavBar: View {
     @Environment(\.appBG) var bg

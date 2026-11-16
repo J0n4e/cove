@@ -41,6 +41,7 @@ struct ClassicFavoritesView: View {
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
         // Loads on appear and again when something was added or removed elsewhere (a cast photo, an episode).
@@ -119,6 +120,7 @@ struct ClassicFavoriteGridView: View {
                        topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
                        open: { ClassicNavState.shared.open($0) })
             .ignoresSafeArea(edges: .top)
+            .modifier(ClassicGridTopFade())   // the AppKit grid: soft fade under the bar
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
@@ -170,6 +172,7 @@ struct ClassicFavoritePeopleView: View {
                 }
             }.padding(.horizontal, 32).padding(.vertical, 24)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .background(bg)
         .navigationTitle("Favorite People")
         .navigationBarBackButtonHidden(true)

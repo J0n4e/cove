@@ -274,6 +274,7 @@ struct ClassicDetailView: View {
                 similarSection
             }.padding(.bottom, 50)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .ignoresSafeArea(edges: bigBanner ? .top : [])   // the banner runs up under the floating top bar
         .background(GeometryReader { g in
             Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }

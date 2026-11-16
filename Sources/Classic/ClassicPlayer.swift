@@ -673,6 +673,7 @@ struct ClassicPlayerView: View {
             }
             .padding(.vertical, classic ? 8 : 12)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .frame(width: classic ? 290 : 340)
         .frame(maxHeight: classic ? 440 : .infinity)
         .modifier(PanelSurface(classic: classic))
@@ -735,6 +736,7 @@ struct ClassicPlayerView: View {
                 }
                 .padding(.horizontal, 28).padding(.bottom, 28)
             }
+            .classicScrollBars()   // thin overlay bars, only while scrolling
         }
         .frame(width: classic ? 340 : 400)
         .frame(maxHeight: .infinity)
@@ -977,6 +979,7 @@ extension ClassicPlayerView {
                         ForEach(list) { ep in classicEpisodePickerRow(ep).id(ep.Id) }
                     }.padding(.bottom, 10)
                 }
+                .classicScrollBars()   // thin overlay bars, only while scrolling
                 .onAppear { proxy.scrollTo(item.Id, anchor: .center) }
             }
         }
@@ -1039,6 +1042,7 @@ extension ClassicPlayerView {
                 }
             }.padding(.vertical, 12)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .frame(width: 380)
         .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)

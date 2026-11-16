@@ -34,6 +34,7 @@ struct ClassicLibraryView: View {
                         model.cellWillShow(i)
                     }, open: { ClassicNavState.shared.open($0) })
                     .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
+                    .modifier(ClassicGridTopFade())   // the AppKit grid: soft fade under the bar
                 }
             } else {
                 ScrollView {
@@ -42,6 +43,7 @@ struct ClassicLibraryView: View {
                         if model.tab == 2 { genreGrid } else { grid }
                     }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
                 }
+                .classicScrollBars()   // thin overlay bars, only while scrolling
             }
         }
         .background(bg)

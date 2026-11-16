@@ -147,34 +147,63 @@ enum TrafficLights {
 // MARK: - Scroll bars
 
 /// Glass3D scroll bars: thin overlay scrollers with a light knob for the dark pages, shown only while scrolling.
-/// Put inside a ScrollView's content: it finds the NSScrollView around it.
+/// Sits behind a SwiftUI ScrollView (same frame) and styles the NSScrollView that backs it.
 struct ClassicOverlayScrollers: NSViewRepresentable {
     final class V: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            DispatchQueue.main.async { [weak self] in
-                guard let sv = self?.enclosingScrollView else { return }
-                ClassicOverlayScrollers.style(sv)
-            }
+            DispatchQueue.main.async { [weak self] in self?.apply() }
         }
+        private var done = false
+        func apply() {
+            guard !done, let root = window?.contentView else { return }
+            let me = convert(bounds, to: nil)
+            guard me.width > 1, me.height > 1 else { return }
+            let center = NSPoint(x: me.midX, y: me.midY)
+            // The scroll view this sits behind: the smallest one around its centre that is about as big as it
+            // (the rows' small horizontal scroll views inside a page don't count)
+            var best: NSScrollView?
+            func walk(_ v: NSView, _ depth: Int) {
+                guard depth < 60 else { return }
+                if let s = v as? NSScrollView {
+                    let r = s.convert(s.bounds, to: nil)
+                    if r.contains(center), r.width * r.height >= me.width * me.height * 0.5,
+                       best.map({ let b = $0.convert($0.bounds, to: nil); return r.width * r.height < b.width * b.height }) ?? true {
+                        best = s
+                    }
+                }
+                if v is NSCollectionView { return }
+                for c in v.subviews { walk(c, depth + 1) }
+            }
+            walk(root, 0)
+            if let best { ClassicOverlayScrollers.style(best); done = true }
+        }
+        override func layout() { super.layout(); if window != nil { apply() } }
     }
     static func style(_ sv: NSScrollView) {
-        sv.scrollerStyle = .overlay
-        sv.scrollerKnobStyle = .light
-        sv.autohidesScrollers = true
+        if sv.scrollerStyle != .overlay { sv.scrollerStyle = .overlay }
+        if sv.scrollerKnobStyle != .light { sv.scrollerKnobStyle = .light }
+        if !sv.autohidesScrollers { sv.autohidesScrollers = true }
     }
     func makeNSView(context: Context) -> V { V() }
     func updateNSView(_ v: V, context: Context) {}
 }
 
 extension View {
-    /// Glass3D vertical scroll bars (thin, overlay, while scrolling). Use on the ScrollView's content.
-    func classicScrollBars() -> some View {
-        background(ClassicOverlayScrollers().frame(width: 0, height: 0).allowsHitTesting(false))
-    }
-    /// The ScrollView itself: vertical indicators on (the root hides them), horizontal ones stay hidden.
-    func classicVerticalIndicators() -> some View {
-        scrollIndicators(.automatic, axes: .vertical)
+    /// Glass3D vertical scroll bars on a ScrollView: thin, overlay, shown only while scrolling (the root hides
+    /// the rows' horizontal ones).
+    func classicScrollBars() -> some View { modifier(ClassicScrollBars()) }
+}
+
+/// Only inside Glass3D (the player views are shared with the Glass theme, which keeps its look).
+struct ClassicScrollBars: ViewModifier {
+    @Environment(\.classicGlass) private var classic
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic {
+            content.scrollIndicators(.automatic, axes: .vertical)
+                .background(ClassicOverlayScrollers().allowsHitTesting(false))
+        } else { content }
     }
 }
 

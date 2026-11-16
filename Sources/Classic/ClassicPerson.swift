@@ -34,6 +34,7 @@ struct ClassicPersonView: View {
             }
             .padding(.bottom, 40)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .ignoresSafeArea(edges: .top)
         .background(bg)
         .navigationTitle(person.name)
