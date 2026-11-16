@@ -21,7 +21,7 @@ struct ClassicLoginView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: 14) {
                 if showForm { form } else { serverList }
-                if !error.isEmpty { Text(error).foregroundColor(.orange).font(.cv(10, weight: .regular)).multilineTextAlignment(.center) }
+                if !error.isEmpty { Text(error).foregroundColor(.orange).cvFont(10, weight: .regular).multilineTextAlignment(.center) }
             }
             .frame(width: showForm ? 340 : 520).padding(36)
             .modifier(PanelSurface(classic: true))   // dark glass, as the player panels
@@ -30,17 +30,17 @@ struct ClassicLoginView: View {
 
     var serverList: some View {
         VStack(spacing: 14) {
-            Text("Select Server").font(.cv(22, weight: .bold)).padding(.bottom, 6)
+            Text("Select Server").cvFont(22, weight: .bold).padding(.bottom, 6)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
                 ForEach(emby.servers) { s in serverCard(s) }
                 Button { startAdd() } label: {
                     VStack(spacing: 10) {
-                        Image(systemName: "plus").font(.cv(34, weight: .light))
+                        Image(systemName: "plus").cvFont(34, weight: .light)
                             .frame(width: 150, height: 100)
                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6])))
-                        Text("Add Server").font(.cv(13, weight: .bold))
-                        Text(" ").font(.cv(10, weight: .regular))
+                        Text("Add Server").cvFont(13, weight: .bold)
+                        Text(" ").cvFont(10, weight: .regular)
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plainHand)
             }
@@ -52,7 +52,7 @@ struct ClassicLoginView: View {
         Button { open(s) } label: {
             VStack(spacing: 10) {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "server.rack").font(.cv(38))
+                    Image(systemName: "server.rack").cvFont(38)
                         .frame(width: 150, height: 100)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
                         .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
@@ -61,9 +61,9 @@ struct ClassicLoginView: View {
                             .helpLabel("Signed in")
                     }
                 }
-                HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.cv(10, weight: .regular)); Text(s.name).font(.cv(13, weight: .bold)).lineLimit(1) }
+                HStack(spacing: 5) { ConnectionBadge(address: s.url).cvFont(10, weight: .regular); Text(s.name).cvFont(13, weight: .bold).lineLimit(1) }
                 Text((s.user.isEmpty ? s.url : "\(s.user) · \(s.url)") + " · " + emby.kindLabel(s))
-                    .font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                    .cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
             }
             .frame(width: 150).contentShape(Rectangle())
         }
@@ -82,7 +82,7 @@ struct ClassicLoginView: View {
                         .buttonStyle(HoverButton()).helpLabel("Back to servers")
                 }
                 Spacer()
-                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.cv(22, weight: .bold))
+                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").cvFont(22, weight: .bold)
                 Spacer()
                 if !emby.servers.isEmpty { Color.clear.frame(width: 34, height: 34) }
             }.padding(.bottom, 6)
@@ -95,7 +95,7 @@ struct ClassicLoginView: View {
             Button(action: go) {
                 HStack {
                     if busy { Spinner().controlSize(.small) }
-                    Text("Sign In").font(.cv(14, weight: .bold))
+                    Text("Sign In").cvFont(14, weight: .bold)
                 }.frame(maxWidth: .infinity).frame(height: 40).classicGlassPill()
             }.buttonStyle(HoverButton()).disabled(busy || server.isEmpty || user.isEmpty)
             .opacity(busy || server.isEmpty || user.isEmpty ? 0.5 : 1)
@@ -139,7 +139,7 @@ struct ClassicLoginView: View {
 /// A text field as a glass capsule (sign-in form).
 struct GlassField: ViewModifier {
     func body(content: Content) -> some View {
-        content.textFieldStyle(.plain).font(.cv(13)).foregroundColor(.white)
+        content.textFieldStyle(.plain).cvFont(13).foregroundColor(.white)
             .padding(.horizontal, 16).frame(height: 38)
             .background(Capsule().fill(Color.black.opacity(0.35)))
             .background(ClassicGlassBacking(shape: Capsule()))

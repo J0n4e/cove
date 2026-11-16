@@ -52,7 +52,7 @@ struct AlphaLetter: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
-            Text(l).font(.system(size: 11, weight: .bold))
+            Text(l).coveFont(size: 11, weight: .bold)
                 .frame(width: 22, height: 17)
                 .foregroundColor(on ? Theme.onAccent(accentName) : hover ? .primary : .secondary)
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(hover ? 0.18 : 0))))
@@ -64,7 +64,7 @@ struct AlphaLetter: View {
         // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {
-                Text(l).font(.system(size: 19, weight: .heavy)).foregroundColor(.black.opacity(0.85))
+                Text(l).coveFont(size: 19, weight: .heavy).foregroundColor(.black.opacity(0.85))
                     .frame(width: 34, height: 36)
                     .offset(x: 7, y: -15)   // the turn moves the drop's round part up-left; the letter follows
                     .padding(.trailing, 8)   // the point
@@ -261,7 +261,7 @@ struct LibraryView: View {
         HStack(spacing: 0) {
             ForEach([("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { model.layout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: m.1).coveFont(size: 13, weight: .semibold)
                         .frame(width: 36, height: 28)
                         .background(Capsule().fill(model.layout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(model.layout == m.0 ? .white : .secondary)

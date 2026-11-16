@@ -198,7 +198,7 @@ struct ClassicLibraryView: View {
             ForEach(model.genres, id: \.self) { g in
                 Button { model.genre = g; model.tab = 0 } label: {
                     // Glass tiles, as the buttons
-                    Text(g).font(.cv(13, weight: .bold)).foregroundColor(.white).frame(maxWidth: .infinity, minHeight: 70)
+                    Text(g).cvFont(13, weight: .bold).foregroundColor(.white).frame(maxWidth: .infinity, minHeight: 70)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
                         .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
                         .contentShape(RoundedRectangle(cornerRadius: 14))
@@ -221,7 +221,7 @@ struct ClassicAlphaLetter: View {
     var body: some View {
         Button(action: action) {
             // The chosen letter lit in the accent, the one under the pointer in the top bar's hover look
-            Text(l).font(.cv(11, weight: .bold))
+            Text(l).cvFont(11, weight: .bold)
                 .frame(width: 20, height: 18)
                 .foregroundColor(on || hover ? .white : .white.opacity(0.55))
                 .background {
@@ -240,7 +240,7 @@ struct ClassicAlphaLetter: View {
         // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {
-                Text(l).font(.cv(19, weight: .heavy)).foregroundColor(.black.opacity(0.85))
+                Text(l).cvFont(19, weight: .heavy).foregroundColor(.black.opacity(0.85))
                     .frame(width: 34, height: 36)
                     .offset(x: 7, y: -15)   // the turn moves the drop's round part up-left; the letter follows
                     .padding(.trailing, 8)   // the point

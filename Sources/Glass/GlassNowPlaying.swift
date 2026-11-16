@@ -17,13 +17,13 @@ struct NowPlayingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Now Playing").font(classic ? .cv(22, weight: .bold) : .title.bold())
+                    Text("Now Playing").coveFont { s in classic ? .cv(TextScale.scaledSize(base: 22, scale: s), weight: .bold) : .title.bold() }
                     if !sessions.isEmpty { Text("\(sessions.count) active").foregroundColor(.secondary) }
                 }
                 if !loaded { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if sessions.isEmpty {
                     VStack(spacing: 10) {
-                        Image(systemName: "play.slash").font(.system(size: 40)).foregroundColor(.secondary)
+                        Image(systemName: "play.slash").coveFont(size: 40).foregroundColor(.secondary)
                         Text("Nothing is playing right now").font(.headline)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 } else {
@@ -73,7 +73,7 @@ struct SessionCard: View {
                 .frame(width: 64, height: 96).clipped().cornerRadius(classic ? 8 : 4)
                 .modifier(PersonPhotoFrame(classic: classic, radius: 8))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(it.SeriesName ?? it.Name).font(classic ? .cv(13, weight: .bold) : .headline).lineLimit(1)
+                    Text(it.SeriesName ?? it.Name).coveFont { s in classic ? .cv(TextScale.scaledSize(base: 13, scale: s), weight: .bold) : .headline }.lineLimit(1)
                     if it.SeriesName != nil {
                         Text("S\(it.ParentIndexNumber ?? 0):E\(it.IndexNumber ?? 0) - \(it.Name)")
                             .foregroundColor(.secondary).lineLimit(1)
@@ -83,7 +83,7 @@ struct SessionCard: View {
                         Text("\(clock(s.PlayState?.PositionTicks)) / \(clock(it.RunTimeTicks))").monospacedDigit()
                     }.foregroundColor(.secondary)
                     Text(transcoding ? "Transcode" : "Direct play")
-                        .font(classic ? .cv(10, weight: .semibold) : .caption.weight(.semibold))
+                        .coveFont { s in classic ? .cv(TextScale.scaledSize(base: 10, scale: s), weight: .semibold) : .caption.weight(.semibold) }
                         .padding(.horizontal, classic ? 10 : 7).padding(.vertical, classic ? 3 : 2)
                         .background(Capsule().fill(transcoding ? Color.orange.opacity(0.25) : Color.green.opacity(0.25)))
                         .overlay { if classic { Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5) } }
@@ -112,7 +112,7 @@ struct SessionCard: View {
             }.frame(height: 4)
             }
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 26)).frame(width: 36)
+                Image(systemName: icon).coveFont(size: 26).frame(width: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(s.Client ?? "Unknown") \(s.ApplicationVersion ?? "")").font(.callout.weight(.semibold))
                     Text([s.DeviceName, s.UserName].compactMap { $0 }.joined(separator: " · ")).foregroundColor(.secondary)

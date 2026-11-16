@@ -48,8 +48,8 @@ struct PersonView: View {
     func section(_ title: String, _ list: [Item]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title).font(.system(size: 22, weight: .bold))
-                Text("\(list.count)").font(.system(size: 17)).foregroundColor(.secondary)
+                Text(title).coveFont(size: 22, weight: .bold)
+                Text("\(list.count)").coveFont(size: 17).foregroundColor(.secondary)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 18)], alignment: .leading, spacing: 24) {
                 ForEach(list) { PosterCard(item: $0) }
@@ -87,10 +87,10 @@ struct PersonHeader: View {
     @ViewBuilder func chip(_ text: String) -> some View {
         if classic {
             // Glass3D: glass like the buttons, but still (it is not a button: no hover glow)
-            Text(text).font(.cv(13, weight: .semibold)).foregroundColor(.white).padding(.horizontal, 14).frame(height: 30)
+            Text(text).cvFont(13, weight: .semibold).foregroundColor(.white).padding(.horizontal, 14).frame(minHeight: 30)
                 .modifier(ClassicClearGlass(shape: Capsule(), interactive: false))
         } else {
-            Text(text).font(.system(size: 13, weight: .semibold))
+            Text(text).coveFont(size: 13, weight: .semibold)
                 .padding(.horizontal, 12).padding(.vertical, 5)
                 .background(Capsule().fill(Color.white.opacity(0.12)))
                 .overlay(Capsule().stroke(Color.white.opacity(0.15)))
@@ -114,7 +114,7 @@ struct PersonHeader: View {
                 CachedImage(url: emby.image(id, width: 480)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: 70)).foregroundColor(.secondary) }
+                    ZStack { Color(white: 0.18); Image(systemName: "person.fill").coveFont(size: 70).foregroundColor(.secondary) }
                 }
                 .frame(width: 280, height: 420).clipShape(RoundedRectangle(cornerRadius: 14))
                 // Favorite: heart top left when it is one, heart button bottom right on hover (as on cast photos)
@@ -128,8 +128,8 @@ struct PersonHeader: View {
                 .modifier(PersonPhotoFrame(classic: classic))   // Glass3D: the glass card frame
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(name).font(classic ? .cv(42, weight: .bold) : .system(size: 42, weight: .bold)).lineLimit(2)
-                    if !facts.isEmpty { Text(facts).font(.system(size: 15)).foregroundColor(.secondary) }
+                    Text(name).coveFont { s in let f = TextScale.scaledSize(base: 42, scale: s); return classic ? .cv(f, weight: .bold) : .system(size: f, weight: .bold) }.lineLimit(2)
+                    if !facts.isEmpty { Text(facts).coveFont(size: 15).foregroundColor(.secondary) }
                     HStack(spacing: 8) {
                         if !loading {
                             if movies > 0 { chip("\(movies) Movie\(movies == 1 ? "" : "s")") }
@@ -137,7 +137,7 @@ struct PersonHeader: View {
                         }
                     }
                     if !bio.isEmpty {
-                        Text(bio).font(.system(size: 15)).lineSpacing(4).foregroundColor(.white.opacity(0.85))
+                        Text(bio).coveFont(size: 15).lineSpacing(4).foregroundColor(.white.opacity(0.85))
                             .textSelection(.enabled)
                             .frame(maxWidth: 820, alignment: .leading)
                             .fixedSize(horizontal: false, vertical: true)

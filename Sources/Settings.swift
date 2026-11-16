@@ -36,7 +36,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Apple TV style: the section name on top, then a row of icon tabs
-            Text(section.rawValue).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+            Text(section.rawValue).coveFont(size: 13, weight: .semibold).foregroundColor(.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
             HStack(spacing: 4) {
@@ -44,8 +44,8 @@ struct SettingsView: View {
                     let on = section == s
                     Button { section = s } label: {
                         VStack(spacing: 3) {
-                            Image(systemName: s.icon).font(.system(size: 20))
-                            Text(s.rawValue).font(.system(size: 11))
+                            Image(systemName: s.icon).coveFont(size: 20)
+                            Text(s.rawValue).coveFont(size: 11)
                         }
                         // Selected: filled with the accent, light text on it (accent-colored text was hard to read)
                         .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)
@@ -153,7 +153,7 @@ struct PrefSection<C: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let title {
-                Text(title.uppercased()).font(.system(size: 11, weight: .semibold)).foregroundColor(.secondary)
+                Text(title.uppercased()).coveFont(size: 11, weight: .semibold).foregroundColor(.secondary)
                     .padding(.leading, 6)
             }
             VStack(alignment: .leading, spacing: 12) { content }
@@ -238,6 +238,7 @@ struct GeneralSettings: View {
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("accent") private var accent = "red"
     @AppStorage("classicFont") private var classicFont = "rounded"
+    @AppStorage("textSize") private var textSize = "default"
     @AppStorage("classicHover") private var classicHover = "fog"
     @AppStorage("bg") private var bg = "black"
     @AppStorage("navStyle") private var navStyle = "sidebar"
@@ -289,6 +290,7 @@ struct GeneralSettings: View {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
                 PrefRow(label: "Hover effect") { menuPicker($classicHover, [("fog", "Fogged mirror"), ("glow", "Soft glow")]) }
             }
+            PrefRow(label: "Text size") { menuPicker($textSize, TextScale.choices) }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }
@@ -668,7 +670,7 @@ struct LibrariesSettings: View {
     /// (List's onMove and drag-and-drop never started a drag in this table on macOS.)
     func dragHandle(_ id: String, on: Bool) -> some View {
         Image(systemName: "line.3.horizontal")
-            .font(.system(size: 12, weight: .semibold))
+            .coveFont(size: 12, weight: .semibold)
             .foregroundColor(on || dragId == id ? .white : .secondary)
             .frame(width: 18, height: 28).contentShape(Rectangle())
             .onHover { inside in if inside { NSCursor.openHand.push() } else { NSCursor.pop() } }
@@ -816,7 +818,7 @@ struct SubtitleSettings: View {
             LinearGradient(colors: [Color(red: 0.25, green: 0.3, blue: 0.4), Color(red: 0.75, green: 0.7, blue: 0.6)],
                            startPoint: .top, endPoint: .bottom)
             Text("This is how subtitles will look.")
-                .font(.system(size: fs, weight: .medium))
+                .coveFont(size: fs, weight: .medium)
                 .foregroundColor(color)
                 .modifier(SubShadow(style: subShadow, color: subColor == "black" ? .white : .black))
                 .padding(.horizontal, 10).padding(.vertical, 3)
@@ -1047,7 +1049,7 @@ struct ServerSettings: View {
                         }
                     } else if let s = trakt.signIn {
                         Text("Enter this code on \(s.url):").foregroundColor(.secondary)
-                        Text(s.userCode).font(.system(size: 26, weight: .bold, design: .monospaced)).textSelection(.enabled)
+                        Text(s.userCode).coveFont(size: 26, weight: .bold, design: .monospaced).textSelection(.enabled)
                         HStack(spacing: 10) {
                             Spinner().controlSize(.small)
                             Text("Waiting for Trakt…").foregroundColor(.secondary)
@@ -1222,8 +1224,8 @@ struct TraktStatsSettings: View {
 
     func tile(_ title: String, _ value: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).foregroundColor(.secondary)
-            Text(value).font(.system(size: 26, weight: .bold)).foregroundColor(accent).lineLimit(1).minimumScaleFactor(0.6)
+            Text(title.uppercased()).coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
+            Text(value).coveFont(size: 26, weight: .bold).foregroundColor(accent).lineLimit(1).minimumScaleFactor(0.6)
             Text(detail).font(.caption).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
@@ -1235,11 +1237,11 @@ struct TraktStatsSettings: View {
         return HStack(alignment: .bottom, spacing: 6) {
             ForEach(Array(months.enumerated()), id: \.offset) { i, m in
                 VStack(spacing: 4) {
-                    Text(m.minutes > 0 ? "\(m.minutes / 60)" : "").font(.system(size: 9)).foregroundColor(.secondary)
+                    Text(m.minutes > 0 ? "\(m.minutes / 60)" : "").coveFont(size: 9).foregroundColor(.secondary)
                     RoundedRectangle(cornerRadius: 3)
                         .fill(i == months.count - 1 ? accent : accent.opacity(0.45))
                         .frame(height: max(2, CGFloat(m.minutes) / CGFloat(maxH) * 90))
-                    Text(monthLetter(m.key)).font(.system(size: 10)).foregroundColor(.secondary)
+                    Text(monthLetter(m.key)).coveFont(size: 10).foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .help("\(monthName(m.key)): \(m.movies) movie\(m.movies == 1 ? "" : "s"), \(m.episodes) episode\(m.episodes == 1 ? "" : "s"), \(hours(m.minutes))")
@@ -1252,10 +1254,10 @@ struct TraktStatsSettings: View {
         return HStack(alignment: .bottom, spacing: 6) {
             ForEach(0..<10, id: \.self) { i in
                 VStack(spacing: 4) {
-                    Text(dist[i] > 0 ? "\(dist[i])" : "").font(.system(size: 9)).foregroundColor(.secondary)
+                    Text(dist[i] > 0 ? "\(dist[i])" : "").coveFont(size: 9).foregroundColor(.secondary)
                     RoundedRectangle(cornerRadius: 3).fill(accent.opacity(0.35 + 0.065 * Double(i)))
                         .frame(height: max(2, CGFloat(dist[i]) / CGFloat(maxN) * 70))
-                    Text("\(i + 1)").font(.system(size: 10, weight: .semibold)).foregroundColor(.secondary)
+                    Text("\(i + 1)").coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
                 }.frame(maxWidth: .infinity)
             }
         }.frame(height: 105)

@@ -126,7 +126,7 @@ struct TitleLogo: View {
                     .frame(maxWidth: 420, maxHeight: height, alignment: .bottomLeading)
                     .shadow(color: .black.opacity(0.5), radius: 8)
             } else {
-                Text(item.heroTitle).font(classic ? .cv(font, weight: .heavy) : .system(size: font, weight: .heavy)).lineLimit(2)
+                Text(item.heroTitle).coveFont { s in let f = TextScale.scaledSize(base: font, scale: s); return classic ? .cv(f, weight: .heavy) : .system(size: f, weight: .heavy) }.lineLimit(2)
                     .minimumScaleFactor(0.6).frame(maxWidth: 620, alignment: .leading)
                     .shadow(color: .black.opacity(0.5), radius: 8)
             }
@@ -304,7 +304,7 @@ struct ItemActionsButton: View {
                         .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                         .contentShape(Circle())
                 } else {
-                    Image(systemName: icon).font(.system(size: 12, weight: .bold))
+                    Image(systemName: icon).coveFont(size: 12, weight: .bold)
                         .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(Color.black.opacity(0.6)))
@@ -505,9 +505,9 @@ struct TubeBadge: View {
     var tube: some View {
         Group {
             if let n = count {
-                Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold))
+                Text(n > 99 ? "99+" : "\(n)").coveFont(size: 12, weight: .bold)
             } else {
-                Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy))
+                Image(systemName: "checkmark").coveFont(size: 11, weight: .heavy)
             }
         }
         .foregroundColor(.white)
@@ -566,13 +566,13 @@ struct WatchBadge: View {
 
     @ViewBuilder var plainBadge: some View {
         if played {
-            Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
+            Image(systemName: "checkmark").coveFont(size: 12, weight: .heavy).foregroundColor(.white)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(Self.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.5), radius: 3)
                 .helpLabel("Watched")
         } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
-            Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+            Text(n > 99 ? "99+" : "\(n)").coveFont(size: 12, weight: .bold).foregroundColor(.white)
                 .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
                 .background(Capsule().fill(Self.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.5), radius: 3)
@@ -648,7 +648,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
                 Label(help, systemImage: icon).classicGlassPill(size: 44)
                     .background(Circle().fill(Color.black.opacity(0.35)))   // reads over bright posters
             } else {
-                Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundColor(.white)
+                Image(systemName: icon).coveFont(size: 18, weight: .bold).foregroundColor(.white)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(Color.black.opacity(0.7)))
                     .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
@@ -803,7 +803,7 @@ struct SelfHoverLift: ViewModifier {
         if classic {
             Label("Play", systemImage: "play.fill").classicGlassPill(size: play + 6)
         } else {
-            Image(systemName: "play.circle.fill").font(.system(size: play)).foregroundColor(.white).shadow(radius: 6)
+            Image(systemName: "play.circle.fill").coveFont(size: play).foregroundColor(.white).shadow(radius: 6)
         }
     }
     func body(content: Content) -> some View {

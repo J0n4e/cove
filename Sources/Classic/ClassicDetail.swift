@@ -42,7 +42,7 @@ struct SeasonDeck: View {
             VStack(alignment: .leading, spacing: 10) {
                 cards
                 if let caption, numbers.indices.contains(shownPos), let c = caption(numbers[shownPos]) {
-                    Text(c).font(.cv(15, weight: .semibold)).foregroundColor(.white).classicBlackOutline()
+                    Text(c).cvFont(15, weight: .semibold).foregroundColor(.white).classicBlackOutline()
                         .frame(width: w).id(shownPos).transition(.opacity)   // centered under the front card
                 }
             }
@@ -123,7 +123,7 @@ struct SeasonDeck: View {
     func card(_ n: Int, k: Int) -> some View {
         CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
-        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).font(.cv(10, weight: .regular)) } }
+        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
         .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
         .cornerRadius(10)
         .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
@@ -197,7 +197,7 @@ struct ClassicCastTile: View {
             CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.cv(big ? 44 : 30)).foregroundColor(.secondary) }
+                ZStack { Color(white: 0.18); Image(systemName: "person.fill").cvFont(big ? 44 : 30).foregroundColor(.secondary) }
             }
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
@@ -223,8 +223,8 @@ struct ClassicCastTile: View {
             }
             .scrollHover($hover)
             .classicHoverLift()   // grows a little under the pointer, like posters
-            Text(p.Name).font(.cv(big ? 12 : 10, weight: .semibold)).lineLimit(1)
-            Text(p.Role ?? p.`Type` ?? "").font(.cv(10)).foregroundColor(.secondary).lineLimit(1)
+            Text(p.Name).cvFont(big ? 12 : 10, weight: .semibold).lineLimit(1)
+            Text(p.Role ?? p.`Type` ?? "").cvFont(10).foregroundColor(.secondary).lineLimit(1)
         }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
 }
@@ -382,8 +382,8 @@ struct ClassicDetailView: View {
                     streamsRow.frame(width: 900, alignment: .leading)
                 }
                 buttons
-                if !item.isSeries, let tag = full?.Taglines?.first { Text(tag).font(.cv(13, weight: .bold)) }
-                Text(item.Overview ?? "").font(.cv(15)).lineLimit(3)
+                if !item.isSeries, let tag = full?.Taglines?.first { Text(tag).cvFont(13, weight: .bold) }
+                Text(item.Overview ?? "").cvFont(15).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
             .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries || item.isBox ? 600 : 80)
@@ -455,16 +455,16 @@ struct ClassicDetailView: View {
                                        size: item.isEpisode ? CGSize(width: 320, height: 180) : CGSize(width: 220, height: 330)))   // the posters' light glass edge and sheen, as the cards
             .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
             VStack(alignment: .leading, spacing: 14) {
-                Text(item.Name).font(.cv(46, weight: .black))
+                Text(item.Name).cvFont(46, weight: .black)
                 meta
                 if !simple { streamsRow }
                 buttons
-                if let tag = full?.Taglines?.first { Text(tag).font(.cv(13, weight: .bold)) }
+                if let tag = full?.Taglines?.first { Text(tag).cvFont(13, weight: .bold) }
                 Text(item.Overview ?? "").frame(maxWidth: 760, alignment: .leading)
                 let directors = (full?.People ?? []).filter { $0.`Type` == "Director" }.map { $0.Name }
                 if !directors.isEmpty {
                     (Text("Director: ").foregroundColor(.secondary) + Text(directors.joined(separator: ", ")).bold())
-                        .font(.cv(12, weight: .regular))
+                        .cvFont(12, weight: .regular)
                 }
             }
         }.padding(.horizontal, 40).padding(.top, 40)
@@ -479,12 +479,12 @@ struct ClassicDetailView: View {
             if let y = item.ProductionYear { Text(String(y)) }
             if let t = full?.RunTimeTicks { Text(runtimeText(t)) }
             if let o = full?.OfficialRating {
-                Text(o).font(.cv(10, weight: .regular)).padding(.horizontal, 5).padding(.vertical, 1)
+                Text(o).cvFont(10, weight: .regular).padding(.horizontal, 5).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary))
             }
             if let g = full?.Genres?.first { Text(g) }
             if let t = full?.RunTimeTicks, !simple { Text("Ends at " + endsAtText(t)) }
-        }.font(.cv(11, weight: .regular)).foregroundColor(.secondary)
+        }.cvFont(11, weight: .regular).foregroundColor(.secondary)
     }
 
     /// Wraps onto more lines when the window is narrow, so long version names can't widen the page.
@@ -515,7 +515,7 @@ struct ClassicDetailView: View {
                                                            (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }
         }
-        .font(.cv(12, weight: .regular))
+        .cvFont(12, weight: .regular)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -665,14 +665,14 @@ struct ClassicDetailView: View {
                 .shadow(radius: 6)
                 .classicHoverLift()
                 .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
-                Text(title).font(.cv(13, weight: .regular)).foregroundColor(selected ? .primary : .secondary)
+                Text(title).cvFont(13, weight: .regular).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plainHand)
     }
 
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Seasons").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
+            Text("Seasons").cvFont(15, weight: .bold).padding(.horizontal, 40)
             if seasonLayout == "grid" {
                 // All seasons at once, wrapped onto as many lines as needed
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
@@ -689,10 +689,10 @@ struct ClassicDetailView: View {
         let multi: Bool = seasonNumbers.count > 1
         let heading: String = multi ? seasonTitle(currentSeason) : "Episodes"
         return HStack(spacing: 16) {
-            Text(heading).font(.cv(15, weight: .bold))
+            Text(heading).cvFont(15, weight: .bold)
             if canFilterWatched {
                 Button(showAllEps ? "Hide watched" : "Show all") { showAllEps.toggle() }
-                    .buttonStyle(.plainHand).font(.cv(12, weight: .semibold)).foregroundStyle(.tint)
+                    .buttonStyle(.plainHand).cvFont(12, weight: .semibold).foregroundStyle(.tint)
             }
             Spacer()
             episodeLayoutToggle
@@ -711,7 +711,7 @@ struct ClassicDetailView: View {
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
-                Text("\(ep.IndexNumber ?? 0)").font(.cv(26, weight: .semibold))
+                Text("\(ep.IndexNumber ?? 0)").cvFont(26, weight: .semibold)
                     .foregroundColor(.secondary).frame(width: 40)
                 CachedImage(url: emby.image(ep.id, width: 480, plain: true)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
@@ -727,12 +727,12 @@ struct ClassicDetailView: View {
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(ep.Name).font(.cv(16, weight: .semibold)).lineLimit(1)
+                        Text(ep.Name).cvFont(16, weight: .semibold).lineLimit(1)
                         if played { Image(systemName: "checkmark.circle.fill").foregroundColor(.white.opacity(0.7)) }
                         Spacer()
                         if let t = ep.RunTimeTicks, t > 0 { Text(runtimeText(t)).foregroundColor(.secondary) }
                     }
-                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).font(.cv(12, weight: .regular)).foregroundColor(.secondary) }
+                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).cvFont(12, weight: .regular).foregroundColor(.secondary) }
                 }
             }
             .padding(.vertical, 14)
@@ -813,7 +813,7 @@ struct ClassicDetailView: View {
                 // Episode name in the bottom-left corner of the thumbnail
                 .overlay(alignment: .bottomLeading) {
                     // No background: a black outline keeps it readable (as on Continue Watching)
-                    Text(ep.Name).font(.cv(14, weight: .semibold)).foregroundColor(.white).lineLimit(2)
+                    Text(ep.Name).cvFont(14, weight: .semibold).foregroundColor(.white).lineLimit(2)
                         .classicBlackOutline()
                         .padding(.leading, 10).padding(.trailing, hasProgress ? 44 : 10)
                         .padding(.bottom, 9)
@@ -821,7 +821,7 @@ struct ClassicDetailView: View {
                 }
                 // Episode number in the top-left corner
                 .overlay(alignment: .topLeading) {
-                    Text(episodeInfo(ep, hasProgress: hasProgress)).font(.cv(10, weight: .semibold)).foregroundColor(.white)
+                    Text(episodeInfo(ep, hasProgress: hasProgress)).cvFont(10, weight: .semibold).foregroundColor(.white)
                         .classicBlackOutline()
                         .padding(10)
                 }
@@ -835,7 +835,7 @@ struct ClassicDetailView: View {
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
-                    Text(ep.Overview ?? "").font(.cv(10, weight: .regular)).foregroundColor(.secondary).lineLimit(2)
+                    Text(ep.Overview ?? "").cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(2)
                 }
             }.contentShape(Rectangle())
         }.handCursor()
@@ -858,7 +858,7 @@ struct ClassicDetailView: View {
         let people = Array((full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Cast & Crew").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
+                Text("Cast & Crew").cvFont(15, weight: .bold).padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
@@ -884,7 +884,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var aboutSection: some View {
         if let f = full {
             VStack(alignment: .leading, spacing: 16) {
-                Text("About").font(.cv(15, weight: .bold))
+                Text("About").cvFont(15, weight: .bold)
                 if let d = classicParseDate(f.UserData?.LastPlayedDate) {
                     aboutRow("Date Last Played", d.formatted(date: .abbreviated, time: .shortened))
                 }
@@ -915,7 +915,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var includedInSection: some View {
         if !includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Included In").font(.cv(15, weight: .bold)).padding(.horizontal, 40)
+                Text("Included In").cvFont(15, weight: .bold).padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }
             }
         }
@@ -925,7 +925,7 @@ struct ClassicDetailView: View {
         if !similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("More Like This").font(.cv(15, weight: .bold))
+                    Text("More Like This").cvFont(15, weight: .bold)
                     Spacer()
                     similarLayoutToggle
                 }.padding(.horizontal, 40)

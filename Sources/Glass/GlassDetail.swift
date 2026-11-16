@@ -21,11 +21,11 @@ struct CountBadge: View {
                 .helpLabel(n == 0 ? "All watched" : "\(n) unwatched episode\(n == 1 ? "" : "s")")
         } else if let n = count {
             if n == 0 {
-                Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.white)
+                Image(systemName: "checkmark").coveFont(size: 12, weight: .heavy).foregroundColor(.white)
                     .frame(width: 24, height: 24).background(Circle().fill(WatchBadge.green)).overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.5), radius: 3).helpLabel("All watched")
             } else {
-                Text(n > 99 ? "99+" : "\(n)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+                Text(n > 99 ? "99+" : "\(n)").coveFont(size: 12, weight: .bold).foregroundColor(.white)
                     .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
                     .background(Capsule().fill(WatchBadge.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.5), radius: 3)
@@ -103,7 +103,7 @@ struct CastTile: View {
             CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                ZStack { Color(white: 0.18); Image(systemName: "person.fill").font(.system(size: big ? 44 : 30)).foregroundColor(.secondary) }
+                ZStack { Color(white: 0.18); Image(systemName: "person.fill").coveFont(size: big ? 44 : 30).foregroundColor(.secondary) }
             }
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
@@ -270,7 +270,7 @@ struct DetailView: View {
     }
 
     func badge(_ t: String) -> some View {
-        Text(t).font(.system(size: 10, weight: .bold)).padding(.horizontal, 4).padding(.vertical, 1)
+        Text(t).coveFont(size: 10, weight: .bold).padding(.horizontal, 4).padding(.vertical, 1)
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.white.opacity(0.75), lineWidth: 1))
     }
 
@@ -289,9 +289,9 @@ struct DetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     if item.isEpisode, let sn = item.SeriesName {
                         Text("\(sn) · S\(item.ParentIndexNumber ?? 0), E\(item.IndexNumber ?? 0)")
-                            .font(.system(size: 15, weight: .semibold)).opacity(0.85)
+                            .coveFont(size: 15, weight: .semibold).opacity(0.85)
                     }
-                    if item.isEpisode { Text(item.Name).font(.system(size: 44, weight: .heavy)).lineLimit(2) }
+                    if item.isEpisode { Text(item.Name).coveFont(size: 44, weight: .heavy).lineLimit(2) }
                     else { TitleLogo(item: item, height: 110, font: 52) }
                     HStack(spacing: 8) {
                         Text(kindLine)
@@ -299,18 +299,18 @@ struct DetailView: View {
                         if let r = full?.CommunityRating {
                             HStack(spacing: 3) { Image(systemName: "star.fill").foregroundColor(.yellow); Text(String(format: "%.1f", r)) }
                         }
-                    }.font(.system(size: 15, weight: .medium))
+                    }.coveFont(size: 15, weight: .medium)
                     if let o = item.Overview, !o.isEmpty {
                         // The whole description, no MORE button
                         Text(o).frame(maxWidth: 560, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-                            .font(.system(size: 15)).foregroundColor(.white.opacity(0.85))
+                            .coveFont(size: 15).foregroundColor(.white.opacity(0.85))
                     }
                     HStack(spacing: 8) {
                         if let y = item.ProductionYear { Text(item.isSeries ? item.yearText : String(y)) }
                         if let t = full?.RunTimeTicks, t > 0 { Text("· " + runtimeText(t)) }
                         if let t = full?.RunTimeTicks, t > 0, !simple { Text("· Ends at " + endsAtText(t)) }
                         ForEach(badges, id: \.self) { badge($0) }
-                    }.font(.system(size: 14)).foregroundColor(.white.opacity(0.85))
+                    }.coveFont(size: 14).foregroundColor(.white.opacity(0.85))
                     buttons.padding(.top, 8)
                 }
                 Spacer(minLength: 30)
@@ -322,7 +322,7 @@ struct DetailView: View {
                         (Text("Director ").foregroundColor(.white.opacity(0.55)) + Text(directors.joined(separator: ", ")))
                     }
                 }
-                .font(.system(size: 14)).frame(maxWidth: 280, alignment: .leading).padding(.bottom, 8)
+                .coveFont(size: 14).frame(maxWidth: 280, alignment: .leading).padding(.bottom, 8)
             }
             .padding(.horizontal, 52).padding(.bottom, 30)
         }
@@ -413,13 +413,13 @@ struct DetailView: View {
         return HStack(spacing: 12) {
             let r = resumePoint
             Button { playNow(from: r > 0 ? 0 : nil) } label: {
-                Label(playLabel, systemImage: "play.fill").font(.system(size: 17, weight: .semibold))
+                Label(playLabel, systemImage: "play.fill").coveFont(size: 17, weight: .semibold)
                     .padding(.horizontal, 34).frame(height: 46)
                     .background(Capsule().fill(.white)).foregroundColor(.black)
             }.buttonStyle(HoverButton())
             if r > 0 {
                 Button { playNow() } label: {
-                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").font(.system(size: 17, weight: .semibold))
+                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").coveFont(size: 17, weight: .semibold)
                         .padding(.horizontal, 26).frame(height: 46)
                         .background(.ultraThinMaterial, in: Capsule())
                 }.buttonStyle(HoverButton())
@@ -439,7 +439,7 @@ struct DetailView: View {
 
     func glassCircle(_ name: String, help: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: name).font(.system(size: 17, weight: .semibold))
+            Image(systemName: name).coveFont(size: 17, weight: .semibold)
                 .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
                 .contentShape(Circle())
         }.buttonStyle(HoverButton()).helpLabel(help)
@@ -556,7 +556,7 @@ struct DetailView: View {
 
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Seasons").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
+            Text("Seasons").coveFont(size: 22, weight: .bold).padding(.horizontal, 52)
             if seasonLayout == "grid" {
                 // All seasons at once, wrapped onto as many lines as needed (Settings → Libraries → Season layout)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
@@ -578,12 +578,12 @@ struct DetailView: View {
                     ForEach(seasonNumbers, id: \.self) { n in Button(seasonTitle(n)) { season = n } }
                 } label: {
                     HStack(spacing: 6) {
-                        Text(heading).font(.system(size: 22, weight: .bold))
-                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 14, weight: .semibold)).foregroundColor(.secondary)
+                        Text(heading).coveFont(size: 22, weight: .bold)
+                        Image(systemName: "chevron.up.chevron.down").coveFont(size: 14, weight: .semibold).foregroundColor(.secondary)
                     }
                 }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().handCursor()
             } else {
-                Text(heading).font(.system(size: 22, weight: .bold))
+                Text(heading).coveFont(size: 22, weight: .bold)
             }
             if canFilterWatched {
                 Button(showAllEps ? "Hide watched" : "Show all") { showAllEps.toggle() }
@@ -608,7 +608,7 @@ struct DetailView: View {
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
-                Text("\(ep.IndexNumber ?? 0)").font(.system(size: 26, weight: .semibold))
+                Text("\(ep.IndexNumber ?? 0)").coveFont(size: 26, weight: .semibold)
                     .foregroundColor(.secondary).frame(width: 40)
                 CachedImage(url: emby.image(ep.id, width: 480, plain: true)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
@@ -623,7 +623,7 @@ struct DetailView: View {
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(ep.Name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                        Text(ep.Name).coveFont(size: 16, weight: .semibold).lineLimit(1)
                         if played { Image(systemName: "checkmark.circle.fill").foregroundColor(.white.opacity(0.7)) }
                         Spacer()
                         if let t = ep.RunTimeTicks, t > 0 { Text(runtimeText(t)).foregroundColor(.secondary) }
@@ -664,7 +664,7 @@ struct DetailView: View {
         HStack(spacing: 0) {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { epLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: m.1).coveFont(size: 13, weight: .semibold)
                         .frame(width: 36, height: 28)
                         .background(Capsule().fill(epLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(epLayout == m.0 ? .white : .secondary)
@@ -694,14 +694,14 @@ struct DetailView: View {
             .clipped()
             .overlay(alignment: .bottomLeading) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("EPISODE \(ep.IndexNumber ?? 0)").font(.system(size: 12, weight: .medium)).opacity(0.7)
-                    Text(ep.Name).font(.system(size: 17, weight: .semibold)).lineLimit(1)
+                    Text("EPISODE \(ep.IndexNumber ?? 0)").coveFont(size: 12, weight: .medium).opacity(0.7)
+                    Text(ep.Name).coveFont(size: 17, weight: .semibold).lineLimit(1)
                     if showEpDesc {
-                        Text(ep.Overview ?? "").font(.system(size: 13)).opacity(0.8).lineLimit(3)
+                        Text(ep.Overview ?? "").coveFont(size: 13).opacity(0.8).lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     HStack(spacing: 8) {
-                        Image(systemName: played ? "checkmark" : "play.fill").font(.system(size: 11))
+                        Image(systemName: played ? "checkmark" : "play.fill").coveFont(size: 11)
                         if hasProgress {
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.35))
@@ -710,7 +710,7 @@ struct DetailView: View {
                         }
                         if let t = ep.RunTimeTicks, t > 0 {
                             let left = hasProgress ? max(0, t - (ep.UserData?.PlaybackPositionTicks ?? 0)) : t
-                            Text(runtimeText(left) + (hasProgress ? " left" : "")).font(.system(size: 13, weight: .medium))
+                            Text(runtimeText(left) + (hasProgress ? " left" : "")).coveFont(size: 13, weight: .medium)
                         }
                     }.padding(.top, 4)
                 }
@@ -747,7 +747,7 @@ struct DetailView: View {
         let people = Array((full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Cast & Crew").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
+                Text("Cast & Crew").coveFont(size: 22, weight: .bold).padding(.horizontal, 52)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize), inset: 52) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { CastTile(p: people[i]) }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
@@ -804,7 +804,7 @@ struct DetailView: View {
     @ViewBuilder var includedInSection: some View {
         if !includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Included In").font(.system(size: 22, weight: .bold)).padding(.horizontal, 52)
+                Text("Included In").coveFont(size: 22, weight: .bold).padding(.horizontal, 52)
                 ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 170, spacing: 14, inset: 52) { PosterCard(item: includedIn[$0]) }
             }
         }
@@ -814,7 +814,7 @@ struct DetailView: View {
         if !similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("More Like This").font(.system(size: 22, weight: .bold))
+                    Text("More Like This").coveFont(size: 22, weight: .bold)
                     Spacer()
                     similarLayoutToggle
                 }.padding(.horizontal, 52)
@@ -838,7 +838,7 @@ struct DetailView: View {
         HStack(spacing: 0) {
             ForEach([("row", "rectangle.split.3x1"), ("grid", "square.grid.2x2"), ("list", "list.bullet")], id: \.0) { m in
                 Button { similarLayout = m.0 } label: {
-                    Image(systemName: m.1).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: m.1).coveFont(size: 13, weight: .semibold)
                         .frame(width: 36, height: 28)
                         .background(Capsule().fill(similarLayout == m.0 ? Color.white.opacity(0.22) : Color.clear))
                         .foregroundColor(similarLayout == m.0 ? .white : .secondary)

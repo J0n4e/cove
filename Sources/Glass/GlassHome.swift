@@ -14,15 +14,15 @@ struct HomeContent: View {
     /// "Title ›" like Apple TV: opens the full list (feed page) or the library.
     @ViewBuilder func rowTitle(_ row: Row) -> some View {
         let label = HStack(spacing: 6) {
-            Text(row.title).font(.system(size: 22, weight: .bold))
-            Image(systemName: "chevron.right").font(.system(size: 17, weight: .bold)).foregroundColor(.secondary)
+            Text(row.title).coveFont(size: 22, weight: .bold)
+            Image(systemName: "chevron.right").coveFont(size: 17, weight: .bold).foregroundColor(.secondary)
         }.contentShape(Rectangle())
         if let f = row.feed {
             NavigationLink(value: f) { label }.buttonStyle(.plainHand).tip("Show all")
         } else if let id = row.libId {
             Button { nav.sel = id } label: { label }.buttonStyle(.plainHand).tip("Open \(row.title)")
         } else {
-            Text(row.title).font(.system(size: 22, weight: .bold))
+            Text(row.title).coveFont(size: 22, weight: .bold)
         }
     }
     @Environment(\.appBG) var bg
@@ -119,7 +119,7 @@ struct Hero: View {
             VStack(alignment: .leading, spacing: 12) {
                 if item.isEpisode {
                     Text("S\(item.ParentIndexNumber ?? 0), E\(item.IndexNumber ?? 0)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .coveFont(size: 13, weight: .semibold)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: 5).fill(Color.black.opacity(0.55)))
                 }
@@ -131,25 +131,25 @@ struct Hero: View {
                         HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
                             .padding(.horizontal, 5).padding(.vertical, 1)
                             .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.white.opacity(0.7)))
-                            .font(.system(size: 12, weight: .semibold))
+                            .coveFont(size: 12, weight: .semibold)
                     }
-                }.font(.system(size: 16, weight: .medium))
-                Text(item.Overview ?? "").font(.system(size: 15)).lineLimit(3)
+                }.coveFont(size: 16, weight: .medium)
+                Text(item.Overview ?? "").coveFont(size: 15).lineLimit(3)
                     .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 420, alignment: .leading)
                 HStack(spacing: 14) {
                     Button { Task { await emby.playFromHome(item) } } label: {
                         Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
-                            .font(.system(size: 17, weight: .semibold))
+                            .coveFont(size: 17, weight: .semibold)
                             .frame(width: 170, height: 46)
                             .background(Capsule().fill(.white)).foregroundColor(.black)
                     }.buttonStyle(HoverButton())
                     let fav = emby.isFav(item)
                     Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
-                        Image(systemName: fav ? "checkmark" : "plus").font(.system(size: 18, weight: .semibold))
+                        Image(systemName: fav ? "checkmark" : "plus").coveFont(size: 18, weight: .semibold)
                             .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
                     }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
                     NavigationLink(value: item) {
-                        Image(systemName: "info").font(.system(size: 18, weight: .semibold))
+                        Image(systemName: "info").coveFont(size: 18, weight: .semibold)
                             .frame(width: 46, height: 46).background(.ultraThinMaterial, in: Circle())
                     }.buttonStyle(HoverButton()).helpLabel("More info")
                 }.padding(.top, 8)
@@ -210,7 +210,7 @@ struct Hero: View {
 
     func heroArrow(_ name: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: name).font(.system(size: 30, weight: .light))
+            Image(systemName: name).coveFont(size: 30, weight: .light)
                 .frame(width: 44, height: 80).contentShape(Rectangle())
                 .shadow(color: .black.opacity(0.6), radius: 4)
         }.buttonStyle(HoverButton(backing: true))
@@ -256,21 +256,21 @@ struct ResumeCard: View {
         .frame(width: 340, height: 191).clipped()
         .overlay(alignment: .bottomLeading) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(item.heroTitle).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                Text(item.heroTitle).coveFont(size: 15, weight: .semibold).lineLimit(1)
                 if item.isEpisode {
                     Text("S\(item.ParentIndexNumber ?? 0), E\(item.IndexNumber ?? 0) · \(item.Name)")
-                        .font(.system(size: 12)).foregroundColor(.white.opacity(0.75)).lineLimit(1)
+                        .coveFont(size: 12).foregroundColor(.white.opacity(0.75)).lineLimit(1)
                 }
                 // Apple TV's bottom line: ▶ short progress bar, time left
                 HStack(spacing: 8) {
-                    Image(systemName: "play.fill").font(.system(size: 11))
+                    Image(systemName: "play.fill").coveFont(size: 11)
                     if progress > 0 && progress < 1 {
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color.white.opacity(0.35))
                             Capsule().fill(Color.white).frame(width: 34 * progress)
                         }.frame(width: 34, height: 4)
                     }
-                    if let l = leftShort { Text(l).font(.system(size: 13, weight: .medium)) }
+                    if let l = leftShort { Text(l).coveFont(size: 13, weight: .medium) }
                     Spacer()
                 }
             }
@@ -282,7 +282,7 @@ struct ResumeCard: View {
         .overlay {
             if hover {
                 Button { Task { await emby.playFromHome(item) } } label: {
-                    Image(systemName: "play.fill").font(.system(size: 22)).foregroundColor(.white)
+                    Image(systemName: "play.fill").coveFont(size: 22).foregroundColor(.white)
                         .frame(width: 54, height: 54).background(.ultraThinMaterial, in: Circle())
                 }.buttonStyle(.plainHand).accessibilityLabel("Resume")
             }
@@ -319,7 +319,7 @@ struct FeedView: View {
     @State private var loading = true
     var landscape: Bool { feed != .recent }
 
-    var title: some View { Text(feed.rawValue).font(.system(size: 30, weight: .bold)) }
+    var title: some View { Text(feed.rawValue).coveFont(size: 30, weight: .bold) }
 
     var body: some View {
         Group {

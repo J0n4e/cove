@@ -13,7 +13,7 @@ struct ClassicPillStyle: ViewModifier {
     @AppStorage("accent") private var name = "red"
     let active: Bool
     func body(content: Content) -> some View {
-        content.font(.cv(12, weight: .medium))
+        content.cvFont(12, weight: .medium)
             .padding(.horizontal, 14).padding(.vertical, 8)
             .classicGlassPill()
     }
@@ -26,7 +26,7 @@ extension View {
     func classicPill(active: Bool = false) -> some View { modifier(ClassicPillStyle(active: active)) }
     func classicOnAccent() -> some View { modifier(OnAccent()) }
     func classicCircleButton() -> some View {
-        self.font(.cv(15, weight: .regular)).frame(width: 44, height: 44)
+        self.cvFont(15, weight: .regular).frame(width: 44, height: 44)
             .background(Color.white.opacity(0.14)).clipShape(Circle())
     }
 }
@@ -132,7 +132,7 @@ struct ClassicPosterCard: View {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
                         p.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        ZStack { Color(white: 0.15); Text(item.Name).font(.cv(10, weight: .regular)).padding(6) }
+                        ZStack { Color(white: 0.15); Text(item.Name).cvFont(10, weight: .regular).padding(6) }
                     }
                     .frame(width: 150, height: 225).clipped()
                     .opacity(played ? 0.6 : 1)
@@ -161,8 +161,8 @@ struct ClassicPosterCard: View {
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
-                        if showTitle { Text(item.Name).font(.cv(12, weight: .semibold)).lineLimit(1) }
-                        if showYear { Text(item.yearText).font(.cv(10, weight: .regular)).foregroundColor(.secondary) }
+                        if showTitle { Text(item.Name).cvFont(12, weight: .semibold).lineLimit(1) }
+                        if showYear { Text(item.yearText).cvFont(10, weight: .regular).foregroundColor(.secondary) }
                     }
                     .multilineTextAlignment(centered ? .center : .leading)
                     .frame(width: 150, alignment: centered ? .center : .leading)
@@ -213,7 +213,7 @@ struct Text3D: View {
     var thick = false
     var weight: Font.Weight = .heavy
     @ViewBuilder var glyph: some View {
-        if let image { image.font(.cv(size * 0.85, weight: .bold)) } else { Text(text).font(.cv(size, weight: weight)) }
+        if let image { image.cvFont(size * 0.85, weight: .bold) } else { Text(text).cvFont(size, weight: weight) }
     }
     var body: some View {
         let depth = max(2, Int(size / 6))

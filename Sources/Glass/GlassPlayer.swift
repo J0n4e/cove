@@ -12,8 +12,8 @@ struct BackPill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: compact ? 6 : 8) {
-                Image(systemName: "chevron.left").font(.system(size: compact ? 14 : 18, weight: .bold))
-                Text("Back").font(.system(size: compact ? 14 : 16, weight: .semibold))
+                Image(systemName: "chevron.left").coveFont(size: compact ? 14 : 18, weight: .bold)
+                Text("Back").coveFont(size: compact ? 14 : 16, weight: .semibold)
             }
             .foregroundColor(.white)
             .padding(.horizontal, compact ? 12 : 16).padding(.vertical, compact ? 5 : 10)
@@ -471,7 +471,7 @@ struct PlayerView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     Spinner(inPlayer: true).controlSize(.small)
-                    Text("Loading subtitles…").font(.system(size: 14, weight: .medium))
+                    Text("Loading subtitles…").coveFont(size: 14, weight: .medium)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Capsule().fill(Color.black.opacity(0.6)))
@@ -485,7 +485,7 @@ struct PlayerView: View {
             VStack {
                 Spacer()
                 Text(model.caption)
-                    .font(.system(size: fs, weight: .medium))
+                    .coveFont(size: fs, weight: .medium)
                     .foregroundColor(color)
                     .multilineTextAlignment(.center)
                     .modifier(SubShadow(style: subShadow, color: shade))
@@ -522,7 +522,7 @@ struct PlayerView: View {
             HStack(spacing: 12) {
                 Slider(value: $model.volume, in: 0...1).frame(width: 170).tint(.white).controlSize(.small).handCursor()
                 Button { model.volume = model.volume > 0 ? 0 : 1 } label: {
-                    Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").font(.system(size: 17))
+                    Image(systemName: model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").coveFont(size: 17)
                         .frame(width: 26)
                 }.buttonStyle(HoverButton(backing: true))
             }
@@ -535,7 +535,7 @@ struct PlayerView: View {
     /// Small icon button inside a glass capsule.
     func glassIcon(_ name: String, on: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button { action(); poke() } label: {
-            Image(systemName: name).font(.system(size: 18, weight: .medium))
+            Image(systemName: name).coveFont(size: 18, weight: .medium)
                 .frame(width: 40, height: 40)
                 .foregroundColor(on ? accent : .white)
                 .contentShape(Rectangle())
@@ -557,7 +557,7 @@ struct PlayerView: View {
 
     func centerCircle(_ name: String, size: CGFloat, box: CGFloat, _ action: @escaping () -> Void) -> some View {
         Button { action(); poke() } label: {
-            Image(systemName: name).font(.system(size: size, weight: .semibold))
+            Image(systemName: name).coveFont(size: size, weight: .semibold)
                 .frame(width: box, height: box)
                 .background(.ultraThinMaterial, in: Circle())
                 .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
@@ -579,9 +579,9 @@ struct PlayerView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if item.isEpisode {
                         Text("S\(item.ParentIndexNumber ?? 0), E\(item.IndexNumber ?? 0) · \(item.Name)")
-                            .font(.system(size: 17, weight: .semibold)).opacity(0.85)
+                            .coveFont(size: 17, weight: .semibold).opacity(0.85)
                     }
-                    Text(item.heroTitle).font(.system(size: 34, weight: .bold)).lineLimit(1)
+                    Text(item.heroTitle).coveFont(size: 34, weight: .bold).lineLimit(1)
                 }
                 Spacer()
                 // Right glass group: previous / next episode, episodes, subtitles, quality, chapters, all options
@@ -633,7 +633,7 @@ struct PlayerView: View {
                     .frame(minWidth: 60, alignment: .trailing)
                     .helpLabel("Ends at \(endClock)")
             }
-            .font(.system(size: 14, weight: .medium).monospacedDigit()).foregroundColor(.white.opacity(0.85))
+            .coveFont(size: 14, weight: .medium) { $0.monospacedDigit() }.foregroundColor(.white.opacity(0.85))
             .padding(.horizontal, 22).frame(height: 50)
             .background(.ultraThinMaterial, in: Capsule())
         }
@@ -643,7 +643,7 @@ struct PlayerView: View {
 
     func iconButton(_ name: String, size: CGFloat = 22, on: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button { action(); poke() } label: {
-            Image(systemName: name).font(.system(size: size, weight: .medium))
+            Image(systemName: name).coveFont(size: size, weight: .medium)
                 .frame(width: size + 12, height: size + 12)
                 .foregroundColor(on ? accent : .white)
                 .background(Circle().fill(Color.white.opacity(on ? 0.12 : 0)))
@@ -676,13 +676,13 @@ struct PlayerView: View {
     func row(_ icon: String, _ title: String, sub: String? = nil, checked: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 18) {
-                Image(systemName: icon).font(.system(size: 18)).frame(width: 26)
+                Image(systemName: icon).coveFont(size: 18).frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 16))
-                    if let sub { Text(sub).font(.system(size: 13)).foregroundColor(.secondary) }
+                    Text(title).coveFont(size: 16)
+                    if let sub { Text(sub).coveFont(size: 13).foregroundColor(.secondary) }
                 }
                 Spacer()
-                if checked { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)) }
+                if checked { Image(systemName: "checkmark").coveFont(size: 15, weight: .semibold) }
             }
             .foregroundColor(checked ? accent : .white)
             .padding(.horizontal, 22).padding(.vertical, 11)
@@ -691,7 +691,7 @@ struct PlayerView: View {
     }
 
     func sectionTitle(_ t: String) -> some View {
-        Text(t).font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+        Text(t).coveFont(size: 13, weight: .semibold).foregroundColor(.secondary)
             .padding(.horizontal, 22).padding(.top, 10).padding(.bottom, 4)
     }
 
@@ -709,10 +709,10 @@ struct PlayerView: View {
                     }
                 }
                 HStack(spacing: 18) {
-                    Image(systemName: "timer").font(.system(size: 18)).frame(width: 26)
+                    Image(systemName: "timer").coveFont(size: 18).frame(width: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Subtitle Offset").font(.system(size: 16))
-                        Text("\(model.subOffset) ms").font(.system(size: 13)).foregroundColor(.secondary)
+                        Text("Subtitle Offset").coveFont(size: 16)
+                        Text("\(model.subOffset) ms").coveFont(size: 13).foregroundColor(.secondary)
                     }
                     Spacer()
                     Button { model.subOffset -= 100 } label: { Image(systemName: "minus.circle") }.buttonStyle(.plainHand)
@@ -722,7 +722,7 @@ struct PlayerView: View {
                     Button { model.subOffset += 100 } label: { Image(systemName: "plus.circle") }.buttonStyle(.plainHand)
                         .helpLabel("Show subtitles 100 ms later")
                 }
-                .font(.system(size: 18))
+                .coveFont(size: 18)
                 .padding(.horizontal, 22).padding(.vertical, 9)
                 row("textformat.size", "Subtitle Appearance") { withAnimation { panel = .appearance } }
 
@@ -748,7 +748,7 @@ struct PlayerView: View {
                     ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0] as [Float], id: \.self) { r in
                         let on = model.speed == r
                         Button { model.setSpeed(r) } label: {
-                            Text(r == 1 ? "1×" : String(format: "%g×", r)).font(.system(size: 14, weight: .semibold))
+                            Text(r == 1 ? "1×" : String(format: "%g×", r)).coveFont(size: 14, weight: .semibold)
                                 .frame(maxWidth: .infinity).frame(height: 36)
                                 .foregroundColor(on ? .black : .white)
                                 .background(RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1)))
@@ -770,7 +770,7 @@ struct PlayerView: View {
 
     func dropdown<T: Hashable>(_ label: String, _ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.system(size: 15)).foregroundColor(.white.opacity(0.85))
+            Text(label).coveFont(size: 15).foregroundColor(.white.opacity(0.85))
             Menu {
                 ForEach(opts, id: \.0) { o in
                     Button { sel.wrappedValue = o.0 } label: {
@@ -779,9 +779,9 @@ struct PlayerView: View {
                 }
             } label: {
                 HStack {
-                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").font(.system(size: 16))
+                    Text(opts.first { $0.0 == sel.wrappedValue }?.1 ?? "").coveFont(size: 16)
                     Spacer()
-                    Image(systemName: "chevron.down").font(.system(size: 13, weight: .bold))
+                    Image(systemName: "chevron.down").coveFont(size: 13, weight: .bold)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 11)
                 .background(Color.white.opacity(0.1)).cornerRadius(6)
@@ -794,9 +794,9 @@ struct PlayerView: View {
     var appearancePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 20) {
-                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").font(.system(size: 18, weight: .semibold)) }
+                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").coveFont(size: 18, weight: .semibold) }
                     .buttonStyle(.plainHand)
-                Text("Subtitle Appearance").font(.system(size: 18, weight: .bold))
+                Text("Subtitle Appearance").coveFont(size: 18, weight: .bold)
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
             ScrollView {
@@ -805,11 +805,11 @@ struct PlayerView: View {
                     dropdown("Text color", $subColor, Self.colors.map { ($0.0, $0.1) })
                     dropdown("Drop shadow", $subShadow, Self.shadows)
                     dropdown("Background color", $subBg, Self.bgs.map { ($0.0, $0.1) })
-                    Text("Subtitle Position").font(.system(size: 20, weight: .bold)).padding(.top, 8)
+                    Text("Subtitle Position").coveFont(size: 20, weight: .bold).padding(.top, 8)
                     VStack(alignment: .leading, spacing: 8) {
                         dropdown("Bottom Edge Position", $subBottom, [0, 5, 10, 15, 20, 25, 30].map { (Double($0), "\($0)%") })
                         Text("Set the vertical position of the subtitles relative to the bottom of the screen.")
-                            .font(.system(size: 13)).foregroundColor(.secondary)
+                            .coveFont(size: 13).foregroundColor(.secondary)
                     }
                     Button("Reset to Default") {
                         subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10
@@ -867,7 +867,7 @@ extension PlayerView {
     }
 
     func menuIcon(_ name: String, on: Bool) -> some View {
-        Image(systemName: name).font(.system(size: 18, weight: .medium))
+        Image(systemName: name).coveFont(size: 18, weight: .medium)
             .frame(width: 30, height: 30)
             .foregroundColor(on ? accent : .white)
             .contentShape(Rectangle())
@@ -900,8 +900,8 @@ extension PlayerView {
 
     var pipPlaceholder: some View {
         VStack(spacing: 10) {
-            Image(systemName: "pip").font(.system(size: 44))
-            Text("Playing in picture in picture").font(.system(size: 16, weight: .medium))
+            Image(systemName: "pip").coveFont(size: 44)
+            Text("Playing in picture in picture").coveFont(size: 16, weight: .medium)
         }.opacity(0.6).allowsHitTesting(false)
     }
 
@@ -919,7 +919,7 @@ extension PlayerView {
                         .frame(width: w).cornerRadius(6)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1))
                 }
-                Text(fmt(t)).font(.system(size: 13, weight: .semibold).monospacedDigit()).lineLimit(1).fixedSize()
+                Text(fmt(t)).coveFont(size: 13, weight: .semibold) { $0.monospacedDigit() }.lineLimit(1).fixedSize()
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Capsule().fill(Color.black.opacity(0.7)))
             }
@@ -945,16 +945,16 @@ extension PlayerView {
             if model.skippedIntro {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
-                    Text("Intro skipped").font(.system(size: 15, weight: .semibold))
+                    Text("Intro skipped").coveFont(size: 15, weight: .semibold)
                     Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
-                        .font(.system(size: 15, weight: .semibold)).foregroundColor(accent)
+                        .coveFont(size: 15, weight: .semibold).foregroundColor(accent)
                 }
                 .padding(.horizontal, 18).frame(height: 44)
                 .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
-                    Label("Skip Intro", systemImage: "forward.fill").font(.system(size: 16, weight: .semibold))
+                    Label("Skip Intro", systemImage: "forward.fill").coveFont(size: 16, weight: .semibold)
                         .foregroundColor(.white)
                         .padding(.horizontal, 22).frame(height: 44)
                         .searchGlass()
@@ -975,24 +975,24 @@ extension PlayerView {
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+                Text("Up next").coveFont(size: 12, weight: .semibold).foregroundColor(.secondary)
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
-                    .font(.system(size: 15, weight: .semibold)).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
+                    .coveFont(size: 15, weight: .semibold).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
-                        Text("Play now").font(.system(size: 14, weight: .bold))
+                        Text("Play now").coveFont(size: 14, weight: .bold)
                             .foregroundColor(.black).padding(.horizontal, 14).padding(.vertical, 7)
                             .background(Capsule().fill(Color.white))
                     }.buttonStyle(HoverButton())
                     Button { upNextCancelled = true } label: {
-                        Text("Cancel").font(.system(size: 14, weight: .semibold))
+                        Text("Cancel").coveFont(size: 14, weight: .semibold)
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .background(Capsule().fill(Color.white.opacity(0.15)))
                     }.buttonStyle(HoverButton())
                 }
                 if autoNext {
                     Text("Next starts in \(secsLeft)s")
-                        .font(.system(size: 11)).foregroundColor(.secondary)
+                        .coveFont(size: 11).foregroundColor(.secondary)
                 }
             }
         }
@@ -1008,7 +1008,7 @@ extension PlayerView {
         VStack {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Playback info").font(.system(size: 13, weight: .bold))
+                    Text("Playback info").coveFont(size: 13, weight: .bold)
                     ForEach(Array(infoLines.enumerated()), id: \.offset) { _, l in
                         HStack(alignment: .top, spacing: 10) {
                             Text(l.0).foregroundColor(.white.opacity(0.6)).frame(width: 120, alignment: .leading)
@@ -1016,7 +1016,7 @@ extension PlayerView {
                         }
                     }
                 }
-                .font(.system(size: 12).monospacedDigit())
+                .coveFont(size: 12) { $0.monospacedDigit() }
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.75)))
                 Spacer()
@@ -1034,7 +1034,7 @@ extension PlayerView {
         let list = episodes.filter { ($0.ParentIndexNumber ?? 0) == pickerSeason }
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Episodes").font(.system(size: 18, weight: .bold))
+                Text("Episodes").coveFont(size: 18, weight: .bold)
                 Spacer()
                 if seasons.count > 1 {
                     Picker("", selection: $pickerSeason) {
@@ -1070,20 +1070,20 @@ extension PlayerView {
                 .frame(width: 120, height: 68).clipped().cornerRadius(5)
                 .overlay {
                     if current {
-                        Image(systemName: "speaker.wave.2.fill").font(.system(size: 18)).foregroundColor(.white)
+                        Image(systemName: "speaker.wave.2.fill").coveFont(size: 18).foregroundColor(.white)
                             .padding(6).background(Circle().fill(Color.black.opacity(0.6)))
                     }
                 }
                 .overlay(alignment: .topTrailing) {
                     if played && !current {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 14))
+                        Image(systemName: "checkmark.circle.fill").coveFont(size: 14)
                             .foregroundColor(.white).shadow(radius: 2).padding(4)
                     }
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                    Text("\(ep.IndexNumber ?? 0). \(ep.Name)").coveFont(size: 14, weight: .semibold).lineLimit(2)
                     if let t = ep.RunTimeTicks, t > 0 {
-                        Text(runtimeText(t)).font(.system(size: 12)).foregroundColor(.secondary)
+                        Text(runtimeText(t)).coveFont(size: 12).foregroundColor(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -1128,8 +1128,8 @@ extension PlayerView {
                 }
                 .frame(width: 112, height: 63).clipped().cornerRadius(5)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(c.Name ?? "Chapter \(i + 1)").font(.system(size: 15)).lineLimit(2)
-                    Text(fmt(c.start)).font(.system(size: 13).monospacedDigit()).foregroundColor(.secondary)
+                    Text(c.Name ?? "Chapter \(i + 1)").coveFont(size: 15).lineLimit(2)
+                    Text(fmt(c.start)).coveFont(size: 13) { $0.monospacedDigit() }.foregroundColor(.secondary)
                 }
                 Spacer()
             }

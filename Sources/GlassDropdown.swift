@@ -68,15 +68,15 @@ private struct DropdownLayer: View {
             VStack(spacing: 0) {
                 ForEach(l.options.indices, id: \.self) { i in
                     if l.headers.contains(i) {
-                        Text(l.options[i].uppercased()).font(.cv(10, weight: .semibold)).kerning(0.6)
+                        Text(l.options[i].uppercased()).cvFont(10, weight: .semibold).kerning(0.6)
                             .foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 12).padding(.top, i == 0 ? 4 : 10).padding(.bottom, 2)
                     } else {
                     Button { l.pick(i); center.close() } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: "checkmark").font(.cv(11, weight: .bold))
+                            Image(systemName: "checkmark").cvFont(11, weight: .bold)
                                 .opacity((l.checked?.contains(i) ?? (i == l.selected)) ? 1 : 0)
-                            Text(l.options[i]).font(.cv(13, weight: .medium)).lineLimit(1)
+                            Text(l.options[i]).cvFont(13, weight: .medium).lineLimit(1)
                             Spacer(minLength: 0)
                         }
                         .foregroundColor(.white)
@@ -137,9 +137,9 @@ struct GlassPicker<T: Hashable>: View {
             HStack(spacing: 6) {
                 Text(options.first { $0.0 == selection }?.1 ?? "—").lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: maxWidth - 44, alignment: .leading)
-                Image(systemName: "chevron.up.chevron.down").font(.cv(9, weight: .bold)).opacity(0.7)
+                Image(systemName: "chevron.up.chevron.down").cvFont(9, weight: .bold).opacity(0.7)
             }
-            .font(.cv(13, weight: .medium))
+            .cvFont(13, weight: .medium)
             .padding(.horizontal, 14).frame(height: 32)
             .classicGlassPill()
             .fixedSize()
