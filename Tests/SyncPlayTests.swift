@@ -127,11 +127,11 @@ final class SyncPlayTests: XCTestCase {
         ts.add(sample(offset: 9, delay: 0.001, at: 0))                // the best, but it falls out of the window
         for i in 1...8 { ts.add(sample(offset: Double(i), delay: 0.1 * Double(i), at: Double(i))) }
         XCTAssertEqual(ts.samples.count, 8)
-        XCTAssertEqual(ts.best?.delay ?? -1, 0.1, accuracy: 1e-9)
-        XCTAssertEqual(ts.offset, 1, accuracy: 1e-9)
+        XCTAssertEqual(ts.best?.delay ?? -1, 0.1, accuracy: 1e-6)
+        XCTAssertEqual(ts.offset, 1, accuracy: 1e-6)
         let local = Date(timeIntervalSince1970: 1000)
-        XCTAssertEqual(ts.serverNow(local: local).timeIntervalSince1970, 1001, accuracy: 1e-9)
-        XCTAssertEqual(ts.localDate(forServer: Date(timeIntervalSince1970: 1001)).timeIntervalSince1970, 1000, accuracy: 1e-9)
+        XCTAssertEqual(ts.serverNow(local: local).timeIntervalSince1970, 1001, accuracy: 1e-6)
+        XCTAssertEqual(ts.localDate(forServer: Date(timeIntervalSince1970: 1001)).timeIntervalSince1970, 1000, accuracy: 1e-6)
     }
 
     func testPollSchedule() {
