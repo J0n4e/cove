@@ -1,6 +1,6 @@
 name: Build Cove.app
 
-# Pull requests (to Development or main): build check, no secrets.
+# Pull requests (to Development or main) and pushes to Development/main: unit tests + build check, no secrets.
 # Run workflow (Actions tab): builds an ad-hoc signed test app as a downloadable artifact. No secrets.
 # Push a version tag (git tag v1.16.0 && git push origin v1.16.0): the "release" job builds, signs and attests the
 # release and creates it as a DRAFT on GitHub. Write the notes and publish it there; the in-app updater only sees
@@ -19,6 +19,7 @@ on:
         required: false
         default: ''
   push:
+    branches: [main, Development]
     tags: ['v*']
 
 permissions:
@@ -31,7 +32,8 @@ concurrency:
 jobs:
   # Build check and test artifact: never touches a secret.
   build:
-    if: github.event_name != 'push'
+    # Branch pushes run here too; tag pushes are handled by the release job
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
     runs-on: macos-15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -107,6 +109,10 @@ jobs:
 
       - name: Show Swift version
         run: swift --version
+
+      # A failing test blocks the release. No secrets in this step's env.
+      - name: Unit tests
+        run: swift test
 
       - name: Check release setup
         run: |

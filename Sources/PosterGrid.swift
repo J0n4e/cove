@@ -147,7 +147,9 @@ struct PosterGrid: NSViewRepresentable {
 
         func collectionView(_ cv: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind,
                             at ip: IndexPath) -> NSView {
-            let v = cv.makeSupplementaryView(ofKind: kind, withIdentifier: PosterGridFooter.id, for: ip) as! PosterGridFooter
+            guard let v = cv.makeSupplementaryView(ofKind: kind, withIdentifier: PosterGridFooter.id, for: ip) as? PosterGridFooter else {
+                fatalError("PosterGrid: item for \(PosterGridFooter.id) is not \(PosterGridFooter.self); check the registration")
+            }
             v.show(footer)
             return v
         }
@@ -227,7 +229,9 @@ struct PosterGrid: NSViewRepresentable {
         func collectionView(_ cv: NSCollectionView, numberOfItemsInSection section: Int) -> Int { items.count }
 
         func collectionView(_ cv: NSCollectionView, itemForRepresentedObjectAt ip: IndexPath) -> NSCollectionViewItem {
-            let cell = cv.makeItem(withIdentifier: PosterGridCell.id, for: ip) as! PosterGridCell
+            guard let cell = cv.makeItem(withIdentifier: PosterGridCell.id, for: ip) as? PosterGridCell else {
+                fatalError("PosterGrid: item for \(PosterGridCell.id) is not \(PosterGridCell.self); check the registration")
+            }
             if let emby { cell.show(items[ip.item], emby: emby, look: look, noHeart: inFavorites, scale: scale) }
             cell.setHover(ip.item == hoverIndex, animated: false)   // a reused cell may come zoomed
             return cell

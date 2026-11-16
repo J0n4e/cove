@@ -30,10 +30,14 @@ enum Net {
         return URLSession(configuration: cfg, delegate: SameHostRedirects(), delegateQueue: nil)
     }()
 
-    /// Same scheme family, host and port (http and https count as different ports when no port is given).
+    /// Same scheme, host and port (default ports filled in: http 80, https 443). The scheme must match so a
+    /// reply from an https server can't point us (and our token) at http://same-host:443/. Order of the
+    /// arguments doesn't matter; http → https upgrades of redirects are handled in SameHostRedirects.
     static func sameOrigin(_ a: URL, _ b: URL) -> Bool {
-        func port(_ u: URL) -> Int { u.port ?? (u.scheme?.lowercased() == "https" ? 443 : 80) }
-        return a.host?.lowercased() == b.host?.lowercased() && port(a) == port(b)
+        guard let sa = a.scheme?.lowercased(), let sb = b.scheme?.lowercased(), sa == sb,
+              sa == "http" || sa == "https", let ha = a.host?.lowercased(), !ha.isEmpty else { return false }
+        func port(_ u: URL) -> Int { u.port ?? (sa == "https" ? 443 : 80) }
+        return ha == b.host?.lowercased() && port(a) == port(b)
     }
 }
 

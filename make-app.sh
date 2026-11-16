@@ -19,7 +19,11 @@ cp "$BIN/Cove" "$APP/Contents/MacOS/Cove"
 cp -R "$BIN/Cove_Cove.bundle" "$APP/Contents/Resources/"
 
 # Icon: build .icns from Sources/Resources/AppIcon.png
-ICONSET=$(mktemp -d)/AppIcon.iconset
+ICON_TMP=$(mktemp -d)
+# Remove the temp dir on exit, keeping any EXIT trap already set
+OLD_EXIT_TRAP=$(trap -p EXIT | sed -E "s/^trap -- '(.*)' EXIT$/\1/")
+trap "${OLD_EXIT_TRAP:+$OLD_EXIT_TRAP; }rm -rf \"\$ICON_TMP\"" EXIT
+ICONSET=$ICON_TMP/AppIcon.iconset
 mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
   sips -z $s $s Sources/Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
@@ -43,8 +47,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
-  <!-- Many home Emby servers use plain http (e.g. http://host:8096); allow it. -->
-  <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+  <!-- Many home Emby servers use plain http (e.g. http://host:8096); allow it for the app (see SECURITY.md).
+       Web views (YouTube trailers, https only) keep full ATS: with this key present, the one above is ignored for them. -->
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/><key>NSAllowsArbitraryLoadsInWebContent</key><false/></dict>
 </dict></plist>
 PLIST
 

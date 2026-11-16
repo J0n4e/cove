@@ -210,26 +210,35 @@ final class Trakt: ObservableObject {
 
     /// What Trakt needs to know about a server item: movie or episode, its ids and its length.
     struct Media { let kind: String; let ids: [String: String]; let runtime: Double }
+    /// Keyed by server, user and item (item ids are only unique on one server). Cleared when it passes
+    /// `mediaCacheCap`, so a long session can't grow it without bound.
     private var mediaCache: [String: Media] = [:]
+    static let mediaCacheCap = 500
     /// Last pause state sent per playback, so the 10-second progress reports don't all go to Trakt.
     private var scrobblePaused: [String: Bool] = [:]
 
     private func media(_ itemId: String, _ emby: Emby) async -> Media? {
-        if let m = mediaCache[itemId] { return m }
+        let key = emby.server + "|" + emby.userId + "|" + itemId
+        if let m = mediaCache[key] { return m }
         guard let f = await emby.full(itemId) else { return nil }
         let kind = f.`Type` == "Episode" ? "episode" : f.`Type` == "Movie" ? "movie" : ""
         let ids = Self.ids(f.ProviderIds)
         guard !kind.isEmpty, !ids.isEmpty else { return nil }
         let m = Media(kind: kind, ids: ids, runtime: Double(f.RunTimeTicks ?? 0) / 10_000_000)
-        mediaCache[itemId] = m
+        if mediaCache.count >= Self.mediaCacheCap { mediaCache.removeAll() }
+        mediaCache[key] = m
         return m
     }
 
+    /// Forgets the pause state of a playback that ended without a "stop" scrobble (app quitting,
+    /// server switched), so `scrobblePaused` doesn't keep one entry per playback.
+    func endScrobble(session: String) { scrobblePaused[session] = nil }
+
     /// action: "start", "pause" or "stop". Trakt logs the play itself when a stop comes past 80%.
     func scrobble(_ action: String, itemId: String, session: String, at sec: Double, duration: Double = 0, emby: Emby) async {
+        if action == "stop" { scrobblePaused[session] = nil }   // before any early return: every stop ends it
         guard scrobbleOn, let m = await media(itemId, emby) else { return }
-        if action == "stop" { scrobblePaused[session] = nil }
-        else {
+        if action != "stop" {
             let paused = action == "pause"
             if scrobblePaused[session] == paused { return }
             scrobblePaused[session] = paused

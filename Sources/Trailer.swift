@@ -59,7 +59,7 @@ struct TrailerPlayerView: View {
                 }.buttonStyle(.plainHand).foregroundStyle(.secondary)
                 Button { if let w = playerWin.window { toggleFullScreen(w) } } label: {
                     Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 16, weight: .semibold)).frame(width: 34, height: 34)
+                        .coveFont(size: 16, weight: .semibold).frame(width: 34, height: 34)
                 }
                 .buttonStyle(HoverButton(backing: true))
                 .helpLabel(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
@@ -70,7 +70,7 @@ struct TrailerPlayerView: View {
                 Color.black
                 if blocked {
                     VStack(spacing: 14) {
-                        Image(systemName: "film").font(.system(size: 40)).foregroundStyle(.secondary)
+                        Image(systemName: "film").coveFont(size: 40).foregroundStyle(.secondary)
                         Text("This trailer can only be played on YouTube.").font(.title3)
                         Button("Watch on YouTube") { NSWorkspace.shared.open(link); close() }
                             .buttonStyle(.borderedProminent).handCursor()
@@ -116,7 +116,7 @@ struct TrailerPlayerView: View {
     @ViewBuilder var backButton: some View {
         if theme == "apple" {
             Button(action: close) {
-                Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+                Image(systemName: "chevron.left").coveFont(size: 15, weight: .semibold)
                     .foregroundStyle(Color.white)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(Color.black.opacity(0.4)))
@@ -127,7 +127,7 @@ struct TrailerPlayerView: View {
         } else {
             // Glass3D's round glass ‹, as on the pages (ClassicTopBackButton switches off while something plays)
             Button(action: close) {
-                Image(systemName: "chevron.left").font(.cv(15, weight: .semibold))
+                Image(systemName: "chevron.left").cvFont(15, weight: .semibold)
                     .frame(width: 44, height: 44)
                     .classicGlassPill()
                     .contentShape(Capsule())

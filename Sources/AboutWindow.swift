@@ -21,13 +21,13 @@ struct AboutView: View {
                 HStack(spacing: 8) {
                     AppIconView(size: 22)
                     (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
-                        .font(.system(size: 16, weight: .bold))
+                        .coveFont(size: 16, weight: .bold)
                 }
                 Text("Version \(versionText.hasPrefix("v") ? String(versionText.dropFirst()) : versionText)")
-                    .font(.system(size: 12)).foregroundColor(Color.white.opacity(0.55))
+                    .coveFont(size: 12).foregroundColor(Color.white.opacity(0.55))
                     .padding(.top, -4)
                 Text("A native macOS client for Emby and Jellyfin. Found a bug or have an idea? Let us know on GitHub.")
-                    .multilineTextAlignment(.center).font(.system(size: 13)).foregroundColor(.secondary)
+                    .multilineTextAlignment(.center).coveFont(size: 13).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     Button { open(Self.repo) } label: {
@@ -43,7 +43,7 @@ struct AboutView: View {
 
             Button { open(Self.repo.appendingPathComponent("blob/main/LICENSE")) } label: {
                 Text("© 2026 J0n4e · GNU GPL-3.0")
-                    .font(.system(size: 10)).foregroundColor(Color.white.opacity(0.4))
+                    .coveFont(size: 10).foregroundColor(Color.white.opacity(0.4))
             }
             .buttonStyle(.plainHand).padding(.vertical, 20)
         }
@@ -70,7 +70,7 @@ struct AboutButton: ButtonStyle {   // shared by About, Software Update and What
     func makeBody(configuration c: Configuration) -> some View {
         let a = Theme.accent(accentName)
         return c.label
-            .font(.system(size: 13, weight: .semibold))
+            .coveFont(size: 13, weight: .semibold)
             .lineLimit(1).fixedSize()
             .padding(.horizontal, 14).padding(.vertical, 7)
             .foregroundColor(primary ? Theme.onAccent(accentName) : .white)

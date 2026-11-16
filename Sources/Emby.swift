@@ -995,6 +995,8 @@ final class Emby: ObservableObject {
         await postJSON("/Sessions/Playing/Stopped", progressBody(s, sec), on: s)
         if s.server == server && !quick {
             await Trakt.shared.scrobble("stop", itemId: s.itemId, session: s.id, at: sec, duration: duration, emby: self)
+        } else {
+            Trakt.shared.endScrobble(session: s.id)
         }
         await stopEncoding(s)
         if quick { return }
@@ -1186,7 +1188,15 @@ final class Emby: ObservableObject {
         q.removeAll { $0.name.lowercased() == "videobitrate" }
         q.append(URLQueryItem(name: "VideoBitrate", value: String(min(maxBitrate, vb ?? maxBitrate))))
         c.queryItems = q
-        return c.string ?? url
+        return encodePlus(c) ?? url
+    }
+
+    /// URLComponents.queryItems leaves '+' as is, which servers read as a space; a value the server sent
+    /// as %2B would come back changed. Re-encode it, the same way `get()` does.
+    static func encodePlus(_ c: URLComponents) -> String? {
+        var c = c
+        c.percentEncodedQuery = c.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        return c.string
     }
 
     static func withoutVideoCopy(_ url: String) -> String {
@@ -1194,7 +1204,7 @@ final class Emby: ObservableObject {
         var q = (c.queryItems ?? []).filter { $0.name.lowercased() != "allowvideostreamcopy" }
         q.append(URLQueryItem(name: "AllowVideoStreamCopy", value: "false"))
         c.queryItems = q
-        return c.string ?? url
+        return encodePlus(c) ?? url
     }
 
     /// The server ignores the requested subtitle and burns in the user's default track,
@@ -1207,7 +1217,7 @@ final class Emby: ObservableObject {
             q.append(URLQueryItem(name: "SubtitleMethod", value: "Encode"))
         }
         c.queryItems = q
-        return c.string ?? url
+        return encodePlus(c) ?? url
     }
 
     /// Downloads a subtitle track as SRT (the server converts embedded text subs too).
