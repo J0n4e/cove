@@ -129,6 +129,7 @@ struct HomeView: View {
     /// Clicking the sidebar item you are already on (e.g. Movies while browsing actors and titles) goes back
     /// to that page's start. Picking a different item does the same through the onChange below.
     func popToRoot() {
+        nav.reselect += 1
         path = NavigationPath()
         query = ""
     }
@@ -217,7 +218,7 @@ struct HomeView: View {
                     else if sel == "favorites" { FavoritesView() }
                     else if sel == "nowplaying" { NowPlayingView() }
                     else if sel == "recent" { FeedView(feed: .recent, root: true) }
-                    else if let lib = emby.libs.first(where: { $0.id == sel }) { LibraryView(lib: lib).id(lib.id) }
+                    else if let lib = emby.libs.first(where: { $0.id == sel }) { LibraryView(lib: lib, refresh: nav.reselect).id(lib.id) }
                     else { Color.black }
                 }
                 // A page opened from search results is the only page: no Back (deeper pages get one)
@@ -344,6 +345,8 @@ struct HomeView: View {
 final class NavState: ObservableObject {
     static let shared = NavState()
     @Published var sel = "home"
+    /// Bumped when the page already shown is clicked again (sidebar or top bar); the library reloads on it.
+    @Published var reselect = 0
     @Published var query = ""
     @Published var searchOpen = false
     /// Goes up to put the cursor in the search field (the S key)
@@ -417,6 +420,7 @@ struct TopNavButtons: View {
         let on = nav.sel == id
         return Button {
             nav.query = ""; nav.searchOpen = false
+            if nav.sel == id { nav.reselect += 1 }
             nav.sel = id; nav.popToRoot()
         } label: {
             // Small icon before each name, as in the sidebar

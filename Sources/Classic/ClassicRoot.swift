@@ -69,6 +69,7 @@ struct ClassicHomeView: View {
     /// Clicking the sidebar item you are already on (e.g. Movies while browsing actors and titles) goes back
     /// to that page's start. Picking a different item does the same through the onChange below.
     func popToRoot() {
+        nav.reselect += 1
         path = NavigationPath()
         query = ""
     }
@@ -183,7 +184,7 @@ struct ClassicHomeView: View {
                     else if sel == "home" { ClassicHomeContent(reloadToken: reloadToken) }
                     else if sel == "favorites" { ClassicFavoritesView() }
                     else if sel == "nowplaying" { NowPlayingView() }
-                    else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib).id(lib.id) }
+                    else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib, refresh: nav.reselect).id(lib.id) }
                     else { Color.black }
                 }
                 .modifier(NoTopScrollEdge())
@@ -309,6 +310,8 @@ struct ClassicHomeView: View {
 final class ClassicNavState: ObservableObject {
     static let shared = ClassicNavState()
     @Published var sel = "home"
+    /// Bumped when the page already shown is clicked again (sidebar or top bar); the library reloads on it.
+    @Published var reselect = 0
     @Published var query = ""
     @Published var searchOpen = false
     /// Goes up to put the cursor in the search field (the S key)
@@ -383,6 +386,7 @@ struct ClassicTopNavButtons: View {
         let on = nav.sel == id
         return Button {
             nav.query = ""; nav.searchOpen = false
+            if nav.sel == id { nav.reselect += 1 }
             nav.sel = id; nav.popToRoot()
         } label: {
             // Small icon before each name, as in the sidebar

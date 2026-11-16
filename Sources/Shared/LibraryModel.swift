@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// The Library page's state and paging, shared by the Glass and Classic views (they keep only layout and styling).
 /// Filters and sort are remembered per library under "lf-<library id>", as before.
@@ -30,6 +31,11 @@ final class LibraryModel: ObservableObject {
     /// The one next-page load in flight (see loadMore).
     private(set) var pageTask: Task<Void, Never>?
 
+    /// Emby's local watched state (`emby.played`), mirrored so a film finished or marked from its page leaves an
+    /// Unwatched/Watched library at once, without a server request or a scroll jump.
+    @Published var played: [String: Bool] = [:]
+    private var playedSub: AnyCancellable?
+
     private weak var emby: Emby?
     /// Injected in tests; nil uses the server with the current filters.
     private let fetcher: Fetch?
@@ -47,7 +53,29 @@ final class LibraryModel: ObservableObject {
     }
 
     /// The view hands over its Emby (an environment object, so not there at init).
-    func bind(_ emby: Emby) { self.emby = emby }
+    func bind(_ emby: Emby) {
+        self.emby = emby
+        if playedSub == nil {
+            playedSub = emby.$played.receive(on: DispatchQueue.main).sink { [weak self] in self?.played = $0 }
+        }
+    }
+
+    // MARK: Local watched filter (pure, so it can be tested)
+
+    /// The loaded items the watch filter still admits, by the local state (the item's own UserData when there's
+    /// none, as Emby.isPlayed does). "all" shows everything.
+    static func visible(_ items: [Item], watch: String, played: [String: Bool]) -> [Item] {
+        guard watch == "unwatched" || watch == "watched" else { return items }
+        let want = watch == "watched"
+        return items.filter { (played[$0.id] ?? $0.UserData?.Played ?? false) == want }
+    }
+
+    /// The header's count: the server's total less the loaded items hidden locally.
+    static func visibleTotal(total: Int, loaded: Int, visible: Int) -> Int { max(0, total - (loaded - visible)) }
+
+    /// What the views show. Paging still counts every loaded item (`items`) for the server offset.
+    var visibleItems: [Item] { Self.visible(items, watch: watch, played: played) }
+    var visibleCount: Int { Self.visibleTotal(total: total, loaded: items.count, visible: visibleItems.count) }
 
     var key: String { "\(tab)|\(sort)|\(desc)|\(watch)|\(genre)|\(letter)|\(grouping)" }
     /// What's saved; a change of it calls save().
@@ -108,12 +136,12 @@ final class LibraryModel: ObservableObject {
 
     /// The list view's row `id` appeared.
     func listRowAppeared(_ id: String) {
-        if Self.listTriggers(id: id, ids: items.map(\.id)) { loadMore() }
+        if Self.listTriggers(id: id, ids: visibleItems.map(\.id)) { loadMore() }
     }
 
     /// The grid's cell `i` is about to show.
     func cellWillShow(_ i: Int) {
-        if Self.gridTriggers(index: i, count: items.count) { loadMore() }
+        if Self.gridTriggers(index: i, count: visibleItems.count) { loadMore() }
     }
 
     /// Next page from a scroll trigger: one task at a time, cancelled on reset and when the page goes away,
