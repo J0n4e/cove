@@ -503,3 +503,23 @@ final class SecurityLowsTests: XCTestCase {
         XCTAssertFalse(Net.sameOrigin(u("https://h"), u("https://h:8920")))
     }
 }
+
+// MARK: Small fixes
+
+@MainActor
+final class SmallFixesTests: XCTestCase {
+    func testConversionKeepsEncodedPlus() {
+        let url = "https://s.example/videos/1/main.m3u8?api_key=a%2Bb&VideoCodec=h264"
+        for out in [Emby.capConversion(url, maxWidth: 1920, maxBitrate: 1000),
+                    Emby.withoutVideoCopy(url), Emby.fixSubtitle(url, 2), Emby.fixSubtitle(url, nil)] {
+            XCTAssertTrue(out.contains("api_key=a%2Bb"), out)
+            XCTAssertFalse(out.contains("a+b"), out)
+            XCTAssertTrue(out.contains("VideoCodec=h264"), out)
+        }
+    }
+
+    func testEncodePlusLeavesOtherValues() {
+        let c = URLComponents(string: "https://s.example/a?x=1&y=hello%20world")!
+        XCTAssertEqual(Emby.encodePlus(c), "https://s.example/a?x=1&y=hello%20world")
+    }
+}
