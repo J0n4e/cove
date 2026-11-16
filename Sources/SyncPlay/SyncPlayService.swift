@@ -52,8 +52,8 @@ final class SyncPlayService: ObservableObject {
     private let log: (String) -> Void
     /// Settings → Playback → Live connection to the server (default on)
     private let liveSetting: () -> Bool
-    static let liveSocketKey = "jellyfinLiveSocket"
-    static func liveSocketDefault() -> Bool { UserDefaults.standard.object(forKey: liveSocketKey) as? Bool ?? true }
+    nonisolated static let liveSocketKey = "jellyfinLiveSocket"
+    nonisolated static func liveSocketDefault() -> Bool { UserDefaults.standard.object(forKey: liveSocketKey) as? Bool ?? true }
     /// SyncPlay (phase 2) needs the socket now: in a group it stays open even with the live connection off.
     private(set) var socketNeeded = false
     private(set) var current: Credentials?
