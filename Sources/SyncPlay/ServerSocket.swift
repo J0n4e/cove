@@ -28,15 +28,25 @@ final class URLSessionSocketTransport: SocketTransport {
         task = session.webSocketTask(with: request)
     }
 
+    /// The handshake's HTTP status when it didn't upgrade (101), for the log
+    var handshakeStatus: Int? { (task.response as? HTTPURLResponse)?.statusCode }
+
     func open() async throws {
         task.resume()
         // URLSession can call the ping handler more than once (e.g. a failed handshake and then the cancel);
-        // resuming a continuation twice crashes the app, so only the first call counts
+        // resuming a continuation twice crashes the app, so only the first call counts. A proxy that never
+        // answers the upgrade would leave the ping waiting forever, so give up after 15 s and retry later.
         let once = OnceFlag()
+        let task = self.task
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             task.sendPing { e in
                 guard once.claim() else { return }
                 if let e { c.resume(throwing: e) } else { c.resume() }
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 15) {
+                guard once.claim() else { return }
+                task.cancel(with: .goingAway, reason: nil)
+                c.resume(throwing: URLError(.timedOut))
             }
         }
     }
@@ -206,6 +216,7 @@ final class ServerSocket {
         while !Task.isCancelled {
             let t = makeTransport(request)
             transport = t
+            log("SyncPlay: socket connecting (attempt \(attempt + 1))")
             do {
                 try await t.open()
                 guard !Task.isCancelled else { break }
@@ -218,7 +229,10 @@ final class ServerSocket {
                     handle(try await t.receive(), on: t)
                 }
             } catch {
-                if !Task.isCancelled { log("SyncPlay: socket error \((error as NSError).domain) \((error as NSError).code)") }
+                if !Task.isCancelled {
+                    let status = (t as? URLSessionSocketTransport)?.handshakeStatus.map { ", HTTP \($0)" } ?? ""
+                    log("SyncPlay: socket error \((error as NSError).domain) \((error as NSError).code)\(status)")
+                }
             }
             t.close()
             // Cancelled = stop() / reconnectNow() already reset the state (and may have started a new run)
