@@ -50,6 +50,12 @@ final class SyncPlayService: ObservableObject {
     private let makeTransport: (URLRequest) -> SocketTransport
     private let sleep: (TimeInterval) async throws -> Void
     private let log: (String) -> Void
+    /// Settings → Playback → Live connection to the server (default on)
+    private let liveSetting: () -> Bool
+    static let liveSocketKey = "jellyfinLiveSocket"
+    static func liveSocketDefault() -> Bool { UserDefaults.standard.object(forKey: liveSocketKey) as? Bool ?? true }
+    /// SyncPlay (phase 2) needs the socket now: in a group it stays open even with the live connection off.
+    private(set) var socketNeeded = false
     private(set) var current: Credentials?
     private(set) var socket: ServerSocket?
     private var tasks: [Task<Void, Never>] = []
@@ -62,8 +68,10 @@ final class SyncPlayService: ObservableObject {
          http: @escaping HTTP = { try await Net.session.data(for: $0) },
          makeTransport: @escaping (URLRequest) -> SocketTransport = { URLSessionSocketTransport(request: $0) },
          sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) },
-         log: @escaping (String) -> Void = { DebugLog.write($0) }) {
+         log: @escaping (String) -> Void = { DebugLog.write($0) },
+         liveSetting: @escaping () -> Bool = { SyncPlayService.liveSocketDefault() }) {
         self.enabled = enabled
+        self.liveSetting = liveSetting
         self.http = http
         self.makeTransport = makeTransport
         self.sleep = sleep
@@ -85,6 +93,13 @@ final class SyncPlayService: ObservableObject {
                 self.update(c, isJellyfin: j && known)
             }
             .store(in: &bag)
+        // Settings → Playback → Live connection: start or stop the socket right away
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .map { _ in SyncPlayService.liveSocketDefault() }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.liveSettingChanged() } }
+            .store(in: &bag)
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.socket?.reconnectNow() }
@@ -97,6 +112,35 @@ final class SyncPlayService: ObservableObject {
         guard c != current else { return }
         stop()
         current = c
+        refreshSocket()
+        // Capabilities don't depend on the socket: post them right away too, so the Dashboard shows Cove as
+        // controllable even if the socket can't connect (or is switched off)
+        tasks.append(Task { await postCapabilities(c) })
+        tasks.append(Task { await loadInfo(c) })
+        tasks.append(Task { await pollTime(c) })
+    }
+
+    /// SyncPlay joins (true) or leaves (false) a group: with the live connection off, opens or closes the socket.
+    func setSocketNeeded(_ needed: Bool) {
+        socketNeeded = needed
+        refreshSocket()
+    }
+
+    /// The live-connection setting changed.
+    func liveSettingChanged() { refreshSocket() }
+
+    /// The socket is open while signed in to Jellyfin and either the live connection is on or SyncPlay needs it.
+    private func refreshSocket() {
+        guard let c = current else { return }
+        let want = liveSetting() || socketNeeded
+        if want, socket == nil { startSocket(c) }
+        else if !want, let s = socket {
+            log("SyncPlay: live connection off, closing the socket")
+            s.stop(); socket = nil; connected = false
+        }
+    }
+
+    private func startSocket(_ c: Credentials) {
         guard let r = ServerSocket.request(server: c.server, deviceId: c.deviceId, authorization: c.authorization) else {
             log("SyncPlay: not connecting, the socket address isn't the server's")
             return
@@ -113,17 +157,13 @@ final class SyncPlayService: ObservableObject {
         s.onMessage = { [weak self] m in self?.messages.send(m) }
         socket = s
         s.start()
-        // Capabilities don't depend on the socket: post them right away too, so the Dashboard shows Cove as
-        // controllable even if the socket can't connect
-        tasks.append(Task { await postCapabilities(c) })
-        tasks.append(Task { await loadInfo(c) })
-        tasks.append(Task { await pollTime(c) })
     }
 
     func stop() {
         socket?.stop(); socket = nil
         tasks.forEach { $0.cancel() }; tasks = []
         current = nil
+        socketNeeded = false   // a SyncPlay group doesn't outlive the session
         connected = false
         serverVersion = nil; syncPlayAccess = nil
         timeSync = TimeSync()
