@@ -241,6 +241,8 @@ struct GeneralSettings: View {
     @AppStorage("textSize") private var textSize = "default"
     @AppStorage("classicHover") private var classicHover = "fog"
     @AppStorage("bg") private var bg = "black"
+    @AppStorage(GlassFrost.followKey) private var glassFollow = true
+    @AppStorage(GlassFrost.frostKey) private var glassFrost = GlassFrost.defaultFrost
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
     @AppStorage("homeLayout") private var homeLayout = "row"
@@ -289,6 +291,22 @@ struct GeneralSettings: View {
             if theme == "classic" {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
                 PrefRow(label: "Hover effect") { menuPicker($classicHover, [("fog", "Fogged mirror"), ("glow", "Soft glow")]) }
+                PrefRow(label: "Glass") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }
+                        HStack(spacing: 8) {
+                            Text("Clear").font(.caption).foregroundColor(.secondary)
+                            Slider(value: $glassFrost, in: 0...1).frame(width: 160)
+                            Text("Tinted").font(.caption).foregroundColor(.secondary)
+                        }
+                        .disabled(GlassFrost.hasLiquidGlass && glassFollow)
+                        .opacity(GlassFrost.hasLiquidGlass && glassFollow ? 0.5 : 1)
+                        GlassFrostPreview()
+                    }
+                }
+                PrefNote(GlassFrost.hasLiquidGlass
+                         ? "The top bar, its buttons, the search pill and the player controls. Follow macOS uses the Liquid Glass setting in System Settings → Appearance; off, cove frosts the glass itself."
+                         : "The top bar, its buttons, the search pill and the player controls: from clear to tinted.")
             }
             PrefRow(label: "Text size") { menuPicker($textSize, TextScale.choices) }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
