@@ -70,6 +70,16 @@ final class LibraryModel: ObservableObject {
         return items.filter { (played[$0.id] ?? $0.UserData?.Played ?? false) == want }
     }
 
+    /// Where the next page starts in the server's list: the loaded items, less those hidden locally (the server's
+    /// filtered list no longer has them).
+    static func nextStart(loaded: Int, hidden: Int) -> Int { max(0, loaded - max(0, hidden)) }
+
+    /// A new page added to what's shown, without repeating an item already there.
+    static func appendPage(_ shown: [Item], _ page: [Item]) -> [Item] {
+        var seen = Set(shown.map(\.id))
+        return shown + page.filter { seen.insert($0.id).inserted }
+    }
+
     /// The header's count: the server's total less the loaded items hidden locally.
     static func visibleTotal(total: Int, loaded: Int, visible: Int) -> Int { max(0, total - (loaded - visible)) }
 
@@ -162,16 +172,22 @@ final class LibraryModel: ObservableObject {
 
     func load(reset: Bool) async {
         if reset { pageTask?.cancel(); pageTask = nil }
-        if !Self.mayLoad(reset: reset, loading: loading, failed: loadFailed, count: items.count, total: total) { return }
+        // Items hidden locally (watched since they loaded, in an Unwatched library) are already gone from the
+        // server's filtered list, so the next page starts that many places earlier, or it would skip items
+        let kept = visibleItems
+        let next = Self.nextStart(loaded: items.count, hidden: items.count - kept.count)
+        if !Self.mayLoad(reset: reset, loading: loading, failed: loadFailed, count: next, total: total) { return }
         gen += 1
         let my = gen
         loading = true; loadFailed = false
-        let r = await fetch(start: reset ? 0 : items.count, limit: Self.pageSize, sort: sort)
+        let r = await fetch(start: reset ? 0 : next, limit: Self.pageSize, sort: sort)
         guard my == gen else { return }
         loading = false
         // A failed page keeps what's already shown and offers to try again (it used to end paging for good)
         guard let r else { loadFailed = true; return }
-        if reset { items = r.Items } else { items += r.Items }
+        // After a page, the list matches the server again: hidden items are dropped (the new total no longer
+        // counts them), and nothing already shown is added twice
+        if reset { items = r.Items } else { items = Self.appendPage(Self.visible(items, watch: watch, played: played), r.Items) }
         total = r.TotalRecordCount ?? items.count
         // Posters of the new page start downloading now, before they scroll into view. A small library (Collections,
         // up to 300) is loaded and fetched whole, so no poster has to load while you scroll through it.

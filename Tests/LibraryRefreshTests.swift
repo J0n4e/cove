@@ -56,4 +56,18 @@ final class LibraryRefreshTests: XCTestCase {
         XCTAssertEqual(m.visibleCount, 1)
         XCTAssertEqual(m.items.count, 3)           // paging still counts every loaded item
     }
+
+    // Paging after items were hidden locally: the server's filtered list already lost them
+
+    func testNextStartSkipsNothing() {
+        XCTAssertEqual(LibraryModel.nextStart(loaded: 100, hidden: 0), 100)
+        XCTAssertEqual(LibraryModel.nextStart(loaded: 100, hidden: 2), 98)   // 2 watched since: start 2 earlier
+        XCTAssertEqual(LibraryModel.nextStart(loaded: 3, hidden: 5), 0)
+    }
+
+    func testAppendPageDropsRepeats() {
+        let all = items()
+        let shown = [all[0], all[2]]
+        XCTAssertEqual(ids(LibraryModel.appendPage(shown, [all[2], all[1]])), ["i0", "i2", "i1"])
+    }
 }
