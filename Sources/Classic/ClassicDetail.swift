@@ -235,12 +235,15 @@ struct ClassicDetailView: View {
     @Environment(\.appBG) var bg
     @Environment(\.dismiss) var dismiss
     let item: Item
+    /// The page's data, loading and Play decisions, shared with the other theme
+    @StateObject private var model: DetailModel
+
+    init(item: Item) {
+        self.item = item
+        _model = StateObject(wrappedValue: DetailModel(item: item))
+    }
     @AppStorage("accent") private var accentName = "red"   // episode cards' hover glow
     @AppStorage("moviePage") private var moviePage = "banner"   // Settings → Libraries → Movie page
-    @State private var full: Full?
-    @State private var kids: [Item] = []
-    @State private var seasonItems: [Item] = []
-    @State private var epLangs: [(code: String, name: String)] = []
     @AppStorage("episodeSubLang") private var epSubLang = ""
     @AppStorage("subAlways") private var subAlwaysOn = false
     @AppStorage("subLang") private var prefSubLang = "english"
@@ -250,58 +253,7 @@ struct ClassicDetailView: View {
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
     @AppStorage("seasonLayoutTV") private var seasonLayout = "row"   // Settings → Libraries → Season layout
     @AppStorage("showEpisodeDescription") private var showEpDesc = true   // Settings → Libraries → Series
-    @State private var showAllEps = false                                  // "Show all" / "Hide watched" in a season
-    @State private var similar: [Item] = []
-    @State private var includedIn: [Item] = []
     @AppStorage("similarLayout") private var similarLayout = "row"   // "row", "grid" or "list"; also in Settings → Libraries
-    @State private var srcIdx = 0
-    @State private var audioIdx = -1
-    @State private var subIdx = -1
-    @State private var quality = UserDefaults.standard.integer(forKey: "defaultQuality")
-    @State private var season: Int? = nil
-    @State private var nextEp: Item? = nil
-
-    var sources: [MSource] { full?.MediaSources ?? [] }
-    var src: MSource? { sources.indices.contains(srcIdx) ? sources[srcIdx] : nil }
-    func streams(_ t: String) -> [MStream] { (src?.MediaStreams ?? []).filter { $0.`Type` == t } }
-    var defaultAudio: Int {
-        let a = streams("Audio")
-        return (a.first(where: { $0.IsDefault == true }) ?? a.first)?.Index ?? -1
-    }
-    var simple: Bool { item.isSeries || item.isBox }
-
-    /// Pre-selects the preferred subtitle language when "Always load" is on.
-    func applyPreferredSub() {
-        let d = UserDefaults.standard
-        guard d.bool(forKey: "subAlways"), let lang = d.string(forKey: "subLang"), !lang.isEmpty,
-              let idx = preferredSub(src?.MediaStreams ?? [], lang: lang) else { return }
-        subIdx = idx
-    }
-
-    /// `from` nil means resume where it was left off; 0 starts over.
-    func playNow(from: Double? = nil) {
-        if item.isSeries, let ep = nextEp { playEpisode(ep, from: from); return }
-        if simple { Task { await emby.play(item) }; return }
-        let audioChanged = audioIdx >= 0 && audioIdx != defaultAudio
-        emby.playing = PlayRequest(item: item, sourceId: src?.Id,
-                                   audio: audioChanged ? audioIdx : nil,
-                                   sub: subIdx >= 0 ? subIdx : nil,
-                                   maxBitrate: quality > 0 ? quality : nil,
-                                   start: from ?? emby.resumeAt(item),
-                                   noSub: subIdx < 0)
-    }
-
-    /// The item the big Play button acts on (next-up episode for a series).
-    var playTarget: Item? { item.isSeries ? nextEp : (simple ? nil : item) }
-
-    /// Where the Play target was left off (0 = not started); when > 0 a Resume button shows beside Play.
-    var resumePoint: Double { playTarget.map { emby.resumeAt($0) } ?? 0 }
-
-    /// The Play button starts from the beginning when there is a resume point (Resume sits next to it).
-    var playLabel: String {
-        if item.isSeries, let ep = nextEp { return "Play S\(ep.ParentIndexNumber ?? 0):E\(ep.IndexNumber ?? 0)" }
-        return "Play"
-    }
 
     /// Season layout → Cards: the show opens on a banner as big as Home's, the season deck in its bottom-right corner
     /// Decided by the setting alone (not by the seasons, which load a moment later), so the page never shows the
@@ -337,24 +289,9 @@ struct ClassicDetailView: View {
             }.frame(height: 520) }
         }
         .background(bg)
-        .task {
-            full = await emby.full(item.id)
-            audioIdx = defaultAudio
-            applyPreferredSub()
-            if item.isSeries {
-                async let eps = emby.episodes(item.id)
-                async let ss = emby.seasons(item.id)
-                kids = await eps; seasonItems = await ss
-                if let s = emby.openSeason { season = s; emby.openSeason = nil }
-                nextEp = await emby.nextUp(item.id) ?? kids.first { !emby.isPlayed($0) } ?? kids.first
-                if let first = kids.first { epLangs = Self.subLangs(await emby.full(first.id)) }
-            }
-            else if item.isBox { kids = await emby.children(item.id) }
-            if !item.isEpisode && !item.isBox { includedIn = await emby.collections(containing: item.id) }
-            if !item.isEpisode { similar = await emby.similar(item.id) }
-        }
-        .onChange(of: srcIdx) { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
-        .onChange(of: season) { showAllEps = false }
+        .task { model.bind(emby); await model.load() }
+        .onChange(of: model.srcIdx) { model.sourceChanged() }
+        .onChange(of: model.season) { model.seasonChanged() }
         .navigationBarBackButtonHidden(true)
         .toolbar { ClassicTitleBarItems(back: noBack ? nil : { dismiss() }) }
         .classicHideToolbarTitle()
@@ -376,20 +313,20 @@ struct ClassicDetailView: View {
                 TitleLogo(item: item, height: 110, font: 56)
                 meta
                 // A movie keeps its version, audio, subtitle and quality choices (a show picks per episode)
-                if !item.isSeries && !simple {
+                if !item.isSeries && !model.simple {
                     // A set width, so Version, Audio, Subtitles and Quality fit on one line (left to size itself,
                     // the row was offered the narrow width of the text beside it and wrapped)
                     streamsRow.frame(width: 900, alignment: .leading)
                 }
                 buttons
-                if !item.isSeries, let tag = full?.Taglines?.first { Text(tag).cvFont(13, weight: .bold) }
+                if !item.isSeries, let tag = model.full?.Taglines?.first { Text(tag).cvFont(13, weight: .bold) }
                 Text(item.Overview ?? "").cvFont(15).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
             .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries || item.isBox ? 600 : 80)
-            if item.isBox && !boxMovies.isEmpty {
+            if item.isBox && !model.boxMovies.isEmpty {
                 // A collection's movies as a deck, oldest first, the year under the front one
-                let movies = boxMovies
+                let movies = model.boxMovies
                 SeasonDeck(numbers: Array(movies.indices), selected: 0,
                            title: { movies[$0].Name },
                            image: { emby.image(movies[$0].posterId, width: 500) },
@@ -405,14 +342,14 @@ struct ClassicDetailView: View {
                     .padding(.trailing, 44).padding(.bottom, 30)
                     .transition(.opacity)
             }
-            if seasonNumbers.count > 1 {
-                SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
-                           title: { seasonTitle($0) },
-                           image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
-                           select: { season = $0 },
-                       badge: { unwatched($0) },
-                       seasonItem: { n in seasonItems.first { ($0.IndexNumber ?? 0) == n } },
-                       episodes: { n in kids.filter { ($0.ParentIndexNumber ?? 0) == n } })
+            if model.seasonNumbers.count > 1 {
+                SeasonDeck(numbers: model.seasonNumbers, selected: model.currentSeason,
+                           title: { model.seasonTitle($0) },
+                           image: { n in emby.image(model.seasonItem(n)?.Id ?? item.Id, width: 400) },
+                           select: { model.season = $0 },
+                       badge: { model.unwatched($0) },
+                       seasonItem: { n in model.seasonItem(n) },
+                       episodes: { n in model.episodes(inSeason: n) })
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 44).padding(.bottom, 56)
                     .transition(.opacity)
@@ -424,21 +361,21 @@ struct ClassicDetailView: View {
 
     // Header: poster + info + pickers + buttons
     var header: some View {
-        let deck = item.isSeries && seasonLayout == "deck" && seasonNumbers.count > 1
+        let deck = item.isSeries && seasonLayout == "deck" && model.seasonNumbers.count > 1
         return headerBody
             .padding(.trailing, deck ? 520 : 0)   // the text stays clear of the deck
             .frame(maxWidth: .infinity, alignment: .leading)   // full page width, so the deck reaches the corner
             .overlay(alignment: .bottomTrailing) {
                 // Series, Settings → Season layout → Cards: the seasons as a deck of cards, as on the Home banner;
                 // the front season is the one whose episodes are listed below
-                if item.isSeries, seasonLayout == "deck", seasonNumbers.count > 1 {
-                    SeasonDeck(numbers: seasonNumbers, selected: currentSeason,
-                               title: { seasonTitle($0) },
-                               image: { n in emby.image(seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Id ?? item.Id, width: 400) },
-                               select: { season = $0 },
-                       badge: { unwatched($0) },
-                       seasonItem: { n in seasonItems.first { ($0.IndexNumber ?? 0) == n } },
-                       episodes: { n in kids.filter { ($0.ParentIndexNumber ?? 0) == n } })
+                if item.isSeries, seasonLayout == "deck", model.seasonNumbers.count > 1 {
+                    SeasonDeck(numbers: model.seasonNumbers, selected: model.currentSeason,
+                               title: { model.seasonTitle($0) },
+                               image: { n in emby.image(model.seasonItem(n)?.Id ?? item.Id, width: 400) },
+                               select: { model.season = $0 },
+                       badge: { model.unwatched($0) },
+                       seasonItem: { n in model.seasonItem(n) },
+                       episodes: { n in model.episodes(inSeason: n) })
                     .padding(.trailing, 40)   // in line with the episodes' right edge
                 }
             }
@@ -457,11 +394,11 @@ struct ClassicDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text(item.Name).cvFont(46, weight: .black)
                 meta
-                if !simple { streamsRow }
+                if !model.simple { streamsRow }
                 buttons
-                if let tag = full?.Taglines?.first { Text(tag).cvFont(13, weight: .bold) }
+                if let tag = model.full?.Taglines?.first { Text(tag).cvFont(13, weight: .bold) }
                 Text(item.Overview ?? "").frame(maxWidth: 760, alignment: .leading)
-                let directors = (full?.People ?? []).filter { $0.`Type` == "Director" }.map { $0.Name }
+                let directors = (model.full?.People ?? []).filter { $0.`Type` == "Director" }.map { $0.Name }
                 if !directors.isEmpty {
                     (Text("Director: ").foregroundColor(.secondary) + Text(directors.joined(separator: ", ")).bold())
                         .cvFont(12, weight: .regular)
@@ -472,46 +409,46 @@ struct ClassicDetailView: View {
 
     var meta: some View {
         HStack(spacing: 12) {
-            if let r = full?.CommunityRating {
+            if let r = model.full?.CommunityRating {
                 HStack(spacing: 3) { Image(systemName: "star.fill").foregroundColor(.yellow); Text(String(format: "%.1f", r)) }
             }
-            if let c = full?.CriticRating { Text("🍅 \(Int(c))%") }
+            if let c = model.full?.CriticRating { Text("🍅 \(Int(c))%") }
             if let y = item.ProductionYear { Text(String(y)) }
-            if let t = full?.RunTimeTicks { Text(runtimeText(t)) }
-            if let o = full?.OfficialRating {
+            if let t = model.full?.RunTimeTicks { Text(runtimeText(t)) }
+            if let o = model.full?.OfficialRating {
                 Text(o).cvFont(10, weight: .regular).padding(.horizontal, 5).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary))
             }
-            if let g = full?.Genres?.first { Text(g) }
-            if let t = full?.RunTimeTicks, !simple { Text("Ends at " + endsAtText(t)) }
+            if let g = model.full?.Genres?.first { Text(g) }
+            if let t = model.full?.RunTimeTicks, !model.simple { Text("Ends at " + endsAtText(t)) }
         }.cvFont(11, weight: .regular).foregroundColor(.secondary)
     }
 
     /// Wraps onto more lines when the window is narrow, so long version names can't widen the page.
     var streamsRow: some View {
         FlowLayout(hSpacing: 20, vSpacing: 10) {
-            if sources.count > 1 {
+            if model.sources.count > 1 {
                 labeled("Version") {
-                    GlassPicker(selection: $srcIdx, options: sources.indices.map {
-                        ($0, sources[$0].Name ?? sources[$0].Path ?? "Version \($0 + 1)")
+                    GlassPicker(selection: $model.srcIdx, options: model.sources.indices.map {
+                        ($0, model.sources[$0].Name ?? model.sources[$0].Path ?? "Version \($0 + 1)")
                     }, maxWidth: 320)   // long file names are cut with "…"
                 }
             }
-            if let v = streams("Video").first {
+            if let v = model.streams("Video").first {
                 HStack(spacing: 6) { Text("Video").foregroundColor(.secondary); Text(v.DisplayTitle ?? "") }
             }
-            if !streams("Audio").isEmpty {
+            if !model.streams("Audio").isEmpty {
                 labeled("Audio") {
-                    GlassPicker(selection: $audioIdx,
-                                options: streams("Audio").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
+                    GlassPicker(selection: $model.audioIdx,
+                                options: model.streams("Audio").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
                 }
             }
             labeled("Subtitles") {
-                GlassPicker(selection: $subIdx,
-                            options: [(-1, "Off")] + streams("Subtitle").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
+                GlassPicker(selection: $model.subIdx,
+                            options: [(-1, "Off")] + model.streams("Subtitle").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
             }
             labeled("Quality") {
-                GlassPicker(selection: $quality, options: [(0, "Original"), (8_000_000, "1080p · 8 Mbps"),
+                GlassPicker(selection: $model.quality, options: [(0, "Original"), (8_000_000, "1080p · 8 Mbps"),
                                                            (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")])
             }
         }
@@ -531,17 +468,17 @@ struct ClassicDetailView: View {
         let fav = emby.isFav(item)
         // All the same size and shape: 44-pt glass pills
         return HStack(spacing: 10) {
-            let r = resumePoint
-            Button { playNow(from: r > 0 ? 0 : nil) } label: {
-                Label(playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
-            }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? playLabel + " from the beginning" : playLabel)
+            let r = model.resumePoint
+            Button { model.playNow(from: r > 0 ? 0 : nil) } label: {
+                Label(model.playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+            }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? model.playLabel + " from the beginning" : model.playLabel)
             if r > 0 {
-                Button { playNow() } label: {
+                Button { model.playNow() } label: {
                     Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
                 }.buttonStyle(HoverButton())
             }
-            RatingButton(item: item, full: full, classic: true)
-            if let u = SafeLink.url(full?.RemoteTrailers?.first?.Url) {
+            RatingButton(item: item, full: model.full, classic: true)
+            if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44)
                 }.buttonStyle(HoverButton()).helpLabel("Trailer")
@@ -562,95 +499,14 @@ struct ClassicDetailView: View {
     /// Language name from "English (SRT)" etc., so "eng" and "en" tracks group together.
     static func langName(_ st: MStream) -> String { subLangName(st) }   // same rule as "Always load…"
 
-    /// Subtitle languages found in an item, keyed by language code.
-    static func subLangs(_ f: Full?) -> [(code: String, name: String)] {
-        var out: [(code: String, name: String)] = []
-        for st in f?.MediaSources?.first?.MediaStreams ?? [] where st.`Type` == "Subtitle" {
-            let name = langName(st)
-            if out.contains(where: { $0.code == name.lowercased() }) { continue }
-            out.append((name.lowercased(), name))
-        }
-        return out
-    }
 
-    /// Plays an episode with the subtitle language chosen for episodes (text formats like SRT preferred).
-    /// Plays an episode; `from` nil means resume where it was left off.
-    func playEpisode(_ ep: Item, from: Double? = nil) {
-        let q = UserDefaults.standard.integer(forKey: "defaultQuality")
-        let maxBitrate: Int? = q > 0 ? q : nil
-        let start: Double = from ?? emby.resumeAt(ep)
-        // Subtitles menu: "off" = explicitly none; empty = the default (the preferred language from Settings when
-        // "Always load preferred subtitle language" is on, ignoring what was remembered for the series); else a language
-        let d = UserDefaults.standard
-        if epSubLang == "off" { emby.playing = PlayRequest(item: ep, maxBitrate: maxBitrate, start: start, noSub: true); return }
-        let preferred: String = d.bool(forKey: "subAlways") ? (d.string(forKey: "subLang") ?? "").lowercased() : ""
-        let wanted: String = epSubLang.isEmpty ? preferred : epSubLang
-        if wanted.isEmpty { emby.playing = PlayRequest(item: ep, maxBitrate: maxBitrate, start: start); return }
-        Task {
-            let f = await emby.full(ep.id)
-            let src = f?.MediaSources?.first
-            let all = src?.MediaStreams ?? []
-            let subs = all.filter { $0.`Type` == "Subtitle" && Self.langName($0).lowercased() == wanted }
-            let text = ["srt", "subrip", "vtt", "ass", "ssa"]
-            var pick = (subs.first { text.contains(($0.Codec ?? "").lowercased()) } ?? subs.first)?.Index
-            if pick == nil { pick = preferredSub(all, lang: wanted) }
-            emby.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: maxBitrate, start: start)
-        }
-    }
 
-    var seasonNumbers: [Int] {
-        let set = Set(kids.map { $0.ParentIndexNumber ?? 0 })
-        return set.sorted { (a: Int, b: Int) -> Bool in
-            if a == 0 { return false }
-            if b == 0 { return true }
-            return a < b
-        }
-    }
-
-    var currentSeason: Int {
-        if let season { return season }
-        if let firstUnwatched = kids.first(where: { !emby.isPlayed($0) })?.ParentIndexNumber { return firstUnwatched }
-        return seasonNumbers.first ?? 0
-    }
-
-    func seasonTitle(_ n: Int) -> String {
-        if n == 0 { return "Specials" }
-        return seasonItems.first { ($0.IndexNumber ?? 0) == n }?.Name ?? "Season \(n)"
-    }
-
-    /// All episodes of the season being shown.
-    /// currentSeason is worked out once: inside the filter it re-scanned every episode for each episode,
-    /// which made every redraw of a long series slow (switching back to Cove, leaving full screen).
-    var seasonEpisodes: [Item] {
-        let s = currentSeason
-        return kids.filter { ($0.ParentIndexNumber ?? 0) == s }
-    }
-
-    /// The season has both watched and unwatched episodes, so "hide watched" makes sense.
-    var canFilterWatched: Bool {
-        let all: [Item] = seasonEpisodes
-        let open: Int = all.filter { !emby.isPlayed($0) }.count
-        return open > 0 && open < all.count
-    }
-
-    /// Unwatched episodes only, unless the season is fully watched / fully unwatched or "Show all" is on.
-    var shownEpisodes: [Item] {
-        let all: [Item] = seasonEpisodes
-        if canFilterWatched && !showAllEps { return all.filter { !emby.isPlayed($0) } }
-        return all
-    }
-
-    /// Unwatched episodes in a season (nil while episodes are loading).
-    func unwatched(_ n: Int) -> Int? {
-        let eps = kids.filter { ($0.ParentIndexNumber ?? 0) == n }
-        return eps.isEmpty ? nil : eps.filter { !emby.isPlayed($0) }.count
-    }
 
     func seasonPoster(_ n: Int) -> some View {
-        let sItem: Item? = seasonItems.first { ($0.IndexNumber ?? 0) == n }
-        let title: String = seasonTitle(n)
-        let selected: Bool = n == currentSeason
-        return Button { season = n } label: {
+        let sItem: Item? = model.seasonItem(n)
+        let title: String = model.seasonTitle(n)
+        let selected: Bool = n == model.currentSeason
+        return Button { model.season = n } label: {
             VStack(spacing: 8) {
                 CachedImage(url: emby.image(sItem?.Id ?? item.Id, width: 400)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
@@ -658,13 +514,13 @@ struct ClassicDetailView: View {
                     ZStack { Color(white: 0.15); Text(title) }
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
-                .overlay(alignment: .topTrailing) { CountBadge(count: unwatched(n)).padding(8) }
+                .overlay(alignment: .topTrailing) { CountBadge(count: model.unwatched(n)).padding(8) }
                 .modifier(ClassicLightCard(radius: 8, accent: Theme.accent(accentName), size: CGSize(width: 170, height: 255),
                                            tracksHover: true))   // the posters' light glass edge   // glass card, as the posters
                 .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint, lineWidth: 2) } }
                 .shadow(radius: 6)
                 .classicHoverLift()
-                .hoverItemActions(sItem, .bottomTrailing, children: kids.filter { ($0.ParentIndexNumber ?? 0) == n })
+                .hoverItemActions(sItem, .bottomTrailing, children: model.episodes(inSeason: n))
                 Text(title).cvFont(13, weight: .regular).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plainHand)
@@ -677,30 +533,30 @@ struct ClassicDetailView: View {
                 // All seasons at once, wrapped onto as many lines as needed
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
                           alignment: .leading, spacing: 18) {
-                    ForEach(seasonNumbers, id: \.self) { n in seasonPoster(n) }
+                    ForEach(model.seasonNumbers, id: \.self) { n in seasonPoster(n) }
                 }.padding(.horizontal, 40).padding(.vertical, 8)
             } else {
-                ArrowScrollRow(ids: seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
+                ArrowScrollRow(ids: model.seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
             }
         }
     }
 
     var episodesHeader: some View {
-        let multi: Bool = seasonNumbers.count > 1
-        let heading: String = multi ? seasonTitle(currentSeason) : "Episodes"
+        let multi: Bool = model.seasonNumbers.count > 1
+        let heading: String = multi ? model.seasonTitle(model.currentSeason) : "Episodes"
         return HStack(spacing: 16) {
             Text(heading).cvFont(15, weight: .bold)
-            if canFilterWatched {
-                Button(showAllEps ? "Hide watched" : "Show all") { showAllEps.toggle() }
+            if model.canFilterWatched {
+                Button(model.showAllEps ? "Hide watched" : "Show all") { model.showAllEps.toggle() }
                     .buttonStyle(.plainHand).cvFont(12, weight: .semibold).foregroundStyle(.tint)
             }
             Spacer()
             episodeLayoutToggle
-            if !epLangs.isEmpty {
+            if !model.epLangs.isEmpty {
                 Text("Subtitles").foregroundColor(.secondary)
                 GlassPicker(selection: $epSubLang,
                             options: [("", defaultSubLabel)] + (subAlwaysOn ? [("off", "Off")] : [])
-                                + epLangs.map { ($0.code, $0.name) })
+                                + model.epLangs.map { ($0.code, $0.name) })
             }
         }.padding(.horizontal, 40).padding(.top, 10)
     }
@@ -723,7 +579,7 @@ struct ClassicDetailView: View {
                 .cornerRadius(6)
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), size: CGSize(width: 220, height: 124),
                                            tracksHover: true))   // the posters' light glass edge
-                .classicHoverLift(play: 36) { playEpisode(ep) }
+                .classicHoverLift(play: 36) { model.playEpisode(ep) }
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
@@ -743,9 +599,9 @@ struct ClassicDetailView: View {
     }
 
     var episodesList: some View {
-        let eps: [Item] = shownEpisodes
+        let eps: [Item] = model.shownEpisodes
         return VStack(alignment: .leading, spacing: 12) {
-            if seasonNumbers.count > 1 && seasonLayout != "deck" { seasonRow }   // the deck sits in the header instead
+            if model.seasonNumbers.count > 1 && seasonLayout != "deck" { seasonRow }   // the deck sits in the header instead
             episodesHeader
             // A new season's episodes cross-fade in as one block (cards sliding and resizing one by one looked glitchy)
             Group {
@@ -762,7 +618,7 @@ struct ClassicDetailView: View {
                     VStack(alignment: .leading, spacing: 12) { ForEach(eps) { ep in episodeRow(ep) } }
                 }
             }
-            .id(currentSeason)
+            .id(model.currentSeason)
             .transition(.opacity)
         }
     }
@@ -831,7 +687,7 @@ struct ClassicDetailView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
-                .classicHoverLift(play: 40) { playEpisode(ep) }
+                .classicHoverLift(play: 40) { model.playEpisode(ep) }
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
@@ -842,20 +698,16 @@ struct ClassicDetailView: View {
         .buttonStyle(.plainHand)
     }
 
-    /// A collection's movies in release order (by year, then date), for the banner's deck.
-    var boxMovies: [Item] {
-        kids.sorted { ($0.ProductionYear ?? 9999, $0.PremiereDate ?? "") < ($1.ProductionYear ?? 9999, $1.PremiereDate ?? "") }
-    }
 
     var boxGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
-            ForEach(kids) { ClassicPosterCard(item: $0) }
+            ForEach(model.kids) { ClassicPosterCard(item: $0) }
         }.padding(.horizontal, 40)
     }
 
     @AppStorage("castSize") private var castSize = "normal"
     @ViewBuilder var castSection: some View {
-        let people = Array((full?.People ?? []).prefix(30))
+        let people = Array((model.full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Cast & Crew").cvFont(15, weight: .bold).padding(.horizontal, 40)
@@ -882,7 +734,7 @@ struct ClassicDetailView: View {
     }
 
     @ViewBuilder var aboutSection: some View {
-        if let f = full {
+        if let f = model.full {
             VStack(alignment: .leading, spacing: 16) {
                 Text("About").cvFont(15, weight: .bold)
                 if let d = classicParseDate(f.UserData?.LastPlayedDate) {
@@ -900,7 +752,7 @@ struct ClassicDetailView: View {
                         }
                     }
                 }
-                if let s = src {
+                if let s = model.src {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Media Info").bold()
                         if let p = s.Path { Text(p).foregroundColor(.secondary).textSelection(.enabled) }
@@ -913,16 +765,16 @@ struct ClassicDetailView: View {
 
     /// "Included In": the collections this title belongs to; a click opens the collection's page.
     @ViewBuilder var includedInSection: some View {
-        if !includedIn.isEmpty {
+        if !model.includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Included In").cvFont(15, weight: .bold).padding(.horizontal, 40)
-                ArrowScrollRow(ids: Array(includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: includedIn[$0]) }
+                ArrowScrollRow(ids: Array(model.includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.includedIn[$0]) }
             }
         }
     }
 
     @ViewBuilder var similarSection: some View {
-        if !similar.isEmpty {
+        if !model.similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("More Like This").cvFont(15, weight: .bold)
@@ -934,12 +786,12 @@ struct ClassicDetailView: View {
                 .padding(.bottom, 14).zIndex(1)
                 if similarLayout == "grid" {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], alignment: .leading, spacing: 18) {
-                        ForEach(similar) { ClassicPosterCard(item: $0) }
+                        ForEach(model.similar) { ClassicPosterCard(item: $0) }
                     }.padding(.horizontal, 40)
                 } else if similarLayout == "list" {
-                    LazyVStack(spacing: 6) { ForEach(similar) { ListRow(item: $0) } }.padding(.horizontal, 40)
+                    LazyVStack(spacing: 6) { ForEach(model.similar) { ListRow(item: $0) } }.padding(.horizontal, 40)
                 } else {
-                    ArrowScrollRow(ids: Array(similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: similar[$0]) }
+                    ArrowScrollRow(ids: Array(model.similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.similar[$0]) }
                 }
             }
         }

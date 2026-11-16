@@ -13,3 +13,22 @@ protocol ScreenSource: AnyObject {
 }
 
 extension Emby: ScreenSource {}
+
+/// What an item page (DetailModel) asks of the server and the app's playback state. `Emby` is the real one.
+@MainActor
+protocol DetailSource: AnyObject {
+    func full(_ id: String) async -> Full?
+    func episodes(_ seriesId: String) async -> [Item]
+    func seasons(_ seriesId: String) async -> [Item]
+    func nextUp(_ seriesId: String) async -> Item?
+    func children(_ parentId: String) async -> [Item]
+    func collections(containing id: String) async -> [Item]
+    func similar(_ id: String) async -> [Item]
+    func isPlayed(_ it: Item) -> Bool
+    func resumeAt(_ it: Item) -> Double
+    func play(_ it: Item) async
+    var openSeason: Int? { get set }
+    var playing: PlayRequest? { get set }
+}
+
+extension Emby: DetailSource {}
