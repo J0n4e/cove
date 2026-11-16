@@ -79,7 +79,10 @@ final class SyncPlayService: ObservableObject {
                 guard let self, let emby else { return }
                 let c = t.isEmpty || u.isEmpty || s.isEmpty ? nil
                     : Credentials(server: s, token: t, userId: u, deviceId: emby.deviceId, authHeader: emby.authHeader)
-                self.update(c, isJellyfin: j)
+                // isJellyfin can still be the previous server's answer right after a switch: also check the
+                // answer stored for this server, so an Emby server never gets a Jellyfin socket
+                let known = UserDefaults.standard.bool(forKey: "jellyfin-" + s.lowercased())
+                self.update(c, isJellyfin: j && known)
             }
             .store(in: &bag)
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
