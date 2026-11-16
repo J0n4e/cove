@@ -502,6 +502,7 @@ final class SecurityLowsTests: XCTestCase {
         XCTAssertTrue(Net.sameOrigin(u("https://h:443/a"), u("HTTPS://h/b")))
         XCTAssertFalse(Net.sameOrigin(u("https://h"), u("https://h:8920")))
     }
+}
 
 // MARK: Small fixes
 
