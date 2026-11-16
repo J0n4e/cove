@@ -51,6 +51,7 @@ struct ClassicHomeContent: View {
                 }
             }.padding(.bottom, 40)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         // The banner runs up under the floating top bar (not the inset card)
         .ignoresSafeArea(edges: hero.isEmpty || bannerStyle == "card" ? [] : .top)
         // Height of the whole visible page, including the part under the top bar the banner runs up into

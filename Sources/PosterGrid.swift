@@ -63,6 +63,8 @@ struct PosterGrid: NSViewRepresentable {
         sv.drawsBackground = false
         sv.automaticallyAdjustsContentInsets = false
         sv.hasVerticalScroller = true
+        // Glass3D: thin overlay scroll bar with a light knob, shown only while scrolling (Glass keeps the default)
+        if UserDefaults.standard.string(forKey: "theme") == "classic" { ClassicOverlayScrollers.style(sv) }
         sv.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.scrolled),
                                                name: NSView.boundsDidChangeNotification, object: sv.contentView)

@@ -232,9 +232,11 @@ extension View {
 /// confirmation pill and the player's Skip Intro / Up next cards.
 struct GlassBackground<S: InsettableShape>: ViewModifier {
     let shape: S
+    /// Glass3D: the Glass setting's frosting (controls such as the search pill; not panels)
+    var frost = true
     @Environment(\.classicGlass) private var classic   // Classic theme: the Play button's glass instead
     @ViewBuilder func body(content: Content) -> some View {
-        if classic { content.modifier(ClassicClearGlass(shape: shape)) } else { glass(content) }
+        if classic { content.modifier(ClassicClearGlass(shape: shape, frost: frost)) } else { glass(content) }
     }
     func glass(_ content: Content) -> some View {
         content
@@ -247,7 +249,7 @@ struct GlassBackground<S: InsettableShape>: ViewModifier {
 extension View {
     func searchGlass() -> some View { modifier(GlassBackground(shape: Capsule())) }
     func glassPanel(_ radius: CGFloat = 16) -> some View {
-        modifier(GlassBackground(shape: RoundedRectangle(cornerRadius: radius, style: .continuous)))
+        modifier(GlassBackground(shape: RoundedRectangle(cornerRadius: radius, style: .continuous), frost: false))
     }
 }
 

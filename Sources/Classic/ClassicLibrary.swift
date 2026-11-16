@@ -34,6 +34,7 @@ struct ClassicLibraryView: View {
                         model.cellWillShow(i)
                     }, open: { ClassicNavState.shared.open($0) })
                     .ignoresSafeArea(edges: .top)   // runs up under the see-through top bar, as the ScrollView did
+                    .modifier(ClassicGridTopFade())   // the AppKit grid: soft fade under the bar
                 }
             } else {
                 ScrollView {
@@ -42,10 +43,19 @@ struct ClassicLibraryView: View {
                         if model.tab == 2 { genreGrid } else { grid }
                     }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
                 }
+                .classicScrollBars()   // thin overlay bars, only while scrolling
             }
         }
         .background(bg)
-        .overlay(alignment: .trailing) { if model.tab != 2 { alphaBar } }
+        .overlay(alignment: .trailing) {
+            if model.tab != 2 {
+                // Fits the window height: every other letter when they don't all fit
+                GeometryReader { g in
+                    alphaBar(AlphaBar.thin(classicAlphaLetters, slots: AlphaBar.slots(height: g.size.height - 40)))
+                        .frame(width: g.size.width, height: g.size.height, alignment: .trailing)
+                }
+            }
+        }
         .task(id: model.key) { model.bind(emby); await model.load(reset: true) }
         .onDisappear { model.cancel() }
         .onChange(of: refresh) { model.reload() }
@@ -61,10 +71,10 @@ struct ClassicLibraryView: View {
         switch abs(i - h) { case 0: return 1.7; case 1: return 1.35; case 2: return 1.12; default: return 1 }
     }
 
-    var alphaBar: some View {
+    func alphaBar(_ letters: [String]) -> some View {
         // Letters on a slim glass strip, as the top bar's sections
         VStack(spacing: 1) {
-            ForEach(Array(classicAlphaLetters.enumerated()), id: \.element) { i, l in
+            ForEach(Array(letters.enumerated()), id: \.element) { i, l in
                 ClassicAlphaLetter(l: l, on: model.letter == l, action: { model.letter = (model.letter == l) ? "" : l },
                                    scale: alphaScale(i), hovering: { inside in
                     if inside { alphaHover = i } else if alphaHover == i { alphaHover = nil }
@@ -221,8 +231,8 @@ struct ClassicAlphaLetter: View {
     var body: some View {
         Button(action: action) {
             // The chosen letter lit in the accent, the one under the pointer in the top bar's hover look
-            Text(l).cvFont(11, weight: .bold)
-                .frame(width: 20, height: 18)
+            Text(l).cvFont(12, weight: .bold)
+                .frame(width: 22, height: 20)
                 .foregroundColor(on || hover ? .white : .white.opacity(0.55))
                 .background {
                     if on {
@@ -236,7 +246,7 @@ struct ClassicAlphaLetter: View {
         }
         .buttonStyle(.plainHand)
         .scaleEffect(scale)
-        .padding(.vertical, (scale - 1) * 9)   // a zoomed letter makes room, so its neighbours move apart
+        .padding(.vertical, (scale - 1) * 10)   // a zoomed letter makes room, so its neighbours move apart
         // The pointer covers the letter itself: a large preview of it beside the bar, to the left, in a teardrop pointing at it
         .overlay(alignment: .trailing) {
             if hover {

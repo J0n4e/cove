@@ -140,6 +140,8 @@ struct ClassicPlayerView: View {
     }
     /// Color of the strip under the title bar. The system draws the bar's own gray (about 93 % opaque) over it,
     /// and the result is the same gray on both sides only when this strip is (44, 45, 45).
+    /// Glass3D theme: no title strip, the traffic lights over the video come and go with the controls.
+    var glass3DChrome: Bool { UserDefaults.standard.string(forKey: "theme") == "classic" }
     static let titleBarGray = Color(red: 44 / 255, green: 45 / 255, blue: 45 / 255)
 
     /// The Back classicPill that used to be drawn inside the player (top left). Off now; see `titleBarBack`.
@@ -232,7 +234,8 @@ struct ClassicPlayerView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if let p = model.player {
-                    AVPlayerViewRep(player: p, onLayer: model.attach).ignoresSafeArea().padding(.top, titleBarHeight)
+                    AVPlayerViewRep(player: p, onLayer: model.attach).ignoresSafeArea()
+                        .padding(.top, glass3DChrome ? 0 : titleBarHeight)   // Glass3D: video to the top edge
                 }
                 else if model.error.isEmpty { Spinner(inPlayer: true).controlSize(.large) }
                 if model.pipActive { classicPipPlaceholder }
@@ -263,11 +266,13 @@ struct ClassicPlayerView: View {
                 if ui.showInfo { classicInfoOverlay }
                 classicCornerCards
                 panelLayer
-                // Title bar strip, above every layer (the controls' dark gradient used to darken it)
-                VStack(spacing: 0) {
-                    ClassicPlayerView.titleBarGray.frame(height: titleBarHeight)
-                    Spacer(minLength: 0)
-                }.ignoresSafeArea().allowsHitTesting(false)
+                // Title bar strip (Glass theme only; Glass3D runs the video to the top under the traffic lights)
+                if !glass3DChrome {
+                    VStack(spacing: 0) {
+                        ClassicPlayerView.titleBarGray.frame(height: titleBarHeight)
+                        Spacer(minLength: 0)
+                    }.ignoresSafeArea().allowsHitTesting(false)
+                }
                 if Self.titleBarBackPill { titleBarBack }
             }
             .contentShape(Rectangle())
@@ -333,6 +338,9 @@ struct ClassicPlayerView: View {
             ui.installKeyMonitor(toggleFullScreen: { toggleFullScreen() }, close: { close() })
         }
         .onDisappear { ui.removeKeyMonitor() }
+        // No title strip: the traffic lights float over the video and come and go with the controls
+        .onChange(of: ui.controlsVisible) { _, on in if glass3DChrome { TrafficLights.show(on, in: window) } }
+        .onDisappear { if glass3DChrome { TrafficLights.show(true, in: window, animated: false) } }
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
@@ -673,6 +681,7 @@ struct ClassicPlayerView: View {
             }
             .padding(.vertical, classic ? 8 : 12)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .frame(width: classic ? 290 : 340)
         .frame(maxHeight: classic ? 440 : .infinity)
         .modifier(PanelSurface(classic: classic))
@@ -735,6 +744,7 @@ struct ClassicPlayerView: View {
                 }
                 .padding(.horizontal, 28).padding(.bottom, 28)
             }
+            .classicScrollBars()   // thin overlay bars, only while scrolling
         }
         .frame(width: classic ? 340 : 400)
         .frame(maxHeight: .infinity)
@@ -871,8 +881,17 @@ extension ClassicPlayerView {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
                     Text("Intro skipped").cvFont(15, weight: .semibold)
-                    Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
-                        .cvFont(15, weight: .semibold).foregroundColor(accent)
+                    if glass3DChrome {
+                        // A secondary glass pill, as Cancel on the Up next card (no bare accent text as a button)
+                        Button { model.watchIntro() } label: {
+                            Text("Watch intro").cvFont(14, weight: .semibold).foregroundColor(.white)
+                                .padding(.horizontal, 14).padding(.vertical, 7)
+                                .classicGlassPill()
+                        }.buttonStyle(HoverButton())
+                    } else {
+                        Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
+                            .cvFont(15, weight: .semibold).foregroundColor(accent)
+                    }
                 }
                 .padding(.horizontal, 18).frame(height: 44)
                 .searchGlass()
@@ -977,6 +996,7 @@ extension ClassicPlayerView {
                         ForEach(list) { ep in classicEpisodePickerRow(ep).id(ep.Id) }
                     }.padding(.bottom, 10)
                 }
+                .classicScrollBars()   // thin overlay bars, only while scrolling
                 .onAppear { proxy.scrollTo(item.Id, anchor: .center) }
             }
         }
@@ -1039,6 +1059,7 @@ extension ClassicPlayerView {
                 }
             }.padding(.vertical, 12)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .frame(width: 380)
         .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
