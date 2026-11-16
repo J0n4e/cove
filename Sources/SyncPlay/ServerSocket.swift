@@ -14,6 +14,13 @@ protocol SocketTransport: AnyObject {
     func close()
 }
 
+/// True for the first caller only (thread-safe).
+final class OnceFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func claim() -> Bool { lock.withLock { if done { return false }; done = true; return true } }
+}
+
 final class URLSessionSocketTransport: SocketTransport {
     private let task: URLSessionWebSocketTask
 
@@ -23,8 +30,14 @@ final class URLSessionSocketTransport: SocketTransport {
 
     func open() async throws {
         task.resume()
+        // URLSession can call the ping handler more than once (e.g. a failed handshake and then the cancel);
+        // resuming a continuation twice crashes the app, so only the first call counts
+        let once = OnceFlag()
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            task.sendPing { e in if let e { c.resume(throwing: e) } else { c.resume() } }
+            task.sendPing { e in
+                guard once.claim() else { return }
+                if let e { c.resume(throwing: e) } else { c.resume() }
+            }
         }
     }
 
@@ -204,7 +217,9 @@ final class ServerSocket {
                 while !Task.isCancelled {
                     handle(try await t.receive(), on: t)
                 }
-            } catch {}
+            } catch {
+                if !Task.isCancelled { log("SyncPlay: socket error \((error as NSError).domain) \((error as NSError).code)") }
+            }
             t.close()
             // Cancelled = stop() / reconnectNow() already reset the state (and may have started a new run)
             guard !Task.isCancelled else { break }
