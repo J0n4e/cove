@@ -11,19 +11,22 @@ struct ClassicLibraryView: View {
     @Environment(\.appBG) var bg
     let lib: LibPref
     @StateObject private var model: LibraryModel
+    /// Bumped by the root when the library already shown is clicked again: reload it from the server.
+    var refresh = 0
 
-    init(lib: LibPref) {
+    init(lib: LibPref, refresh: Int = 0) {
         self.lib = lib
         _model = StateObject(wrappedValue: LibraryModel(lib: lib))
+        self.refresh = refresh
     }
 
     var body: some View {
         Group {
-            if model.tab != 2 && model.layout != "list" && !model.items.isEmpty {
+            if model.tab != 2 && model.layout != "list" && !model.visibleItems.isEmpty {
                 // The posters: AppKit grid (see PosterGrid), which owns the scrolling; the header scrolls with them.
                 // While there are none yet (loading, an error, an empty library) the page below shows why.
                 GeometryReader { g in
-                    PosterGrid(emby: emby, items: model.items,
+                    PosterGrid(emby: emby, items: model.visibleItems,
                                header: AnyView(header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)),
                                footer: model.loading ? AnyView(Spinner())
                                    : model.loadFailed ? AnyView(LoadMoreFailedView { model.retry() }) : nil,
@@ -45,6 +48,7 @@ struct ClassicLibraryView: View {
         .overlay(alignment: .trailing) { if model.tab != 2 { alphaBar } }
         .task(id: model.key) { model.bind(emby); await model.load(reset: true) }
         .onDisappear { model.cancel() }
+        .onChange(of: refresh) { model.reload() }
         .task { model.bind(emby); await model.loadGenres() }
         .onChange(of: model.sort) { model.sortChanged() }
         .onChange(of: model.savedKey) { model.save() }
@@ -103,7 +107,7 @@ struct ClassicLibraryView: View {
 
     var controls: some View {
         HStack(spacing: 10) {
-            Text("\(model.total) Items").foregroundColor(.secondary).padding(.trailing, 4)
+            Text("\(model.visibleCount) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { await model.playFirst() } } label: {
                 glossyLabel("Play", "play.fill").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
@@ -156,7 +160,7 @@ struct ClassicLibraryView: View {
         VStack(spacing: 20) {
             if model.layout == "list" {
                 LazyVStack(spacing: 6) {
-                    ForEach(model.items) { it in
+                    ForEach(model.visibleItems) { it in
                         ListRow(item: it).onAppear {
                             model.listRowAppeared(it.id)
                         }
@@ -168,7 +172,7 @@ struct ClassicLibraryView: View {
                 if model.items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { model.reload() } }
                 else { LoadMoreFailedView { model.retry() } }
             }
-            else if model.items.isEmpty { Text("Nothing here.").foregroundColor(.secondary).padding(40) }
+            else if model.visibleItems.isEmpty { Text("Nothing here.").foregroundColor(.secondary).padding(40) }
         }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// The Library page's state and paging, shared by the Glass and Classic views (they keep only layout and styling).
 /// Filters and sort are remembered per library under "lf-<library id>", as before.
@@ -30,6 +31,11 @@ final class LibraryModel: ObservableObject {
     /// The one next-page load in flight (see loadMore).
     private(set) var pageTask: Task<Void, Never>?
 
+    /// Emby's local watched state (`emby.played`), mirrored so a film finished or marked from its page leaves an
+    /// Unwatched/Watched library at once, without a server request or a scroll jump.
+    @Published var played: [String: Bool] = [:]
+    private var playedSub: AnyCancellable?
+
     private weak var emby: Emby?
     /// Injected in tests; nil uses the server with the current filters.
     private let fetcher: Fetch?
@@ -47,7 +53,39 @@ final class LibraryModel: ObservableObject {
     }
 
     /// The view hands over its Emby (an environment object, so not there at init).
-    func bind(_ emby: Emby) { self.emby = emby }
+    func bind(_ emby: Emby) {
+        self.emby = emby
+        if playedSub == nil {
+            playedSub = emby.$played.receive(on: DispatchQueue.main).sink { [weak self] in self?.played = $0 }
+        }
+    }
+
+    // MARK: Local watched filter (pure, so it can be tested)
+
+    /// The loaded items the watch filter still admits, by the local state (the item's own UserData when there's
+    /// none, as Emby.isPlayed does). "all" shows everything.
+    static func visible(_ items: [Item], watch: String, played: [String: Bool]) -> [Item] {
+        guard watch == "unwatched" || watch == "watched" else { return items }
+        let want = watch == "watched"
+        return items.filter { (played[$0.id] ?? $0.UserData?.Played ?? false) == want }
+    }
+
+    /// Where the next page starts in the server's list: the loaded items, less those hidden locally (the server's
+    /// filtered list no longer has them).
+    static func nextStart(loaded: Int, hidden: Int) -> Int { max(0, loaded - max(0, hidden)) }
+
+    /// A new page added to what's shown, without repeating an item already there.
+    static func appendPage(_ shown: [Item], _ page: [Item]) -> [Item] {
+        var seen = Set(shown.map(\.id))
+        return shown + page.filter { seen.insert($0.id).inserted }
+    }
+
+    /// The header's count: the server's total less the loaded items hidden locally.
+    static func visibleTotal(total: Int, loaded: Int, visible: Int) -> Int { max(0, total - (loaded - visible)) }
+
+    /// What the views show. Paging still counts every loaded item (`items`) for the server offset.
+    var visibleItems: [Item] { Self.visible(items, watch: watch, played: played) }
+    var visibleCount: Int { Self.visibleTotal(total: total, loaded: items.count, visible: visibleItems.count) }
 
     var key: String { "\(tab)|\(sort)|\(desc)|\(watch)|\(genre)|\(letter)|\(grouping)" }
     /// What's saved; a change of it calls save().
@@ -108,12 +146,12 @@ final class LibraryModel: ObservableObject {
 
     /// The list view's row `id` appeared.
     func listRowAppeared(_ id: String) {
-        if Self.listTriggers(id: id, ids: items.map(\.id)) { loadMore() }
+        if Self.listTriggers(id: id, ids: visibleItems.map(\.id)) { loadMore() }
     }
 
     /// The grid's cell `i` is about to show.
     func cellWillShow(_ i: Int) {
-        if Self.gridTriggers(index: i, count: items.count) { loadMore() }
+        if Self.gridTriggers(index: i, count: visibleItems.count) { loadMore() }
     }
 
     /// Next page from a scroll trigger: one task at a time, cancelled on reset and when the page goes away,
@@ -134,16 +172,22 @@ final class LibraryModel: ObservableObject {
 
     func load(reset: Bool) async {
         if reset { pageTask?.cancel(); pageTask = nil }
-        if !Self.mayLoad(reset: reset, loading: loading, failed: loadFailed, count: items.count, total: total) { return }
+        // Items hidden locally (watched since they loaded, in an Unwatched library) are already gone from the
+        // server's filtered list, so the next page starts that many places earlier, or it would skip items
+        let kept = visibleItems
+        let next = Self.nextStart(loaded: items.count, hidden: items.count - kept.count)
+        if !Self.mayLoad(reset: reset, loading: loading, failed: loadFailed, count: next, total: total) { return }
         gen += 1
         let my = gen
         loading = true; loadFailed = false
-        let r = await fetch(start: reset ? 0 : items.count, limit: Self.pageSize, sort: sort)
+        let r = await fetch(start: reset ? 0 : next, limit: Self.pageSize, sort: sort)
         guard my == gen else { return }
         loading = false
         // A failed page keeps what's already shown and offers to try again (it used to end paging for good)
         guard let r else { loadFailed = true; return }
-        if reset { items = r.Items } else { items += r.Items }
+        // After a page, the list matches the server again: hidden items are dropped (the new total no longer
+        // counts them), and nothing already shown is added twice
+        if reset { items = r.Items } else { items = Self.appendPage(Self.visible(items, watch: watch, played: played), r.Items) }
         total = r.TotalRecordCount ?? items.count
         // Posters of the new page start downloading now, before they scroll into view. A small library (Collections,
         // up to 300) is loaded and fetched whole, so no poster has to load while you scroll through it.
