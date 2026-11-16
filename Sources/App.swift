@@ -59,7 +59,6 @@ struct CoveApp: App {
                 .focusEffectDisabled()
                 .frame(minWidth: 1000, minHeight: 650)
                 .sessionExpiredAlert(emby)
-                .onAppear { ServerMenu.shared.attach(emby) }   // the server's menu after Help
                 .task {
                     await WhatsNew.onLaunch()
                     await Updater.shared.checkOnLaunch()

@@ -56,13 +56,13 @@ final class Glass3DPolishTests: XCTestCase {
         XCTAssertEqual(GlassFrost.layers(1).blur, 1)
     }
 
-    func testServerMenuTitle() {
-        XCTAssertEqual(ServerMenu.title(name: "Home Jellyfin", address: "http://10.0.0.2:8096"), "Home Jellyfin")
-        XCTAssertEqual(ServerMenu.title(name: "  ", address: "http://media.example.com:8096"), "media.example.com")
-        XCTAssertEqual(ServerMenu.title(name: "", address: "weird"), "weird")
-        let long = ServerMenu.title(name: String(repeating: "x", count: 50), address: "")
+    func testServerPillTitle() {
+        XCTAssertEqual(ServerPill.title(name: "Home Jellyfin", address: "http://10.0.0.2:8096"), "Home Jellyfin")
+        XCTAssertEqual(ServerPill.title(name: "  ", address: "http://media.example.com:8096"), "media.example.com")
+        XCTAssertEqual(ServerPill.title(name: "", address: "weird"), "weird")
+        let long = ServerPill.title(name: String(repeating: "x", count: 50), address: "")
         XCTAssertEqual(long.count, 30)
         XCTAssertTrue(long.hasSuffix("…"))
-        XCTAssertEqual(ServerMenu.title(name: String(repeating: "y", count: 30), address: ""), String(repeating: "y", count: 30))
+        XCTAssertEqual(ServerPill.title(name: String(repeating: "y", count: 30), address: ""), String(repeating: "y", count: 30))
     }
 }
