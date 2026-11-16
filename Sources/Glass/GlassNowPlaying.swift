@@ -21,7 +21,10 @@ struct NowPlayingView: View {
                     if !sessions.isEmpty { Text("\(sessions.count) active").foregroundColor(.secondary) }
                 }
                 if !loaded { Spinner().frame(maxWidth: .infinity).padding(60) }
-                else if sessions.isEmpty {
+                else if sessions.isEmpty && classic {
+                    ClassicEmptyState(symbol: "play.slash", title: "Nothing is playing right now",
+                                      message: "Playback on any device signed in to this server shows here.")
+                } else if sessions.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "play.slash").coveFont(size: 40).foregroundColor(.secondary)
                         Text("Nothing is playing right now").font(.headline)

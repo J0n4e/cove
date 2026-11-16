@@ -15,7 +15,7 @@ struct ErrorStateView: View {
             if classic {
                 // Classic theme: glass buttons
                 HStack(spacing: 12) {
-                    Button(action: retry) { Label("Try Again", systemImage: "arrow.clockwise").classicGlassPill(size: 40, iconOnly: false) }
+                    Button(action: retry) { Label("Try Again", systemImage: "arrow.clockwise").classicPrimaryPill(size: 40) }
                         .buttonStyle(HoverButton()).keyboardShortcut(.defaultAction)
                     if let switchServer {
                         Button(action: switchServer) { Label("Switch Server", systemImage: "server.rack").classicGlassPill(size: 40, iconOnly: false) }
@@ -37,11 +37,18 @@ struct ErrorStateView: View {
 
 /// "Couldn't load more" at the end of a library grid, with a button to try the next page again.
 struct LoadMoreFailedView: View {
+    @Environment(\.classicGlass) private var classic
     var retry: () -> Void
     var body: some View {
         HStack(spacing: 10) {
             Text("Couldn't load more.").foregroundStyle(.secondary)
-            Button("Try Again", action: retry)
+            if classic {
+                // Glass3D: a glass pill, not a grey system button
+                Button(action: retry) { Label("Try Again", systemImage: "arrow.clockwise").classicGlassPill(size: 32, iconOnly: false) }
+                    .buttonStyle(HoverButton())
+            } else {
+                Button("Try Again", action: retry)
+            }
         }
         .padding(20)
     }

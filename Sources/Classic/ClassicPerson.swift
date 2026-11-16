@@ -27,8 +27,8 @@ struct ClassicPersonView: View {
                     if !shows.isEmpty { section("Shows", shows) }
                     if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
                     else if items.isEmpty {
-                        Text("Nothing in your libraries with \(person.name).").foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity).padding(.top, 40)
+                        ClassicEmptyState(symbol: "person.crop.rectangle", title: "No titles",
+                                          message: "Nothing in your libraries with \(person.name).")
                     }
                 }.padding(.horizontal, 52)
             }

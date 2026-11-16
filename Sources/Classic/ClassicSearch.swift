@@ -67,7 +67,10 @@ struct ClassicSearchView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         heading
                         if busy { Spinner() }
-                        else if people.isEmpty { Text("No results").foregroundColor(.secondary) }
+                        else if people.isEmpty {
+                            ClassicEmptyState(symbol: "magnifyingglass", title: "No results",
+                                              message: "Nothing matches “\(query)”. Try another title, person or spelling.")
+                        }
                     }.padding(40)
                 }
                 .classicScrollBars()   // thin overlay bars, only while scrolling
