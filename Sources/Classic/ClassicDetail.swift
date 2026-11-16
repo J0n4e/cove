@@ -548,8 +548,12 @@ struct ClassicDetailView: View {
         return HStack(spacing: 16) {
             Text(heading).cvFont(15, weight: .bold)
             if model.canFilterWatched {
-                Button(model.showAllEps ? "Hide watched" : "Show all") { model.showAllEps.toggle() }
-                    .buttonStyle(.plainHand).cvFont(12, weight: .semibold).foregroundStyle(.tint)
+                // A secondary glass pill (no bare accent text as a button)
+                Button { model.showAllEps.toggle() } label: {
+                    Text(model.showAllEps ? "Hide watched" : "Show all").cvFont(12, weight: .semibold).foregroundColor(.white)
+                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .classicGlassPill()
+                }.buttonStyle(HoverButton())
             }
             Spacer()
             episodeLayoutToggle
