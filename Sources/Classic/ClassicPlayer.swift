@@ -312,7 +312,10 @@ struct ClassicPlayerView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
-        .toolbar(.hidden, for: .windowToolbar)
+        // Glass3D keeps the (empty, transparent) window toolbar: hiding it hides the traffic lights too, again on
+        // every SwiftUI update, which is why they vanished a second after opening
+        .toolbar(glass3DChrome ? .automatic : .hidden, for: .windowToolbar)
+        .toolbarBackground(.hidden, for: .windowToolbar)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
             if ui.playerWin.owns(n.object) { ui.fsBusy = false }
             guard ui.playerWin.owns(n.object) else { return }
@@ -342,6 +345,7 @@ struct ClassicPlayerView: View {
         // Normal, always-visible traffic lights over the video, like the Settings window (owner's choice)
         .onAppear { if glass3DChrome { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { TrafficLights.ensureVisible(ui.playerWin.window) } } }
         .onChange(of: ui.isFullScreen) { if glass3DChrome { TrafficLights.ensureVisible(ui.playerWin.window) } }
+        .onChange(of: ui.controlsVisible) { if glass3DChrome { TrafficLights.ensureVisible(ui.playerWin.window) } }
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
