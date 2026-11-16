@@ -533,6 +533,7 @@ final class Emby: ObservableObject {
         server = e.url; token = t; userId = u
         d.set(server, forKey: "server"); d.set(u, forKey: "uid")
         await refreshServerKind()
+        await ensureLibs()      // the top bar lists every library whatever page shows first
         return .ok
     }
 
@@ -545,6 +546,7 @@ final class Emby: ObservableObject {
 
     private func resetSession() {
         playing = nil; libs = []; played = [:]; faved = [:]
+        libsFlight = SingleFlight()   // a load still running for the previous server/user is not joined
         // Resume points and image tags/previews are keyed by item id only, so they must not carry over to
         // another server or user
         positions = [:]
@@ -620,6 +622,7 @@ final class Emby: ObservableObject {
         server = s; token = t; userId = u
         d.set(s, forKey: "server"); d.set(u, forKey: "uid")
         await refreshServerKind()
+        await ensureLibs()      // the top bar lists every library whatever page shows first
         let typed = label.trimmingCharacters(in: .whitespaces)
         let name = typed.isEmpty ? (await serverName(s) ?? servers.first { $0.id == s.lowercased() }?.name ?? s) : typed
         upsert(SavedServer(url: s, name: name, user: user, token: t, userId: u))
@@ -773,6 +776,15 @@ final class Emby: ObservableObject {
 
     // MARK: Libraries
 
+    private var libsFlight = SingleFlight<Void>()
+
+    /// Loads the libraries once per session: callers while a load runs (sign-in, Home, the root view) wait for
+    /// that one instead of asking the server again. Does nothing when they are already loaded.
+    func ensureLibs() async {
+        guard libs.isEmpty else { return }
+        try? await libsFlight.run { await self.loadLibs() }
+    }
+
     func loadLibs() async {
         let s = server, u = userId
         guard let v: ItemList = try? await get("/Users/\(u)/Views"), server == s, userId == u else { return }
@@ -842,7 +854,7 @@ final class Emby: ObservableObject {
 
     func loadHome() async -> [Row] {
         lastFailure = nil
-        if libs.isEmpty { await loadLibs() }
+        await ensureLibs()
         var rows: [Row] = []
         if let r: ItemList = try? await get("/Users/\(userId)/Items/Resume",
             ["Fields": "Overview,Genres", "Limit": "20", "MediaTypes": "Video", "Recursive": "true"]),

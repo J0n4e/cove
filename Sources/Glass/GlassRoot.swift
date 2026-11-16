@@ -50,6 +50,8 @@ struct RootView: View {
         }
         // Settings → Playback → "Open videos in a separate window" (Apple TV style): open it when something
         // starts, close it when it stops
+        // A server or user change (switch, sign-in, sign-out) always starts on Home
+        .onChange(of: emby.server + "|" + emby.userId) { NavState.shared.reset() }
         .onChange(of: emby.playing?.id) { _, id in
             PlaybackFlag.shared.active = id != nil
             guard separatePlayer else { return }
@@ -268,7 +270,7 @@ struct HomeView: View {
         Group {
             if navStyle == "topbar" { topLayout } else { splitLayout }
         }
-        .task { await emby.loadLibs() }
+        .task { await emby.ensureLibs() }
         .onAppear {
             updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
             nav.open = { path.append($0) }
@@ -317,6 +319,11 @@ struct HomeView: View {
             let hidden = (!showFavorites && sel == "favorites") || (!showNowPlaying && sel == "nowplaying") || (!showRecent && sel == "recent")
             if hidden { nav.sel = "home" }
         }
+        // A selected library this server or user doesn't have goes back to Home
+        .onChange(of: emby.libs.map(\.id), initial: true) { _, ids in
+            let s = NavState.selection(nav.sel, libIds: ids)
+            if s != nav.sel { nav.sel = s }
+        }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
@@ -361,6 +368,23 @@ final class NavState: ObservableObject {
     var open: (Item) -> Void = { _ in }
     /// Pushes any page (a person, from the AppKit grid's header)
     var push: (any Hashable) -> Void = { _ in }
+
+    /// After a server or user change (switch, sign-in, sign-out): back to Home with no pushed pages and the
+    /// search closed, so no page of the previous server (Favorites, a library id it alone had) stays selected.
+    func reset() {
+        sel = "home"; query = ""; searchOpen = false
+        popToRoot()
+    }
+
+    /// Pages that exist on every server; any other selection is a library id.
+    static let fixedPages: Set<String> = ["home", "favorites", "nowplaying", "recent"]
+
+    /// The selection to keep once the library list is known: a library that isn't in it goes back to Home.
+    /// An empty list (still loading) keeps the selection.
+    static func selection(_ sel: String, libIds: [String]) -> String {
+        if fixedPages.contains(sel) || libIds.isEmpty || libIds.contains(sel) { return sel }
+        return "home"
+    }
 }
 
 /// Window toolbar contents: the Back pill on pushed pages. (In the Top bar layout the navigation and Back
