@@ -88,28 +88,17 @@ struct InfoSurface: ViewModifier {
 
 struct ClassicPlayerView: View {
     @EnvironmentObject var emby: Emby
-    @StateObject private var model = PlayerModel()
+    @StateObject private var ui = PlayerUIModel(style: .classic)
+    /// The playback engine (owned by `ui`, which passes its changes on).
+    private var model: PlayerModel { ui.player }
     let req: PlayRequest
     /// Classic theme: glass buttons. These controls can also be picked under the Glass theme (Settings →
     /// Playback → Player controls); there they keep their plain look.
     @Environment(\.classicGlass) private var classic
     @Environment(\.dropdownCenter) private var dropdowns
 
-    enum Panel { case subtitles, appearance, chapters, episodes }
-    @State private var panel: Panel?
-    @State private var showUI = true
-    @State private var hideTask: Task<Void, Never>?
-    @State private var scrubbing = false
-    @State private var scrub: Double = 0
-    @State private var episodes: [Item] = []
+    typealias Panel = PlayerUIModel.Panel
     @FocusState private var focused: Bool
-    @State private var showInfo = false
-    @State var pickerSeason = 1
-    @State private var infoLines: [(String, String)] = []
-    @State private var hoverX: CGFloat?
-    @State private var sliderW: CGFloat = 1
-    @State private var upNextCancelled = false
-    @State private var switching = false
 
     // Subtitle appearance (defaults: normal size, white, drop shadow, transparent, 10% from bottom)
     @AppStorage("subTextSize") private var subTextSize = "normal"
@@ -122,37 +111,31 @@ struct ClassicPlayerView: View {
     @AppStorage("clickToPause") private var clickToPause = true
     @AppStorage("accent") private var accentName = "red"
     var accent: Color { Theme.accent(accentName) }
-    @State private var fsBusy = false   // a full screen animation is running
-    @State private var isFullScreen = false
-    @State private var escMonitor: Any?
-    @State private var playerWin = WeakWindow()   // the window this player is in
     // Remembered across episodes (each episode gets a fresh ClassicPlayerView), so closing the player still leaves full screen
     var enteredFullScreen: Bool {
         get { PlaybackFlag.shared.enteredFullScreen }
         nonmutating set { PlaybackFlag.shared.enteredFullScreen = newValue }
     }
 
-    static let sizes: [(String, String, Double)] = [("smaller", "Smaller", 0.032), ("small", "Small", 0.038),
-        ("normal", "Normal", 0.045), ("large", "Large", 0.055), ("larger", "Larger", 0.066)]
-    static let colors: [(String, String, Color)] = [("white", "White", .white), ("yellow", "Yellow", .yellow),
-        ("gray", "Light gray", Color(white: 0.8)), ("black", "Black", .black)]
-    static let shadows: [(String, String)] = [("none", "None"), ("drop", "Drop shadow"), ("outline", "Outline"), ("raised", "Raised")]
-    static let bgs: [(String, String, Double)] = [("none", "Transparent", 0), ("semi", "Semi-transparent", 0.5), ("black", "Black", 1)]
+    // Subtitle appearance choices (shared; Settings reads them from here too)
+    static let sizes = PlayerUIModel.sizes
+    static let colors = PlayerUIModel.colors
+    static let shadows = PlayerUIModel.shadows
+    static let bgs = PlayerUIModel.bgs
 
     var item: Item { req.item }
-    var current: Item? { episodes.firstIndex(where: { $0.Id == item.Id }).map { episodes[$0] } }
-    var prevEp: Item? { episodes.firstIndex(where: { $0.Id == item.Id }).flatMap { $0 > 0 ? episodes[$0 - 1] : nil } }
-    var nextEp: Item? { episodes.firstIndex(where: { $0.Id == item.Id }).flatMap { $0 + 1 < episodes.count ? episodes[$0 + 1] : nil } }
+    var prevEp: Item? { ui.prevEp(item) }
+    var nextEp: Item? { ui.nextEp(item) }
 
     /// The window this player is in (the separate player window is not always the key or main window)
-    var window: NSWindow? { playerWin.window ?? NSApp.keyWindow ?? NSApp.mainWindow }
+    var window: NSWindow? { ui.playerWin.window ?? NSApp.keyWindow ?? NSApp.mainWindow }
 
     /// Height of the window's title bar while windowed (0 in full screen, where there is none).
     /// The separate player window has no title bar (as in the Glass player): measuring one there changed the
     /// layout during the full screen animation, and leaving full screen stalled.
     var titleBarHeight: CGFloat {
         guard !UserDefaults.standard.bool(forKey: "separatePlayer"),
-              !isFullScreen, let w = window, !w.styleMask.contains(.fullScreen) else { return 0 }
+              !ui.isFullScreen, let w = window, !w.styleMask.contains(.fullScreen) else { return 0 }
         return max(0, w.frame.height - w.contentLayoutRect.height)
     }
     /// Color of the strip under the title bar. The system draws the bar's own gray (about 93 % opaque) over it,
@@ -170,7 +153,7 @@ struct ClassicPlayerView: View {
     var titleBarBack: some View {
         let h = titleBarHeight
         let x: CGFloat = 80
-        let visible = h > 0 && (showUI || panel != nil)
+        let visible = h > 0 && (ui.showUI || ui.panel != nil)
         return VStack(spacing: 0) {
             HStack(spacing: 0) {
                 BackPill(compact: true) { back() }.helpLabel("Back (Esc)").padding(.leading, x)
@@ -181,30 +164,30 @@ struct ClassicPlayerView: View {
         .ignoresSafeArea()
         .opacity(visible ? 1 : 0)
         .allowsHitTesting(visible)
-        .animation(.easeOut(duration: 0.2), value: showUI)
+        .animation(.easeOut(duration: 0.2), value: ui.showUI)
     }
 
     /// Full screen for the video; leaving the player restores the window if the player made it full screen.
     func toggleFullScreen() {
         // One toggle at a time: a second one during macOS's animation (a held or double-pressed F) left the
         // window stuck, ignoring every later toggle
-        guard !fsBusy else { return }
+        guard !ui.fsBusy else { return }
         guard let w = window else { return }
         w.collectionBehavior.insert(.fullScreenPrimary)   // as in the Glass player
-        fsBusy = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { fsBusy = false }   // in case no notification comes
+        ui.fsBusy = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { ui.fsBusy = false }   // in case no notification comes
         let on = w.styleMask.contains(.fullScreen)
         if !on { enteredFullScreen = true }
         // After the key press has been handled: called from inside the key event, leaving full screen often
         // didn't start at all
         DispatchQueue.main.async { w.toggleFullScreen(nil) }
-        isFullScreen = !on
+        ui.isFullScreen = !on
     }
 
     /// Back button: in full screen the first click leaves full screen (the video keeps playing),
     /// the next click stops playback and returns to the app.
     func back() {
-        if isFullScreen { toggleFullScreen() } else { close() }
+        if ui.isFullScreen { toggleFullScreen() } else { close() }
     }
 
     func close() {
@@ -218,8 +201,8 @@ struct ClassicPlayerView: View {
 
     /// Plays a neighbouring episode, keeping the current subtitle language.
     func play(_ ep: Item) {
-        guard !switching else { return }
-        switching = true
+        guard !ui.switching else { return }
+        ui.switching = true
         let lang = model.subStreams.first { $0.Index == model.sub }.map { ClassicDetailView.langName($0) }
         Task {
             let f = await emby.full(ep.id)
@@ -237,34 +220,12 @@ struct ClassicPlayerView: View {
         }
     }
 
-    func poke() {
-        showUI = true
-        hideTask?.cancel()
-        hideTask = Task {
-            try? await Task.sleep(for: .seconds(3))
-            guard !Task.isCancelled else { return }
-            // A glass list (subtitles, quality) is open: keep the controls until it closes
-            if dropdowns?.list != nil { poke(); return }
-            if model.playing && panel == nil {
-                withAnimation { showUI = false }
-                // Full screen: hide the pointer with the controls; it comes back when the mouse moves
-                if isFullScreen { NSCursor.setHiddenUntilMouseMoves(true) }
-            }
-        }
-    }
+    /// Shows the controls; they hide again after a while (see PlayerUIModel.poke).
+    func poke() { ui.poke() }
 
-    func fmt(_ t: Double) -> String {
-        guard t.isFinite, t >= 0 else { return "0:00" }
-        let s = Int(t), h = s / 3600, m = (s % 3600) / 60, sec = s % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
-    }
+    func fmt(_ t: Double) -> String { PlayerUIModel.fmt(t) }
 
-    private static let clockFormat: DateFormatter = { let f = DateFormatter(); f.timeStyle = .short; return f }()
-
-    var endClock: String {
-        let left = max(0, model.duration - model.time) / Double(max(model.speed, 0.1))
-        return Self.clockFormat.string(from: Date().addingTimeInterval(left))
-    }
+    var endClock: String { ui.endClock }
 
     var body: some View {
         GeometryReader { geo in
@@ -276,9 +237,9 @@ struct ClassicPlayerView: View {
                 else if model.error.isEmpty { Spinner(inPlayer: true).controlSize(.large) }
                 if model.pipActive { classicPipPlaceholder }
 
-                subtitleLayer(geo.size).animation(.easeOut(duration: 0.2), value: showUI)
+                subtitleLayer(geo.size).animation(.easeOut(duration: 0.2), value: ui.showUI)
 
-                if showUI || panel != nil {
+                if ui.showUI || ui.panel != nil {
                     LinearGradient(colors: [.black.opacity(0.7), .clear, .clear, .black.opacity(0.85)],
                                    startPoint: .top, endPoint: .bottom)
                         .ignoresSafeArea().allowsHitTesting(false)
@@ -299,7 +260,7 @@ struct ClassicPlayerView: View {
                     }
                 }
 
-                if showInfo { classicInfoOverlay }
+                if ui.showInfo { classicInfoOverlay }
                 classicCornerCards
                 panelLayer
                 // Title bar strip, above every layer (the controls' dark gradient used to darken it)
@@ -310,11 +271,7 @@ struct ClassicPlayerView: View {
                 if Self.titleBarBackPill { titleBarBack }
             }
             .contentShape(Rectangle())
-            .onTapGesture {
-                if panel != nil { panel = nil }
-                else if clickToPause { model.togglePlay(); poke() }
-                else { withAnimation { showUI.toggle() } }
-            }
+            .onTapGesture { ui.tap(clickToPause: clickToPause) }
         }
         .foregroundColor(.white)
         .onContinuousHover { _ in poke() }
@@ -328,72 +285,59 @@ struct ClassicPlayerView: View {
             return .ignored
         }
         .onKeyPress("f") { toggleFullScreen(); return .handled }
-        .onKeyPress("i") { showInfo.toggle(); return .handled }
+        .onKeyPress("i") { ui.showInfo.toggle(); return .handled }
         // No screen saver / display sleep while a video is playing (windowed or full screen)
         .onChange(of: model.playing) { _, on in KeepAwake.set(on, owner: model) }
         .onDisappear { KeepAwake.set(false, owner: model) }
         .onKeyPress("p") { model.togglePiP(); return .handled }
         .onKeyPress("e") {
-            guard item.isEpisode && episodes.count > 1 else { return .ignored }
-            if panel != .episodes { pickerSeason = item.ParentIndexNumber ?? 1 }
-            panel = panel == .episodes ? nil : .episodes
+            guard ui.hasEpisodeList(item) else { return .ignored }
+            ui.toggleEpisodes(item)
             return .handled
         }
         // Keep keyboard focus on the player (Space must always reach it, e.g. for "Play now")
         .onChange(of: classicShowUpNext) { _, on in if on { focused = true } }
-        .onChange(of: panel) { _, p in if p == nil { focused = true } }
-        .onChange(of: focused) { _, f in if !f && panel == nil { DispatchQueue.main.async { focused = true } } }
+        .onChange(of: ui.panel) { _, p in if p == nil { focused = true } }
+        .onChange(of: focused) { _, f in if !f && ui.panel == nil { DispatchQueue.main.async { focused = true } } }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in focused = true }
-        .onKeyPress("c") { if !model.chapterList.isEmpty { panel = panel == .chapters ? nil : .chapters }; return .handled }
-        .task(id: showInfo) {
-            while showInfo && !Task.isCancelled {
-                infoLines = await model.playbackInfo()
+        .onKeyPress("c") { if !model.chapterList.isEmpty { ui.toggleChapters() }; return .handled }
+        .task(id: ui.showInfo) {
+            while ui.showInfo && !Task.isCancelled {
+                ui.infoLines = await model.playbackInfo()
                 try? await Task.sleep(for: .seconds(2))
             }
         }
         .toolbar(.hidden, for: .windowToolbar)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
-            if playerWin.owns(n.object) { fsBusy = false }
-            guard playerWin.owns(n.object) else { return }
-            isFullScreen = true
+            if ui.playerWin.owns(n.object) { ui.fsBusy = false }
+            guard ui.playerWin.owns(n.object) else { return }
+            ui.isFullScreen = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { n in
-            if playerWin.owns(n.object) { fsBusy = false }
-            guard playerWin.owns(n.object) else { return }
-            isFullScreen = false
+            if ui.playerWin.owns(n.object) { ui.fsBusy = false }
+            guard ui.playerWin.owns(n.object) else { return }
+            ui.isFullScreen = false
             // Take the keyboard back after leaving full screen, so Esc / Space / F keep working
             (n.object as? NSWindow)?.makeKeyAndOrderFront(nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true }
         }
-        .onKeyPress(.leftArrow) { model.skip(-Double(skipSecs)); poke(); return .handled }
-        .onKeyPress(.rightArrow) { model.skip(Double(skipSecs)); poke(); return .handled }
+        .onKeyPress(.leftArrow) { model.skip(PlayerUIModel.seekDelta(.left, skipSeconds: skipSecs)); poke(); return .handled }
+        .onKeyPress(.rightArrow) { model.skip(PlayerUIModel.seekDelta(.right, skipSeconds: skipSecs)); poke(); return .handled }
         // Esc: close a panel, else leave full screen (video keeps playing), else close the player.
         // Caught at the app level (AppKit sometimes swallows Esc before SwiftUI sees it, e.g. after full
         // screen), but only in the player's own window.
-        .background(WindowReader { playerWin.window = $0 })
+        .background(WindowReader { ui.playerWin.window = $0 })
         .onAppear {
-            let win = playerWin
-            escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { ev in
-                guard let w = win.window, ev.window === w,
-                      w.attachedSheet == nil, w.sheetParent == nil else { return ev }
-                // F also here: in the separate player window the SwiftUI key handler doesn't always get it
-                if ev.keyCode == 3, ev.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                   !(w.firstResponder is NSText) {
-                    if !ev.isARepeat { toggleFullScreen() }   // holding F must not toggle again and again
-                    return nil
-                }
-                guard ev.keyCode == 53 else { return ev }
-                if panel != nil { panel = nil } else if w.styleMask.contains(.fullScreen) { toggleFullScreen() } else { close() }
-                return nil
-            }
+            ui.listOpen = { [dropdowns] in dropdowns?.list != nil }
+            ui.installKeyMonitor(toggleFullScreen: { toggleFullScreen() }, close: { close() })
         }
-        .onDisappear { if let m = escMonitor { NSEvent.removeMonitor(m); escMonitor = nil } }
+        .onDisappear { ui.removeKeyMonitor() }
         .task {
             focused = true
-            isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
+            ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
             poke()
-            if item.isEpisode, let sid = item.SeriesId { episodes = await emby.episodes(sid) }
+            await ui.loadEpisodes(emby, item)
         }
         .task { await model.start(emby, req) }
         .onDisappear { model.stop(); if emby.playing == nil { RemoteControls.detach() } }   // keep keys when switching episodes
@@ -407,7 +351,7 @@ struct ClassicPlayerView: View {
         .onChange(of: model.duration) { RemoteControls.update(item, model) }
         .onChange(of: Int(model.time / 10)) { RemoteControls.update(item, model) }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { _ in
-            if autoNext, !upNextCancelled, let n = nextEp { play(n) } else { close() }
+            if let n = ui.shouldAutoPlayNext(autoNext: autoNext, item) { play(n) } else { close() }
         }
     }
 
@@ -415,8 +359,7 @@ struct ClassicPlayerView: View {
 
     /// Subtitle distance from the bottom: the user's setting, but above the controls while they're showing.
     func subLift(_ size: CGSize) -> CGFloat {
-        let base = size.height * subBottom / 100
-        return (showUI || panel != nil) ? max(base, 190) : base
+        PlayerUIModel.subLift(height: size.height, bottomPercent: subBottom, controlsVisible: ui.controlsVisible)
     }
 
     @ViewBuilder func subtitleLayer(_ size: CGSize) -> some View {
@@ -466,7 +409,7 @@ struct ClassicPlayerView: View {
                         Button { back() } label: { Label("Back", systemImage: "chevron.left").classicGlassPill(size: 44) }
                             .buttonStyle(HoverButton()).keyboardShortcut("[", modifiers: .command)
                     } else { BackPill { back() } }
-                }.helpLabel(isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)")
+                }.helpLabel(ui.isFullScreen ? "Exit full screen (Esc)" : "Back (Esc)")
             }
             CachedImage(url: emby.image(item.SeriesId ?? item.Id, "Logo", width: 400)) { img in
                 img.resizable().aspectRatio(contentMode: .fit)
@@ -475,11 +418,9 @@ struct ClassicPlayerView: View {
             Spacer()
             Group {
                 if classic { GlassSlider(value: Binding(get: { Double(model.volume) }, set: { model.volume = Float($0) }), range: 0...1) }
-                else { Slider(value: $model.volume, in: 0...1).tint(.white).controlSize(.small) }
+                else { Slider(value: ui.volumeBinding, in: 0...1).tint(.white).controlSize(.small) }
             }.frame(width: 160).handCursor()
-            iconButton(model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 18) {
-                model.volume = model.volume > 0 ? 0 : 1
-            }.helpLabel(model.volume == 0 ? "Unmute" : "Mute")
+            iconButton(ui.volumeIcon, size: 18) { ui.toggleMute() }.helpLabel(model.volume == 0 ? "Unmute" : "Mute")
         }
         .padding(.horizontal, 20).padding(.top, 14)
     }
@@ -488,11 +429,8 @@ struct ClassicPlayerView: View {
 
     /// The timeline: the glass slider in the Classic theme, the standard one otherwise.
     @ViewBuilder var timeline: some View {
-        let pos = Binding(get: { scrubbing ? scrub : model.time }, set: { scrub = $0 })
-        let edit: (Bool) -> Void = { editing in
-            if editing { scrub = model.time; scrubbing = true }
-            else { model.seek(to: scrub); scrubbing = false }
-        }
+        let pos = ui.timelineValue
+        let edit: (Bool) -> Void = { editing in ui.timelineEditing(editing) }
         if classic {
             GlassSlider(value: pos, range: 0...max(model.duration, 1), onEditing: edit)
         } else {
@@ -514,8 +452,8 @@ struct ClassicPlayerView: View {
                 }
                 Spacer()
                 HStack(spacing: 26) {
-                    iconButton("captions.bubble", on: panel != nil) {
-                        withAnimation(.easeOut(duration: 0.2)) { panel = panel == nil ? .subtitles : nil }
+                    iconButton("captions.bubble", on: ui.panel != nil) {
+                        withAnimation(.easeOut(duration: 0.2)) { ui.toggleMediaPanel() }
                     }.helpLabel("Subtitles, audio, quality & speed")
                 }
             }
@@ -523,17 +461,15 @@ struct ClassicPlayerView: View {
             timeline
             .handCursor()
             .background(GeometryReader { g in
-                Color.clear.onAppear { sliderW = g.size.width }.onChange(of: g.size.width) { _, w in sliderW = w }
+                Color.clear.onAppear { ui.sliderW = g.size.width }.onChange(of: g.size.width) { _, w in ui.sliderW = w }
             })
-            .onContinuousHover { ph in
-                if case .active(let p) = ph { hoverX = p.x } else { hoverX = nil }
-            }
+            .onContinuousHover { ph in ui.hover(ph) }
             .overlay(alignment: .bottomLeading) { scrubPreview }
 
             HStack {
-                Text(fmt(scrubbing ? scrub : model.time))
+                Text(fmt(ui.shownTime))
                 Spacer()
-                Text("-\(fmt(max(0, model.duration - (scrubbing ? scrub : model.time))))  /  \(endClock)")
+                Text("\(ui.remainingText)  /  \(endClock)")
             }
             .cvFont(14) { $0.monospacedDigit() }.opacity(0.85)
 
@@ -558,9 +494,9 @@ struct ClassicPlayerView: View {
                     .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).helpLabel("Next")
                 Spacer()
                 classicExtraButtons
-                iconButton(isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 18) {
+                iconButton(ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 18) {
                     toggleFullScreen()
-                }.helpLabel(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
+                }.helpLabel(ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
             }
             .padding(.top, 4)
         }
@@ -592,7 +528,7 @@ struct ClassicPlayerView: View {
     // MARK: Panels
 
     @ViewBuilder var panelLayer: some View {
-        switch panel {
+        switch ui.panel {
         case .subtitles:
             if classic {
                 // Right above its button (top right of the controls), growing from it
@@ -671,10 +607,10 @@ struct ClassicPlayerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 sectionTitle("Subtitles")
-                row("captions.bubble", "Off", checked: model.sub == nil) { Task { await model.setSub(emby, nil) } }
+                row("captions.bubble", "Off", checked: model.sub == nil) { ui.setSub(emby, nil) }
                 ForEach(model.subStreams) { st in
-                    row("captions.bubble", st.DisplayTitle ?? "Track \(st.Index)", checked: model.sub == st.Index) {
-                        Task { await model.setSub(emby, st.Index) }
+                    row("captions.bubble", PlayerUIModel.trackTitle(st), checked: model.sub == st.Index) {
+                        ui.setSub(emby, st.Index)
                     }
                 }
                 HStack(spacing: 18) {
@@ -693,31 +629,31 @@ struct ClassicPlayerView: View {
                 }
                 .cvFont(classic ? 14 : 18)
                 .padding(.horizontal, classic ? 18 : 22).padding(.vertical, classic ? 6 : 9)
-                row("textformat.size", "Subtitle Appearance") { withAnimation { panel = .appearance } }
+                row("textformat.size", "Subtitle Appearance") { withAnimation { ui.panel = .appearance } }
 
                 if model.audioStreams.count > 0 {
                     panelDivider()
                     sectionTitle("Audio")
                     ForEach(model.audioStreams) { st in
-                        row("waveform", st.DisplayTitle ?? "Track \(st.Index)", checked: model.audio == st.Index) {
-                            Task { await model.setAudio(emby, st.Index) }
+                        row("waveform", PlayerUIModel.trackTitle(st), checked: model.audio == st.Index) {
+                            ui.setAudio(emby, st.Index)
                         }
                     }
                 }
 
                 panelDivider()
                 sectionTitle("Quality")
-                ForEach([(0, "Original"), (8_000_000, "1080p · 8 Mbps"), (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")], id: \.0) { q in
-                    row("dial.medium", q.1, checked: model.quality == q.0) { Task { await model.setQuality(emby, q.0) } }
+                ForEach(PlayerUIModel.qualities, id: \.0) { q in
+                    row("dial.medium", q.1, checked: model.quality == q.0) { ui.setQuality(emby, q.0) }
                 }
 
                 panelDivider()
                 sectionTitle("Speed")
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                    ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0] as [Float], id: \.self) { r in
+                    ForEach(PlayerUIModel.speeds, id: \.self) { r in
                         let on = model.speed == r
-                        Button { model.setSpeed(r) } label: {
-                            Text(r == 1 ? "1×" : String(format: "%g×", r)).cvFont(classic ? 12 : 14, weight: .semibold)
+                        Button { ui.setSpeed(r) } label: {
+                            Text(PlayerUIModel.speedLabel(r)).cvFont(classic ? 12 : 14, weight: .semibold)
                                 .frame(maxWidth: .infinity).frame(height: classic ? 28 : 36)
                                 .foregroundColor(classic || !on ? .white : .black)
                                 .background {
@@ -730,7 +666,7 @@ struct ClassicPlayerView: View {
                                     }
                                 }
                                 .contentShape(Rectangle())
-                        }.buttonStyle(.plainHand).helpLabel(r == 1 ? "Normal speed" : "\(String(format: "%g", r))× speed")
+                        }.buttonStyle(.plainHand).helpLabel(PlayerUIModel.speedHelp(r))
                     }
                 }
                 .padding(.horizontal, classic ? 18 : 22).padding(.bottom, 6)
@@ -778,7 +714,7 @@ struct ClassicPlayerView: View {
     var appearancePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 20) {
-                Button { withAnimation { panel = .subtitles } } label: { Image(systemName: "xmark").cvFont(18, weight: .semibold) }
+                Button { withAnimation { ui.panel = .subtitles } } label: { Image(systemName: "xmark").cvFont(18, weight: .semibold) }
                     .buttonStyle(.plainHand)
                 Text("Subtitle Appearance").cvFont(18, weight: .bold)
             }
@@ -791,7 +727,7 @@ struct ClassicPlayerView: View {
                     dropdown("Background color", $subBg, Self.bgs.map { ($0.0, $0.1) })
                     Text("Subtitle Position").cvFont(20, weight: .bold).padding(.top, 8)
                     VStack(alignment: .leading, spacing: 8) {
-                        dropdown("Bottom Edge Position", $subBottom, [0, 5, 10, 15, 20, 25, 30].map { (Double($0), "\($0)%") })
+                        dropdown("Bottom Edge Position", $subBottom, PlayerUIModel.bottomPositions)
                         Text("Set the vertical position of the subtitles relative to the bottom of the screen.")
                             .cvFont(13).foregroundColor(.secondary)
                     }
@@ -811,18 +747,17 @@ struct ClassicPlayerView: View {
 extension ClassicPlayerView {
     // MARK: Extra controls
 
-    static let qualities: [(Int, String)] = [(0, "Original"), (8_000_000, "1080p · 8 Mbps"),
-                                             (4_000_000, "720p · 4 Mbps"), (1_500_000, "480p · 1.5 Mbps")]
+    static let qualities = PlayerUIModel.qualities
 
     /// Quick dropdown: subtitle language.
     var classicSubtitleMenu: some View {
         Menu {
-            Button { Task { await model.setSub(emby, nil) } } label: {
+            Button { ui.setSub(emby, nil) } label: {
                 if model.sub == nil { Label("Off", systemImage: "checkmark") } else { Text("Off") }
             }
             ForEach(model.subStreams) { st in
-                let name = st.DisplayTitle ?? "Track \(st.Index)"
-                Button { Task { await model.setSub(emby, st.Index) } } label: {
+                let name = PlayerUIModel.trackTitle(st)
+                Button { ui.setSub(emby, st.Index) } label: {
                     if model.sub == st.Index { Label(name, systemImage: "checkmark") } else { Text(name) }
                 }
             }
@@ -837,7 +772,7 @@ extension ClassicPlayerView {
     var classicQualityMenu: some View {
         Menu {
             ForEach(Self.qualities, id: \.0) { q in
-                Button { Task { await model.setQuality(emby, q.0) } } label: {
+                Button { ui.setQuality(emby, q.0) } label: {
                     if model.quality == q.0 { Label(q.1, systemImage: "checkmark") } else { Text(q.1) }
                 }
             }
@@ -857,38 +792,34 @@ extension ClassicPlayerView {
 
     var classicExtraButtons: some View {
         HStack(spacing: 22) {
-            if item.isEpisode && episodes.count > 1 {
-                iconButton("rectangle.stack", size: 18, on: panel == .episodes) {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        if panel != .episodes { pickerSeason = item.ParentIndexNumber ?? 1 }
-                        panel = panel == .episodes ? nil : .episodes
-                    }
+            if ui.hasEpisodeList(item) {
+                iconButton("rectangle.stack", size: 18, on: ui.panel == .episodes) {
+                    withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
                 }.helpLabel("Episodes (E)")
             }
             if classic {
                 // Glass buttons opening the glass list, as the other controls
                 if !model.subStreams.isEmpty {
-                    let subs = [nil] + model.subStreams.map { Optional($0.Index) }
-                    GlassMenuButton(icon: "captions.bubble", on: model.sub != nil,
-                                    options: ["Off"] + model.subStreams.map { $0.DisplayTitle ?? "Track \($0.Index)" },
-                                    selected: subs.firstIndex(of: model.sub) ?? 0) { i in
-                        Task { await model.setSub(emby, subs[i]) }
+                    let subs = ui.subtitleOptions
+                    GlassMenuButton(icon: "captions.bubble", on: model.sub != nil, options: subs.map(\.1),
+                                    selected: PlayerUIModel.selectedIndex(subs, model.sub)) { i in
+                        ui.setSub(emby, subs[i].0)
                     }.accessibilityLabel("Subtitles")
                 }
                 GlassMenuButton(icon: "dial.medium", on: model.quality != 0, options: Self.qualities.map(\.1),
-                                selected: Self.qualities.firstIndex { $0.0 == model.quality } ?? 0) { i in
-                    Task { await model.setQuality(emby, Self.qualities[i].0) }
+                                selected: PlayerUIModel.selectedIndex(Self.qualities, model.quality)) { i in
+                    ui.setQuality(emby, Self.qualities[i].0)
                 }.accessibilityLabel("Video quality")
             } else {
                 if !model.subStreams.isEmpty { classicSubtitleMenu }
                 classicQualityMenu
             }
             if !model.chapterList.isEmpty {
-                iconButton("list.bullet.rectangle", size: 18, on: panel == .chapters) {
-                    withAnimation(.easeOut(duration: 0.2)) { panel = panel == .chapters ? nil : .chapters }
+                iconButton("list.bullet.rectangle", size: 18, on: ui.panel == .chapters) {
+                    withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
                 }.helpLabel("Chapters (C)")
             }
-            iconButton("info.circle", size: 18, on: showInfo) { showInfo.toggle() }.helpLabel("Playback info (I)")
+            iconButton("info.circle", size: 18, on: ui.showInfo) { ui.showInfo.toggle() }.helpLabel("Playback info (I)")
             if model.pipSupported {
                 iconButton(model.pipActive ? "pip.exit" : "pip.enter", size: 18, on: model.pipActive) { model.togglePiP() }
                     .helpLabel("Picture in picture (P)")
@@ -906,9 +837,8 @@ extension ClassicPlayerView {
     // MARK: Scrub preview
 
     @ViewBuilder var scrubPreview: some View {
-        let x: CGFloat? = scrubbing ? CGFloat(scrub / max(model.duration, 1)) * sliderW : hoverX
-        if let x, model.duration > 0 {
-            let t = Double(max(0, min(x, sliderW)) / max(sliderW, 1)) * model.duration
+        if let x = ui.previewX, model.duration > 0 {
+            let t = PlayerUIModel.previewTime(x: x, width: ui.sliderW, duration: model.duration)
             let img = model.hasThumbs ? model.thumb(at: t) : nil
             let w: CGFloat = img == nil ? 96 : 220   // (room for "1:30:00" in the glass bubble)
             VStack(spacing: 4) {
@@ -922,20 +852,17 @@ extension ClassicPlayerView {
                     .modifier(TimeBubble(classic: classic))
             }
             .frame(width: w)
-            .offset(x: min(max(0, x - w / 2), max(0, sliderW - w)), y: -26)
+            .offset(x: PlayerUIModel.previewOffset(x: x, previewWidth: w, width: ui.sliderW), y: -26)
             .allowsHitTesting(false)
         }
     }
 
     // MARK: Intro / up next (bottom-right corner)
 
-    var classicShowUpNext: Bool {
-        guard item.isEpisode, nextEp != nil, !upNextCancelled, model.duration > 120 else { return false }
-        return model.time >= model.duration - 30 && model.time < model.duration - 0.5
-    }
+    var classicShowUpNext: Bool { ui.showUpNext(item) }
 
     /// Whole seconds until the episode ends.
-    var classicSecsLeft: Int { max(0, Int((model.duration - model.time).rounded(.up))) }
+    var classicSecsLeft: Int { ui.secsLeft }
 
     var classicCornerCards: some View {
         VStack(alignment: .trailing, spacing: 12) {
@@ -962,7 +889,7 @@ extension ClassicPlayerView {
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, 34)
-        .padding(.bottom, showUI ? 200 : 40)
+        .padding(.bottom, ui.showUI ? 200 : 40)
         .animation(.easeOut(duration: 0.2), value: model.skippedIntro)
     }
 
@@ -982,7 +909,7 @@ extension ClassicPlayerView {
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
-                    Button { upNextCancelled = true } label: {
+                    Button { ui.upNextCancelled = true } label: {
                         Text("Cancel").cvFont(14, weight: .semibold)
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .classicGlassPill()
@@ -1007,7 +934,7 @@ extension ClassicPlayerView {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Playback info").cvFont(13, weight: .bold)
-                    ForEach(Array(infoLines.enumerated()), id: \.offset) { _, l in
+                    ForEach(Array(ui.infoLines.enumerated()), id: \.offset) { _, l in
                         HStack(alignment: .top, spacing: 10) {
                             Text(l.0).foregroundColor(.white.opacity(0.6)).frame(width: 120, alignment: .leading)
                             Text(l.1).frame(maxWidth: 260, alignment: .leading)
@@ -1028,18 +955,18 @@ extension ClassicPlayerView {
     // MARK: Episodes panel
 
     var classicEpisodesPanel: some View {
-        let seasons = Array(Set(episodes.map { $0.ParentIndexNumber ?? 0 })).sorted()
-        let list = episodes.filter { ($0.ParentIndexNumber ?? 0) == pickerSeason }
+        let seasons = ui.seasons
+        let list = ui.seasonEpisodes
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Episodes").cvFont(18, weight: .bold)
                 Spacer()
                 if seasons.count > 1 {
                     if classic {
-                        GlassPicker(selection: $pickerSeason, options: seasons.map { ($0, $0 == 0 ? "Specials" : "Season \($0)") })
+                        GlassPicker(selection: $ui.pickerSeason, options: seasons.map { ($0, $0 == 0 ? "Specials" : "Season \($0)") })
                     } else {
-                        Picker("", selection: $pickerSeason) {
-                            ForEach(seasons, id: \.self) { n in Text(n == 0 ? "Specials" : "Season \(n)").tag(n) }
+                        Picker("", selection: $ui.pickerSeason) {
+                            ForEach(seasons, id: \.self) { n in Text(PlayerUIModel.seasonName(n)).tag(n) }
                         }.labelsHidden().fixedSize()
                     }
                 }
@@ -1062,7 +989,7 @@ extension ClassicPlayerView {
     func classicEpisodePickerRow(_ ep: Item) -> some View {
         let current = ep.Id == item.Id
         let played = emby.isPlayed(ep)
-        return Button { if !current { panel = nil; play(ep) } } label: {
+        return Button { if !current { ui.panel = nil; play(ep) } } label: {
             HStack(spacing: 12) {
                 CachedImage(url: emby.image(ep.Id, width: 320, plain: true)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
@@ -1103,7 +1030,7 @@ extension ClassicPlayerView {
 
     var classicChaptersPanel: some View {
         let list = model.chapterList
-        let cur = list.lastIndex { $0.c.start <= model.time }
+        let cur = ui.currentChapter
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 sectionTitle("Chapters")
@@ -1119,7 +1046,7 @@ extension ClassicPlayerView {
     }
 
     func classicChapterRow(_ i: Int, _ c: Chapter, current: Bool) -> some View {
-        Button { model.seek(to: c.start); panel = nil } label: {
+        Button { ui.seekToChapter(c) } label: {
             HStack(spacing: 14) {
                 Group {
                     if let tag = c.ImageTag {
