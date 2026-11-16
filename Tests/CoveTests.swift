@@ -505,6 +505,7 @@ final class SecurityLowsTests: XCTestCase {
 
 // MARK: Small fixes
 
+@MainActor
 final class SmallFixesTests: XCTestCase {
     func testConversionKeepsEncodedPlus() {
         let url = "https://s.example/videos/1/main.m3u8?api_key=a%2Bb&VideoCodec=h264"
