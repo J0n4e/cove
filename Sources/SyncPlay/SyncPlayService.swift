@@ -110,6 +110,9 @@ final class SyncPlayService: ObservableObject {
         s.onMessage = { [weak self] m in self?.messages.send(m) }
         socket = s
         s.start()
+        // Capabilities don't depend on the socket: post them right away too, so the Dashboard shows Cove as
+        // controllable even if the socket can't connect
+        tasks.append(Task { await postCapabilities(c) })
         tasks.append(Task { await loadInfo(c) })
         tasks.append(Task { await pollTime(c) })
     }
@@ -143,7 +146,12 @@ final class SyncPlayService: ObservableObject {
         r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
         r.httpBody = Self.capabilitiesBody()
-        _ = try? await http(r)
+        do {
+            let (_, resp) = try await http(r)
+            log("SyncPlay: capabilities sent, HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)")
+        } catch {
+            log("SyncPlay: capabilities failed: \((error as NSError).domain) \((error as NSError).code)")
+        }
     }
 
     private struct PublicInfo: Decodable { let Version: String? }

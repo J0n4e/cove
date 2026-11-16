@@ -204,7 +204,9 @@ final class ServerSocket {
                 while !Task.isCancelled {
                     handle(try await t.receive(), on: t)
                 }
-            } catch {}
+            } catch {
+                if !Task.isCancelled { log("SyncPlay: socket error \((error as NSError).domain) \((error as NSError).code)") }
+            }
             t.close()
             // Cancelled = stop() / reconnectNow() already reset the state (and may have started a new run)
             guard !Task.isCancelled else { break }
