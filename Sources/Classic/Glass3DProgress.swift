@@ -26,7 +26,7 @@ enum ProgressStyle {
     /// bottom (higher, so it sits clear above the bottom glow line).
     static let ringSize: CGFloat = 36
     static let ringInset: CGFloat = 8
-    static var ringBottomInset: CGFloat { ringInset + line + 4 }
+    static var ringBottomInset: CGFloat { ringInset }
     /// Room the ring takes, so the title beside it stops short.
     static var ringClearance: CGFloat { ringSize + ringInset + 4 }
 
@@ -57,7 +57,7 @@ struct ThumbnailProgress: View {
     var body: some View {
         if let f = ProgressStyle.trimFraction(fraction) {
             ZStack {
-                ThumbnailProgressLine(fraction: f)
+                // Only the Resume ring (owner): no bottom glow line
                 ThumbnailResumeRing(fraction: f, resumeAt: resumeAt, onResume: onResume)
                     .padding(.trailing, ProgressStyle.ringInset)
                     .padding(.bottom, ProgressStyle.ringBottomInset)
