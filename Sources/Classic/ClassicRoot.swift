@@ -4,7 +4,7 @@ import AVKit
 
 struct ClassicRootView: View {
     @EnvironmentObject var emby: Emby
-    @AppStorage("classicFont") private var classicFont = "rounded"   // Settings → General → Font
+    @AppStorage("classicFont") private var classicFont = ClassicFont.defaultValue   // Settings → General → Font
     @Environment(\.appBG) var bg
     var body: some View {
         ZStack {

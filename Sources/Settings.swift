@@ -270,7 +270,7 @@ extension View {
 struct GeneralSettings: View {
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("accent") private var accent = "red"
-    @AppStorage("classicFont") private var classicFont = "rounded"
+    @AppStorage("classicFont") private var classicFont = ClassicFont.defaultValue
     @AppStorage("textSize") private var textSize = "default"
     @AppStorage("classicHover") private var classicHover = "fog"
     @AppStorage("bg") private var bg = "black"
@@ -323,6 +323,7 @@ struct GeneralSettings: View {
             PrefNote(theme == "classic" ? "Glass3D: glossy glass buttons, cards and lists. Applies to every window, this one included." : "Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
             if theme == "classic" {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
+                PrefRow { ClassicFontPreview(choice: classicFont) }
                 PrefRow(label: "Hover effect") { menuPicker($classicHover, HoverStyle.options) }
                 PrefRow(label: "Glass") {
                     VStack(alignment: .leading, spacing: 8) {

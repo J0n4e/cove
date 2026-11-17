@@ -59,7 +59,7 @@ struct CoveScaledFont: ViewModifier {
     @AppStorage("textSize") private var textSize = "default"
     // Read here so every text re-renders as soon as the Font or Theme setting changes (before, only views that
     // happened to redraw, like Settings, picked up a new font)
-    @AppStorage("classicFont") private var classicFont = "rounded"
+    @AppStorage("classicFont") private var classicFont = ClassicFont.defaultValue
     @AppStorage("theme") private var theme = "classic"
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// Scale, and whether the Glass3D font family applies (Glass3D theme)
