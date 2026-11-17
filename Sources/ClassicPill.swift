@@ -50,7 +50,7 @@ struct ClassicGlassPillStyle: ViewModifier {
             .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
     }
     /// Under the mouse: Settings → General → Hover effect (fogged mirror or soft accent glow).
-    var hoverTint: some View { ClassicHoverEffect().opacity(hover ? 1 : 0) }
+    var hoverTint: some View { ClassicHoverEffect(shown: hover).opacity(hover ? 1 : 0) }
     @ViewBuilder func styled(_ content: Content) -> some View {
         if #available(macOS 26, *) {
             // System glass, untinted: lenses the page behind it, with light catching the edges and reacting to the
@@ -255,16 +255,14 @@ private struct MeasureSize: ViewModifier {
 
 /// The Glass3D hover look, as chosen in Settings → General → Hover effect.
 struct ClassicHoverEffect: View {
-    @AppStorage("classicHover") private var style = "fog"   // "fog", "glow" or "glass"
+    /// Whether the pointer is on it (callers fade it with opacity; the Liquid lens also scales in)
+    var shown = true
+    @AppStorage("classicHover") private var style = "fog"   // "fog", "glow" or "glass" (Liquid lens)
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
+        let style = HoverStyle.normalized(style)
         if style == "glass" {
-            // Glass pill: dark see-through glass fading in behind the label, a step lighter than the selected
-            // section's pill, with a faint outline; no glow
-            Capsule().fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Color.black.opacity(0.28)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.75))
-                .environment(\.colorScheme, .dark)
+            Glass3DLiquidLens(shown: shown)   // Liquid lens (replaces the old flat "Glass pill")
         } else if style == "glow" {
             Capsule()
                 .fill(RadialGradient(colors: [Theme.accent(accentName).opacity(0.5), Theme.accent(accentName).opacity(0.12)],
