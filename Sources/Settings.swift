@@ -273,7 +273,6 @@ struct GeneralSettings: View {
     @AppStorage("classicFont") private var classicFont = "rounded"
     @AppStorage("textSize") private var textSize = "default"
     @AppStorage("classicHover") private var classicHover = "fog"
-    @AppStorage(ProgressStyle.key) private var progressStyle = ProgressStyle.ring   // TEMP: owner compares, remove the loser before release
     @AppStorage("bg") private var bg = "black"
     @AppStorage(GlassFrost.followKey) private var glassFollow = true
     @AppStorage(GlassFrost.frostKey) private var glassFrost = GlassFrost.defaultFrost
@@ -325,8 +324,6 @@ struct GeneralSettings: View {
             if theme == "classic" {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
                 PrefRow(label: "Hover effect") { menuPicker($classicHover, [("fog", "Fogged mirror"), ("glow", "Soft glow")]) }
-                // TEMP: owner compares, remove the loser before release
-                PrefRow(label: "Progress style") { menuPicker($progressStyle, ProgressStyle.choices) }
                 PrefRow(label: "Glass") {
                     VStack(alignment: .leading, spacing: 8) {
                         if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }

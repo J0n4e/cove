@@ -1075,9 +1075,10 @@ final class Emby: ObservableObject {
         favRevision += 1
     }
     /// Plays from Home; when playback ends, the item's page opens (see returnAfterPlay).
-    func playFromHome(_ it: Item) async {
+    /// `from`: start there (seconds) instead of the saved position (0 = from the beginning).
+    func playFromHome(_ it: Item, from: Double? = nil) async {
         returnAfterPlay = it
-        await play(it)
+        if let from, !it.isSeries, !it.isBox { playing = PlayRequest(item: it, start: from) } else { await play(it) }
         if playing == nil { returnAfterPlay = nil }   // nothing started
     }
 
