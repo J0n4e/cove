@@ -812,13 +812,21 @@ extension ClassicPlayerView {
         }
     }
 
-    /// The Glass3D right-hand bar, in the old order. Subtitles live only in the floating captions button's panel.
+    /// The Glass3D right-hand bar, in the old order (with the quick subtitle list).
     var glass3DBarItems: [Glass3DBarItem] {
         var a: [Glass3DBarItem] = []
         if ui.hasEpisodeList(item) {
             a.append(Glass3DBarItem(id: "episodes", icon: "list.and.film", on: ui.panel == .episodes, help: "Episodes (E)") {
                 withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
             })
+        }
+        // Quick subtitle list (owner wanted it back), next to the floating captions button's full panel
+        if !model.subStreams.isEmpty {
+            let subs = ui.subtitleOptions
+            let sub = Glass3DBarItem.Menu(options: subs.map(\.1), selected: PlayerUIModel.selectedIndex(subs, model.sub)) { i in
+                ui.setSub(emby, subs[i].0)
+            }
+            a.append(Glass3DBarItem(id: "subtitles", icon: "captions.bubble", on: model.sub != nil, help: "Subtitles", menu: sub))
         }
         let qualities = Self.qualities
         let quality = Glass3DBarItem.Menu(options: qualities.map(\.1), selected: PlayerUIModel.selectedIndex(qualities, model.quality)) { i in
