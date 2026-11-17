@@ -32,22 +32,36 @@ final class URLSessionSocketTransport: SocketTransport {
     var handshakeStatus: Int? { (task.response as? HTTPURLResponse)?.statusCode }
 
     func open() async throws {
-        task.resume()
-        // URLSession can call the ping handler more than once (e.g. a failed handshake and then the cancel);
-        // resuming a continuation twice crashes the app, so only the first call counts. A proxy that never
-        // answers the upgrade would leave the ping waiting forever, so give up after 15 s and retry later.
+        // Connected = the handshake finished (HTTP 101), reported by the task's delegate. A ping is not used:
+        // through some proxies the server's pong never arrives although the socket works (owner's log: 101, then
+        // a ping timeout). URLSession can report more than once (e.g. an error and then the cancel); resuming a
+        // continuation twice crashes the app, so only the first report counts. Give up after 15 s.
         let once = OnceFlag()
         let task = self.task
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            task.sendPing { e in
+            let d = OpenDelegate { e in
                 guard once.claim() else { return }
                 if let e { c.resume(throwing: e) } else { c.resume() }
             }
+            task.delegate = d
+            task.resume()
             DispatchQueue.global().asyncAfter(deadline: .now() + 15) {
                 guard once.claim() else { return }
                 task.cancel(with: .goingAway, reason: nil)
                 c.resume(throwing: URLError(.timedOut))
             }
+        }
+    }
+
+    /// Reports the end of the WebSocket handshake: nil when it opened, else the error.
+    private final class OpenDelegate: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
+        let done: (Error?) -> Void
+        init(_ done: @escaping (Error?) -> Void) { self.done = done }
+        func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+            done(nil)
+        }
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            done(error ?? URLError(.networkConnectionLost))
         }
     }
 
