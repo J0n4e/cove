@@ -557,8 +557,8 @@ final class Emby: ObservableObject {
         // Resume points and image tags/previews are keyed by item id only, so they must not carry over to
         // another server or user
         positions = [:]
-        Self.tagLock.withLock { Self.imageTags = [:] }
-        BlurHash.lock.withLock { BlurHash.hashes = [:] }
+        Self.tagLock.withLock { Self.imageTags.removeAll() }
+        BlurHash.lock.withLock { BlurHash.hashes.removeAll() }
     }
 
     /// Back to the server list, staying signed in on this server.
@@ -747,7 +747,8 @@ final class Emby: ObservableObject {
 
     /// `plain`: skip the server's image enhancers (e.g. the TV-set frame some plugins draw on episode stills).
     /// Remembers each item's image tags (from any list the server sends), keyed "id|Kind".
-    nonisolated(unsafe) static var imageTags: [String: String] = [:]
+    /// Capped: a long session browsing a big server would otherwise keep every tag it ever saw.
+    nonisolated(unsafe) static var imageTags = BoundedMap<String>(cap: 50_000)
     static let tagLock = NSLock()
 
     nonisolated static func remember(_ items: [Item]) {
