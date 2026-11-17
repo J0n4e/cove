@@ -312,10 +312,7 @@ struct ClassicPlayerView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
-        // Glass3D keeps the (empty, transparent) window toolbar: hiding it hides the traffic lights too, again on
-        // every SwiftUI update, which is why they vanished a second after opening
-        .toolbar(glass3DChrome ? .automatic : .hidden, for: .windowToolbar)
-        .toolbarBackground(.hidden, for: .windowToolbar)
+        .modifier(PlayerToolbar(keep: glass3DChrome))
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { n in
             if ui.playerWin.owns(n.object) { ui.fsBusy = false }
             guard ui.playerWin.owns(n.object) else { return }
@@ -344,8 +341,7 @@ struct ClassicPlayerView: View {
         // No title strip: the traffic lights float over the video and come and go with the controls
         // Normal, always-visible traffic lights over the video, like the Settings window (owner's choice)
         .onAppear { if glass3DChrome { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { TrafficLights.ensureVisible(ui.playerWin.window) } } }
-        .onChange(of: ui.isFullScreen) { if glass3DChrome { TrafficLights.ensureVisible(ui.playerWin.window) } }
-        .onChange(of: ui.controlsVisible) { if glass3DChrome { TrafficLights.ensureVisible(ui.playerWin.window) } }
+        .modifier(KeepTrafficLights(on: glass3DChrome, ui: ui))
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
@@ -1095,5 +1091,30 @@ extension ClassicPlayerView {
             }
             .contentShape(Rectangle())
         }.buttonStyle(PanelRowStyle(glass: classic)).padding(.horizontal, classic ? 6 : 0)
+    }
+}
+
+
+/// Glass3D keeps the (empty, transparent) window toolbar: hiding it hides the traffic lights too, again on every
+/// SwiftUI update, which is why they vanished a second after opening. The Glass theme hides it as before.
+private struct PlayerToolbar: ViewModifier {
+    let keep: Bool
+    func body(content: Content) -> some View {
+        if keep {
+            content.toolbarBackground(.hidden, for: .windowToolbar)
+        } else {
+            content.toolbar(.hidden, for: .windowToolbar)
+        }
+    }
+}
+
+/// Shows the traffic lights again after full screen and whenever the controls come or go (Glass3D only).
+private struct KeepTrafficLights: ViewModifier {
+    let on: Bool
+    @ObservedObject var ui: PlayerUIModel
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: ui.isFullScreen) { if on { TrafficLights.ensureVisible(ui.playerWin.window) } }
+            .onChange(of: ui.controlsVisible) { if on { TrafficLights.ensureVisible(ui.playerWin.window) } }
     }
 }
