@@ -27,7 +27,7 @@ extension SyncPlayGroup {
     /// Seconds until the group's episode ends: from the group's playing anchor (server time) while it plays, else
     /// (paused, waiting, no time sync yet) this Mac's own `local` count, which is at the group's paused position.
     func upNextSecsLeft(duration: Double, local: Int) -> Int {
-        guard isInGroup, let a = driver.anchor, a.playlistItemId == nil || a.playlistItemId == playlistItemId,
+        guard isInGroup, let a = driver.anchor, a.playlistItemId == nil || a.playlistItemId == playlistItemId
               else { return local }
         let t = now()
         return GroupUpNext.secsLeft(positionTicks: a.positionTicks, when: a.when, serverNow: clock().serverNow(local: t),
