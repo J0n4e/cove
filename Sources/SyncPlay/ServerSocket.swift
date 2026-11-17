@@ -122,6 +122,11 @@ enum SocketMessage: Equatable {
     case keepAlive
     case syncPlayCommand(SyncPlayCommand)
     case syncPlayGroupUpdate(SyncPlayGroupUpdate)
+    // SyncPlay phase 4: Jellyfin remote control (RemoteControl.swift) ↓
+    case playstate(RemotePlaystate)
+    case generalCommand(RemoteGeneralCommand)
+    case play(RemotePlayRequest)
+    // ↑ phase 4
     /// Anything else (Playstate, GeneralCommand, UserDataChanged…): ignored in phase 1.
     case other(String)
     // >>> v1.19.0 Now Playing live (Sessions)
@@ -160,6 +165,11 @@ struct SocketEnvelope: Decodable {
         case "SyncPlayCommand": message = .syncPlayCommand(try c.decode(SyncPlayCommand.self, forKey: .Data))
         case "SyncPlayGroupUpdate": message = .syncPlayGroupUpdate(try c.decode(SyncPlayGroupUpdate.self, forKey: .Data))
         case "Sessions": message = .sessions(LiveSessions(list: try c.decode([ActiveSession].self, forKey: .Data)))   // v1.19.0
+        // SyncPlay phase 4: remote control (an odd payload stays .other instead of failing the message) ↓
+        case "Playstate": message = (try? c.decode(RemotePlaystate.self, forKey: .Data)).map { .playstate($0) } ?? .other(type)
+        case "GeneralCommand": message = (try? c.decode(RemoteGeneralCommand.self, forKey: .Data)).map { .generalCommand($0) } ?? .other(type)
+        case "Play": message = (try? c.decode(RemotePlayRequest.self, forKey: .Data)).map { .play($0) } ?? .other(type)
+        // ↑ phase 4
         default: message = .other(type)
         }
     }
@@ -294,6 +304,7 @@ final class ServerSocket {
         case .keepAlive, .other: break
         case .syncPlayCommand, .syncPlayGroupUpdate: onMessage(env.message)
         case .sessions(let live): onSessions(live.list)   // v1.19.0 Now Playing live
+        case .playstate, .generalCommand, .play: onMessage(env.message)   // SyncPlay phase 4: remote control
         }
     }
 

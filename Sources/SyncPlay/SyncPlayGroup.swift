@@ -76,6 +76,14 @@ final class SyncPlayGroup: ObservableObject {
     /// The playlist entry the group is on (sent back with Ready / Buffering).
     private(set) var playlistItemId: String?
     private(set) var playingItemId: String?
+    // Phase 4 (series together) ↓
+    /// The group's whole play queue (from the last PlayQueue update)
+    @Published private(set) var playlist: [SyncPlayQueueUpdate.Entry] = []
+    /// The playlist entry NextItem was last sent for: sent once per entry (end of the item and Up next's Play now)
+    private(set) var nextSentFor: String?
+    /// The ids to queue when a group starts on an item: the item, then (an episode) the series' following ones
+    var queueFor: @MainActor (_ itemId: String) async -> [String] = { [$0] }
+    // ↑ phase 4
 
     var info: Info? { if case .inGroup(let i) = state { return i }; return nil }
     var isInGroup: Bool { info != nil }
@@ -162,7 +170,8 @@ final class SyncPlayGroup: ObservableObject {
         }
         joined(g)
         if let itemId {
-            await post("/SyncPlay/SetNewQueue", ["PlayingQueue": [itemId], "PlayingItemPosition": 0,
+            let ids = await queueFor(itemId)   // phase 4: [itemId] + the following episodes
+            await post("/SyncPlay/SetNewQueue", ["PlayingQueue": ids.first == itemId ? ids : [itemId], "PlayingItemPosition": 0,
                                                  "StartPositionTicks": max(0, startTicks)])
         }
     }
@@ -195,6 +204,7 @@ final class SyncPlayGroup: ObservableObject {
         busy = false; ignoreWait = false; rejoining = false
         loadTask?.cancel(); loadTask = nil
         playlistItemId = nil; playingItemId = nil
+        playlist = []; nextSentFor = nil   // phase 4
         state = .notInGroup
     }
 
@@ -306,9 +316,11 @@ final class SyncPlayGroup: ObservableObject {
     }
 
     func handle(_ q: SyncPlayQueueUpdate) {
+        playlist = q.Playlist   // phase 4
         guard let e = q.playing else { playlistItemId = nil; return }
         playlistItemId = e.PlaylistItemId
         guard ["NewPlaylist", "SetCurrentItem", "NextItem", "PreviousItem"].contains(q.Reason) else { return }
+        if let t = Self.queueToast(q.Reason) { show(t) }   // phase 4
         // Playing: the group has moved on since LastUpdate
         var ticks = q.StartPositionTicks
         if q.IsPlaying, let s = q.LastUpdate, let d = TimeSync.parseDate(s) {
@@ -491,5 +503,97 @@ final class SyncPlayGroup: ObservableObject {
             guard !Task.isCancelled else { return }
             toast = nil
         }
+    }
+}
+
+// MARK: - Phase 4: series together
+// Checked against jellyfin-web (src/plugins/syncPlay/core/Controller.js nextItem / previousItem /
+// setCurrentPlaylistItem, QueueCore.js updatePlayQueue) and the server (WaitingGroupState.cs): NextItem and
+// PreviousItem carry the PlaylistItemId the client is on, and the server ignores one that isn't the current entry,
+// so when every member asks at the end of an episode only the first request advances the group. SetPlaylistItem
+// takes a PlaylistItemId. The PlayQueue update (NextItem / PreviousItem / SetCurrentItem) then loads the new item
+// for everyone through the usual load path (open paused, Buffering → Ready, the server unpauses).
+
+extension SyncPlayGroup {
+    nonisolated static let queueCap = 50
+    nonisolated static let nextText = "Next episode for everyone"
+
+    nonisolated static func queueToast(_ reason: String) -> String? {
+        switch reason {
+        case "NextItem": return nextText
+        case "PreviousItem": return "Previous episode for everyone"
+        case "SetCurrentItem": return "Changed for everyone"
+        default: return nil
+        }
+    }
+
+    /// What a group started on `itemId` queues: the episode, then the series' following ones in the server's
+    /// order (the rest of the season, then the next seasons), at most `cap`. Specials (season 0) are skipped
+    /// unless the group starts on one. Not an episode of the list: just the item.
+    nonisolated static func seriesQueue(from itemId: String, episodes: [Item], cap: Int = queueCap) -> [String] {
+        guard let i = episodes.firstIndex(where: { $0.Id == itemId }) else { return [itemId] }
+        let special = (episodes[i].ParentIndexNumber ?? 0) == 0
+        let rest = episodes[(i + 1)...].filter { special || ($0.ParentIndexNumber ?? 0) != 0 }
+        return Array(([episodes[i]] + rest).prefix(max(1, cap)).map(\.Id))
+    }
+
+    private var currentIndex: Int? {
+        guard let pid = playlistItemId else { return nil }
+        return playlist.firstIndex { $0.PlaylistItemId == pid }
+    }
+
+    /// The entry after / before the one playing
+    var nextEntry: SyncPlayQueueUpdate.Entry? { currentIndex.flatMap { $0 + 1 < playlist.count ? playlist[$0 + 1] : nil } }
+    var previousEntry: SyncPlayQueueUpdate.Entry? { currentIndex.flatMap { $0 > 0 ? playlist[$0 - 1] : nil } }
+
+    /// The item ended while in a group: ask the group for the next one instead of the local autoplay. True =
+    /// handled (wait for the PlayQueue update); false = not in a group, or the group's queue has nothing next.
+    func itemEnded() -> Bool {
+        guard isInGroup else { return false }
+        guard nextEntry != nil else { log("SyncPlay: end of the group's queue"); return false }
+        requestNext()
+        return true
+    }
+
+    /// POST /SyncPlay/NextItem for the entry playing, once per entry.
+    func requestNext() {
+        guard isInGroup, let pid = playlistItemId, nextSentFor != pid else { return }
+        nextSentFor = pid
+        Task { await post("/SyncPlay/NextItem", ["PlaylistItemId": pid]) }
+    }
+
+    func requestPrevious() {
+        guard isInGroup, let pid = playlistItemId else { return }
+        Task { await post("/SyncPlay/PreviousItem", ["PlaylistItemId": pid]) }
+    }
+
+    /// The user picked an item in the player (Up next's Play now, next / previous, the Episodes panel) while in
+    /// a group: the group plays it for everyone. True = sent to the group (the player doesn't switch itself).
+    func pick(_ itemId: String) -> Bool {
+        guard isInGroup else { return false }
+        if let n = nextEntry, n.ItemId == itemId { requestNext(); return true }
+        if let p = previousEntry, p.ItemId == itemId { requestPrevious(); return true }
+        if let e = playlist.first(where: { $0.ItemId == itemId }) {
+            Task { await post("/SyncPlay/SetPlaylistItem", ["PlaylistItemId": e.PlaylistItemId]) }
+            return true
+        }
+        // Not in the group's queue (an earlier episode, another season): a new queue from it
+        Task {
+            let ids = await queueFor(itemId)
+            await post("/SyncPlay/SetNewQueue", ["PlayingQueue": ids.first == itemId ? ids : [itemId],
+                                                 "PlayingItemPosition": 0, "StartPositionTicks": 0])
+        }
+        return true
+    }
+}
+
+extension Emby {
+    /// Phase 4: the queue for a group started on `itemId` (web asks for the series' episodes without missing /
+    /// unaired ones, as playbackmanager does for an episode).
+    func syncPlaySeriesQueue(_ itemId: String) async -> [String] {
+        guard let it: Item = try? await get("/Users/\(userId)/Items/\(itemId)"), it.isEpisode, let sid = it.SeriesId,
+              let r: ItemList = try? await get("/Shows/\(sid)/Episodes", ["UserId": userId, "IsMissing": "false",
+                                                                          "IsVirtualUnaired": "false"]) else { return [itemId] }
+        return SyncPlayGroup.seriesQueue(from: itemId, episodes: r.Items)
     }
 }

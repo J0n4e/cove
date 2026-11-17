@@ -58,6 +58,7 @@ struct CoveApp: App {
                 .preferredColorScheme(.dark)
                 // No blue macOS focus ring anywhere: it showed up at random on buttons after clicks and page changes
                 .focusEffectDisabled()
+                .overlay { RemoteMessageToast() }   // SyncPlay phase 4: Dashboard → Send message
                 .frame(minWidth: 1000, minHeight: 650)
                 .sessionExpiredAlert(emby)
                 .task {
