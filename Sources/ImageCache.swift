@@ -270,14 +270,14 @@ enum Raster {
 
 enum BlurHash {
     /// Hashes by "itemId|Kind", filled from the item lists the server sends (Jellyfin only).
-    nonisolated(unsafe) static var hashes: [String: String] = [:]
-    static let hashCap = 2_000
+    /// Oldest first when full (it used to clear every hash at 2,000, which a 1,000-movie library passes while scrolling)
+    nonisolated(unsafe) static var hashes = BoundedMap<String>(cap: hashCap)
+    static let hashCap = 20_000
     static let lock = NSLock()
-    static let cache = NSCache<NSString, NSImage>()
+    static let cache: NSCache<NSString, NSImage> = { let c = NSCache<NSString, NSImage>(); c.countLimit = 1_000; return c }()
 
     static func remember(_ id: String, _ kind: String, _ hash: String) {
         lock.withLock {
-            if hashes.count >= hashCap { hashes.removeAll() }   // simple bound for long sessions
             hashes[id + "|" + kind] = hash
         }
     }

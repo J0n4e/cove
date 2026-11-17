@@ -112,6 +112,14 @@ struct PosterGrid: NSViewRepresentable {
         c.scale = context.environment.displayScale
         let ids = items.map(\.id)
         if ids != c.ids {
+            // Next page appended: insert only the new posters, the ones on screen stay as they are
+            if let tail = GridDiff.appendedTail(old: c.ids, new: ids), let cv = c.cv,
+               cv.numberOfSections == 1, cv.numberOfItems(inSection: 0) == c.ids.count {
+                c.items = items; c.ids = ids
+                cv.insertItems(at: Set(tail.map { IndexPath(item: $0, section: 0) }))
+                c.refreshVisible()
+                return
+            }
             c.items = items; c.ids = ids
             c.cv?.reloadData()
         } else {
@@ -677,7 +685,10 @@ final class PosterGridCell: NSCollectionViewItem {
 
 /// A poster's title or year drawn into a picture on a background queue, kept for when it scrolls by again.
 enum LabelPicture {
-    nonisolated(unsafe) private static let cache = NSCache<NSString, CGImage>()
+    /// Bounded by bytes: one title per poster of a 1,000+ item library would otherwise stay until memory pressure
+    nonisolated(unsafe) private static let cache: NSCache<NSString, CGImage> = {
+        let c = NSCache<NSString, CGImage>(); c.totalCostLimit = 48 * 1024 * 1024; return c
+    }()
     private static let queue = DispatchQueue(label: "cove.labels", qos: .userInitiated, attributes: .concurrent)
 
     private static func key(_ text: String, _ font: NSFont, _ align: NSTextAlignment, _ scale: CGFloat) -> NSString {
@@ -705,7 +716,7 @@ enum LabelPicture {
                 .draw(with: CGRect(origin: .zero, size: size), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
             NSGraphicsContext.restoreGraphicsState()
             let img = ctx.makeImage()
-            if let img { cache.setObject(img, forKey: k) }
+            if let img { cache.setObject(img, forKey: k, cost: img.bytesPerRow * img.height) }
             DispatchQueue.main.async { MainActor.assumeIsolated { done(img) } }
         }
     }
