@@ -35,7 +35,8 @@ struct ClassicHomeContent: View {
                 }
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(row.title).cvFont(15, weight: .bold).padding(.leading, 32)
+                        Glass3DRowHeading(title: row.title, seeAll: row.libId.map { id in { ClassicNavState.shared.sel = id } })
+                            .padding(.horizontal, 32)
                         let wide = row.title == "Continue Watching"
                         // Continue Watching has its own Row / Grid choice; every other section follows Home's
                         if (wide ? resumeLayout : homeLayout) == "grid" {
@@ -235,7 +236,7 @@ struct ClassicHero: View {
                     HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
                 }
             }.cvFont(15, weight: .medium).foregroundColor(.white.opacity(0.9))
-            Text(item.Overview ?? "").cvFont(15).lineLimit(3)
+            Text(item.Overview ?? "").cvFont(15).lineLimit(3).truncationMode(.tail)
                 .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
             HStack(spacing: 12) {
                 Button { Task { await emby.playFromHome(item) } } label: {
@@ -245,10 +246,10 @@ struct ClassicHero: View {
                 let fav = emby.isFav(item)
                 Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                     Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "checkmark" : "plus")
-                        .classicGlassPill(size: 46)
+                        .classicGlassPill(size: 46).glass3DRoundOutline()
                 }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
                 NavigationLink(value: item) {
-                    Label("More Info", systemImage: "info").classicGlassPill(size: 46)
+                    Label("More Info", systemImage: "info").classicGlassPill(size: 46).glass3DRoundOutline()
                 }.buttonStyle(HoverButton()).helpLabel("More Info")
             }.padding(.top, 6)
         }
@@ -335,6 +336,11 @@ struct ClassicResumeCard: View {
     @AppStorage("accent") private var accentName = "red"
 
     var progress: Double { min(1, max(0, (item.UserData?.PlayedPercentage ?? 0) / 100)) }
+    var hasProgress: Bool { progress > 0 && progress < 1 }
+    /// The ring: resume from the saved position
+    func resume() { Task { await emby.playFromHome(item, from: ProgressStyle.ringStart(resumeAt: emby.resumeAt(item))) } }
+    /// The centre play button: from the beginning when partly watched
+    func playCentre() { Task { await emby.playFromHome(item, from: ProgressStyle.centreStart(hasProgress: hasProgress)) } }
     var timeLeft: String? {
         guard let total = item.RunTimeTicks, total > 0 else { return nil }
         let left = max(0, total - (item.UserData?.PlaybackPositionTicks ?? 0))
@@ -361,13 +367,15 @@ struct ClassicResumeCard: View {
                     ZStack { Color(white: 0.15); Text(item.heroTitle).cvFont(10, weight: .regular).padding(6) }
                 }
                 .frame(width: 260, height: 146).clipped()
+                .overlay { ThumbnailScrim() }   // soft dark gradient behind the code, time left and title
                 // Title, bottom-left
                 .overlay(alignment: .bottomLeading) {
                     // No background: a black outline keeps it readable
                     Text(item.heroTitle)
                         .cvFont(12, weight: .semibold).foregroundColor(.white).lineLimit(1)
                         .classicBlackOutline()
-                        .padding(.leading, 10).padding(.trailing, 44).padding(.bottom, 10)
+                        .padding(.leading, 10).padding(.trailing, 10).padding(.bottom, 12)
+                        .modifier(ProgressRingClearance(active: hasProgress))   // clear of the ring
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 // Series info (S3·E3 · 42m left), top-left
@@ -377,16 +385,16 @@ struct ClassicResumeCard: View {
                             .classicBlackOutline().padding(10)
                     }
                 }
-                // How far you got, bottom-right
-                .overlay(alignment: .bottomTrailing) {
-                    if progress > 0 && progress < 1 { ClassicProgressCircle(progress: progress).padding(8) }
-                }
-                // Play button: resumes playback; clicking anywhere else on the card opens the page
+                // How far you got: glow line along the bottom, Resume ring bottom-right
+                .overlay { ThumbnailProgress(fraction: progress, resumeAt: emby.resumeAt(item), onResume: resume) }
+                // Play button: from the beginning when partly watched; clicking anywhere else on the card opens the page
                 .overlay {
                     if hover {
-                        Button { Task { await emby.playFromHome(item) } } label: {
-                            Label("Resume", systemImage: "play.fill").classicGlassPill(size: 46)
-                        }.buttonStyle(.plainHand).accessibilityLabel("Resume")
+                        Button(action: playCentre) {
+                            Label("Play", systemImage: "play.fill").classicGlassPill(size: 46)
+                        }.buttonStyle(.plainHand)
+                        .tip(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "")
+                        .accessibilityLabel(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "Play")
                         .onHover { onPlay = $0 }
                     }
                 }
@@ -409,7 +417,8 @@ struct ClassicResumeCard: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityValue(timeLeft ?? "")
             .accessibilityAction { openPage() }
-            .accessibilityAction(named: "Resume") { Task { await emby.playFromHome(item) } }
+            .accessibilityAction(named: "Resume") { resume() }
+            .accessibilityAction(named: "Play from the beginning") { playCentre() }
             .accessibilityLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)   // no tooltip on these cards
         }
     }

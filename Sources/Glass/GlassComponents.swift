@@ -601,6 +601,9 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
     @StateObject private var finder = ScrollFinder()
     @State private var dragStart: CGFloat?
     @Environment(\.classicGlass) private var classic   // Classic theme: glass arrow buttons
+    /// Glass3D: the arrows show only while the pointer is over the row
+    @State private var rowHover = false
+    var arrowsShown: Bool { !classic || rowHover }
 
     var body: some View {
         // No scrollbar: the arrows page the row; trackpad / wheel scrolling still works.
@@ -631,17 +634,19 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
         .contentMargins(.horizontal, inset, for: .scrollContent)
         .padding(.vertical, -12)
         .overlay(alignment: .leading) {
-            if finder.canBack {
+            if finder.canBack && arrowsShown {
                 arrow("chevron.left", help: "Previous") { finder.page(-1, step: itemWidth + spacing) }.padding(.leading, 6)
             }
         }
         .overlay(alignment: .trailing) {
-            if finder.canFwd {
+            if finder.canFwd && arrowsShown {
                 arrow("chevron.right", help: "Next") { finder.page(1, step: itemWidth + spacing) }.padding(.trailing, 6)
             }
         }
         .animation(.easeOut(duration: 0.15), value: finder.canBack)
         .animation(.easeOut(duration: 0.15), value: finder.canFwd)
+        .animation(.easeOut(duration: 0.15), value: rowHover)
+        .onHover { rowHover = $0 }
     }
 
     func arrow(_ icon: String, help: String, _ action: @escaping () -> Void) -> some View {
@@ -799,6 +804,8 @@ struct SelfHoverLift: ViewModifier {
     var play: CGFloat = 0
     /// When set, the play icon is a button of its own (the card around it opens the details instead)
     var onPlay: (() -> Void)? = nil
+    /// Tooltip of the play button (nil: the default)
+    var playTip: String? = nil
     @State private var hover = false
     @Environment(\.classicGlass) private var classic   // Classic theme: the glass play button
     @ViewBuilder var icon: some View {
@@ -814,7 +821,7 @@ struct SelfHoverLift: ViewModifier {
                 if hover && play > 0 {
                     if let onPlay {
                         Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand)
-                            .tip(classic ? "" : "Play").accessibilityLabel("Play")   // Classic: no tooltip
+                            .tip(playTip ?? (classic ? "" : "Play")).accessibilityLabel(playTip ?? "Play")   // Classic: no default tooltip
                     } else { icon }
                 }
             }

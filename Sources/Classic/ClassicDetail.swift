@@ -482,18 +482,18 @@ struct ClassicDetailView: View {
             RatingButton(item: item, full: model.full, classic: true)
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
-                    Label("Trailer", systemImage: "film").classicGlassPill(size: 44)
+                    Label("Trailer", systemImage: "film").classicGlassPill(size: 44).glass3DRoundOutline()
                 }.buttonStyle(HoverButton()).helpLabel("Trailer")
             }
             Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
                 Label(played ? "Watched" : "Mark as Watched", systemImage: played ? "checkmark.circle.fill" : "checkmark.circle")
-                    .classicGlassPill(size: 44)
+                    .classicGlassPill(size: 44).glass3DRoundOutline()
             }.buttonStyle(HoverButton()).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                 Label { Text(fav ? "Favorite" : "Add to Favorites") } icon: {
                     if fav { FavHeart(size: 17) } else { Image(systemName: "heart") }
                 }
-                .classicGlassPill(size: 44)
+                .classicGlassPill(size: 44).glass3DRoundOutline()
             }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
         }
     }
@@ -519,8 +519,8 @@ struct ClassicDetailView: View {
                 .overlay(alignment: .topTrailing) { CountBadge(count: model.unwatched(n)).padding(8) }
                 .modifier(ClassicLightCard(radius: 8, accent: Theme.accent(accentName), size: CGSize(width: 170, height: 255),
                                            tracksHover: true))   // the posters' light glass edge   // glass card, as the posters
-                .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint, lineWidth: 2) } }
-                .shadow(radius: 6)
+                // Selected season: an accent ring (it used to come out white)
+                .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent(accentName), lineWidth: 2.5) } }
                 .classicHoverLift()
                 .hoverItemActions(sItem, .bottomTrailing, children: model.episodes(inSeason: n))
                 Text(title).cvFont(13, weight: .regular).foregroundColor(selected ? .primary : .secondary)
@@ -530,7 +530,7 @@ struct ClassicDetailView: View {
 
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Seasons").cvFont(15, weight: .bold).padding(.horizontal, 40)
+            Glass3DRowHeading(title: "Seasons").padding(.horizontal, 40)
             if seasonLayout == "grid" {
                 // All seasons at once, wrapped onto as many lines as needed
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
@@ -547,7 +547,7 @@ struct ClassicDetailView: View {
         let multi: Bool = model.seasonNumbers.count > 1
         let heading: String = multi ? model.seasonTitle(model.currentSeason) : "Episodes"
         return HStack(spacing: 16) {
-            Text(heading).cvFont(15, weight: .bold)
+            Text(heading).cvFont(Glass3DTokens.Text.section, weight: .bold)
             if model.canFilterWatched {
                 // A secondary glass pill (no bare accent text as a button)
                 Button { model.showAllEps.toggle() } label: {
@@ -571,6 +571,7 @@ struct ClassicDetailView: View {
     func episodeRow(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
+        let hasProgress: Bool = pct > 0 && pct < 100 && !played
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
                 Text("\(ep.IndexNumber ?? 0)").cvFont(26, weight: .semibold)
@@ -579,13 +580,13 @@ struct ClassicDetailView: View {
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 220, height: 124).clipped()
-                .overlay(alignment: .bottomTrailing) {
-                    if pct > 0, pct < 100, !played { ClassicProgressCircle(progress: pct / 100).padding(6) }
-                }
-                .cornerRadius(6)
+                .overlay { if hasProgress { epProgress(ep, pct) } }
+                .cornerRadius(Glass3DTokens.Radius.thumb)
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), size: CGSize(width: 220, height: 124),
                                            tracksHover: true))   // the posters' light glass edge
-                .classicHoverLift(play: 36) { model.playEpisode(ep) }
+                .classicHoverLift(play: 36, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
+                    model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
+                }
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
@@ -657,6 +658,13 @@ struct ClassicDetailView: View {
         return t
     }
 
+    /// The bottom glow line and the Resume ring (resumes from the saved position).
+    func epProgress(_ ep: Item, _ pct: Double) -> some View {
+        ThumbnailProgress(fraction: pct / 100, resumeAt: emby.resumeAt(ep)) {
+            model.playEpisode(ep, from: ProgressStyle.ringStart(resumeAt: emby.resumeAt(ep)))
+        }
+    }
+
     func episodeTile(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
@@ -670,6 +678,7 @@ struct ClassicDetailView: View {
                     .frame(minWidth: 0, maxWidth: .infinity).aspectRatio(16 / 9, contentMode: .fit)
                     .clipped()
                     .opacity(played ? 0.6 : 1)
+                    ThumbnailScrim()   // soft dark gradient behind the code and the title
                     WatchBadge(item: ep, played: played).padding(6)
                 }
                 // Episode name in the bottom-left corner of the thumbnail
@@ -677,8 +686,9 @@ struct ClassicDetailView: View {
                     // No background: a black outline keeps it readable (as on Continue Watching)
                     Text(ep.Name).cvFont(14, weight: .semibold).foregroundColor(.white).lineLimit(2)
                         .classicBlackOutline()
-                        .padding(.leading, 10).padding(.trailing, hasProgress ? 44 : 10)
+                        .padding(.leading, 10).padding(.trailing, 10)
                         .padding(.bottom, 9)
+                        .modifier(ProgressRingClearance(active: hasProgress))   // clear of the ring
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 // Episode number in the top-left corner
@@ -687,13 +697,13 @@ struct ClassicDetailView: View {
                         .classicBlackOutline()
                         .padding(10)
                 }
-                // How far you got, bottom-right
-                .overlay(alignment: .bottomTrailing) {
-                    if hasProgress { ClassicProgressCircle(progress: pct / 100).padding(8) }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                // How far you got: glow line along the bottom, Resume ring bottom-right
+                .overlay { if hasProgress { epProgress(ep, pct) } }
+                .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb))
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
-                .classicHoverLift(play: 40) { model.playEpisode(ep) }
+                .classicHoverLift(play: 40, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
+                    model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
+                }
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
@@ -716,7 +726,7 @@ struct ClassicDetailView: View {
         let people = Array((model.full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Cast & Crew").cvFont(15, weight: .bold).padding(.horizontal, 40)
+                Glass3DRowHeading(title: "Cast & Crew").padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
@@ -742,7 +752,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var aboutSection: some View {
         if let f = model.full {
             VStack(alignment: .leading, spacing: 16) {
-                Text("About").cvFont(15, weight: .bold)
+                Text("About").cvFont(Glass3DTokens.Text.section, weight: .bold)
                 if let d = classicParseDate(f.UserData?.LastPlayedDate) {
                     aboutRow("Date Last Played", d.formatted(date: .abbreviated, time: .shortened))
                 }
@@ -773,7 +783,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var includedInSection: some View {
         if !model.includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Included In").cvFont(15, weight: .bold).padding(.horizontal, 40)
+                Text("Included In").cvFont(Glass3DTokens.Text.section, weight: .bold).padding(.horizontal, 40)
                 ArrowScrollRow(ids: Array(model.includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.includedIn[$0]) }
             }
         }
@@ -783,7 +793,7 @@ struct ClassicDetailView: View {
         if !model.similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("More Like This").cvFont(15, weight: .bold)
+                    Text("More Like This").cvFont(Glass3DTokens.Text.section, weight: .bold)
                     Spacer()
                     similarLayoutToggle
                 }.padding(.horizontal, 40)

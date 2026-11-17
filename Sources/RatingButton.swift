@@ -41,7 +41,18 @@ struct RatingButton: View {
         let star = Image(systemName: r == nil ? "star" : "star.fill")
         let font = Font.system(size: size * 0.37, weight: .semibold)
         if classic {
-            if let r { Label { Text("Your rating: \(r)") } icon: { starred(r) }.classicGlassPill(size: size - 2) }
+            // Rated: a plain label (star + number), not a button-looking pill; still clickable to change it
+            if let r {
+                HStack(spacing: 5) {
+                    Image(systemName: "star.fill").foregroundColor(Theme.accent(accentName))
+                    Text("\(r)").foregroundColor(.white)
+                    Text("/10").foregroundColor(Glass3DTokens.Grey.tertiary)
+                }
+                .cvFont(size * 0.36, weight: .semibold)
+                .padding(.horizontal, 6).frame(height: size - 2)
+                .contentShape(Rectangle())
+                .accessibilityLabel("Your rating: \(r)")
+            }
             else { Label("Rate", systemImage: "star").classicGlassPill(size: size - 2) }
         } else if let r {
             starred(r)
