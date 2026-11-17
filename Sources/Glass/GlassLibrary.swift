@@ -168,12 +168,12 @@ struct LibraryView: View {
     var header: some View {
         VStack(spacing: 16) {
             ZStack {
-                HStack { Text(lib.title).font(.title2.bold()); Spacer() }
+                HStack { Text(lib.title).coveFont(size: 17, weight: .bold); Spacer() }
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
                         Button { model.tab = i } label: {
                             Text(i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i])
-                                .font(.callout.weight(model.tab == i ? .semibold : .regular))
+                                .coveFont(size: 12, weight: model.tab == i ? .semibold : .regular)
                                 .padding(.horizontal, 18).frame(height: 32)
                                 .background(Capsule().fill(model.tab == i ? Color.white.opacity(0.22) : Color.clear))
                                 .foregroundColor(model.tab == i ? .white : .secondary)
@@ -275,7 +275,7 @@ struct LibraryView: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
             ForEach(model.genres, id: \.self) { g in
                 Button { model.genre = g; model.tab = 0 } label: {
-                    Text(g).font(.headline).frame(maxWidth: .infinity, minHeight: 70)
+                    Text(g).coveFont(size: 13, weight: .bold).frame(maxWidth: .infinity, minHeight: 70)
                         .background(Color.white.opacity(0.1)).cornerRadius(8)
                 }.buttonStyle(.plainHand)
             }

@@ -138,16 +138,16 @@ struct UpdateWindowView: View {
                          subtitle: "You have \(AppVersion.pretty(current)). Here's what's new:")
             NotesCard(markdown: rel.body ?? "")
             if let u = ReleaseNotes.safeLink(URL(string: rel.html_url)) {
-                Link("View on GitHub", destination: u).font(.caption).foregroundColor(Color.white.opacity(0.55))
+                Link("View on GitHub", destination: u).coveFont(size: 10).foregroundColor(Color.white.opacity(0.55))
             }
             if installing {
                 if let p = up.progress, p.total > 0 {
                     ProgressView(value: Double(p.received), total: Double(p.total))
                     Text("Downloading… " + Self.mb(p.received) + " of " + Self.mb(p.total))
-                        .font(.caption).foregroundColor(.secondary)
+                        .coveFont(size: 10).foregroundColor(.secondary)
                 } else {
                     ProgressView().progressViewStyle(.linear)
-                    Text(up.progressText).font(.caption).foregroundColor(.secondary)
+                    Text(up.progressText).coveFont(size: 10).foregroundColor(.secondary)
                 }
             }
             if let e = up.windowError {

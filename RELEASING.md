@@ -48,21 +48,29 @@ Only the repository owner can add environments, secrets and rulesets.
 
 ## Each release
 
-1. Merge `Development` into `main` (PR), as before.
-2. The **owner** tags the merge commit and pushes the tag (other accounts are blocked by the tag ruleset):
+1. All changes go into `Development` through pull requests (CI must be green).
+2. **Test build:** Actions → *Build Cove.app* → *Run workflow* on `Development`, with a version **one below** the
+   coming release (for example `v1.18.4` when releasing `v1.18.5`), so the test app can still update to the real
+   release. This builds an ad-hoc signed artifact without secrets and without creating a release.
+3. The **owner** tests that build and gives the OK.
+4. Open a PR `Development` → `main` and merge it.
+5. The **owner** tags the merge commit on `main` as `vX.Y.Z` (other accounts are blocked by the tag ruleset),
+   either with git or through the GitHub API:
    ```sh
    git checkout main && git pull
-   git tag v1.16.0 && git push origin v1.16.0
+   git tag v1.18.5 && git push origin v1.18.5
    ```
-3. The `release` job runs the unit tests (a failure stops the release), builds the app, signs it with the certificate, signs `Cove.zip` with the update key, adds a
-   build attestation and creates a **draft** release with `Cove.zip` and `Cove.zip.sig`. With required reviewers
-   on, approve the deployment first (Actions → the run → *Review deployments*).
-4. Open the draft on GitHub, write the release notes and **Publish**. Pre-releases are ignored by the updater. The notes (Markdown) are what the Software Update and What's New windows show, so write them for users.
+6. The `release` job runs the unit tests (a failure stops the release), builds the app, signs it with the
+   certificate, signs `Cove.zip` with the Ed25519 update key, adds a build attestation and creates a **draft**
+   release with `Cove.zip` and `Cove.zip.sig`. With required reviewers on, approve the deployment first
+   (Actions → the run → *Review deployments*).
+7. **Verify** the draft: the job already checks `Cove.zip.sig` against the key installed apps trust; download both
+   files and check the attestation (below) before publishing.
+8. Write the release notes and **Publish**. Pre-releases are ignored by the updater. The notes (Markdown) are what
+   the Software Update and What's New windows show, so write them for users.
 
 Anyone can check that a download came from this repository's workflow:
 `gh attestation verify Cove.zip -R J0n4e/cove`.
-
-*Run workflow* on the Actions tab builds an unsigned (ad-hoc) test artifact without creating a release.
 
 ## Changing the update key (lost or leaked key)
 

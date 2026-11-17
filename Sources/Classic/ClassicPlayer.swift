@@ -203,6 +203,7 @@ struct ClassicPlayerView: View {
 
     /// Plays a neighbouring episode, keeping the current subtitle language.
     func play(_ ep: Item) {
+        if emby.syncPlay.group.pick(ep.Id) { return }   // SyncPlay phase 4: in a group, everyone switches
         guard !ui.switching else { return }
         ui.switching = true
         let lang = model.subStreams.first { $0.Index == model.sub }.map { ClassicDetailView.langName($0) }
@@ -220,6 +221,13 @@ struct ClassicPlayerView: View {
             emby.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: q > 0 ? q : nil,
                                        start: emby.resumeAt(ep))
         }
+    }
+
+    /// SyncPlay phase 4: Jellyfin Dashboard remote control acts on this player (RemoteControl.swift).
+    func attachRemote() {
+        PlayerRemoteHandle.attach(model, emby: emby, close: { close() }, next: { if let n = nextEp { play(n) } },
+                                  previous: { if let p = prevEp { play(p) } else { model.seek(to: 0) } },
+                                  fullScreen: { toggleFullScreen() })
     }
 
     /// Shows the controls; they hide again after a while (see PlayerUIModel.poke).
@@ -349,11 +357,12 @@ struct ClassicPlayerView: View {
             if (n.object as? NSWindow)?.title == "Player" { close() }
         }
         // Media keys / Control Center (shared with the Glass player)
-        .onAppear { RemoteControls.attach(model, skip: Double(skipSecs)) }
+        .onAppear { RemoteControls.attach(model, skip: Double(skipSecs)); attachRemote() }
         .onChange(of: model.playing) { RemoteControls.update(item, model) }
         .onChange(of: model.duration) { RemoteControls.update(item, model) }
         .onChange(of: Int(model.time / 10)) { RemoteControls.update(item, model) }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { _ in
+            if emby.syncPlay.group.itemEnded() { return }   // SyncPlay phase 4: the group's next item
             if let n = ui.shouldAutoPlayNext(autoNext: autoNext, item) { play(n) } else { close() }
         }
     }

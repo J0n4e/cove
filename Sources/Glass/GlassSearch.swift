@@ -38,9 +38,9 @@ struct SearchView: View {
     private var busy: Bool { model.busy }
     var heading: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Results for “\(query)”").font(.title2.bold())
+            Text("Results for “\(query)”").coveFont(size: 17, weight: .bold)
             if !people.isEmpty { peopleRow }
-            if !people.isEmpty && !results.isEmpty { Text("Titles").font(.title3.bold()).padding(.top, 8) }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").coveFont(size: 15, weight: .bold).padding(.top, 8) }
         }
     }
 
@@ -74,7 +74,7 @@ struct SearchView: View {
     /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("People").font(.title3.bold())
+            Text("People").coveFont(size: 15, weight: .bold)
             // In rows like the titles below, not one line that scrolls sideways
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14, alignment: .top)], spacing: 18) {
                     ForEach(people) { p in
@@ -95,7 +95,7 @@ struct SearchView: View {
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
                                 .hoverLift()
-                                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center)
+                                Text(p.Name).coveFont(size: 12, weight: .semibold).lineLimit(2).multilineTextAlignment(.center)
                             }.frame(width: 170)
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors

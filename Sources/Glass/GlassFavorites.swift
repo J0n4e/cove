@@ -23,7 +23,7 @@ struct FavoritesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Favorites").font(.title.bold())
+                    Text("Favorites").coveFont(size: 22, weight: .bold)
                     if !favs.isEmpty { Text("\(favs.count) Items").foregroundColor(.secondary) }
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
@@ -36,7 +36,7 @@ struct FavoritesView: View {
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     VStack(spacing: 10) {
                         Image(systemName: "heart").coveFont(size: 40).foregroundColor(.secondary)
-                        Text("No favorites yet").font(.headline)
+                        Text("No favorites yet").coveFont(size: 13, weight: .bold)
                         Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 }
@@ -59,7 +59,7 @@ struct FavoritesView: View {
             // "Favorite People ›" opens all of them on their own page, like the other sections
             NavigationLink(value: FavoritePeopleRef()) {
                 HStack(spacing: 6) {
-                    Text("Favorite People").font(.title3.bold())
+                    Text("Favorite People").coveFont(size: 15, weight: .bold)
                     Image(systemName: "chevron.right").coveFont(size: 15, weight: .bold).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
@@ -84,7 +84,7 @@ struct FavoritesView: View {
             // Opened through the page path (like every other page), so Back shows and the top bar can leave it
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
                 HStack(spacing: 6) {
-                    Text(title).font(.title3.bold())
+                    Text(title).coveFont(size: 15, weight: .bold)
                     Image(systemName: "chevron.right").coveFont(size: 15, weight: .bold).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
@@ -123,7 +123,7 @@ struct FavoriteGridView: View {
         GeometryReader { g in
             PosterGrid(emby: emby, items: model.items.filter { emby.isFav($0) }, look: PosterLook(glass3D: false),
                        insets: NSEdgeInsets(top: 0, left: 32, bottom: 24, right: 32),
-                       header: AnyView(Text(title).font(.title.bold())
+                       header: AnyView(Text(title).coveFont(size: 22, weight: .bold)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 32).padding(.top, 24)),
                        topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
                        open: { NavState.shared.open($0) })
@@ -159,7 +159,7 @@ struct FavPersonCard: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))
                 .hoverLift()
-                Text(p.Name).font(.callout.weight(.semibold)).lineLimit(1)
+                Text(p.Name).coveFont(size: 12, weight: .semibold).lineLimit(1)
             }.frame(width: 170)
         }.buttonStyle(.plainHand)
     }
@@ -180,7 +180,7 @@ struct FavPersonListRow<Link: Hashable>: View {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").foregroundColor(.secondary) }
                 }
                 .frame(width: 44, height: 66).clipShape(RoundedRectangle(cornerRadius: 6))
-                Text(p.Name).font(.body.weight(.semibold)).lineLimit(1)
+                Text(p.Name).coveFont(size: 13, weight: .semibold).lineLimit(1)
                 Spacer(minLength: 0)
                 if emby.isFav(p) { FavHeart(size: 15) }
             }
@@ -203,7 +203,7 @@ struct FavoritePeopleView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Favorite People").font(.title.bold())
+                Text("Favorite People").coveFont(size: 22, weight: .bold)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], alignment: .leading, spacing: 22) {
                     ForEach(model.people.filter { emby.isFav($0) }) { FavPersonCard(p: $0) }
                 }

@@ -453,7 +453,7 @@ struct TopNavButtons: View {
                 if labels != "icons" { Text(badge > 0 ? "\(title) \(badge)" : title) }
                 else if badge > 0 { Text("\(badge)") }
             }
-                .font(.callout.weight(on ? .semibold : .regular))
+                .coveFont(size: 12, weight: on ? .semibold : .regular)
                 .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)   // black on a white accent
                 .padding(.horizontal, 14).frame(height: 32)
                 .background(Capsule().fill(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.clear)))

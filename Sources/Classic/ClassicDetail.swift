@@ -517,13 +517,13 @@ struct ClassicDetailView: View {
                     ZStack { Color(white: 0.15); Text(title) }
                 }
                 .frame(width: 170, height: 255).clipped().cornerRadius(8)
-                .overlay(alignment: .topTrailing) { CountBadge(count: model.unwatched(n)).padding(8) }
                 .modifier(ClassicLightCard(radius: 8, accent: Theme.accent(accentName), size: CGSize(width: 170, height: 255),
                                            tracksHover: true))   // the posters' light glass edge   // glass card, as the posters
                 // Selected season: an accent ring (it used to come out white)
                 .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent(accentName), lineWidth: 2.5) } }
                 .classicHoverLift()
-                .hoverItemActions(sItem, .bottomTrailing, children: model.episodes(inSeason: n))
+                // v1.19.0: ♡ / ✓ badge buttons as on posters (✓ marks the whole season; shows the unwatched count)
+                .itemBadges(sItem, .season, children: model.episodes(inSeason: n), unwatched: model.unwatched(n) ?? 0)
                 Text(title).cvFont(13, weight: .regular).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plainHand)
@@ -588,11 +588,10 @@ struct ClassicDetailView: View {
                 .classicHoverLift(play: 36, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
                     model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
                 }
-                .hoverItemActions(ep)
+                .itemBadges(ep, .episode, inset: 6)   // ♡ / ✓ top right, as on posters
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(ep.Name).cvFont(16, weight: .semibold).lineLimit(1)
-                        if played { Image(systemName: "checkmark.circle.fill").foregroundColor(.white.opacity(0.7)) }
                         Spacer()
                         if let t = ep.RunTimeTicks, t > 0 { Text(runtimeText(t)).foregroundColor(.secondary) }
                     }
@@ -680,7 +679,6 @@ struct ClassicDetailView: View {
                     .clipped()
                     .opacity(played ? 0.6 : 1)
                     ThumbnailScrim()   // soft dark gradient behind the code and the title
-                    WatchBadge(item: ep, played: played).padding(6)
                 }
                 // Episode name in the bottom-left corner of the thumbnail
                 .overlay(alignment: .bottomLeading) {
@@ -705,8 +703,8 @@ struct ClassicDetailView: View {
                 .classicHoverLift(play: 40, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
                     model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
                 }
-                // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
-                .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
+                // ♡ / ✓ badge buttons in the top-right corner, as on posters (the watched tick lives in ✓ now)
+                .itemBadges(ep, .episode, inset: 6)
                 if showEpDesc {
                     Text(ep.Overview ?? "").cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(2)
                 }

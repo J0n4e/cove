@@ -250,7 +250,7 @@ struct RatingPicker: View {
             if current != nil { Button("Clear Rating") { pick(0) }.buttonStyle(.plainHand).foregroundColor(.secondary) }
             if !connected {
                 Text("Saved on this Mac. Connect Trakt in Settings → Connect to sync it.")
-                    .font(.caption).foregroundColor(.secondary).multilineTextAlignment(.center)
+                    .coveFont(size: 10).foregroundColor(.secondary).multilineTextAlignment(.center)
                     .frame(maxWidth: 270)
             }
         }

@@ -406,6 +406,9 @@ final class PosterGridCell: NSCollectionViewItem {
     private var item: Item?
     private weak var emby: Emby?
     private(set) var hovered = false
+    /// Glass3D: the live badge buttons are showing (after the zoom has finished); until then the badges stay in
+    /// `decor`, which zooms with the poster, so nothing jumps
+    private var liveBadges = false
     private let nameLabel = CALayer()
     private let year = CALayer()
     /// Which labels the cell shows now, so a label drawn late for an earlier poster is dropped
@@ -475,7 +478,7 @@ final class PosterGridCell: NSCollectionViewItem {
         poster.opacity = played ? 0.6 : 1
         poster.cornerRadius = look.radius
         // Glass3D while hovered: the badges come from the live buttons instead (see fadeBadges)
-        let badges = !(look.glass3D && hovered)
+        let badges = !(look.glass3D && liveBadges)
         let key = "gridDecor|\(look.glass3D)|\(played)|\(unwatched)|\(fav)|\(rating ?? 0)|\(progress)|\(accent)|\(badges)"
         decor.contents = Raster.image(key, scale: scale, pad: 0) {
             PosterDecor(item: item, played: played, fav: fav, progress: progress, accent: Theme.accent(accent), look: look,
@@ -566,17 +569,36 @@ final class PosterGridCell: NSCollectionViewItem {
             AnyView(v.environmentObject(emby).environment(\.classicGlass, true).tint(tint)
                 .environment(\.colorScheme, .dark).fixedSize())
         }
-        return (wrap(PosterBadgesLeading(item: item, hover: true)), wrap(PosterWatchBadge(item: item, hover: true)))
+        // Drawn at the zoomed size (1.06), like the badges in the zoomed picture
+        return (wrap(PosterBadgesLeading(item: item, hover: true).scaleEffect(1.06, anchor: .topLeading)
+                        .padding(.trailing, 2).padding(.bottom, 2)),
+                wrap(PosterWatchBadge(item: item, hover: true).scaleEffect(1.06, anchor: .topTrailing)
+                        .padding(.leading, 2).padding(.bottom, 2)))
     }
 
-    /// Hovered: the badges baked into `decor` are swapped for live buttons at the same spots (on the zoomed poster).
+    /// Hovered: once the 0.2 s zoom has finished, the badges baked into `decor` (which zoom with the poster) are
+    /// swapped for live buttons drawn at the same zoomed size and spots, so they don't jump. Leaving: swapped back
+    /// at once, before the zoom out.
+    private var badgeSwap: DispatchWorkItem?
     private func showBadges(_ on: Bool) {
+        badgeSwap?.cancel(); badgeSwap = nil
         if on && badgeLeft == nil {
             let (l, r) = badgeViews()
             badgeLeft = NSHostingView(rootView: l); badgeRight = NSHostingView(rootView: r)
-            for b in [badgeLeft!, badgeRight!] { view.addSubview(b) }
+            for b in [badgeLeft!, badgeRight!] { b.isHidden = true; view.addSubview(b) }
         }
+        guard on else { setLiveBadges(false); return }
+        let w = DispatchWorkItem { [weak self] in
+            guard let self, self.hovered else { return }
+            self.setLiveBadges(true)
+        }
+        badgeSwap = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: w)
+    }
+
+    private func setLiveBadges(_ on: Bool) {
         if on { refreshBadges() }
+        liveBadges = on
         for b in [badgeLeft, badgeRight] { b?.isHidden = !on }   // hidden: no clicks on it
         if let item, let emby { redrawDecor(item, emby: emby) }
     }

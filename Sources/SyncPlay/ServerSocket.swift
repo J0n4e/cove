@@ -122,9 +122,32 @@ enum SocketMessage: Equatable {
     case keepAlive
     case syncPlayCommand(SyncPlayCommand)
     case syncPlayGroupUpdate(SyncPlayGroupUpdate)
+    // SyncPlay phase 4: Jellyfin remote control (RemoteControl.swift) ↓
+    case playstate(RemotePlaystate)
+    case generalCommand(RemoteGeneralCommand)
+    case play(RemotePlayRequest)
+    // ↑ phase 4
+    // --- New-media notifications (Sources/Notifications): Jellyfin's LibraryChanged, the ItemsAdded ids ---
+    case libraryChanged([String])
+    // --- end new-media notifications ---
     /// Anything else (Playstate, GeneralCommand, UserDataChanged…): ignored in phase 1.
     case other(String)
+    // >>> v1.19.0 Now Playing live (Sessions)
+    /// Jellyfin's Sessions message (sent while subscribed with SessionsStart): every session, as GET /Sessions.
+    case sessions(LiveSessions)
+    // <<< v1.19.0 Now Playing live (Sessions)
 }
+
+// >>> v1.19.0 Now Playing live (Sessions)
+/// The session list from a Sessions message. Equal when the same sessions are at the same place (for tests).
+struct LiveSessions: Equatable {
+    let list: [ActiveSession]
+    static func == (a: LiveSessions, b: LiveSessions) -> Bool {
+        a.list.map { "\($0.Id)|\($0.PlayState?.PositionTicks ?? -1)|\($0.PlayState?.IsPaused ?? false)" }
+            == b.list.map { "\($0.Id)|\($0.PlayState?.PositionTicks ?? -1)|\($0.PlayState?.IsPaused ?? false)" }
+    }
+}
+// <<< v1.19.0 Now Playing live (Sessions)
 
 /// The envelope every message comes in: {"MessageType": …, "Data": …, "MessageId": …}.
 struct SocketEnvelope: Decodable {
@@ -144,9 +167,22 @@ struct SocketEnvelope: Decodable {
         case "KeepAlive": message = .keepAlive
         case "SyncPlayCommand": message = .syncPlayCommand(try c.decode(SyncPlayCommand.self, forKey: .Data))
         case "SyncPlayGroupUpdate": message = .syncPlayGroupUpdate(try c.decode(SyncPlayGroupUpdate.self, forKey: .Data))
+        case "Sessions": message = .sessions(LiveSessions(list: try c.decode([ActiveSession].self, forKey: .Data)))   // v1.19.0
+        // SyncPlay phase 4: remote control (an odd payload stays .other instead of failing the message) ↓
+        case "Playstate": message = (try? c.decode(RemotePlaystate.self, forKey: .Data)).map { .playstate($0) } ?? .other(type)
+        case "GeneralCommand": message = (try? c.decode(RemoteGeneralCommand.self, forKey: .Data)).map { .generalCommand($0) } ?? .other(type)
+        case "Play": message = (try? c.decode(RemotePlayRequest.self, forKey: .Data)).map { .play($0) } ?? .other(type)
+        // ↑ phase 4
+        // --- New-media notifications: LibraryChanged ---
+        case "LibraryChanged": message = .libraryChanged((try? c.decode(LibraryChangedData.self, forKey: .Data))?.ItemsAdded ?? [])
+        // --- end new-media notifications ---
         default: message = .other(type)
         }
     }
+
+    // --- New-media notifications: LibraryChanged's Data (LibraryUpdateInfo) ---
+    private struct LibraryChangedData: Decodable { let ItemsAdded: [String]? }
+    // --- end new-media notifications ---
 
     static func decode(_ text: String) -> SocketEnvelope? {
         try? JSONDecoder().decode(SocketEnvelope.self, from: Data(text.utf8))
@@ -196,6 +232,7 @@ final class ServerSocket {
     var onConnect: () -> Void = {}
     var onDisconnect: () -> Void = {}
     var onMessage: (SocketMessage) -> Void = { _ in }
+    var onSessions: ([ActiveSession]) -> Void = { _ in }   // v1.19.0 Now Playing live
     var log: (String) -> Void = { _ in }
 
     private(set) var connected = false
@@ -276,8 +313,22 @@ final class ServerSocket {
             Task { try? await t.send(Self.keepAliveText) }
         case .keepAlive, .other: break
         case .syncPlayCommand, .syncPlayGroupUpdate: onMessage(env.message)
+        case .sessions(let live): onSessions(live.list)   // v1.19.0 Now Playing live
+        case .playstate, .generalCommand, .play: onMessage(env.message)   // SyncPlay phase 4: remote control
+        // --- New-media notifications: published on SyncPlayService.messages ---
+        case .libraryChanged(let ids): if !ids.isEmpty { onMessage(env.message) }
+        // --- end new-media notifications ---
         }
     }
+
+    // >>> v1.19.0 Now Playing live (Sessions)
+    /// Sends a text message (e.g. SessionsStart). false when the socket isn't connected or the send failed.
+    @discardableResult
+    func sendText(_ text: String) async -> Bool {
+        guard connected, let t = transport else { return false }
+        do { try await t.send(text); return true } catch { return false }
+    }
+    // <<< v1.19.0 Now Playing live (Sessions)
 
     private func startKeepAlive(_ timeout: Int, on t: SocketTransport) {
         keepAliveTask?.cancel()

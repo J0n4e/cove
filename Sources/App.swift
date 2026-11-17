@@ -14,6 +14,7 @@ struct CoveApp: App {
         NSApplication.shared.setActivationPolicy(.regular)
         Self.applyIcon()
         ScrollActivity.start()   // hover effects pause while a page scrolls
+        ClassicFont.migrate()    // removed font choices → SF Pro
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
     /// Dock icon, shown exactly as drawn (newer macOS redraws .icns icons in its own style). The same icon
@@ -57,8 +58,11 @@ struct CoveApp: App {
                 .preferredColorScheme(.dark)
                 // No blue macOS focus ring anywhere: it showed up at random on buttons after clicks and page changes
                 .focusEffectDisabled()
+                .overlay { RemoteMessageToast() }   // SyncPlay phase 4: Dashboard → Send message
                 .frame(minWidth: 1000, minHeight: 650)
                 .sessionExpiredAlert(emby)
+                // New movies / episodes as macOS notifications (Sources/Notifications)
+                .task { NewMediaService.shared.attach(to: emby) }
                 .task {
                     await WhatsNew.onLaunch()
                     await Updater.shared.checkOnLaunch()
@@ -136,6 +140,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                           queue: .main) { _ in
             MainActor.assumeIsolated { PlayerModel.active?.pauseForSleep() }
         }
+        // Clicks on new-media notifications, and their banners while Cove is in front
+        SystemNotifier.install()
         // Keeps the subtitle cache bounded (size and age), quietly in the background
         Task.detached(priority: .utility) { SubtitleCache.shared.prune() }
     }

@@ -389,7 +389,7 @@ struct UpdateRow: View {
             }
             Toggle("Check for updates automatically", isOn: $auto)
             Button("What's New in Cove…") { WhatsNew.show() }
-                .buttonStyle(.link).font(.caption)
+                .buttonStyle(.link).coveFont(size: 10)
         }
     }
 }

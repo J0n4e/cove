@@ -138,8 +138,8 @@ struct CastTile: View {
                 Text(p.Name).cvFont(big ? 13 : Glass3DTokens.Text.meta, weight: .semibold).lineLimit(1)
                 Text(p.Role ?? p.`Type` ?? "").cvFont(big ? 11 : 10).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
             } else {
-                Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
-                Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+                Text(p.Name).coveFont(size: big ? 12 : 10, weight: .semibold).lineLimit(1)
+                Text(p.Role ?? p.`Type` ?? "").coveFont(size: 10).foregroundColor(.secondary).lineLimit(1)
             }
         }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
@@ -284,7 +284,7 @@ struct DetailView: View {
     @ViewBuilder var pickers: some View {
         if !model.simple {
             VStack(alignment: .leading, spacing: 8) {
-                if let tag = model.full?.Taglines?.first { Text(tag).font(.headline) }
+                if let tag = model.full?.Taglines?.first { Text(tag).coveFont(size: 13, weight: .bold) }
                 streamsRow
             }.padding(.horizontal, 52)
         }
@@ -299,12 +299,12 @@ struct DetailView: View {
             if let y = item.ProductionYear { Text(String(y)) }
             if let t = model.full?.RunTimeTicks { Text(runtimeText(t)) }
             if let o = model.full?.OfficialRating {
-                Text(o).font(.caption).padding(.horizontal, 5).padding(.vertical, 1)
+                Text(o).coveFont(size: 10).padding(.horizontal, 5).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary))
             }
             if let g = model.full?.Genres?.first { Text(g) }
             if let t = model.full?.RunTimeTicks, !model.simple { Text("Ends at " + endsAtText(t)) }
-        }.font(.subheadline).foregroundColor(.secondary)
+        }.coveFont(size: 11).foregroundColor(.secondary)
     }
 
     /// Wraps onto more lines when the window is narrow, so long version names can't widen the page.
@@ -345,7 +345,7 @@ struct DetailView: View {
                 }
             }
         }
-        .font(.callout)
+        .coveFont(size: 12)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -418,7 +418,7 @@ struct DetailView: View {
                 .shadow(radius: 6)
                 .hoverLift()
                 .hoverItemActions(sItem, .bottomTrailing, children: model.episodes(inSeason: n))
-                Text(title).font(.body).foregroundColor(selected ? .primary : .secondary)
+                Text(title).coveFont(size: 13).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plainHand)
     }
@@ -456,7 +456,7 @@ struct DetailView: View {
             }
             if model.canFilterWatched {
                 Button(model.showAllEps ? "Hide watched" : "Show all") { model.showAllEps.toggle() }
-                    .buttonStyle(.plainHand).font(.callout.weight(.semibold)).foregroundStyle(.tint)
+                    .buttonStyle(.plainHand).coveFont(size: 12, weight: .semibold).foregroundStyle(.tint)
             }
             Spacer()
             episodeLayoutToggle
@@ -497,7 +497,7 @@ struct DetailView: View {
                         Spacer()
                         if let t = ep.RunTimeTicks, t > 0 { Text(runtimeText(t)).foregroundColor(.secondary) }
                     }
-                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).font(.callout).foregroundColor(.secondary) }
+                    if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).coveFont(size: 12).foregroundColor(.secondary) }
                 }
             }
             .padding(.vertical, 14)
@@ -642,7 +642,7 @@ struct DetailView: View {
     @ViewBuilder var aboutSection: some View {
         if let f = model.full {
             VStack(alignment: .leading, spacing: 16) {
-                Text("About").font(.title3.bold())
+                Text("About").coveFont(size: 15, weight: .bold)
                 if let d = parseDate(f.UserData?.LastPlayedDate) {
                     aboutRow("Date Last Played", d.formatted(date: .abbreviated, time: .shortened))
                 }
