@@ -404,7 +404,7 @@ struct ClassicTopNavButtons: View {
                 // Glossy lettering (the 3D face, no thickness)
                 if labels != "names" { Text3D(image: Image(systemName: icon), size: labels == "icons" ? 16 : 14, thick: false) }
                 if labels != "icons" {
-                    Text3D(text: badge > 0 ? "\(title) \(badge)" : title, size: 15, thick: false, weight: on ? .bold : .semibold)
+                    Text3D(text: badge > 0 ? "\(title) \(badge)" : title, size: 15, thick: false, weight: .bold)   // every tab as readable as the selected one (owner)
                 } else if badge > 0 { Text3D(text: "\(badge)", size: 15, thick: false) }
             }
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
