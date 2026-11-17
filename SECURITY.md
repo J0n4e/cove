@@ -8,7 +8,14 @@ Please don't open a public issue. We'll reply as soon as we can and credit you i
 
 ## Supported versions
 
+| Version | Supported |
+| --- | --- |
+| 1.18.x (latest) | Yes |
+| Older | No, please update |
+
 Only the latest release gets security fixes. Cove updates itself (Cove → Check for Updates…).
+
+For ordinary bugs, use the [bug report form](https://github.com/J0n4e/cove/issues/new/choose) instead.
 
 ## What Cove does to protect you
 
@@ -22,6 +29,10 @@ Only the latest release gets security fixes. Cove updates itself (Cove → Check
 - Hosts Cove contacts: the media servers you add; `api.github.com` and GitHub's release download host
   (`github.com` / `objects.githubusercontent.com`) for updates (the check can be turned off); `api.trakt.tv`
   only if you connect Trakt; YouTube (`youtube.com`, `youtube-nocookie.com`) when you play a trailer.
+- The live connection to a Jellyfin server (remote control, Watch together, new-media notifications) sends the
+  token in the `Authorization` header, never in the socket URL.
+- Tokens are never written to the debug log (`~/Library/Logs/Cove.log`, off by default).
+- New-media notifications are only shown for the server you're signed in to.
 - Your password is never stored; Cove keeps the server's sign-in token instead, and Sign Out ends that session on the server.
 
 ## What is stored where
@@ -50,7 +61,7 @@ prompt. `NSAllowsLocalNetworking` alone would not cover those remote servers. Wh
   never from https down to http.
 - The token is added to links (`api_key=`) and image requests only for URLs with the same scheme, host and port
   as the server (default ports filled in), so an https server's reply can't send it to `http://host:443/`.
-- Web views (YouTube trailers) keep full ATS: `NSAllowsArbitraryLoadsInWebContent` is set to false, and when that key
+- Web views (YouTube trailers) keep full ATS (https only): `NSAllowsArbitraryLoadsInWebContent` is set to false, and when that key
   is present macOS ignores `NSAllowsArbitraryLoads` for web content, so the trailer page can only load https.
 
 The release signing script copies the `.p12` password to the clipboard instead of printing it

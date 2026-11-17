@@ -8,7 +8,7 @@ A native macOS client for [Emby](https://emby.media) and [Jellyfin](https://jell
 
 1. Download `Cove.zip` from [Releases](https://github.com/J0n4e/cove/releases/latest) and unzip it.
 2. Move **Cove.app** to **Applications**.
-3. The first time, right-click the app and choose **Open**. The app is ad-hoc signed, not notarized.
+3. The first time, right-click the app and choose **Open** (or try to open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**). Cove is self-signed, not notarized by Apple, so macOS asks once.
 
 **Coming from EmbyFlix?** Cove is the new name of EmbyFlix and a separate download (EmbyFlix can't update itself to Cove). The first time Cove opens it copies your EmbyFlix settings, saved servers and sign-in, so there is nothing to set up again. You can delete EmbyFlix afterwards.
 
@@ -16,7 +16,34 @@ Closing the window quits the app; click the Dock icon to open it again.
 
 After that, Cove keeps itself up to date. It checks for new releases at launch and shows a **Software Update** window with the release notes: **Install and Restart**, **Later** or **Skip This Version** (a skipped version isn't offered again at launch; Check for Updates still shows it). You can also check yourself under **Cove → Check for Updates…**. After an update, **What's New in Cove** shows the notes once; it's also in the Cove menu.
 
+## Requirements
+
+- A Mac with Apple Silicon, **macOS 14 or later**. Liquid Glass (the Glass setting and the glass player controls) needs **macOS 26** or later; on older macOS Cove uses its own frosted look.
+- An **Emby** or **Jellyfin** server.
+- **Watch together** (SyncPlay) needs **Jellyfin 10.8 or later** and a user account that is allowed to use SyncPlay (Jellyfin Dashboard → Users → the user → SyncPlay access).
+
+## Logs and bug reports
+
+- Something wrong with playback? Turn on **Settings → Playback → Debug log**, reproduce it, and find the log at `~/Library/Logs/Cove.log` (kept under about 1 MB). Leave it off otherwise.
+- Report a bug with the [bug report form](https://github.com/J0n4e/cove/issues/new/choose): it asks for your Cove and macOS versions, server type and steps. Security problems go privately, see [SECURITY.md](SECURITY.md).
+
 ## Features
+
+### What's new in 1.17 and 1.18
+- **Themes:** Settings → General → **Theme** has **Glass** (default) and **Glass3D** (the former Classic theme, with a 3D glass look). On macOS 26+ both use Liquid Glass.
+- **Glass:** **Follow macOS**, or a slider from **Clear** to **Tinted**.
+- **Hover effects** for posters and cards: **Fogged mirror**, **Soft glow** or **Liquid lens**.
+- **Fonts:** SF Pro (default), SF Rounded, SF Pro Expanded, Avenir Next, Futura, New York or Seravek, with a live preview, plus **Text size**.
+- **Server pill** on Home shows the current server; click it to switch servers.
+- **Posters:** the ♡ (favorite) and ✓ (watched) badges are always shown and are buttons: click to toggle. With Trakt connected, ★ rates the title.
+- **Resume ring** on Continue Watching cards and episodes: click it to resume; the play button in the centre starts from the beginning.
+- **Now Playing** updates live.
+- **Player:** a glass control bar, a quick subtitle list plus the full subtitle panel, readable audio/subtitle track names, an **Episodes** panel and the **Up next** card.
+- **Watch together** (SyncPlay, Jellyfin 10.8+): create or join a group and play in sync with others. Pause, play and seek are shared, drift is corrected, everyone waits while someone buffers (unless **Don't wait for others** is on), you can rejoin a group, and a series can be watched together with the next episode starting for everyone.
+- **Remote control from the Jellyfin Dashboard:** play/pause/seek/stop, volume and mute, audio and subtitle tracks, full screen and **Send message**. Needs **Settings → Playback → Live connection to the server**.
+- **Notifications** for new movies and episodes (Settings → Home). macOS asks for permission the first time. On Emby Cove checks every 10 minutes; on Jellyfin it uses the live connection. Only the server you're signed in to is watched.
+- **Updates** are signed and verified; after an update **What's New** shows the release notes.
+- **Subtitle cache:** downloaded subtitles are kept on your Mac; Settings → About → Storage shows the size and clears it.
 
 ### Security (v1.15)
 - **Signed updates:** every release is signed, and the in-app updater only installs an update whose signature checks out, so a fake download can't be installed.
@@ -33,7 +60,7 @@ After that, Cove keeps itself up to date. It checks for new releases at launch a
 ### Themes (v1.12)
 Settings → General → **Theme**:
 - **Glass** (default): full-width banners, frosted glass buttons and bars, Up Next and Recently Added, the new Settings window, media keys and an optional separate player window (details below).
-- **Classic**: the original Cove v1.9.2 screens, options and behaviour, unchanged.
+- **Glass3D**: the original Cove layout (called Classic before 1.17) with a 3D glass look.
 
 Switching is instant and swaps the whole app, including the Dock icon.
 
@@ -49,7 +76,7 @@ Switching is instant and swaps the whole app, including the Dock icon.
 - Sign in to one or more Emby or Jellyfin servers (http or https). Switch between them in Settings → Servers.
 - Home page with a rotating featured banner (white text with a black outline over the picture), Continue Watching, and rows for each library.
 - **Continue Watching** cards show the title bottom-left, "S3·E3 · 42m left" (or the time left for a movie) top-left and a white progress ring bottom-right. The play button resumes; clicking the card opens the series page on that season (or the movie page).
-- **Navigation:** a sidebar, or a **top bar** under the title bar: EMBYFLIX on the left, a pill with Home, Favorites, Now Playing, your libraries in the middle, search and Settings on the right. Choose it under Settings → General → Appearance → Navigation.
+- **Navigation:** a sidebar, or a **top bar** under the title bar: the app name on the left, a pill with Home, Favorites, Now Playing, your libraries in the middle, search and Settings on the right. Choose it under Settings → General → Appearance → Navigation.
 - Library pages:
   - grid or list view
   - sort and filter (watched, unwatched, genre), with an A–Z jump bar
@@ -58,7 +85,7 @@ Switching is instant and swaps the whole app, including the Dock icon.
 - Series pages have a season poster row with unwatched counts and an episode grid or a list (number, still with progress, title, length, summary). A season shows only its unwatched episodes, with a **Show all / Hide watched** link when it has both. Grid cards put the name bottom-left, "S3·E3 · 42m left" top-left and a white progress ring bottom-right. The episode description can be turned off. Episode stills are loaded without server image frames. Movie pages show cast, similar titles and version, audio, subtitle and quality pickers.
 - **Actor pages:** click anyone in Cast & Crew to see all their movies and shows in your libraries.
 - **Favorites** page like Emby: Favorite Movies, Favorite Shows and Favorite Collections rows; each heading opens the full list. Shows display their run (e.g. 2007 – 2019).
-- Watched/unwatched badges (neutral white-on-dark, so they don't clash with the accent colour).
+- ♡ and ✓ badges on posters toggle favorite and watched with one click (an empty ♡ or a dim ✓ when not set).
 - **Now Playing:** every active stream on the server, with its title, position, direct play or transcode, client, device, user and IP.
 - Rows scroll with the arrows (one item per click; each arrow hides when that end is reached), by dragging with the mouse, or with the trackpad.
 - Search across movies, shows and people. Matching people appear in their own row and open their actor page.
@@ -83,7 +110,7 @@ Switching is instant and swaps the whole app, including the Dock icon.
 - Keyboard: Space play/pause (or play the next episode when the Up next card shows), ← → skip, F full screen, E episodes, C chapters, I info, P picture in picture, Esc back.
 
 ### Settings (⌘,)
-General (accent color, background, navigation style), Libraries (**Poster labels**, hover preview, episode layout and description, library list), Subtitles, Playback (including an optional player debug log, off by default), Servers (saved servers and **Sign Out**, which also ends the session on the server), and About (version, update controls, **Save and load settings** to a file, and **Reset all settings to default**).
+General (theme, Glass, hover effect, font and text size, accent color, background, navigation style), Home (rows and new-media notifications), Libraries (**Poster labels**, hover preview, episode layout and description, library list), Subtitles, Playback (live connection to the server, Watch together, and an optional player debug log, off by default), Servers (saved servers and **Sign Out**, which also ends the session on the server), and About (version, update controls, Storage for the picture and subtitle caches, **Save and load settings** to a file, and **Reset all settings to default**).
 
 > Intro skipping and thumbnail previews depend on your Emby server: intro detection and thumbnail-image extraction must be enabled there.
 
@@ -94,13 +121,13 @@ Requires macOS 14+ and Xcode 15+ (Swift 5.9).
 ```sh
 swift run                 # run in development
 ./make-app.sh             # build dist/Cove.app (Apple Silicon, ad-hoc signed)
-VERSION=v1.15.1 ./make-app.sh   # set the version shown in the app (default: latest git tag)
+VERSION=v1.18.5 ./make-app.sh   # set the version shown in the app (default: latest git tag)
 ```
 
 ## Development and releases
 
 - Work goes to the **`Development`** branch through pull requests. `Development` is merged into `main` for each release.
-- Releases are built by the **Build Cove.app** GitHub Actions workflow when a version tag is pushed (for example `v1.15` or `v1.15.1`; small releases use X.Y.Z, major ones X.Y). It signs the app and the update, and creates a draft release to write notes for and publish. Full releases are what the in-app updater installs, and only when their update signature verifies; pre-releases are ignored. See [RELEASING.md](RELEASING.md) (one-time key setup included) and [SECURITY.md](SECURITY.md).
+- Releases are built by the **Build Cove.app** GitHub Actions workflow when the owner tags `main` (`vX.Y.Z`). It signs the app and the update (Ed25519) and creates a draft release to write notes for and publish. The in-app updater installs only published releases whose signature verifies; pre-releases are ignored. See [RELEASING.md](RELEASING.md) and [SECURITY.md](SECURITY.md).
 
 ## License
 
