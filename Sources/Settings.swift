@@ -402,6 +402,7 @@ struct HomeSettings: View {
             PrefNote("The next episode of each show you're watching, under Continue Watching.")
             PrefNote("Which libraries get a row on Home, and what each row shows, is set per library in Libraries.")
         }
+        NotificationsSettings()
     }
 }
 
@@ -412,7 +413,7 @@ struct HomeSettings: View {
 /// settings files never contain them (both themes).
 enum InternalPrefs {
     static let keys: Set<String> = ["server", "token", "uid", "servers", "did", "importedEmbyFlix",
-                                    "imageCacheTokenFree", "imageCacheNoHeaders"]
+                                    "imageCacheTokenFree", "imageCacheNoHeaders", NewMediaStore.key]
     static let prefixes = ["jellyfin-"]
     static func contains(_ key: String) -> Bool { keys.contains(key) || prefixes.contains { key.hasPrefix($0) } }
 }

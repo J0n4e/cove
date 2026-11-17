@@ -127,6 +127,9 @@ enum SocketMessage: Equatable {
     case generalCommand(RemoteGeneralCommand)
     case play(RemotePlayRequest)
     // ↑ phase 4
+    // --- New-media notifications (Sources/Notifications): Jellyfin's LibraryChanged, the ItemsAdded ids ---
+    case libraryChanged([String])
+    // --- end new-media notifications ---
     /// Anything else (Playstate, GeneralCommand, UserDataChanged…): ignored in phase 1.
     case other(String)
     // >>> v1.19.0 Now Playing live (Sessions)
@@ -170,9 +173,16 @@ struct SocketEnvelope: Decodable {
         case "GeneralCommand": message = (try? c.decode(RemoteGeneralCommand.self, forKey: .Data)).map { .generalCommand($0) } ?? .other(type)
         case "Play": message = (try? c.decode(RemotePlayRequest.self, forKey: .Data)).map { .play($0) } ?? .other(type)
         // ↑ phase 4
+        // --- New-media notifications: LibraryChanged ---
+        case "LibraryChanged": message = .libraryChanged((try? c.decode(LibraryChangedData.self, forKey: .Data))?.ItemsAdded ?? [])
+        // --- end new-media notifications ---
         default: message = .other(type)
         }
     }
+
+    // --- New-media notifications: LibraryChanged's Data (LibraryUpdateInfo) ---
+    private struct LibraryChangedData: Decodable { let ItemsAdded: [String]? }
+    // --- end new-media notifications ---
 
     static func decode(_ text: String) -> SocketEnvelope? {
         try? JSONDecoder().decode(SocketEnvelope.self, from: Data(text.utf8))
@@ -305,6 +315,9 @@ final class ServerSocket {
         case .syncPlayCommand, .syncPlayGroupUpdate: onMessage(env.message)
         case .sessions(let live): onSessions(live.list)   // v1.19.0 Now Playing live
         case .playstate, .generalCommand, .play: onMessage(env.message)   // SyncPlay phase 4: remote control
+        // --- New-media notifications: published on SyncPlayService.messages ---
+        case .libraryChanged(let ids): if !ids.isEmpty { onMessage(env.message) }
+        // --- end new-media notifications ---
         }
     }
 
