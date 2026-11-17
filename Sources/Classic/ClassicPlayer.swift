@@ -332,16 +332,13 @@ struct ClassicPlayerView: View {
         // Esc: close a panel, else leave full screen (video keeps playing), else close the player.
         // Caught at the app level (AppKit sometimes swallows Esc before SwiftUI sees it, e.g. after full
         // screen), but only in the player's own window.
-        .background(WindowReader { ui.playerWin.window = $0; if glass3DChrome { TrafficLights.ensureVisible($0) } })
+        .background(WindowReader { ui.playerWin.window = $0 })
         .onAppear {
             ui.listOpen = { [dropdowns] in dropdowns?.list != nil }
             ui.installKeyMonitor(toggleFullScreen: { toggleFullScreen() }, close: { close() })
         }
         .onDisappear { ui.removeKeyMonitor() }
         // No title strip: the traffic lights float over the video and come and go with the controls
-        // Normal, always-visible traffic lights over the video, like the Settings window (owner's choice)
-        .onAppear { if glass3DChrome { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { TrafficLights.ensureVisible(ui.playerWin.window) } } }
-        .onChange(of: ui.isFullScreen) { if glass3DChrome { TrafficLights.ensureVisible(ui.playerWin.window) } }
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false

@@ -131,22 +131,6 @@ struct ClassicWindowChrome: NSViewRepresentable {
 
 /// The window's close, minimise and zoom buttons shown or hidden (the player's controls take them along).
 enum TrafficLights {
-    /// Shows the close, minimise and zoom buttons normally (fully opaque, not hidden), with the title bar
-    /// transparent so they sit over the content. Used by the player window, which has a hidden title bar.
-    static func ensureVisible(_ w: NSWindow?) {
-        guard let w else { return }
-        w.titlebarAppearsTransparent = true
-        w.titleVisibility = .hidden
-        for t in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            guard let b = w.standardWindowButton(t) else { continue }
-            b.isHidden = false
-            b.alphaValue = 1
-            // The title bar container can be hidden along with the toolbar: bring it back too
-            var v: NSView? = b.superview
-            while let x = v, x !== w.contentView?.superview { x.isHidden = false; x.alphaValue = 1; v = x.superview }
-        }
-    }
-
     static func show(_ on: Bool, in w: NSWindow?, animated: Bool = true) {
         guard let w else { return }
         // Full screen: macOS handles them; always restore there
