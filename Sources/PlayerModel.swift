@@ -41,6 +41,12 @@ final class PlayerModel: ObservableObject {
     private var req: PlayRequest?
     private var pendingSeek: Double = 0
     private var resumeTarget: Double = 0      // where the item was told to start; checked once it is ready
+    // SyncPlay timing (SyncPlay/SyncPlayTiming.swift) ↓
+    var syncGroupMode = false
+    var syncPrerolled = false
+    var syncSeeks = 0
+    var syncSeekGen = 0
+    // ↑ SyncPlay timing
     private weak var emby: Emby?
     private var lastReport: Double = 0
     private var reportedStart = false
@@ -200,6 +206,7 @@ final class PlayerModel: ObservableObject {
                     // A stale event from a stream that was restarted meanwhile must not mark the new one ready
                     guard let self, gen == self.startGen, self.player?.currentItem === i else { return }
                     self.isReady = true
+                    if self.resumeTarget <= 0 { self.syncPreroll() }   // SyncPlay timing
                     if self.resumeTarget > 0 {
                         let t = self.resumeTarget; self.resumeTarget = 0
                         // Safety net in case the early seek was not applied: exact seek now
@@ -208,6 +215,7 @@ final class PlayerModel: ObservableObject {
                                                     toleranceBefore: .zero, toleranceAfter: .zero)
                         }
                         self.updateCaption(self.now)
+                        self.syncPreroll()   // SyncPlay timing
                         self.dlog("resume to \(self.fmt(t)): player at \(self.fmt(self.now)) (\(self.session?.method ?? "?")), re-encode requested")
                         Task { @MainActor [weak self] in
                             try? await Task.sleep(for: .seconds(5))
@@ -239,6 +247,9 @@ final class PlayerModel: ObservableObject {
         }
         player = p
         p.defaultRate = speed
+        syncPrerolled = false; syncSeeks = 0
+        syncGroupMode = emby.syncPlay.group.isInGroup   // SyncPlay timing: exact starts while in a group
+        if syncGroupMode { p.automaticallyWaitsToMinimizeStalling = false }
         if !req.startPaused { p.play() }   // a SyncPlay group starts it once everyone is ready
         // A conversion that never starts would otherwise leave a black screen with a spinner forever
         Task { @MainActor [weak self] in
@@ -670,6 +681,17 @@ final class PlayerModel: ObservableObject {
     }
 
     func skip(_ d: Double) { seek(to: now + d) }
+
+    /// SyncPlay timing: bookkeeping localTogglePlay does on resume, for a start by setRate(_:time:atHostTime:)
+    func syncTimedStartBegan() {
+        pausedAt = nil
+        pausedKeepAlive(false)
+        debugTimer?.invalidate(); debugTimer = nil
+        playing = true
+    }
+
+    /// SyncPlay timing: caption refresh after a group seek
+    func localSeekCaption(_ t: Double) { updateCaption(t) }
 
     private func updateCaption(_ raw: Double) {
         let t = raw - Double(subOffset) / 1000

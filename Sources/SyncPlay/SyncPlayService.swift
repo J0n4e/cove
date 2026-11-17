@@ -277,16 +277,33 @@ final class SyncPlayService: ObservableObject {
         ] as [String: Any], options: [.sortedKeys])) ?? Data()
     }
 
+    /// Timing: waits before each retry of the capabilities post (5 tries in all)
+    nonisolated static let capabilitiesBackoff: [TimeInterval] = [2, 4, 8, 16]
+
+    /// Retried on a 5xx or a network error (a restarting server answers 502 / 503 for a while) while the same
+    /// session is current.
     func postCapabilities(_ c: Credentials) async {
         guard var r = request(c, "/Sessions/Capabilities/Full") else { return }
         r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
         r.httpBody = Self.capabilitiesBody()
-        do {
-            let (_, resp) = try await http(r)
-            log("SyncPlay: capabilities sent, HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)")
-        } catch {
-            log("SyncPlay: capabilities failed: \((error as NSError).domain) \((error as NSError).code)")
+        let tries = Self.capabilitiesBackoff.count + 1
+        for n in 1...tries {
+            guard !Task.isCancelled, current == c else { return }
+            var retry = false
+            do {
+                let (_, resp) = try await http(r)
+                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+                retry = code >= 500
+                log("SyncPlay: capabilities sent, HTTP \(code) (try \(n)/\(tries))")
+            } catch {
+                retry = true
+                log("SyncPlay: capabilities failed: \((error as NSError).domain) \((error as NSError).code) (try \(n)/\(tries))")
+            }
+            guard retry, n < tries else { return }
+            let wait = Self.capabilitiesBackoff[n - 1]
+            log("SyncPlay: capabilities retry in \(Int(wait)) s")
+            do { try await sleep(wait) } catch { return }
         }
     }
 

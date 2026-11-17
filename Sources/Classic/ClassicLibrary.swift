@@ -178,7 +178,7 @@ struct ClassicLibraryView: View {
             if model.layout == "list" {
                 LazyVStack(spacing: 6) {
                     ForEach(model.visibleItems) { it in
-                        ListRow(item: it).onAppear {
+                        Glass3DListRow(item: it).onAppear {   // v1.18.6: the poster badges, no hover buttons
                             model.listRowAppeared(it.id)
                         }
                     }

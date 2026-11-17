@@ -983,11 +983,10 @@ extension ClassicPlayerView {
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
+                    .helpLabel(emby.syncPlay.group.isInGroup ? GroupUpNext.cancelTip : "Cancel")
                 }
-                if autoNext {
-                    Text("Next starts in \(classicSecsLeft)s")
-                        .cvFont(11).foregroundColor(.secondary)
-                }
+                // v1.18.6: in a SyncPlay group, the group's countdown ("Next episode for everyone in 0:12")
+                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: classicSecsLeft, duration: ui.player.duration)
             }
         }
         .padding(12)
