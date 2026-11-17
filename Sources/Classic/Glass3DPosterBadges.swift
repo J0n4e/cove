@@ -1,28 +1,28 @@
 import SwiftUI
 
 // Glass3D posters (v1.18.4, owner's option A): the badges at the top ARE the buttons. ♡ toggles the favourite,
-// ✓ toggles watched; while the pointer is on the poster, a faint outline ♡ / ✓ shows in the same spot when the
-// item isn't a favourite / isn't watched yet, so it can be clicked. No hover pills at the bottom any more.
+// ✓ toggles watched. Both are always shown and never change on hover (owner): empty ♡ / dim ✓ when not set. No hover pills at the bottom any more.
 // Small dark glass circles with white symbols (Glass3DTokens fill / stroke); your Trakt ★ keeps its number.
 
 enum PosterBadges {
     /// Diameter of a badge circle.
     static let size: CGFloat = 23
     static let inset: CGFloat = 8
-    /// The faint outline badge (not favourite / not watched, poster hovered).
-    static let outlineOpacity = 0.6
+    /// The dim ✓ of a not-watched item (always shown).
+    static let outlineOpacity = 0.35
 
     static func favTip(_ fav: Bool) -> String { fav ? "Remove from Favorites" : "Add to Favorites" }
     static func watchedTip(_ played: Bool) -> String { played ? "Mark as unwatched" : "Mark as watched" }
 
-    /// Which favourite badge shows: nil (none), "heart.fill" (favourite), "heart" (faint outline on hover).
-    static func favSymbol(fav: Bool, hover: Bool) -> String? { fav ? "heart.fill" : (hover ? "heart" : nil) }
-    /// Which watched badge shows: "checkmark" (watched), the unwatched-episode count text ("12", "99+"),
-    /// the faint outline "checkmark" on hover, or nil.
+    /// The favourite badge, always shown and never changed by hover (owner): "heart.fill" (favourite) or the
+    /// empty "heart" (not a favourite). Always there, so the ★ next to it never moves.
+    static func favSymbol(fav: Bool, hover: Bool) -> String? { fav ? "heart.fill" : "heart" }
+    /// The watched badge, always shown and never changed by hover: "checkmark" (watched), the unwatched-episode
+    /// count ("12", "99+"), or an empty-looking circle with a dim ✓ (outline = true: not watched).
     static func watchedContent(played: Bool, unwatched: Int, hover: Bool) -> (text: String, outline: Bool)? {
         if played { return ("checkmark", false) }
         if unwatched > 0 { return (unwatched > 99 ? "99+" : "\(unwatched)", false) }
-        return hover ? ("checkmark", true) : nil
+        return ("checkmark", true)
     }
 }
 
@@ -82,7 +82,7 @@ struct PosterFavBadge: View {
         let fav = emby.isFav(item)
         if let s = PosterBadges.favSymbol(fav: fav, hover: hover) {
             Button { Task { await emby.setFavChecked(item.id, !fav, children: children, name: item.Name) } } label: {
-                PosterBadgeCircle(symbol: s, outline: !fav)
+                PosterBadgeCircle(symbol: s)   // empty ♡ in full white: clear without looking faded
             }
             .buttonStyle(.plainHand)
             .helpLabel(PosterBadges.favTip(fav))
@@ -150,8 +150,8 @@ struct PosterBadgesLeading: View {
     let hover: Bool
     var body: some View {
         HStack(spacing: 5) {
-            // The ♡ slot is always kept, so the ★ never moves when the outline ♡ appears on hover
-            PosterFavBadge(item: item, hover: hover).frame(width: PosterBadges.size, height: PosterBadges.size)
+            // The ♡ is always shown, so the ★ never moves
+            PosterFavBadge(item: item, hover: hover)
             PosterRatingBadge(item: item)
         }
     }

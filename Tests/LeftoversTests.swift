@@ -94,7 +94,7 @@ final class LeftoversTests: XCTestCase {
         XCTAssertEqual(ItemBadgeRules.unwatched(.episode, played: false, count: 7), 0)
         // Watched episode: ✓ filled; unwatched: outline only on hover
         XCTAssertEqual(PosterBadges.watchedContent(played: true, unwatched: 0, hover: false)?.outline, false)
-        XCTAssertNil(PosterBadges.watchedContent(played: false, unwatched: 0, hover: false))
+        XCTAssertEqual(PosterBadges.watchedContent(played: false, unwatched: 0, hover: false)?.outline, true)
         XCTAssertEqual(PosterBadges.watchedContent(played: false, unwatched: 3, hover: false)?.text, "3")
     }
 

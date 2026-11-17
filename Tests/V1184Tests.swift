@@ -12,18 +12,18 @@ final class V1184Tests: XCTestCase {
         XCTAssertEqual(PosterBadges.watchedTip(true), "Mark as unwatched")
     }
 
-    func testFavBadgeShowsOutlineOnlyOnHover() {
+    func testFavBadgeAlwaysShownNoHoverChange() {
         XCTAssertEqual(PosterBadges.favSymbol(fav: true, hover: false), "heart.fill")
         XCTAssertEqual(PosterBadges.favSymbol(fav: true, hover: true), "heart.fill")
         XCTAssertEqual(PosterBadges.favSymbol(fav: false, hover: true), "heart")
-        XCTAssertNil(PosterBadges.favSymbol(fav: false, hover: false))
+        XCTAssertEqual(PosterBadges.favSymbol(fav: false, hover: false), "heart")
     }
 
     func testWatchedBadgeContent() {
         XCTAssertEqual(PosterBadges.watchedContent(played: true, unwatched: 0, hover: false)?.text, "checkmark")
         XCTAssertEqual(PosterBadges.watchedContent(played: true, unwatched: 0, hover: false)?.outline, false)
         XCTAssertEqual(PosterBadges.watchedContent(played: false, unwatched: 0, hover: true)?.outline, true)
-        XCTAssertNil(PosterBadges.watchedContent(played: false, unwatched: 0, hover: false))
+        XCTAssertEqual(PosterBadges.watchedContent(played: false, unwatched: 0, hover: false)?.outline, true)
         XCTAssertEqual(PosterBadges.watchedContent(played: false, unwatched: 5, hover: false)?.text, "5")
         XCTAssertEqual(PosterBadges.watchedContent(played: false, unwatched: 140, hover: true)?.text, "99+")
         XCTAssertTrue((22...24).contains(PosterBadges.size))
