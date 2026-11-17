@@ -15,7 +15,7 @@ final class PlayerUIModel: ObservableObject {
         case classic
     }
 
-    enum Panel { case subtitles, appearance, chapters, episodes }
+    enum Panel { case subtitles, appearance, chapters, episodes, syncPlay }
 
     let style: Style
     let player: PlayerModel
@@ -108,6 +108,9 @@ final class PlayerUIModel: ObservableObject {
     }
 
     func toggleChapters() { panel = panel == .chapters ? nil : .chapters }
+
+    /// The SyncPlay (watch together) panel.
+    func toggleSyncPlay() { panel = panel == .syncPlay ? nil : .syncPlay }
 
     /// The subtitles / audio / quality / speed panel.
     func toggleMediaPanel() { panel = panel == nil ? .subtitles : nil }

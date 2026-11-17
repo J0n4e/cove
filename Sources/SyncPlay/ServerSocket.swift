@@ -97,6 +97,10 @@ struct SyncPlayGroupUpdate: Decodable, Equatable {
     let text: String?
     let state: String?
     let reason: String?
+    /// GroupJoined: the group (GroupInfoDto)
+    let group: SyncPlayGroupInfo?
+    /// PlayQueue: the queue (PlayQueueUpdate)
+    let queue: SyncPlayQueueUpdate?
 
     private enum K: String, CodingKey { case GroupId, type = "Type", Data }
     private struct StateData: Decodable { let State: String?; let Reason: String? }
@@ -108,6 +112,8 @@ struct SyncPlayGroupUpdate: Decodable, Equatable {
         text = try? c.decode(String.self, forKey: .Data)
         let s = try? c.decode(StateData.self, forKey: .Data)
         state = s?.State; reason = s?.Reason
+        group = type == "GroupJoined" ? try? c.decode(SyncPlayGroupInfo.self, forKey: .Data) : nil
+        queue = type == "PlayQueue" ? try? c.decode(SyncPlayQueueUpdate.self, forKey: .Data) : nil
     }
 }
 

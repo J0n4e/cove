@@ -265,6 +265,7 @@ struct ClassicPlayerView: View {
                 if ui.showInfo { classicInfoOverlay }
                 classicCornerCards
                 panelLayer
+                SyncPlayToast(group: emby.syncPlay.group, classic: classic)
                 // Title bar strip, above every layer (the controls' dark gradient used to darken it)
                 VStack(spacing: 0) {
                     ClassicPlayerView.titleBarGray.frame(height: titleBarHeight)
@@ -552,6 +553,10 @@ struct ClassicPlayerView: View {
             HStack { Spacer(); classicChaptersPanel }
                 .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .syncPlay:
+            HStack { Spacer(); ClassicSyncPlayPanel(group: emby.syncPlay.group, classic: classic) { ui.panel = nil } }
+                .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
         case nil: EmptyView()
         }
     }
@@ -822,6 +827,11 @@ extension ClassicPlayerView {
                 iconButton("list.bullet.rectangle", size: 18, on: ui.panel == .chapters) {
                     withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
                 }.helpLabel("Chapters (C)")
+            }
+            SyncPlayPlayerButton(group: emby.syncPlay.group) {
+                iconButton("person.2.fill", size: 18, on: ui.panel == .syncPlay) {
+                    withAnimation(.easeOut(duration: 0.2)) { ui.toggleSyncPlay() }
+                }.helpLabel("Watch together")
             }
             iconButton("info.circle", size: 18, on: ui.showInfo) { ui.showInfo.toggle() }.helpLabel("Playback info (I)")
             if model.pipSupported {
