@@ -79,6 +79,10 @@ struct MStream: Decodable, Identifiable {
     let Width: Int?
     let Height: Int?
     let BitRate: Int?
+    /// The track's own name, when the file gives one ("Director's commentary"); decoded when present
+    var Title: String? = nil
+    /// Audio: "5.1", "stereo"… (decoded when present)
+    var ChannelLayout: String? = nil
     var id: Int { Index }
 }
 

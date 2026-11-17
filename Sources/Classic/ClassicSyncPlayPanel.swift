@@ -38,6 +38,7 @@ struct ClassicSyncPlayPanel: View {
                         }
                     }
                 }
+                .classicScrollBars()   // thin overlay bars, only while scrolling
                 .frame(maxHeight: 260)
             } else {
                 HStack(spacing: 8) {
