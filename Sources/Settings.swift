@@ -655,21 +655,21 @@ struct LibrariesSettings: View {
             .coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
             .padding(.horizontal, 12).padding(.vertical, 6)
             Divider()
-            List {
-                ForEach(tableRows, id: \.self) { id in
-                    Group {
-                        if NavOrder.sections.contains(id) { sectionLine(id, on: sel == id) }
-                        else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryLine(i, on: sel == id) }
+            // A plain stack, not a List: the List's table view (NSTableView) took the drag over for its own row
+            // dragging and cancelled ours, so rows never moved (owner)
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(tableRows, id: \.self) { id in
+                        Group {
+                            if NavOrder.sections.contains(id) { sectionLine(id, on: sel == id) }
+                            else if let i = emby.libs.firstIndex(where: { $0.id == id }) { libraryLine(i, on: sel == id) }
+                        }
+                        .zIndex(dragId == id ? 1 : 0)
                     }
-                    .listRowInsets(EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
                 }
+                .padding(.horizontal, 4).padding(.vertical, 3)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            // Up to 7 rows show at once; more scroll inside the table, with a scrollbar
-            .scrollDisabled(tableRows.count <= 7)
+            .scrollDisabled(tableRows.count <= 7 || dragId != nil)
             .scrollIndicators(tableRows.count > 7 ? .visible : .hidden)
             .frame(height: CGFloat(min(tableRows.count, 7)) * 32 + 8)
         }
@@ -727,7 +727,7 @@ struct LibrariesSettings: View {
             .foregroundColor(on || dragId == id ? .white : .secondary)
             .frame(width: 18, height: 28).contentShape(Rectangle())
             .onHover { inside in if inside { NSCursor.openHand.push() } else { NSCursor.pop() } }
-            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+            .highPriorityGesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
                 .onChanged { v in
                     let rows = tableRows
                     if dragId == nil {
