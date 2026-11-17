@@ -804,6 +804,8 @@ struct SelfHoverLift: ViewModifier {
     var play: CGFloat = 0
     /// When set, the play icon is a button of its own (the card around it opens the details instead)
     var onPlay: (() -> Void)? = nil
+    /// Tooltip of the play button (nil: the default)
+    var playTip: String? = nil
     @State private var hover = false
     @Environment(\.classicGlass) private var classic   // Classic theme: the glass play button
     @ViewBuilder var icon: some View {
@@ -819,7 +821,7 @@ struct SelfHoverLift: ViewModifier {
                 if hover && play > 0 {
                     if let onPlay {
                         Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand)
-                            .tip(classic ? "" : "Play").accessibilityLabel("Play")   // Classic: no tooltip
+                            .tip(playTip ?? (classic ? "" : "Play")).accessibilityLabel(playTip ?? "Play")   // Classic: no default tooltip
                     } else { icon }
                 }
             }

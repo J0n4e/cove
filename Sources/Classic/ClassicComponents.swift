@@ -178,7 +178,9 @@ struct ClassicPosterCard: View {
 
 extension View {
     /// `play`: size of the play button shown on hover (0 = none).
-    func classicHoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(SelfHoverLift(play: play, onPlay: onPlay)) }
+    func classicHoverLift(play: CGFloat = 0, playTip: String? = nil, onPlay: (() -> Void)? = nil) -> some View {
+        modifier(SelfHoverLift(play: play, onPlay: onPlay, playTip: playTip))
+    }
 }
 
 /// A page's name at the top left (a library, Favorites): its icon and name in 3D lettering.

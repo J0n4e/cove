@@ -1,130 +1,130 @@
 import SwiftUI
 
-// TEMP: owner compares, remove the loser before release
-// Two ways to show how far a partly watched item got on a Glass3D thumbnail (Continue Watching, episode rows and
-// tiles), switched by Settings → General → Progress style (@AppStorage("progressStyle"), "ring" or "glow").
-// Once the owner picks one, delete the other view, the setting and `ProgressStyle`.
+// How far a partly watched item got on a Glass3D thumbnail (Continue Watching, episode rows and tiles): a glowing
+// accent line along the thumbnail's bottom edge, plus a Resume button in the bottom-right corner (the glass play
+// button with an accent ring filling clockwise from the top). The thumbnail's centre play button then plays from
+// the beginning.
 
 enum ProgressStyle {
-    // TEMP: owner compares, remove the loser before release
-    static let key = "progressStyle"
-    static let ring = "ring"
-    static let glow = "glow"
-    static let choices: [(String, String)] = [(ring, "Ring"), (glow, "Glow")]
-
-    /// The trimmed share of the ring / border: the watched fraction clamped to 0…1; nil (draw nothing) for an
-    /// unstarted or finished item, or a value that isn't a number.
+    /// The watched fraction for the line / ring: clamped to 0…1; nil (draw nothing) for an unstarted or finished
+    /// item, or a value that isn't a number.
     static func trimFraction(_ fraction: Double) -> CGFloat? {
         guard fraction.isFinite, fraction > 0, fraction < 1 else { return nil }
         return CGFloat(min(1, max(0, fraction)))
     }
 
-    /// Where the glowing border starts: the middle of the top edge, so it fills clockwise like a clock hand
-    /// (and like the ring), symmetric on any card width.
-    static func borderStart(in rect: CGRect) -> CGPoint {
-        CGPoint(x: rect.midX, y: rect.minY)
+    /// Width of the bottom glow line for a thumbnail `total` points wide (0 when nothing is drawn).
+    static func lineWidth(_ fraction: Double, total: CGFloat) -> CGFloat {
+        guard let f = trimFraction(fraction), total.isFinite, total > 0 else { return 0 }
+        return total * f
     }
 
-    /// Room the ring takes in the bottom-right corner (its size plus its inset), so the title beside it stops short.
+    /// Thickness of the bottom glow line.
+    static let line: CGFloat = 2.5
+
+    /// The Resume button in the bottom-right corner: its size, its inset from the right, and its inset from the
+    /// bottom (higher, so it sits clear above the bottom glow line).
     static let ringSize: CGFloat = 36
     static let ringInset: CGFloat = 8
+    static var ringBottomInset: CGFloat { ringInset + line + 4 }
+    /// Room the ring takes, so the title beside it stops short.
     static var ringClearance: CGFloat { ringSize + ringInset + 4 }
-}
 
-/// A rounded rectangle traced clockwise from the middle of its top edge (see `ProgressStyle.borderStart`), so
-/// `.trim(from: 0, to: f)` fills from there. SwiftUI's own RoundedRectangle path starts elsewhere.
-struct TopCenterRoundedBorder: Shape {
-    let radius: CGFloat
-    func path(in rect: CGRect) -> Path {
-        let r = min(radius, rect.width / 2, rect.height / 2)
-        var p = Path()
-        p.move(to: ProgressStyle.borderStart(in: rect))
-        p.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
-        p.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.minY), tangent2End: CGPoint(x: rect.maxX, y: rect.minY + r), radius: r)
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
-        p.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.maxY), tangent2End: CGPoint(x: rect.maxX - r, y: rect.maxY), radius: r)
-        p.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
-        p.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.maxY - r), radius: r)
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
-        p.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.minY), tangent2End: CGPoint(x: rect.minX + r, y: rect.minY), radius: r)
-        p.closeSubpath()
-        return p
+    /// "0:45", "12:34", "1:02:03" for a saved position in seconds.
+    static func timeText(_ seconds: Double) -> String {
+        let s = seconds.isFinite ? max(0, Int(seconds)) : 0
+        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
     }
+    static func resumeTip(_ seconds: Double) -> String { "Resume from " + timeText(seconds) }
+
+    /// Where the centre play button starts: the beginning (0) for a partly watched item, else nil (the normal
+    /// play path, as before).
+    static func centreStart(hasProgress: Bool) -> Double? { hasProgress ? 0 : nil }
+    /// The centre play button's tooltip (nil: unchanged).
+    static func centreTip(hasProgress: Bool) -> String? { hasProgress ? "Play from the beginning" : nil }
+    /// Where the ring (Resume) starts: the saved position.
+    static func ringStart(resumeAt: Double) -> Double { max(0, resumeAt) }
 }
 
-/// The progress mark on a thumbnail in the chosen style. Put it in an `.overlay` over the thumbnail.
-// TEMP: owner compares, remove the loser before release
+/// The progress marks on a thumbnail: the bottom glow line and the Resume ring. Put it in an `.overlay` over the
+/// thumbnail (inside its clip shape, so the line follows the rounded bottom corners).
 struct ThumbnailProgress: View {
     let fraction: Double
-    /// The thumbnail's corner radius (the glow follows it)
-    let radius: CGFloat
-    @AppStorage(ProgressStyle.key) private var style = ProgressStyle.ring
+    /// The saved position in seconds (the ring's tooltip)
+    let resumeAt: Double
+    let onResume: () -> Void
     var body: some View {
         if let f = ProgressStyle.trimFraction(fraction) {
-            if style == ProgressStyle.glow {
-                ThumbnailProgressGlow(fraction: f, radius: radius)
-            } else {
-                ThumbnailProgressRing(fraction: f)
-                    .padding(ProgressStyle.ringInset)
+            ZStack {
+                ThumbnailProgressLine(fraction: f)
+                ThumbnailResumeRing(fraction: f, resumeAt: resumeAt, onResume: onResume)
+                    .padding(.trailing, ProgressStyle.ringInset)
+                    .padding(.bottom, ProgressStyle.ringBottomInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
         }
     }
 }
 
-/// RING: a small glass circle with ▶ inside and an accent ring around it filling clockwise from the top.
-/// Decorative: the card itself opens / plays.
-struct ThumbnailProgressRing: View {
+/// A glowing accent line along the bottom edge, left to right, over a faint full-width track.
+struct ThumbnailProgressLine: View {
     let fraction: CGFloat
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
         let accent = Theme.accent(accentName)
-        let size = ProgressStyle.ringSize
+        return GeometryReader { g in
+            ZStack(alignment: .bottomLeading) {
+                Rectangle().fill(Color.white.opacity(0.18)).frame(height: ProgressStyle.line)
+                Capsule().fill(accent)
+                    .frame(width: ProgressStyle.lineWidth(Double(fraction), total: g.size.width), height: ProgressStyle.line)
+                    .shadow(color: accent.opacity(0.9), radius: 5)
+            }
+            .frame(width: g.size.width, height: g.size.height, alignment: .bottomLeading)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// RESUME: the thumbnail's glass play button (same `classicGlassPill` glass and hover) with an accent ring around
+/// it filling clockwise from the top. Clicking it resumes from the saved position.
+struct ThumbnailResumeRing: View {
+    let fraction: CGFloat
+    let resumeAt: Double
+    let onResume: () -> Void
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        Button(action: onResume) { label.contentShape(Circle()) }
+            .buttonStyle(.plainHand)
+            .tip(ProgressStyle.resumeTip(resumeAt))
+            .accessibilityLabel("Resume")
+    }
+    var label: some View {
+        Label("Resume", systemImage: "play.fill").classicGlassPill(size: ProgressStyle.ringSize)
+            .overlay { RingArc(fraction: fraction, accent: Theme.accent(accentName)) }
+    }
+}
+
+/// The ring itself: a faint full track and the accent arc from the top, clockwise.
+private struct RingArc: View {
+    let fraction: CGFloat
+    let accent: Color
+    var body: some View {
         ZStack {
-            Circle().fill(Color.black.opacity(0.45))
-            Circle().fill(Color.white.opacity(Glass3DTokens.Fill.strong))
-            Circle().strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.75)
-            Image(systemName: "play.fill").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
-                .offset(x: 1)   // optical centre of the triangle
-            Circle().inset(by: 1.5).stroke(Color.white.opacity(0.18), lineWidth: 3)   // faint full track
+            Circle().inset(by: 1.5).stroke(Color.white.opacity(0.18), lineWidth: 3)
             Circle().inset(by: 1.5).trim(from: 0, to: fraction)
                 .stroke(accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))   // start at the top, run clockwise
         }
-        .frame(width: size, height: size)
-        .g3Shadow(Glass3DTokens.shadowSmall)
         .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 
-/// GLOW: an accent line running clockwise along the thumbnail's rounded edge from the middle of the top, with a
-/// soft accent glow and a faint full-border track.
-struct ThumbnailProgressGlow: View {
-    let fraction: CGFloat
-    let radius: CGFloat
-    @AppStorage("accent") private var accentName = "red"
-    var body: some View {
-        let accent = Theme.accent(accentName)
-        let line: CGFloat = 2.5
-        let shape = TopCenterRoundedBorder(radius: max(0, radius - line / 2))
-        ZStack {
-            shape.stroke(Color.white.opacity(0.18), lineWidth: line)
-            shape.trim(from: 0, to: fraction)
-                .stroke(accent, style: StrokeStyle(lineWidth: line, lineCap: .round, lineJoin: .round))
-                .shadow(color: accent.opacity(0.9), radius: 5)
-        }
-        .padding(line / 2)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
-
-/// The title next to the ring stops short of it (Ring style only).
+/// The title next to the ring stops short of it.
 struct ProgressRingClearance: ViewModifier {
     let active: Bool
-    @AppStorage(ProgressStyle.key) private var style = ProgressStyle.ring
     func body(content: Content) -> some View {
-        content.padding(.trailing, active && style != ProgressStyle.glow ? ProgressStyle.ringClearance - 10 : 0)
+        content.padding(.trailing, active ? ProgressStyle.ringClearance - 10 : 0)
     }
 }

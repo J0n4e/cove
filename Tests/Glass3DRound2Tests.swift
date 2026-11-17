@@ -44,7 +44,7 @@ final class Glass3DRound2Tests: XCTestCase {
     }
 }
 
-// MARK: - Progress style (Ring / Glow) and unselected tabs
+// MARK: - Progress (bottom line + Resume ring) and unselected tabs
 
 final class Glass3DProgressStyleTests: XCTestCase {
     func testTrimFractionClamps() {
@@ -57,28 +57,34 @@ final class Glass3DProgressStyleTests: XCTestCase {
         XCTAssertEqual(ProgressStyle.trimFraction(0.001) ?? -1, 0.001, accuracy: 0.00001)
     }
 
-    func testBorderStartsAtTopCentre() {
-        let r = CGRect(x: 0, y: 0, width: 260, height: 146)
-        XCTAssertEqual(ProgressStyle.borderStart(in: r), CGPoint(x: 130, y: 0))
-        let o = CGRect(x: 1.25, y: 1.25, width: 100, height: 50)
-        XCTAssertEqual(ProgressStyle.borderStart(in: o), CGPoint(x: 51.25, y: 1.25))
+    func testBottomLineWidth() {
+        XCTAssertEqual(ProgressStyle.lineWidth(0.25, total: 260), 65, accuracy: 0.001)
+        XCTAssertEqual(ProgressStyle.lineWidth(0.5, total: 220), 110, accuracy: 0.001)
+        XCTAssertEqual(ProgressStyle.lineWidth(0, total: 260), 0)
+        XCTAssertEqual(ProgressStyle.lineWidth(1, total: 260), 0)
+        XCTAssertEqual(ProgressStyle.lineWidth(.nan, total: 260), 0)
+        XCTAssertEqual(ProgressStyle.lineWidth(0.5, total: 0), 0)
     }
 
-    func testBorderPathBeginsAtStartPoint() {
-        let r = CGRect(x: 0, y: 0, width: 220, height: 124)
-        let path = TopCenterRoundedBorder(radius: 6).path(in: r)
-        var first: CGPoint?
-        path.forEach { el in
-            if first == nil, case .move(let to) = el { first = to }
-        }
-        XCTAssertEqual(first, CGPoint(x: 110, y: 0))
-        XCTAssertEqual(path.boundingRect.width, 220, accuracy: 0.5)
-        XCTAssertEqual(path.boundingRect.height, 124, accuracy: 0.5)
+    func testRingSitsAboveBottomLine() {
+        XCTAssertGreaterThan(ProgressStyle.ringBottomInset, ProgressStyle.line)
     }
 
-    func testProgressStyleDefaultsAndChoices() {
-        XCTAssertEqual(ProgressStyle.key, "progressStyle")
-        XCTAssertEqual(ProgressStyle.choices.map(\.0), ["ring", "glow"])
+    func testResumeTooltipFormatting() {
+        XCTAssertEqual(ProgressStyle.timeText(45), "0:45")
+        XCTAssertEqual(ProgressStyle.timeText(754), "12:34")
+        XCTAssertEqual(ProgressStyle.timeText(3723), "1:02:03")
+        XCTAssertEqual(ProgressStyle.timeText(-5), "0:00")
+        XCTAssertEqual(ProgressStyle.resumeTip(754), "Resume from 12:34")
+    }
+
+    func testStartPositionPerButton() {
+        XCTAssertEqual(ProgressStyle.centreStart(hasProgress: true), 0)
+        XCTAssertNil(ProgressStyle.centreStart(hasProgress: false))
+        XCTAssertEqual(ProgressStyle.centreTip(hasProgress: true), "Play from the beginning")
+        XCTAssertNil(ProgressStyle.centreTip(hasProgress: false))
+        XCTAssertEqual(ProgressStyle.ringStart(resumeAt: 754), 754)
+        XCTAssertEqual(ProgressStyle.ringStart(resumeAt: -1), 0)
     }
 
     func testUnselectedTabFillIsLighterThanHover() {

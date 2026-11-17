@@ -571,6 +571,7 @@ struct ClassicDetailView: View {
     func episodeRow(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
+        let hasProgress: Bool = pct > 0 && pct < 100 && !played
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
                 Text("\(ep.IndexNumber ?? 0)").cvFont(26, weight: .semibold)
@@ -579,13 +580,13 @@ struct ClassicDetailView: View {
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 220, height: 124).clipped()
-                .overlay {   // TEMP: owner compares Ring / Glow, remove the loser before release
-                    if pct > 0, pct < 100, !played { ThumbnailProgress(fraction: pct / 100, radius: Glass3DTokens.Radius.thumb) }
-                }
+                .overlay { if hasProgress { epProgress(ep, pct) } }
                 .cornerRadius(Glass3DTokens.Radius.thumb)
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), size: CGSize(width: 220, height: 124),
                                            tracksHover: true))   // the posters' light glass edge
-                .classicHoverLift(play: 36) { model.playEpisode(ep) }
+                .classicHoverLift(play: 36, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
+                    model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
+                }
                 .hoverItemActions(ep)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
@@ -657,6 +658,13 @@ struct ClassicDetailView: View {
         return t
     }
 
+    /// The bottom glow line and the Resume ring (resumes from the saved position).
+    func epProgress(_ ep: Item, _ pct: Double) -> some View {
+        ThumbnailProgress(fraction: pct / 100, resumeAt: emby.resumeAt(ep)) {
+            model.playEpisode(ep, from: ProgressStyle.ringStart(resumeAt: emby.resumeAt(ep)))
+        }
+    }
+
     func episodeTile(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = ep.UserData?.PlayedPercentage ?? 0
@@ -689,13 +697,13 @@ struct ClassicDetailView: View {
                         .classicBlackOutline()
                         .padding(10)
                 }
-                // How far you got, bottom-right
-                .overlay {   // TEMP: owner compares Ring / Glow, remove the loser before release
-                    if hasProgress { ThumbnailProgress(fraction: pct / 100, radius: Glass3DTokens.Radius.thumb) }
-                }
+                // How far you got: glow line along the bottom, Resume ring bottom-right
+                .overlay { if hasProgress { epProgress(ep, pct) } }
                 .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb))
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
-                .classicHoverLift(play: 40) { model.playEpisode(ep) }
+                .classicHoverLift(play: 40, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
+                    model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
+                }
                 // In the top-right corner, over the watched badge (the 28-point buttons cover the 24-point badge)
                 .hoverItemActions(ep, .topTrailing, EdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
                 if showEpDesc {
