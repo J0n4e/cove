@@ -115,7 +115,6 @@ struct ClassicProgressCircle: View {
 
 struct ClassicPosterCard: View {
     @EnvironmentObject var emby: Emby
-    @Environment(\.inFavorites) private var inFavorites
     @AppStorage("accent") private var accentName = "red"
     let item: Item
     @State private var hover = false
@@ -136,26 +135,14 @@ struct ClassicPosterCard: View {
                     }
                     .frame(width: 150, height: 225).clipped()
                     .opacity(played ? 0.6 : 1)
-                    WatchBadge(item: item, played: played).padding(8)
-                }
-                .overlay(alignment: .topLeading) {
-                    // Favorite heart, then your Trakt rating
-                    HStack(spacing: 6) {
-                        if emby.isFav(item) && !inFavorites {
-                            // A glossy accent heart, like the rating star beside it
-                            FavHeart(size: 22).helpLabel("Favorite")   // as big as the rating star beside it
-                        }
-                        MyRatingBadge(item: item)
-                    }.padding(8)
                 }
                 .overlay(alignment: .bottom) {
                     if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {
                         ProgressView(value: pct / 100).padding(.horizontal, 8).padding(.bottom, 8)
                     }
                 }
-                .overlay(alignment: .bottomTrailing) {
-                    if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
-                }
+                // v1.18.4: ♡ / ✓ at the top are the buttons (outline ones on hover); no hover pills at the bottom
+                .overlay { PosterBadgesOverlay(item: item, hover: hover) }
                 .cornerRadius(8)
                 .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
                 .modifier(HoverLift(hover: hover))
