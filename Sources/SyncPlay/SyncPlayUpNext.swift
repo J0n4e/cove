@@ -42,12 +42,18 @@ struct UpNextCountdown: View {
     let autoNext: Bool
     let localSecs: Int
     let duration: Double
+    /// Glass theme (v1.18.8): the theme's own font instead of the Glass3D one
+    var glass = false
     var body: some View {
         if group.isInGroup {
-            Text(GroupUpNext.text(group.upNextSecsLeft(duration: duration, local: localSecs)))
-                .cvFont(11).foregroundColor(.secondary)
+            line(GroupUpNext.text(group.upNextSecsLeft(duration: duration, local: localSecs)))
         } else if autoNext {
-            Text("Next starts in \(localSecs)s").cvFont(11).foregroundColor(.secondary)
+            line("Next starts in \(localSecs)s")
         }
+    }
+
+    @ViewBuilder private func line(_ s: String) -> some View {
+        if glass { Text(s).coveFont(size: 11).foregroundColor(.secondary) }
+        else { Text(s).cvFont(11).foregroundColor(.secondary) }
     }
 }
