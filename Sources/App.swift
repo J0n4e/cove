@@ -61,6 +61,8 @@ struct CoveApp: App {
                 .overlay { RemoteMessageToast() }   // SyncPlay phase 4: Dashboard → Send message
                 .frame(minWidth: 1000, minHeight: 650)
                 .sessionExpiredAlert(emby)
+                // New movies / episodes as macOS notifications (Sources/Notifications)
+                .task { NewMediaService.shared.attach(to: emby) }
                 .task {
                     await WhatsNew.onLaunch()
                     await Updater.shared.checkOnLaunch()
@@ -138,6 +140,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                           queue: .main) { _ in
             MainActor.assumeIsolated { PlayerModel.active?.pauseForSleep() }
         }
+        // Clicks on new-media notifications, and their banners while Cove is in front
+        SystemNotifier.install()
         // Keeps the subtitle cache bounded (size and age), quietly in the background
         Task.detached(priority: .utility) { SubtitleCache.shared.prune() }
     }
