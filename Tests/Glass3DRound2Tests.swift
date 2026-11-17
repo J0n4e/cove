@@ -91,7 +91,7 @@ final class Glass3DProgressStyleTests: XCTestCase {
         XCTAssertEqual(Glass3DTabHover.scale(on: true, hover: true, pressed: false), 1)
         XCTAssertEqual(Glass3DTabHover.scale(on: false, hover: false, pressed: false), 1)
         XCTAssertEqual(Glass3DTabHover.scale(on: true, hover: true, pressed: true), 0.97)
-        XCTAssertEqual(Glass3DTabHover.labelOpacity(on: false, hover: false), 0.88)
+        XCTAssertEqual(Glass3DTabHover.labelOpacity(on: false, hover: false), 1)
         XCTAssertEqual(Glass3DTabHover.labelOpacity(on: false, hover: true), 1)
         XCTAssertEqual(Glass3DTabHover.labelOpacity(on: true, hover: false), 1)
     }

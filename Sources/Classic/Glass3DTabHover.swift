@@ -15,8 +15,8 @@ struct Glass3DTabHover: ViewModifier {
         content
             .opacity(Glass3DTabHover.labelOpacity(on: on, hover: hover))
             // No background on unselected tabs (owner): a soft dark shadow keeps the text readable over posters
-            .shadow(color: .black.opacity(on ? 0 : 0.75), radius: 2, x: 0, y: 0.5)
-            .shadow(color: .black.opacity(on ? 0 : 0.45), radius: 6, x: 0, y: 0)
+            .shadow(color: .black.opacity(on ? 0 : 0.9), radius: 1.5, x: 0, y: 0.5)
+            .shadow(color: .black.opacity(on ? 0 : 0.6), radius: 5, x: 0, y: 0)
             .scaleEffect(reduce ? 1 : Glass3DTabHover.scale(on: on, hover: hover, pressed: pressed))
             .onHover { h in withAnimation(Glass3DTabHover.spring) { hover = h } }
             // No press gesture here: a DragGesture on the label competed with the tab's own click and
@@ -29,7 +29,7 @@ struct Glass3DTabHover: ViewModifier {
     /// Dark fill of an unselected tab: 0.30 at rest, 0.45 under the pointer.
     static func fill(hover: Bool) -> Double { hover ? 0.45 : 0.30 }
     /// Label: full white when selected or hovered, secondary otherwise.
-    static func labelOpacity(on: Bool, hover: Bool) -> Double { on || hover ? 1 : 0.88 }
+    static func labelOpacity(on: Bool, hover: Bool) -> Double { 1 }
     /// Pressed 0.97; an unselected tab under the pointer 1.03; otherwise 1.
     static func scale(on: Bool, hover: Bool, pressed: Bool) -> CGFloat {
         if pressed { return 0.97 }
