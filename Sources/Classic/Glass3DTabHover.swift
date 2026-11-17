@@ -19,9 +19,8 @@ struct Glass3DTabHover: ViewModifier {
             .shadow(color: .black.opacity(on ? 0 : 0.45), radius: 6, x: 0, y: 0)
             .scaleEffect(reduce ? 1 : Glass3DTabHover.scale(on: on, hover: hover, pressed: pressed))
             .onHover { h in withAnimation(Glass3DTabHover.spring) { hover = h } }
-            .simultaneousGesture(DragGesture(minimumDistance: 0)
-                .onChanged { _ in if !pressed { withAnimation(Glass3DTabHover.spring) { pressed = true } } }
-                .onEnded { _ in withAnimation(Glass3DTabHover.spring) { pressed = false } })
+            // No press gesture here: a DragGesture on the label competed with the tab's own click and
+            // swallowed some clicks (owner: top bar items didn't always respond)
     }
 
     /// A soft spring on the Glass3D fast speed (0.15 s).
