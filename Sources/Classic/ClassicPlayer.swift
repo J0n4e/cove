@@ -277,7 +277,7 @@ struct ClassicPlayerView: View {
             .onTapGesture { ui.tap(clickToPause: clickToPause) }
         }
         .foregroundColor(.white)
-        .onContinuousHover { _ in poke() }
+        .onContinuousHover { ui.pointer($0) }   // real mouse moves only (not a card appearing)
         .focusable().focused($focused).focusEffectDisabled()
         .onKeyPress(.space) {
             if classicShowUpNext, let n = nextEp { play(n) } else { model.togglePlay() }
@@ -908,12 +908,13 @@ extension ClassicPlayerView {
                         .searchGlass()
                 }.buttonStyle(HoverButton())
             }
-            if classicShowUpNext, let n = nextEp { classicUpNextCard(n) }
+            if classicShowUpNext, let n = nextEp { classicUpNextCard(n).transition(.coveGlassPopIn) }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, 34)
         .padding(.bottom, ui.showUI ? 200 : 40)
         .animation(.easeOut(duration: 0.2), value: model.skippedIntro)
+        .coveGlassPopIn(value: classicShowUpNext)   // as the bottom search pill
     }
 
     func classicUpNextCard(_ n: Item) -> some View {

@@ -186,7 +186,7 @@ struct ClassicHomeView: View {
             NavigationStack(path: $path) {
                 Group {
                     if !query.isEmpty { ClassicSearchView(query: query) }
-                    else if sel == "home" { ClassicHomeContent(reloadToken: reloadToken) }
+                    else if sel == "home" { ClassicHomeContent(reloadToken: reloadToken).id(HomeModel.sessionKey(server: emby.server, userId: emby.userId)) }
                     else if sel == "favorites" { ClassicFavoritesView() }
                     else if sel == "nowplaying" { NowPlayingView() }
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib, refresh: nav.reselect).id(lib.id) }

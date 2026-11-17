@@ -11,6 +11,7 @@ struct ClassicHomeContent: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
     @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     let reloadToken: Int
+    private var homeSession: String { HomeModel.sessionKey(server: emby.server, userId: emby.userId) }
     /// Rows, banner items and loading (shared with Glass); Classic doesn't prefetch the rows' pictures (it never did).
     @StateObject private var model = HomeModel(prefetchRows: false)
     @State private var pageH: CGFloat = .infinity
@@ -76,7 +77,7 @@ struct ClassicHomeContent: View {
                 .onChange(of: g.safeAreaInsets.top) { _, t in topInset = t }
         })
         .background(bg)
-        .task(id: model.taskKey(reloadToken)) { model.bind(emby); await model.load() }
+        .task(id: model.taskKey(reloadToken, session: homeSession)) { model.bind(emby); await model.load(session: homeSession) }
     }
 }
 

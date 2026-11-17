@@ -133,12 +133,12 @@ struct SearchDock: View {
                 .padding(.horizontal, 18).frame(height: 44)
                 .searchGlass()
                 .padding(.bottom, 24)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.coveGlassPopIn)
                 .onAppear { DispatchQueue.main.async { focused = true } }
             }
         }
         .frame(maxWidth: .infinity)
-        .animation(.spring(duration: 0.35), value: open)
+        .coveGlassPopIn(value: open)
         .onChange(of: focusTick) { focused = true }
         // However it closes (Esc, the search button): let go of the keyboard. The text field kept it while
         // sliding away, so typing afterwards still went into the search and opened results.
