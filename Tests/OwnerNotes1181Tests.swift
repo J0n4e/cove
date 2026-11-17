@@ -4,11 +4,6 @@ import XCTest
 /// v1.18.1 owner notes: Home reloads on a server/user change; pop-up cards don't wake the player controls.
 @MainActor
 final class OwnerNotes1181Tests: XCTestCase {
-    func waitUntil(_ cond: () -> Bool, timeout: TimeInterval = 3) async {
-        let end = Date().addingTimeInterval(timeout)
-        while !cond() && Date() < end { try? await Task.sleep(for: .milliseconds(20)) }
-    }
-
     func testTaskKeyChangesWithSession() {
         let m = HomeModel(prefetchRows: false, load: { [] })
         let a = HomeModel.sessionKey(server: "https://a", userId: "u1")
