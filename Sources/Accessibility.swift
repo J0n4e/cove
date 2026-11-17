@@ -53,16 +53,43 @@ private struct TipBubble: View {
     }
 }
 
+/// Where a tooltip goes: centred under its control, above it when there is no room below, and always wholly
+/// inside the window (8 pt from every edge), however long its text.
+enum TipPlacement {
+    static let margin: CGFloat = 8
+    static let gap: CGFloat = 8
+    static func position(anchor: CGRect, bubble: CGSize, container: CGSize) -> CGPoint {
+        let halfW = bubble.width / 2, halfH = bubble.height / 2
+        let minX = margin + halfW, maxX = container.width - margin - halfW
+        let x = maxX >= minX ? min(max(anchor.midX, minX), maxX) : container.width / 2
+        let below = anchor.maxY + gap + halfH
+        let above = anchor.minY - gap - halfH
+        var y = below + halfH + margin <= container.height ? below : above
+        y = min(max(y, margin + halfH), max(container.height - margin - halfH, margin + halfH))
+        return CGPoint(x: x, y: y)
+    }
+    /// The bubble's size before it has been measured: the text's width at 12 pt plus its padding.
+    static func estimate(_ text: String) -> CGSize {
+        let w = (text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold)]).width
+        return CGSize(width: ceil(w) + 26, height: 28)
+    }
+}
+
 /// Draws the window's tooltip on top of everything, centered just below its control (kept inside the window).
 private struct TipLayer: View {
     @ObservedObject var center: TipCenter
+    @State private var measured: (text: String, size: CGSize)?
     var body: some View {
         GeometryReader { g in
             if let t = center.tip {
-                let below = t.frame.maxY + 8 + 24 <= g.size.height
+                let size = measured.flatMap { $0.text == t.text ? $0.size : nil } ?? TipPlacement.estimate(t.text)
                 TipBubble(text: t.text)
-                    .position(x: min(max(t.frame.midX, 80), max(g.size.width - 80, 80)),
-                              y: below ? t.frame.maxY + 8 + 14 : t.frame.minY - 8 - 14)
+                    .background(GeometryReader { b in
+                        Color.clear
+                            .onAppear { measured = (t.text, b.size) }
+                            .onChange(of: b.size) { _, s in measured = (t.text, s) }
+                    })
+                    .position(TipPlacement.position(anchor: t.frame, bubble: size, container: g.size))
                     .transition(.opacity)
             }
         }
