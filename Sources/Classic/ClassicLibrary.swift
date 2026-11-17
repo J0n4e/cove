@@ -106,10 +106,9 @@ struct ClassicLibraryView: View {
                             // Glossy lettering, as the top bar
                             Text3D(text: i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i], size: 12,
                                    weight: model.tab == i ? .bold : .semibold)
-                                .opacity(model.tab == i ? 1 : 0.6)
                                 .padding(.horizontal, 14).frame(height: 32)
                                 .classicSelectedGlass(model.tab == i)   // a step quieter than the top bar's pill
-                                .modifier(UnselectedTabBacking(on: model.tab == i))   // as the top bar's other tabs
+                                .modifier(Glass3DTabHover(on: model.tab == i))   // as the top bar's tabs
                         .modifier(SectionHoverGlow(on: !(model.tab == i)))   // accent glow on hover, as the top bar
                         }.buttonStyle(.plainHand)
                     }

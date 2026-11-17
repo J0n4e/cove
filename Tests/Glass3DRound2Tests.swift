@@ -82,7 +82,17 @@ final class Glass3DProgressStyleTests: XCTestCase {
     }
 
     func testUnselectedTabFillIsLighterThanHover() {
-        XCTAssertLessThan(UnselectedTabBacking.fill(hover: false), UnselectedTabBacking.fill(hover: true))
-        XCTAssertGreaterThan(UnselectedTabBacking.fill(hover: false), 0)
+        XCTAssertLessThan(Glass3DTabHover.fill(hover: false), Glass3DTabHover.fill(hover: true))
+        XCTAssertGreaterThan(Glass3DTabHover.fill(hover: false), 0)
+    }
+
+    func testTabHoverScaleAndLabel() {
+        XCTAssertEqual(Glass3DTabHover.scale(on: false, hover: true, pressed: false), 1.03)
+        XCTAssertEqual(Glass3DTabHover.scale(on: true, hover: true, pressed: false), 1)
+        XCTAssertEqual(Glass3DTabHover.scale(on: false, hover: false, pressed: false), 1)
+        XCTAssertEqual(Glass3DTabHover.scale(on: true, hover: true, pressed: true), 0.97)
+        XCTAssertEqual(Glass3DTabHover.labelOpacity(on: false, hover: false), 0.6)
+        XCTAssertEqual(Glass3DTabHover.labelOpacity(on: false, hover: true), 1)
+        XCTAssertEqual(Glass3DTabHover.labelOpacity(on: true, hover: false), 1)
     }
 }

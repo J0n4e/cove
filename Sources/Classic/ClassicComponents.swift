@@ -56,26 +56,6 @@ struct SectionHoverGlow: ViewModifier {
     }
 }
 
-/// An unselected tab (top bar, library header): a dark pill a step lighter than the selected one, so it reads
-/// over bright posters; a little stronger under the pointer. Nothing on the selected tab.
-struct UnselectedTabBacking: ViewModifier {
-    let on: Bool
-    @State private var hover = false
-    func body(content: Content) -> some View {
-        content
-            .background {
-                if !on {
-                    Capsule().fill(Color.black.opacity(UnselectedTabBacking.fill(hover: hover)))
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.subtle), lineWidth: 0.75))
-                        .allowsHitTesting(false)
-                }
-            }
-            .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
-    }
-    /// Dark fill opacity: 0.30 at rest, 0.42 under the pointer.
-    static func fill(hover: Bool) -> Double { hover ? 0.42 : 0.30 }
-}
-
 /// The player's side panel: dark glass framed like the buttons in the Classic theme, the frosted panel otherwise.
 struct PanelSurface: ViewModifier {
     let classic: Bool
