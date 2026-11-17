@@ -27,7 +27,7 @@ struct NowPlayingView: View {
                 } else if sessions.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "play.slash").coveFont(size: 40).foregroundColor(.secondary)
-                        Text("Nothing is playing right now").font(.headline)
+                        Text("Nothing is playing right now").coveFont(size: 13, weight: .bold)
                     }.frame(maxWidth: .infinity).padding(.top, 80)
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 360), spacing: 18)], alignment: .leading, spacing: 18) {
@@ -82,7 +82,7 @@ struct SessionCard: View {
                             .foregroundColor(.secondary).lineLimit(1)
                     }
                     HStack(spacing: 6) {
-                        if s.PlayState?.IsPaused == true { Image(systemName: "pause.fill").font(.caption) }
+                        if s.PlayState?.IsPaused == true { Image(systemName: "pause.fill").coveFont(size: 10) }
                         Text("\(clock(s.PlayState?.PositionTicks)) / \(clock(it.RunTimeTicks))").monospacedDigit()
                     }.foregroundColor(.secondary)
                     Text(transcoding ? "Transcode" : "Direct play")
@@ -117,9 +117,9 @@ struct SessionCard: View {
             HStack(spacing: 12) {
                 Image(systemName: icon).coveFont(size: 26).frame(width: 36)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(s.Client ?? "Unknown") \(s.ApplicationVersion ?? "")").font(.callout.weight(.semibold))
+                    Text("\(s.Client ?? "Unknown") \(s.ApplicationVersion ?? "")").coveFont(size: 12, weight: .semibold)
                     Text([s.DeviceName, s.UserName].compactMap { $0 }.joined(separator: " · ")).foregroundColor(.secondary)
-                    if let ip = s.RemoteEndPoint { Text(ip).font(.caption).foregroundColor(.secondary) }
+                    if let ip = s.RemoteEndPoint { Text(ip).coveFont(size: 10).foregroundColor(.secondary) }
                 }
                 Spacer(minLength: 0)
             }

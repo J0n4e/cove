@@ -204,7 +204,7 @@ struct PrefNote: View {
     let text: String
     init(_ t: String) { text = t }
     var body: some View {
-        Text(text).font(.callout).foregroundColor(.secondary)
+        Text(text).coveFont(size: 12).foregroundColor(.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: 440, alignment: .leading)
             .padding(.leading, prefLabelW + 10)
@@ -305,7 +305,7 @@ struct GeneralSettings: View {
                         RoundedRectangle(cornerRadius: 8).fill(color).frame(width: 64, height: 44)
                             .overlay(RoundedRectangle(cornerRadius: 8)
                                 .stroke(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.15)), lineWidth: on ? 3 : 1))
-                        Text(name.capitalized).font(.caption).foregroundColor(on ? .primary : .secondary)
+                        Text(name.capitalized).coveFont(size: 10).foregroundColor(on ? .primary : .secondary)
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plainHand)
             }
@@ -328,9 +328,9 @@ struct GeneralSettings: View {
                     VStack(alignment: .leading, spacing: 8) {
                         if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }
                         HStack(spacing: 8) {
-                            Text("Clear").font(.caption).foregroundColor(.secondary)
+                            Text("Clear").coveFont(size: 10).foregroundColor(.secondary)
                             Slider(value: $glassFrost, in: 0...1).frame(width: 160)
-                            Text("Tinted").font(.caption).foregroundColor(.secondary)
+                            Text("Tinted").coveFont(size: 10).foregroundColor(.secondary)
                         }
                         .disabled(GlassFrost.hasLiquidGlass && glassFollow)
                         .opacity(GlassFrost.hasLiquidGlass && glassFollow ? 0.5 : 1)
@@ -587,7 +587,7 @@ struct LibrariesSettings: View {
                 VStack(alignment: .leading, spacing: 6) {
                     libraryTable
                     Text("Drag to reorder. Click a library to change its options below.")
-                        .font(.callout).foregroundColor(.secondary)
+                        .coveFont(size: 12).foregroundColor(.secondary)
                 }
             }
         }
@@ -650,7 +650,7 @@ struct LibrariesSettings: View {
                 Text("Sidebar").frame(width: 70)
                 Text("Home").frame(width: 60)
             }
-            .font(.caption.weight(.semibold)).foregroundColor(.secondary)
+            .coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
             .padding(.horizontal, 12).padding(.vertical, 6)
             Divider()
             List {
@@ -812,7 +812,7 @@ struct SeriesSettings: View {
             SettingRow(label: "Subtitle language") { menuPicker($epSubLang, langOptions) }
         }
         Text("The subtitle language is used for every episode you play from a series page; it's the same setting as the Subtitles menu next to the episode list.")
-            .font(.caption).foregroundColor(.secondary)
+            .coveFont(size: 10).foregroundColor(.secondary)
     }
 }
 
@@ -943,7 +943,7 @@ struct ShortcutsSettings: View {
             ForEach(Array(list.enumerated()), id: \.offset) { _, row in
                 let (key, what) = row
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(key).font(.system(.callout, design: .rounded).weight(.semibold))
+                    Text(key).coveFont(size: 12, weight: .semibold, design: .rounded)
                         .padding(.horizontal, 8).padding(.vertical, 2)
                         .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.1)))
                         .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.white.opacity(0.15)))
@@ -1037,7 +1037,7 @@ struct ServerSettings: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(emby.currentServerName).bold()
                     Text(emby.currentServer?.user.isEmpty == false ? "\(emby.currentServer!.user) · \(emby.server)" : emby.server)
-                        .font(.callout).foregroundColor(.secondary).textSelection(.enabled)
+                        .coveFont(size: 12).foregroundColor(.secondary).textSelection(.enabled)
                 }
             }
             PrefRow {
@@ -1062,7 +1062,7 @@ struct ServerSettings: View {
                                     ConnectionBadge(address: srv.url)
                                     Text((srv.user.isEmpty ? srv.url : "\(srv.user) · \(srv.url)") + " · " + emby.kindLabel(srv))
                                         .foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
-                                }.font(.caption)
+                                }.coveFont(size: 10)
                             }
                             Spacer(minLength: 12)
                             if current {
@@ -1101,7 +1101,7 @@ struct ServerSettings: View {
                         }
                         if !trakt.pending.isEmpty {
                             Text("\(trakt.pending.count) rating\(trakt.pending.count == 1 ? "" : "s") waiting to be sent.")
-                                .font(.callout).foregroundColor(.secondary)
+                                .coveFont(size: 12).foregroundColor(.secondary)
                         }
                     } else if let s = trakt.signIn {
                         Text("Enter this code on \(s.url):").foregroundColor(.secondary)
@@ -1116,7 +1116,7 @@ struct ServerSettings: View {
                     } else {
                         Text("Not set up yet. Follow the steps below.").foregroundColor(.secondary)
                     }
-                    if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange) }
+                    if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(.orange) }
                 }
             }
             if trakt.user != nil {
@@ -1124,7 +1124,7 @@ struct ServerSettings: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle("Scrobble what I watch in Cove", isOn: $scrobble)
                         Text("Trakt shows what you're watching and logs the play when you finish (past 80%).")
-                            .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .coveFont(size: 12).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 PrefRow(label: "Watched status") {
@@ -1132,13 +1132,13 @@ struct ServerSettings: View {
                         Toggle("Sync watched status", isOn: $syncWatched)
                             .onChange(of: syncWatched) { _, on in if on { Task { await trakt.importWatched(emby) } } }
                         Text("Marking something watched in Cove adds a play on Trakt, and plays Trakt gets from other apps are marked watched here (from now on, every hour). Marking it unwatched only resets your progress in Cove: Trakt keeps every play, so rewatches add up.")
-                            .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .coveFont(size: 12).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                         if syncWatched {
                             HStack(spacing: 10) {
                                 Button("Sync Now") { Task { await trakt.importWatched(emby) } }
                                 if let t = trakt.lastWatchedSync {
                                     Text("Last synced \(t.formatted(date: .abbreviated, time: .shortened))")
-                                        .font(.callout).foregroundColor(.secondary)
+                                        .coveFont(size: 12).foregroundColor(.secondary)
                                 }
                             }
                         }
@@ -1153,7 +1153,7 @@ struct ServerSettings: View {
                         Text("The plugin's scrobbling always stays on, so leave Cove's Scrobble switch off when the plugin is installed. Keep \u{201C}Skip unwatched import from Trakt\u{201D} on.")
                             .foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
-                    .font(.callout).frame(maxWidth: 440, alignment: .leading)
+                    .coveFont(size: 12).frame(maxWidth: 440, alignment: .leading)
                 }
             }
             if trakt.user == nil && trakt.signIn == nil {
@@ -1179,7 +1179,7 @@ struct ServerSettings: View {
                         }
                         step(2) { Text("Name it **Cove**. As Redirect URI enter:") }
                         HStack(spacing: 6) {
-                            Text(redirectURI).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
+                            Text(redirectURI).coveFont(size: 12, design: .monospaced).textSelection(.enabled)
                             Button {
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(redirectURI, forType: .string)
@@ -1190,7 +1190,7 @@ struct ServerSettings: View {
                         step(4) { Text("Copy the **Client ID** (there's no secret), paste it above and click **Save**.") }
                         step(5) { Text("Click **Connect Trakt…**, enter the code Cove shows on trakt.tv/activate and allow Cove.") }
                     }
-                    .font(.callout).frame(maxWidth: 440, alignment: .leading)
+                    .coveFont(size: 12).frame(maxWidth: 440, alignment: .leading)
                     .environment(\.openURL, OpenURLAction { u in
                         if let u = SafeLink.url(u.absoluteString) { NSWorkspace.shared.open(u) }
                         return .handled
@@ -1229,8 +1229,8 @@ struct TraktStatsSettings: View {
                     }
                     Button("Refresh") { Task { await trakt.loadStats() } }.disabled(trakt.loadingStats)
                 }
-                .font(.callout).padding(.top, 8).padding(.horizontal, 6)
-                if let e = trakt.lastError { Text(e).font(.callout).foregroundColor(.orange).padding(.horizontal, 6) }
+                .coveFont(size: 12).padding(.top, 8).padding(.horizontal, 6)
+                if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(.orange).padding(.horizontal, 6) }
                 if let s = trakt.stats { content(s) }
                 else if trakt.loadingStats { Text("Loading your stats…").foregroundColor(.secondary).padding(20) }
             }
@@ -1256,7 +1256,7 @@ struct TraktStatsSettings: View {
             if let t = s.topShowThisMonth {
                 (Text("Most watched: ").foregroundColor(.secondary) + Text(t).bold()
                  + Text(" · \(s.topShowEpisodes) episode\(s.topShowEpisodes == 1 ? "" : "s")").foregroundColor(.secondary))
-                    .font(.callout).padding(.horizontal, 14)
+                    .coveFont(size: 12).padding(.horizontal, 14)
             }
         }
         PrefSection(title: "Last 12 months · hours watched") { monthsChart(s.months).padding(.horizontal, 14) }
@@ -1268,10 +1268,10 @@ struct TraktStatsSettings: View {
                         Image(systemName: r.isMovie ? "film" : "tv").foregroundColor(.secondary).frame(width: 18)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(r.title).fontWeight(.semibold).lineLimit(1)
-                            Text(r.subtitle).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                            Text(r.subtitle).coveFont(size: 10).foregroundColor(.secondary).lineLimit(1)
                         }
                         Spacer(minLength: 8)
-                        Text(r.date.formatted(.relative(presentation: .named))).font(.caption).foregroundColor(.secondary)
+                        Text(r.date.formatted(.relative(presentation: .named))).coveFont(size: 10).foregroundColor(.secondary)
                     }
                 }
             }.padding(.horizontal, 14)
@@ -1282,7 +1282,7 @@ struct TraktStatsSettings: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title.uppercased()).coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
             Text(value).coveFont(size: 26, weight: .bold).foregroundColor(accent).lineLimit(1).minimumScaleFactor(0.6)
-            Text(detail).font(.caption).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+            Text(detail).coveFont(size: 10).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))

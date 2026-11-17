@@ -69,7 +69,7 @@ struct ServerPillMenu: View {
                 .classicGlassPill()
                 .contentShape(Capsule())
         } else {
-            row.font(.callout.weight(.medium))
+            row.coveFont(size: 12, weight: .medium)
                 .padding(.horizontal, 12).frame(height: 28)
                 .glassCapsule()
                 .contentShape(Capsule())

@@ -57,12 +57,17 @@ enum TextScale {
 /// anything at their roots, and re-renders as soon as the setting changes.
 struct CoveScaledFont: ViewModifier {
     @AppStorage("textSize") private var textSize = "default"
+    // Read here so every text re-renders as soon as the Font or Theme setting changes (before, only views that
+    // happened to redraw, like Settings, picked up a new font)
+    @AppStorage("classicFont") private var classicFont = "rounded"
+    @AppStorage("theme") private var theme = "classic"
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    let make: (CGFloat) -> Font
+    /// Scale, and whether the Glass3D font family applies (Glass3D theme)
+    let make: (CGFloat, Bool) -> Font
 
     func body(content: Content) -> some View {
         let scale = TextScale.combined(system: TextScale.system(dynamicTypeSize), inApp: TextScale.inApp(textSize))
-        content.font(make(scale))
+        content.font(make(scale, theme == "classic"))
     }
 }
 
@@ -71,16 +76,21 @@ extension View {
     /// (`{ $0.monospacedDigit() }`).
     func coveFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default,
                   _ adjust: @escaping (Font) -> Font = { $0 }) -> some View {
-        modifier(CoveScaledFont { adjust(.system(size: TextScale.scaledSize(base: size, scale: $0), weight: weight, design: design)) })
+        // Glass3D: every text uses the chosen Font (Settings → General → Font), so shared windows (Settings, About,
+        // Software Update, errors, pills) match the rest; monospaced/serif/rounded designs written in the code stay
+        modifier(CoveScaledFont { scale, glass3D in
+            let px = TextScale.scaledSize(base: size, scale: scale)
+            return adjust(glass3D && design == .default ? ClassicFont.font(px, weight) : .system(size: px, weight: weight, design: design))
+        })
     }
 
     /// `.font(.cv(size, weight:))` (the Classic font) that follows the text size.
     func cvFont(_ size: CGFloat, weight: Font.Weight = .regular, _ adjust: @escaping (Font) -> Font = { $0 }) -> some View {
-        modifier(CoveScaledFont { adjust(.cv(TextScale.scaledSize(base: size, scale: $0), weight: weight)) })
+        modifier(CoveScaledFont { scale, _ in adjust(.cv(TextScale.scaledSize(base: size, scale: scale), weight: weight)) })
     }
 
     /// Any font built from the current factor (for the few places that pick between two fonts).
     func coveFont(_ make: @escaping (CGFloat) -> Font) -> some View {
-        modifier(CoveScaledFont(make: make))
+        modifier(CoveScaledFont { scale, _ in make(scale) })
     }
 }

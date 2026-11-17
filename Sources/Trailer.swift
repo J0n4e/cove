@@ -71,7 +71,7 @@ struct TrailerPlayerView: View {
                 if blocked {
                     VStack(spacing: 14) {
                         Image(systemName: "film").coveFont(size: 40).foregroundStyle(.secondary)
-                        Text("This trailer can only be played on YouTube.").font(.title3)
+                        Text("This trailer can only be played on YouTube.").coveFont(size: 15)
                         Button("Watch on YouTube") { NSWorkspace.shared.open(link); close() }
                             .buttonStyle(.borderedProminent).handCursor()
                     }
