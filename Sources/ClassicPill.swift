@@ -255,10 +255,17 @@ private struct MeasureSize: ViewModifier {
 
 /// The Glass3D hover look, as chosen in Settings → General → Hover effect.
 struct ClassicHoverEffect: View {
-    @AppStorage("classicHover") private var style = "fog"   // "fog" or "glow"
+    @AppStorage("classicHover") private var style = "fog"   // "fog", "glow" or "glass"
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
-        if style == "glow" {
+        if style == "glass" {
+            // Glass pill: dark see-through glass fading in behind the label, a step lighter than the selected
+            // section's pill, with a faint outline; no glow
+            Capsule().fill(.ultraThinMaterial)
+                .overlay(Capsule().fill(Color.black.opacity(0.28)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 0.75))
+                .environment(\.colorScheme, .dark)
+        } else if style == "glow" {
             Capsule()
                 .fill(RadialGradient(colors: [Theme.accent(accentName).opacity(0.5), Theme.accent(accentName).opacity(0.12)],
                                      center: .bottom, startRadius: 2, endRadius: 50))
