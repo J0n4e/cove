@@ -311,6 +311,7 @@ struct PlayerView: View {
                 if ui.showInfo { infoOverlay }
                 cornerCards
                 panelLayer
+                SyncPlayToast(group: emby.syncPlay.group, classic: false)
                 // Title bar strip, above every layer (the controls' dark gradient used to darken it)
                 VStack(spacing: 0) {
                     PlayerView.titleBarGray.frame(height: titleBarHeight)
@@ -545,7 +546,13 @@ struct PlayerView: View {
                             withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
                         }.helpLabel("Chapters (C)")
                     }
-                    glassIcon("waveform", on: ui.panel != nil && ui.panel != .episodes && ui.panel != .chapters) {
+                    SyncPlayPlayerButton(group: emby.syncPlay.group) {
+                        glassIcon("person.2.fill", on: ui.panel == .syncPlay) {
+                            withAnimation(.easeOut(duration: 0.2)) { ui.toggleSyncPlay() }
+                        }.helpLabel("Watch together")
+                    }
+                    glassIcon("waveform", on: ui.panel != nil && ui.panel != .episodes && ui.panel != .chapters
+                              && ui.panel != .syncPlay) {
                         withAnimation(.easeOut(duration: 0.2)) { ui.toggleMediaPanel() }
                     }.helpLabel("Subtitles, audio, quality & speed")
                 }
@@ -600,6 +607,10 @@ struct PlayerView: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
         case .chapters:
             HStack { Spacer(); chaptersPanel }
+                .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .syncPlay:
+            HStack { Spacer(); GlassSyncPlayPanel(group: emby.syncPlay.group) { ui.panel = nil } }
                 .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
         case nil: EmptyView()

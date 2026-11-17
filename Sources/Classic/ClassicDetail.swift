@@ -478,6 +478,7 @@ struct ClassicDetailView: View {
                     Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
                 }.buttonStyle(HoverButton())
             }
+            WatchTogetherButton(item: model.playTarget, start: r, classic: true)
             RatingButton(item: item, full: model.full, classic: true)
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {

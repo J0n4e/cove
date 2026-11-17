@@ -361,6 +361,7 @@ struct DetailView: View {
                         .background(.ultraThinMaterial, in: Capsule())
                 }.buttonStyle(HoverButton())
             }
+            WatchTogetherButton(item: model.playTarget, start: r, classic: false)
             RatingButton(item: item, full: model.full)
             glassCircle(fav ? "checkmark" : "plus", help: fav ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await emby.setFav(item.id, !fav, name: item.Name) }

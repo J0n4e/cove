@@ -239,7 +239,7 @@ final class PlayerModel: ObservableObject {
         }
         player = p
         p.defaultRate = speed
-        p.play()
+        if !req.startPaused { p.play() }   // a SyncPlay group starts it once everyone is ready
         // A conversion that never starts would otherwise leave a black screen with a spinner forever
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(60))
@@ -579,7 +579,18 @@ final class PlayerModel: ObservableObject {
     private var pausedAt: Date?
     private var debugTimer: Timer?
 
+    /// The item playing (SyncPlay)
+    var currentItemId: String? { req?.item.id }
+
+    /// Play / pause from the user (buttons, keys, media keys). In a SyncPlay group it becomes a request to the
+    /// group, and happens when the group's command comes back.
     func togglePlay() {
+        guard let p = player else { return }
+        if emby?.syncPlay.group.intercept(p.rate > 0 ? .pause : .play) == true { return }
+        localTogglePlay()
+    }
+
+    func localTogglePlay() {
         guard let p = player else { return }
         if p.rate > 0 {
             p.pause(); pausedAt = Date()
@@ -644,7 +655,14 @@ final class PlayerModel: ObservableObject {
     }
     func dlog(_ m: String) { DebugLog.write(m) }
 
+    /// A seek from the user; in a SyncPlay group it is sent to the group instead.
     func seek(to t: Double) {
+        let c = max(0, duration > 0 ? min(t, duration - 1) : t)
+        if emby?.syncPlay.group.intercept(.seek(ticks: Int64(c * SyncPlayGroup.ticksPerSecond))) == true { return }
+        localSeek(to: c)
+    }
+
+    func localSeek(to t: Double) {
         let c = max(0, duration > 0 ? min(t, duration - 1) : t)
         time = c
         player?.seek(to: CMTime(seconds: c, preferredTimescale: 600))
