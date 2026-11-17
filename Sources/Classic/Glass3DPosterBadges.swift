@@ -150,7 +150,8 @@ struct PosterBadgesLeading: View {
     let hover: Bool
     var body: some View {
         HStack(spacing: 5) {
-            PosterFavBadge(item: item, hover: hover)
+            // The ♡ slot is always kept, so the ★ never moves when the outline ♡ appears on hover
+            PosterFavBadge(item: item, hover: hover).frame(width: PosterBadges.size, height: PosterBadges.size)
             PosterRatingBadge(item: item)
         }
     }
