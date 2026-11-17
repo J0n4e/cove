@@ -129,21 +129,6 @@ struct ClassicWindowChrome: NSViewRepresentable {
     static func dismantleNSView(_ v: V, coordinator: ()) { v.restore() }
 }
 
-/// The window's close, minimise and zoom buttons shown or hidden (the player's controls take them along).
-enum TrafficLights {
-    static func show(_ on: Bool, in w: NSWindow?, animated: Bool = true) {
-        guard let w else { return }
-        // Full screen: macOS handles them; always restore there
-        let on = on || w.styleMask.contains(.fullScreen)
-        for t in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            guard let b = w.standardWindowButton(t) else { continue }
-            if animated {
-                NSAnimationContext.runAnimationGroup { c in c.duration = 0.25; b.animator().alphaValue = on ? 1 : 0 }
-            } else { b.alphaValue = on ? 1 : 0 }
-        }
-    }
-}
-
 // MARK: - Scroll bars
 
 /// Glass3D scroll bars: thin overlay scrollers with a light knob for the dark pages, shown only while scrolling.
