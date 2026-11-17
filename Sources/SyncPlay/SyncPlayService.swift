@@ -31,6 +31,8 @@ final class SyncPlayService: ObservableObject {
     @Published private(set) var serverVersion: String?
     /// The user's Policy.SyncPlayAccess: CreateAndJoinGroups, JoinGroups or None
     @Published private(set) var syncPlayAccess: String?
+    /// The signed-in user's name (default group name "<name>'s group")
+    @Published private(set) var userName: String?
     private(set) var timeSync = TimeSync()
     /// SyncPlayCommand / SyncPlayGroupUpdate messages, for phase 2.
     let messages = PassthroughSubject<SocketMessage, Never>()
@@ -62,6 +64,56 @@ final class SyncPlayService: ObservableObject {
     private var bag: Set<AnyCancellable> = []
     private var wakeObserver: NSObjectProtocol?
 
+    /// SyncPlay phase 2: the group this session is in (if any).
+    lazy var group: SyncPlayGroup = makeGroup()
+
+    private func makeGroup() -> SyncPlayGroup {
+        let g = SyncPlayGroup()
+        let log = self.log
+        g.log = { log($0) }
+        g.available = { [weak self] in self?.syncPlayAvailable ?? false }
+        g.send = { [weak self] path, body, post in await self?.send(path, body: body, post: post) }
+        g.socketNeeded = { [weak self] on in self?.setSocketNeeded(on) }
+        g.waitConnected = { [weak self] in
+            // The server sends group updates over the socket only: give it up to 10 s to open
+            for _ in 0..<40 {
+                guard let self, !self.connected, self.current != nil else { return }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
+        g.clock = { [weak self] in self?.timeSync ?? TimeSync() }
+        g.playback = { PlayerModel.active }
+        g.listen(to: messages)
+        return g
+    }
+
+    /// A SyncPlay request for the current session. nil: not signed in to Jellyfin, or the server said no.
+    func send(_ path: String, body: Data?, post: Bool) async -> Data? {
+        guard let c = current else { return nil }
+        return await send(c, path, body: body, post: post)
+    }
+
+    private func send(_ c: Credentials, _ path: String, body: Data?, post: Bool) async -> Data? {
+        guard var r = request(c, path) else { return nil }
+        if post {
+            r.httpMethod = "POST"
+            r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            r.httpBody = body ?? Data("{}".utf8)
+        }
+        do {
+            let (d, resp) = try await http(r)
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<300).contains(code) else {
+                log("SyncPlay: \(path) answered HTTP \(code)")
+                return nil
+            }
+            return d
+        } catch {
+            log("SyncPlay: \(path) failed: \((error as NSError).domain) \((error as NSError).code)")
+            return nil
+        }
+    }
+
     /// `enabled` is off inside the test runner, so the app's own Emby objects made by other tests never open
     /// sockets or post to stub servers; SyncPlay tests make their own service.
     init(enabled: Bool = NSClassFromString("XCTestCase") == nil,
@@ -81,6 +133,13 @@ final class SyncPlayService: ObservableObject {
     /// Follows sign-in, sign-out, server switches and the Jellyfin/Emby answer without touching those paths.
     func attach(to emby: Emby) {
         guard enabled else { return }
+        group.opener = { [weak emby] id, start in await emby?.syncPlayOpen(id, start: start) }
+        // Closing the player while in a group leaves the group
+        emby.$playing.map { $0 == nil }.removeDuplicates().dropFirst()
+            .sink { [weak self] closed in
+                MainActor.assumeIsolated { if closed { self?.group.playerClosed() } }
+            }
+            .store(in: &bag)
         Publishers.CombineLatest4(emby.$server, emby.$token, emby.$userId, emby.$isJellyfin)
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self, weak emby] s, t, u, j in
@@ -108,8 +167,9 @@ final class SyncPlayService: ObservableObject {
 
     /// Starts for a signed-in Jellyfin session, stops otherwise. Calling it again with the same session does nothing.
     func update(_ c: Credentials?, isJellyfin: Bool) {
-        guard let c, isJellyfin else { stop(); return }
+        guard let c, isJellyfin else { leaveGroup(); stop(); return }
         guard c != current else { return }
+        leaveGroup()
         stop()
         current = c
         refreshSocket()
@@ -159,13 +219,22 @@ final class SyncPlayService: ObservableObject {
         s.start()
     }
 
+    /// Sign-out or server switch while in a group: tell the old server, with the old session's credentials.
+    private func leaveGroup() {
+        guard group.isActive, let old = current else { return }
+        log("SyncPlay: session changed, leaving the group")
+        group.reset()
+        Task { _ = await self.send(old, "/SyncPlay/Leave", body: nil, post: true) }
+    }
+
     func stop() {
+        group.reset()
         socket?.stop(); socket = nil
         tasks.forEach { $0.cancel() }; tasks = []
         current = nil
         socketNeeded = false   // a SyncPlay group doesn't outlive the session
         connected = false
-        serverVersion = nil; syncPlayAccess = nil
+        serverVersion = nil; syncPlayAccess = nil; userName = nil
         timeSync = TimeSync()
     }
 
@@ -200,6 +269,7 @@ final class SyncPlayService: ObservableObject {
     private struct PublicInfo: Decodable { let Version: String? }
     private struct UserInfo: Decodable {
         struct Policy: Decodable { let SyncPlayAccess: String? }
+        let Name: String?
         let Policy: Policy?
     }
 
@@ -212,6 +282,7 @@ final class SyncPlayService: ObservableObject {
            (resp as? HTTPURLResponse)?.statusCode ?? 200 == 200,
            let u = try? JSONDecoder().decode(UserInfo.self, from: d), current == c {
             syncPlayAccess = u.Policy?.SyncPlayAccess
+            userName = u.Name
         }
     }
 
