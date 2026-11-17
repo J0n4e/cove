@@ -140,7 +140,7 @@ struct ClassicPlayerView: View {
     }
     /// Color of the strip under the title bar. The system draws the bar's own gray (about 93 % opaque) over it,
     /// and the result is the same gray on both sides only when this strip is (44, 45, 45).
-    /// Glass3D theme: no title strip, the traffic lights over the video come and go with the controls.
+    /// Glass3D theme (key "classic"): glass pills instead of bare accent text.
     var glass3DChrome: Bool { UserDefaults.standard.string(forKey: "theme") == "classic" }
     static let titleBarGray = Color(red: 44 / 255, green: 45 / 255, blue: 45 / 255)
 
@@ -234,8 +234,7 @@ struct ClassicPlayerView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if let p = model.player {
-                    AVPlayerViewRep(player: p, onLayer: model.attach).ignoresSafeArea()
-                        .padding(.top, glass3DChrome ? 0 : titleBarHeight)   // Glass3D: video to the top edge
+                    AVPlayerViewRep(player: p, onLayer: model.attach).ignoresSafeArea().padding(.top, titleBarHeight)
                 }
                 else if model.error.isEmpty { Spinner(inPlayer: true).controlSize(.large) }
                 if model.pipActive { classicPipPlaceholder }
@@ -266,13 +265,11 @@ struct ClassicPlayerView: View {
                 if ui.showInfo { classicInfoOverlay }
                 classicCornerCards
                 panelLayer
-                // Title bar strip (Glass theme only; Glass3D runs the video to the top under the traffic lights)
-                if !glass3DChrome {
-                    VStack(spacing: 0) {
-                        ClassicPlayerView.titleBarGray.frame(height: titleBarHeight)
-                        Spacer(minLength: 0)
-                    }.ignoresSafeArea().allowsHitTesting(false)
-                }
+                // Title bar strip, above every layer (the controls' dark gradient used to darken it)
+                VStack(spacing: 0) {
+                    ClassicPlayerView.titleBarGray.frame(height: titleBarHeight)
+                    Spacer(minLength: 0)
+                }.ignoresSafeArea().allowsHitTesting(false)
                 if Self.titleBarBackPill { titleBarBack }
             }
             .contentShape(Rectangle())
@@ -332,16 +329,12 @@ struct ClassicPlayerView: View {
         // Esc: close a panel, else leave full screen (video keeps playing), else close the player.
         // Caught at the app level (AppKit sometimes swallows Esc before SwiftUI sees it, e.g. after full
         // screen), but only in the player's own window.
-        .background(WindowReader { ui.playerWin.window = $0; if glass3DChrome { TrafficLights.ensureVisible($0) } })
+        .background(WindowReader { ui.playerWin.window = $0 })
         .onAppear {
             ui.listOpen = { [dropdowns] in dropdowns?.list != nil }
             ui.installKeyMonitor(toggleFullScreen: { toggleFullScreen() }, close: { close() })
         }
         .onDisappear { ui.removeKeyMonitor() }
-        // No title strip: the traffic lights float over the video and come and go with the controls
-        // Normal, always-visible traffic lights over the video, like the Settings window (owner's choice)
-        .onAppear { if glass3DChrome { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { TrafficLights.ensureVisible(ui.playerWin.window) } } }
-        .onChange(of: ui.isFullScreen) { if glass3DChrome { TrafficLights.ensureVisible(ui.playerWin.window) } }
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
