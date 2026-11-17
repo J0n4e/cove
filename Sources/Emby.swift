@@ -706,7 +706,11 @@ final class Emby: ObservableObject {
     /// All sessions currently playing something (all users for admins, otherwise just yours).
     func nowPlaying() async -> [ActiveSession] {
         let all: [ActiveSession]? = try? await get("/Sessions", ["ActiveWithinSeconds": "960"])
-        return (all ?? []).filter { $0.NowPlayingItem != nil }
+        return Self.playingSessions(all ?? [])
+    }
+    /// The sessions that are playing something, in a stable order (polling and the live socket's Sessions messages).
+    nonisolated static func playingSessions(_ all: [ActiveSession]) -> [ActiveSession] {
+        all.filter { $0.NowPlayingItem != nil }
             .sorted { ($0.UserName ?? "", $0.Id) < ($1.UserName ?? "", $1.Id) }
     }
 
@@ -1040,22 +1044,42 @@ final class Emby: ObservableObject {
     func isFav(_ it: Item) -> Bool { faved[it.id] ?? it.UserData?.IsFavorite ?? false }
 
     private func send(_ method: String, _ path: String, on s: PlaySession? = nil) async {
-        guard let url = URL(string: (s?.server ?? server) + path) else { return }
+        await sendChecked(method, path, on: s)
+    }
+    /// As `send`, but reports whether the server accepted it (HTTP 2xx). v1.19.0: the poster badges roll back on false.
+    @discardableResult
+    private func sendChecked(_ method: String, _ path: String, on s: PlaySession? = nil) async -> Bool {
+        guard let url = URL(string: (s?.server ?? server) + path) else { return false }
         var r = URLRequest(url: url)
         r.httpMethod = method
         authorize(&r, token: s?.token)
-        _ = try? await Net.session.data(for: r)
+        guard let res = try? await Net.session.data(for: r) else { return false }
+        return BadgeRollback.accepted((res.1 as? HTTPURLResponse)?.statusCode)
     }
     /// `children`: episodes shown under this season or show. The server marks them itself; this updates their
     /// ticks and the unwatched count on screen right away.
     /// `name`: when given (a click, not the player finishing), a toast confirms the change.
     func setPlayed(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
+        await setPlayedChecked(id, v, children: children, name: name, rollback: false)
+    }
+    /// setPlayed that reports the server's answer. With `rollback` (the badges), a refusal or no answer puts the
+    /// ticks back as they were and shows "Couldn't update — try again".
+    @discardableResult
+    func setPlayedChecked(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil, rollback: Bool = true) async -> Bool {
         if let name { toast = Toast(text: "Marked \u{201C}\(name)\u{201D} as \(v ? "watched" : "unwatched")", icon: v ? "checkmark.circle.fill" : "circle") }
+        let ids = [id] + children.map { $0.id }
+        let before = ids.map { (played[$0], positions[$0]) }
         played[id] = v
         positions[id] = 0
         for c in children { played[c.id] = v; positions[c.id] = 0 }
-        await send(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
+        let ok = await sendChecked(v ? "POST" : "DELETE", "/Users/\(userId)/PlayedItems/\(id)")
+        if !ok && rollback {
+            for (i, k) in ids.enumerated() { played[k] = before[i].0; positions[k] = before[i].1 }
+            toast = BadgeRollback.failureToast
+            return false
+        }
         if name != nil { await Trakt.shared.setWatched(itemId: id, v, emby: self) }   // a click, not the player or a sync
+        return ok
     }
 
     /// The movie or episode with one of these Trakt ids (imdb / tmdb / tvdb) in this library, for watched sync.
@@ -1071,12 +1095,27 @@ final class Emby: ObservableObject {
     }
     /// `children`: a season's episodes. Favorites don't carry down on the server, so each episode is sent too.
     func setFav(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil) async {
+        await setFavChecked(id, v, children: children, name: name, rollback: false)
+    }
+    /// setFav that reports the server's answer (for the item itself). With `rollback` (the badges), a refusal or no
+    /// answer puts the hearts back as they were and shows "Couldn't update — try again".
+    @discardableResult
+    func setFavChecked(_ id: String, _ v: Bool, children: [Item] = [], name: String? = nil, rollback: Bool = true) async -> Bool {
         if let name { toast = Toast(text: v ? "Added \u{201C}\(name)\u{201D} to Favorites" : "Removed \u{201C}\(name)\u{201D} from Favorites", icon: v ? "heart.fill" : "heart.slash") }
+        let ids = [id] + children.map { $0.id }
+        let before = ids.map { faved[$0] }
         faved[id] = v
         for c in children { faved[c.id] = v }
-        await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(id)")
+        let ok = await sendChecked(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(id)")
+        if !ok && rollback {
+            for (i, k) in ids.enumerated() { faved[k] = before[i] }
+            toast = BadgeRollback.failureToast
+            favRevision += 1
+            return false
+        }
         for c in children { await send(v ? "POST" : "DELETE", "/Users/\(userId)/FavoriteItems/\(c.id)") }
         favRevision += 1
+        return ok
     }
     /// Plays from Home; when playback ends, the item's page opens (see returnAfterPlay).
     /// `from`: start there (seconds) instead of the saved position (0 = from the beginning).
