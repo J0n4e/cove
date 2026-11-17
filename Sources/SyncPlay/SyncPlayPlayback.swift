@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 
 // SyncPlay phase 2: the bridge between a group and the player. The group only sees this protocol, so its
@@ -16,6 +17,15 @@ protocol SyncPlayPlayback: AnyObject {
     func syncPlayPlay()
     func syncPlayPause()
     func syncPlaySeek(ticks: Int64)
+    /// Phase 3: the player is waiting for data while it should be playing (a mid-playback stall)
+    var syncPlayStalled: Bool { get }
+    /// Phase 3: drift correction's playback rate (1.0 = normal); only while playing
+    func syncPlaySetRate(_ rate: Double)
+}
+
+extension SyncPlayPlayback {
+    var syncPlayStalled: Bool { false }
+    func syncPlaySetRate(_ rate: Double) {}
 }
 
 extension PlayerModel: SyncPlayPlayback {
@@ -29,6 +39,11 @@ extension PlayerModel: SyncPlayPlayback {
     func syncPlayPlay() { if !syncPlayIsPlaying { localTogglePlay() } }
     func syncPlayPause() { if syncPlayIsPlaying { localTogglePlay() } }
     func syncPlaySeek(ticks: Int64) { localSeek(to: Double(ticks) / SyncPlayGroup.ticksPerSecond) }
+    var syncPlayStalled: Bool { player?.timeControlStatus == .waitingToPlayAtSpecifiedRate }
+    func syncPlaySetRate(_ rate: Double) {
+        guard let p = player, p.rate > 0 else { return }
+        p.rate = speed * Float(rate)
+    }
 }
 
 extension Emby {
