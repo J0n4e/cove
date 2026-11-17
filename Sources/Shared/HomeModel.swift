@@ -23,7 +23,9 @@ final class HomeModel: ObservableObject {
     /// The `.task(id:)` key: a new reload token, a retry or another server/user (`session`) loads again.
     /// A session change from the Home server pill keeps Home on screen, so the key is what reloads it
     /// (SwiftUI cancels the old load when the key changes).
-    func taskKey(_ reloadToken: Int, session: String = "") -> String { "\(reloadToken)-\(retryCount)-\(session)" }
+    func taskKey(_ reloadToken: Int, session: String = "") -> String {
+        session.isEmpty ? "\(reloadToken)-\(retryCount)" : "\(reloadToken)-\(retryCount)-\(session)"
+    }
 
     /// The server|user the rows on screen belong to.
     private(set) var loadedSession: String?
