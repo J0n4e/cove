@@ -268,7 +268,7 @@ struct ClassicPlayerView: View {
                 SyncPlayToast(group: emby.syncPlay.group, classic: classic)
                 // Title bar strip, above every layer (the controls' dark gradient used to darken it)
                 VStack(spacing: 0) {
-                    ClassicPlayerView.titleBarGray.frame(height: titleBarHeight)
+                    ClassicPlayerTitleBar.stripColor(glass3D: glass3DChrome).frame(height: titleBarHeight)
                     Spacer(minLength: 0)
                 }.ignoresSafeArea().allowsHitTesting(false)
                 if Self.titleBarBackPill { titleBarBack }
@@ -330,7 +330,7 @@ struct ClassicPlayerView: View {
         // Esc: close a panel, else leave full screen (video keeps playing), else close the player.
         // Caught at the app level (AppKit sometimes swallows Esc before SwiftUI sees it, e.g. after full
         // screen), but only in the player's own window.
-        .background(WindowReader { ui.playerWin.window = $0 })
+        .background(ClassicPlayerWindowProbe(black: glass3DChrome) { ui.playerWin.window = $0 })
         .onAppear {
             ui.listOpen = { [dropdowns] in dropdowns?.list != nil }
             ui.installKeyMonitor(toggleFullScreen: { toggleFullScreen() }, close: { close() })
@@ -406,7 +406,7 @@ struct ClassicPlayerView: View {
         HStack(spacing: 16) {
             // The classicPill that used to sit here is hidden (kept, not deleted): in full screen Esc does the job, and in a
             // window it moved to the title bar (titleBarBack, now off too). Set inPlayerBackPill to true to bring it back.
-            if Self.inPlayerBackPill {
+            if Self.inPlayerBackPill || glass3DChrome {   // Glass3D: no traffic lights, so Back closes the player
                 Group {
                     if classic {
                         Button { back() } label: { Label("Back", systemImage: "chevron.left").classicGlassPill(size: 44) }
