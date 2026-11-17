@@ -20,9 +20,13 @@ struct ClassicFavoritesView: View {
         let movies = s.movies, shows = s.shows, episodes = s.episodes, collections = s.collections
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                // Count as small grey text under the title, as on library pages
+                VStack(alignment: .leading, spacing: 4) {
                     ClassicPageTitle(text: "Favorites", icon: "heart.fill")
-                    if !favs.isEmpty { Text("\(favs.count) Items").foregroundColor(.secondary) }
+                    if !favs.isEmpty {
+                        Text(Glass3DTokens.itemCount(favs.count))
+                            .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
+                    }
                 }
                 if !movies.isEmpty { section("Favorite Movies", movies) }
                 if !shows.isEmpty { section("Favorite Shows", shows) }
