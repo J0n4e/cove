@@ -124,7 +124,22 @@ enum SocketMessage: Equatable {
     case syncPlayGroupUpdate(SyncPlayGroupUpdate)
     /// Anything else (Playstate, GeneralCommand, UserDataChanged…): ignored in phase 1.
     case other(String)
+    // >>> v1.19.0 Now Playing live (Sessions)
+    /// Jellyfin's Sessions message (sent while subscribed with SessionsStart): every session, as GET /Sessions.
+    case sessions(LiveSessions)
+    // <<< v1.19.0 Now Playing live (Sessions)
 }
+
+// >>> v1.19.0 Now Playing live (Sessions)
+/// The session list from a Sessions message. Equal when the same sessions are at the same place (for tests).
+struct LiveSessions: Equatable {
+    let list: [ActiveSession]
+    static func == (a: LiveSessions, b: LiveSessions) -> Bool {
+        a.list.map { "\($0.Id)|\($0.PlayState?.PositionTicks ?? -1)|\($0.PlayState?.IsPaused ?? false)" }
+            == b.list.map { "\($0.Id)|\($0.PlayState?.PositionTicks ?? -1)|\($0.PlayState?.IsPaused ?? false)" }
+    }
+}
+// <<< v1.19.0 Now Playing live (Sessions)
 
 /// The envelope every message comes in: {"MessageType": …, "Data": …, "MessageId": …}.
 struct SocketEnvelope: Decodable {
@@ -144,6 +159,7 @@ struct SocketEnvelope: Decodable {
         case "KeepAlive": message = .keepAlive
         case "SyncPlayCommand": message = .syncPlayCommand(try c.decode(SyncPlayCommand.self, forKey: .Data))
         case "SyncPlayGroupUpdate": message = .syncPlayGroupUpdate(try c.decode(SyncPlayGroupUpdate.self, forKey: .Data))
+        case "Sessions": message = .sessions(LiveSessions(list: try c.decode([ActiveSession].self, forKey: .Data)))   // v1.19.0
         default: message = .other(type)
         }
     }
@@ -196,6 +212,7 @@ final class ServerSocket {
     var onConnect: () -> Void = {}
     var onDisconnect: () -> Void = {}
     var onMessage: (SocketMessage) -> Void = { _ in }
+    var onSessions: ([ActiveSession]) -> Void = { _ in }   // v1.19.0 Now Playing live
     var log: (String) -> Void = { _ in }
 
     private(set) var connected = false
@@ -276,8 +293,18 @@ final class ServerSocket {
             Task { try? await t.send(Self.keepAliveText) }
         case .keepAlive, .other: break
         case .syncPlayCommand, .syncPlayGroupUpdate: onMessage(env.message)
+        case .sessions(let live): onSessions(live.list)   // v1.19.0 Now Playing live
         }
     }
+
+    // >>> v1.19.0 Now Playing live (Sessions)
+    /// Sends a text message (e.g. SessionsStart). false when the socket isn't connected or the send failed.
+    @discardableResult
+    func sendText(_ text: String) async -> Bool {
+        guard connected, let t = transport else { return false }
+        do { try await t.send(text); return true } catch { return false }
+    }
+    // <<< v1.19.0 Now Playing live (Sessions)
 
     private func startKeepAlive(_ timeout: Int, on t: SocketTransport) {
         keepAliveTask?.cancel()

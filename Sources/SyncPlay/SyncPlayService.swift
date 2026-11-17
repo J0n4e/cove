@@ -36,6 +36,14 @@ final class SyncPlayService: ObservableObject {
     private(set) var timeSync = TimeSync()
     /// SyncPlayCommand / SyncPlayGroupUpdate messages, for phase 2.
     let messages = PassthroughSubject<SocketMessage, Never>()
+    /// v1.19.0: the session lists Jellyfin pushes while Now Playing is subscribed (SessionsStart).
+    let sessions = PassthroughSubject<[ActiveSession], Never>()
+    /// v1.19.0: a text message over the socket (false: no socket / not connected).
+    @discardableResult
+    func sendSocketText(_ text: String) async -> Bool {
+        guard let socket else { return false }
+        return await socket.sendText(text)
+    }
 
     /// Jellyfin 10.8 or newer, and the user may join groups.
     var syncPlayAvailable: Bool { Self.available(version: serverVersion, access: syncPlayAccess) }
@@ -226,6 +234,7 @@ final class SyncPlayService: ObservableObject {
         }
         s.onDisconnect = { [weak self] in self?.connected = false; self?.wasDisconnected = true }
         s.onMessage = { [weak self] m in self?.messages.send(m) }
+        s.onSessions = { [weak self] list in self?.sessions.send(list) }
         socket = s
         s.start()
     }

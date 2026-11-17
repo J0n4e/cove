@@ -56,12 +56,35 @@ enum NowPlayingStyle {
     }
 }
 
+/// v1.19.0: where Now Playing gets its sessions. Jellyfin with the live connection on and the socket up: the
+/// server pushes them (SessionsStart "0,1500" = first at once, then at most every 1.5 s, as jellyfin-web's
+/// dashboard). Anything else (Emby, live connection off, socket down): GET /Sessions every 5 s.
+enum NowPlayingLive {
+    enum Source: Equatable { case socket, polling }
+    static let startText = #"{"MessageType":"SessionsStart","Data":"0,1500"}"#
+    static let stopText = #"{"MessageType":"SessionsStop"}"#
+    static let pollInterval: TimeInterval = 5
+    /// Socket updates count as live for this long; after that the page polls again.
+    static let socketStale: TimeInterval = 10
+
+    static func source(isJellyfin: Bool, liveSetting: Bool, socketConnected: Bool) -> Source {
+        isJellyfin && liveSetting && socketConnected ? .socket : .polling
+    }
+    /// Whether this 5 s tick fetches /Sessions: always when polling; on the socket only until the first push
+    /// arrives and whenever pushes have stopped for `socketStale`.
+    static func shouldPoll(_ source: Source, lastPush: Date?, now: Date) -> Bool {
+        guard source == .socket, let lastPush else { return true }
+        return now.timeIntervalSince(lastPush) > socketStale
+    }
+}
+
 struct ClassicNowPlayingView: View {
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     @State private var sessions: [ActiveSession] = []
     @State private var fetchedAt = Date()
     @State private var loaded = false
+    @State private var lastPush: Date?
 
     var body: some View {
         ScrollView {
@@ -87,14 +110,60 @@ struct ClassicNowPlayingView: View {
         }
         .background(bg)
         .task {
-            // Live: every 5 s while the page is shown (the task ends with the page)
+            // Fallback: every 5 s while the page is shown (the task ends with the page); skipped while the
+            // Jellyfin socket is pushing the sessions
             while !Task.isCancelled {
-                let s = await emby.nowPlaying()
-                withAnimation(Glass3DTokens.Motion.slow) { sessions = s; fetchedAt = Date() }
-                loaded = true
-                try? await Task.sleep(for: .seconds(5))
+                if NowPlayingLive.shouldPoll(source, lastPush: lastPush, now: Date()) {
+                    let s = await emby.nowPlaying()
+                    withAnimation(Glass3DTokens.Motion.slow) { sessions = s; fetchedAt = Date() }
+                    loaded = true
+                }
+                try? await Task.sleep(for: .seconds(NowPlayingLive.pollInterval))
             }
         }
+        .modifier(NowPlayingSocketFeed(sessions: $sessions, fetchedAt: $fetchedAt, loaded: $loaded, lastPush: $lastPush))
+    }
+
+    private var source: NowPlayingLive.Source {
+        NowPlayingLive.source(isJellyfin: emby.isJellyfin, liveSetting: SyncPlayService.liveSocketDefault(),
+                              socketConnected: emby.syncPlay.connected)
+    }
+}
+
+/// v1.19.0: subscribes to Jellyfin's Sessions messages while the page is shown (again after a reconnect) and
+/// feeds them into the page; unsubscribes when it goes away.
+private struct NowPlayingSocketFeed: ViewModifier {
+    @EnvironmentObject var emby: Emby
+    @Binding var sessions: [ActiveSession]
+    @Binding var fetchedAt: Date
+    @Binding var loaded: Bool
+    @Binding var lastPush: Date?
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(emby.syncPlay.sessions) { all in
+                guard live else { return }
+                withAnimation(Glass3DTokens.Motion.slow) { sessions = Emby.playingSessions(all); fetchedAt = Date() }
+                loaded = true
+                lastPush = Date()
+            }
+            .onReceive(emby.syncPlay.$connected.removeDuplicates()) { up in
+                if up { subscribe() } else { lastPush = nil }   // down: the 5 s polling takes over
+            }
+            .onDisappear {
+                let sp = emby.syncPlay
+                Task { await sp.sendSocketText(NowPlayingLive.stopText) }
+            }
+    }
+
+    private var live: Bool {
+        NowPlayingLive.source(isJellyfin: emby.isJellyfin, liveSetting: SyncPlayService.liveSocketDefault(),
+                              socketConnected: emby.syncPlay.connected) == .socket
+    }
+    private func subscribe() {
+        guard live else { return }
+        let sp = emby.syncPlay
+        Task { await sp.sendSocketText(NowPlayingLive.startText) }
     }
 }
 
