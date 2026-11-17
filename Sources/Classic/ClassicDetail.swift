@@ -15,7 +15,7 @@ struct SeasonDeck: View {
     let title: (Int) -> String
     let image: (Int) -> URL?
     let select: (Int) -> Void
-    /// Front card extras, as on the season posters: unwatched count (top right), Watched / Favorite on hover
+    /// Front card badges, as on the season posters: ♡ and ✓ with the unwatched count (DeckCardBadges)
     let badge: (Int) -> Int?
     let seasonItem: (Int) -> Item?
     let episodes: (Int) -> [Item]
@@ -92,15 +92,10 @@ struct SeasonDeck: View {
         ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
-                deckButton(p, k: k) {
-                    card(numbers[p], k: k)
-                        .overlay(alignment: .topTrailing) {
-                            if let watched {
-                                if watched(numbers[p]) { TubeBadge(count: nil).helpLabel("Watched").padding(10) }
-                            } else if k == 0 { CountBadge(count: badge(numbers[p])).padding(10) }
-                        }
-                }
-                .modifier(FrontActions(on: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p])))
+                deckButton(p, k: k) { card(numbers[p], k: k) }
+                // v1.18.6: the poster badges (♡ / ✓ with the unwatched count) on the front card, no hover buttons
+                .modifier(DeckCardBadges(front: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p]),
+                                         unwatched: badge(numbers[p]), watched: watched?(numbers[p])))
                     .buttonStyle(.plainHand)
                     .accessibilityLabel(title(numbers[p]))   // no tooltip: the card shows its name
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
@@ -163,15 +158,6 @@ final class DeckSwipe {
     }
 }
 
-/// Watched / Favorite buttons on hover (bottom right), only on the deck's front card.
-private struct FrontActions: ViewModifier {
-    let on: Bool
-    let item: Item?
-    let episodes: [Item]
-    @ViewBuilder func body(content: Content) -> some View {
-        if on { content.hoverItemActions(item, .bottomTrailing, children: episodes) } else { content }
-    }
-}
 
 struct ClassicBackdrop: View {
     @EnvironmentObject var emby: Emby
@@ -804,7 +790,7 @@ struct ClassicDetailView: View {
                         ForEach(model.similar) { ClassicPosterCard(item: $0) }
                     }.padding(.horizontal, 40)
                 } else if similarLayout == "list" {
-                    LazyVStack(spacing: 6) { ForEach(model.similar) { ListRow(item: $0) } }.padding(.horizontal, 40)
+                    LazyVStack(spacing: 6) { ForEach(model.similar) { Glass3DListRow(item: $0) } }.padding(.horizontal, 40)
                 } else {
                     ArrowScrollRow(ids: Array(model.similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.similar[$0]) }
                 }
