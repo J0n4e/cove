@@ -210,3 +210,77 @@ extension View {
         modifier(ItemBadges(item: item, kind: kind, children: children, unwatched: unwatched, inset: inset))
     }
 }
+
+// MARK: - v1.18.6: one badge look on every poster kind
+
+/// What a poster shows in its badge slots: the same for movies, TV shows, seasons and collections, and the same at
+/// rest and on hover (only the poster's zoom scales it).
+struct PosterBadgeState: Equatable {
+    enum Kind: CaseIterable { case movie, series, season, collection }
+    /// ♡ (top left, always)
+    let fav: String
+    /// ★ number next to the ♡ (only when rated)
+    let rating: Int?
+    /// ✓ slot (top right, always): "checkmark", or the unwatched count of a series / season
+    let watched: String
+    /// The ✓ is the dim one (not watched)
+    let dim: Bool
+    /// The ✓ slot is a capsule (an unwatched count) rather than a circle
+    let capsule: Bool
+
+    static func of(_ kind: Kind, fav: Bool, played: Bool, unwatched: Int = 0, rating: Int? = nil, hover: Bool) -> PosterBadgeState {
+        // Only series and seasons carry an unwatched count; movies and collections show ✓ / dim ✓
+        let n = (kind == .series || kind == .season) && !played ? max(0, unwatched) : 0
+        let w = PosterBadges.watchedContent(played: played, unwatched: n, hover: hover) ?? ("checkmark", true)
+        return PosterBadgeState(fav: PosterBadges.favSymbol(fav: fav, hover: hover) ?? "heart", rating: rating,
+                                watched: w.text, dim: w.outline, capsule: n > 0)
+    }
+
+    static func kind(_ item: Item) -> Kind {
+        if item.isSeries { return .series }
+        switch item.`Type` {
+        case "Season": return .season
+        case "BoxSet": return .collection
+        default: return .movie
+        }
+    }
+}
+
+/// The badges of a list-view row (Glass3D library list): the same ♡ ★ ✓ components as the posters, in a line at
+/// the row's end, always shown (no hover buttons).
+struct PosterBadgesInline: View {
+    let item: Item
+    var body: some View {
+        HStack(spacing: 5) {
+            PosterBadgesLeading(item: item, hover: false)
+            PosterWatchBadge(item: item, hover: false)
+        }
+    }
+}
+
+/// The season / collection card deck's front card (series page, season layout "Cards"; collection pages): the
+/// poster badges in place of the old hover buttons and count badge. Seasons: ♡ and ✓ with the unwatched count;
+/// a collection's front movie: ♡ ★ ✓ as every movie poster. Cards behind show nothing (seasons) or the ✓ of a
+/// watched movie (collections), in the same dark glass circle.
+struct DeckCardBadges: ViewModifier {
+    let front: Bool
+    let item: Item?
+    var episodes: [Item] = []
+    var unwatched: Int? = nil
+    /// Collections: whether this (back) card's movie is watched; nil for seasons
+    var watched: Bool? = nil
+    @ViewBuilder func body(content: Content) -> some View {
+        if front, let item, watched != nil {
+            content.overlay { PosterBadgesOverlay(item: item, hover: false) }
+        } else if front {
+            content.itemBadges(item, .season, children: episodes, unwatched: unwatched ?? 0)
+        } else {
+            content.overlay(alignment: .topTrailing) {
+                if watched == true {
+                    PosterBadgeCircle(symbol: "checkmark").helpLabel("Watched").padding(PosterBadges.inset)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+    }
+}

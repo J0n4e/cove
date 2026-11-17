@@ -93,7 +93,7 @@ struct ClassicFavoritesView: View {
                     ForEach(list) { ClassicPosterCard(item: $0) }
                 }
             } else if layout == "list" {
-                LazyVStack(spacing: 6) { ForEach(list) { ListRow(item: $0) } }
+                LazyVStack(spacing: 6) { ForEach(list) { Glass3DListRow(item: $0) } }
             } else {
                 ArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
                     if let it = byId[id] { ClassicPosterCard(item: it) }
