@@ -410,6 +410,7 @@ struct ClassicTopNavButtons: View {
                 .opacity(on ? 1 : 0.6)
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
+                .modifier(UnselectedTabBacking(on: on))   // the others: a lighter dark pill, readable over posters
                 .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
                 .contentShape(Capsule())
         }

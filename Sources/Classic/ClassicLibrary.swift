@@ -109,6 +109,7 @@ struct ClassicLibraryView: View {
                                 .opacity(model.tab == i ? 1 : 0.6)
                                 .padding(.horizontal, 14).frame(height: 32)
                                 .classicSelectedGlass(model.tab == i)   // a step quieter than the top bar's pill
+                                .modifier(UnselectedTabBacking(on: model.tab == i))   // as the top bar's other tabs
                         .modifier(SectionHoverGlow(on: !(model.tab == i)))   // accent glow on hover, as the top bar
                         }.buttonStyle(.plainHand)
                     }

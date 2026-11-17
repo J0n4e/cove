@@ -1,5 +1,6 @@
 import XCTest
 @testable import Cove
+import SwiftUI
 
 /// Glass3D polish round 2: the thumbnails' progress line, the library sort label and item count.
 final class Glass3DRound2Tests: XCTestCase {
@@ -40,5 +41,48 @@ final class Glass3DRound2Tests: XCTestCase {
     func testPlayerStripIsBlackOnlyInGlass3D() {
         XCTAssertEqual(ClassicPlayerTitleBar.stripColor(glass3D: true), .black)
         XCTAssertEqual(ClassicPlayerTitleBar.stripColor(glass3D: false), ClassicPlayerView.titleBarGray)
+    }
+}
+
+// MARK: - Progress style (Ring / Glow) and unselected tabs
+
+final class Glass3DProgressStyleTests: XCTestCase {
+    func testTrimFractionClamps() {
+        XCTAssertNil(ProgressStyle.trimFraction(0))
+        XCTAssertNil(ProgressStyle.trimFraction(-0.2))
+        XCTAssertNil(ProgressStyle.trimFraction(1))
+        XCTAssertNil(ProgressStyle.trimFraction(1.5))
+        XCTAssertNil(ProgressStyle.trimFraction(.nan))
+        XCTAssertEqual(ProgressStyle.trimFraction(0.4) ?? -1, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(ProgressStyle.trimFraction(0.001) ?? -1, 0.001, accuracy: 0.00001)
+    }
+
+    func testBorderStartsAtTopCentre() {
+        let r = CGRect(x: 0, y: 0, width: 260, height: 146)
+        XCTAssertEqual(ProgressStyle.borderStart(in: r), CGPoint(x: 130, y: 0))
+        let o = CGRect(x: 1.25, y: 1.25, width: 100, height: 50)
+        XCTAssertEqual(ProgressStyle.borderStart(in: o), CGPoint(x: 51.25, y: 1.25))
+    }
+
+    func testBorderPathBeginsAtStartPoint() {
+        let r = CGRect(x: 0, y: 0, width: 220, height: 124)
+        let path = TopCenterRoundedBorder(radius: 6).path(in: r)
+        var first: CGPoint?
+        path.forEach { el in
+            if first == nil, case .move(let to) = el { first = to }
+        }
+        XCTAssertEqual(first, CGPoint(x: 110, y: 0))
+        XCTAssertEqual(path.boundingRect.width, 220, accuracy: 0.5)
+        XCTAssertEqual(path.boundingRect.height, 124, accuracy: 0.5)
+    }
+
+    func testProgressStyleDefaultsAndChoices() {
+        XCTAssertEqual(ProgressStyle.key, "progressStyle")
+        XCTAssertEqual(ProgressStyle.choices.map(\.0), ["ring", "glow"])
+    }
+
+    func testUnselectedTabFillIsLighterThanHover() {
+        XCTAssertLessThan(UnselectedTabBacking.fill(hover: false), UnselectedTabBacking.fill(hover: true))
+        XCTAssertGreaterThan(UnselectedTabBacking.fill(hover: false), 0)
     }
 }

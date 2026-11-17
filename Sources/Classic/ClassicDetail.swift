@@ -579,8 +579,8 @@ struct ClassicDetailView: View {
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 220, height: 124).clipped()
-                .overlay {   // thin accent progress line along the bottom (was a ring)
-                    if pct > 0, pct < 100, !played { ThumbnailProgressLine(fraction: pct / 100) }
+                .overlay {   // TEMP: owner compares Ring / Glow, remove the loser before release
+                    if pct > 0, pct < 100, !played { ThumbnailProgress(fraction: pct / 100, radius: Glass3DTokens.Radius.thumb) }
                 }
                 .cornerRadius(Glass3DTokens.Radius.thumb)
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), size: CGSize(width: 220, height: 124),
@@ -679,7 +679,8 @@ struct ClassicDetailView: View {
                     Text(ep.Name).cvFont(14, weight: .semibold).foregroundColor(.white).lineLimit(2)
                         .classicBlackOutline()
                         .padding(.leading, 10).padding(.trailing, 10)
-                        .padding(.bottom, hasProgress ? 12 : 9)
+                        .padding(.bottom, 9)
+                        .modifier(ProgressRingClearance(active: hasProgress))   // clear of the ring
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 // Episode number in the top-left corner
@@ -689,8 +690,8 @@ struct ClassicDetailView: View {
                         .padding(10)
                 }
                 // How far you got, bottom-right
-                .overlay {   // thin accent progress line along the bottom (was a ring)
-                    if hasProgress { ThumbnailProgressLine(fraction: pct / 100) }
+                .overlay {   // TEMP: owner compares Ring / Glow, remove the loser before release
+                    if hasProgress { ThumbnailProgress(fraction: pct / 100, radius: Glass3DTokens.Radius.thumb) }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb))
                 .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
