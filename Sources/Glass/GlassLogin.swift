@@ -23,7 +23,7 @@ struct LoginView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: 14) {
                 if showForm { form } else { serverList }
-                if !error.isEmpty { Text(error).foregroundColor(.orange).font(.caption).multilineTextAlignment(.center) }
+                if !error.isEmpty { Text(error).foregroundColor(.orange).coveFont(size: 10).multilineTextAlignment(.center) }
             }
             .frame(width: showForm ? 340 : 520).padding(36)
             .background(Color.black.opacity(0.75)).cornerRadius(8)
@@ -32,7 +32,7 @@ struct LoginView: View {
 
     var serverList: some View {
         VStack(spacing: 14) {
-            Text("Select Server").font(.title.bold()).padding(.bottom, 6)
+            Text("Select Server").coveFont(size: 22, weight: .bold).padding(.bottom, 6)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 16)], spacing: 16) {
                 ForEach(emby.servers) { s in serverCard(s) }
                 Button { startAdd() } label: {
@@ -40,8 +40,8 @@ struct LoginView: View {
                         Image(systemName: "plus").coveFont(size: 34, weight: .light)
                             .frame(width: 150, height: 100)
                             .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [6])))
-                        Text("Add Server").font(.headline)
-                        Text(" ").font(.caption)
+                        Text("Add Server").coveFont(size: 13, weight: .bold)
+                        Text(" ").coveFont(size: 10)
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plainHand)
             }
@@ -61,9 +61,9 @@ struct LoginView: View {
                             .helpLabel("Signed in")
                     }
                 }
-                HStack(spacing: 5) { ConnectionBadge(address: s.url).font(.caption); Text(s.name).font(.headline).lineLimit(1) }
+                HStack(spacing: 5) { ConnectionBadge(address: s.url).coveFont(size: 10); Text(s.name).coveFont(size: 13, weight: .bold).lineLimit(1) }
                 Text((s.user.isEmpty ? s.url : "\(s.user) · \(s.url)") + " · " + emby.kindLabel(s))
-                    .font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                    .coveFont(size: 10).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
             }
             .frame(width: 150).contentShape(Rectangle())
         }
@@ -82,7 +82,7 @@ struct LoginView: View {
                         .buttonStyle(.plainHand).helpLabel("Back to servers")
                 }
                 Spacer()
-                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").font(.title.bold())
+                Text(emby.servers.isEmpty ? "Sign In" : "Add Server").coveFont(size: 22, weight: .bold)
                 Spacer()
                 if !emby.servers.isEmpty { Image(systemName: "chevron.left").hidden() }
             }.padding(.bottom, 6)

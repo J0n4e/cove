@@ -263,7 +263,7 @@ struct ResumeCard: View {
         CachedImage(url: imageURL) { p in
             p.resizable().aspectRatio(contentMode: .fill)
         } placeholder: {
-            ZStack { Color(white: 0.15); Text(item.heroTitle).font(.caption).padding(6) }
+            ZStack { Color(white: 0.15); Text(item.heroTitle).coveFont(size: 10).padding(6) }
         }
         .frame(width: 340, height: 191).clipped()
         .overlay(alignment: .bottomLeading) {

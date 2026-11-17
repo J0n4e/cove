@@ -63,7 +63,7 @@ struct PillStyle: ViewModifier {
     @AppStorage("accent") private var accentName = "red"
     let active: Bool
     func body(content: Content) -> some View {
-        content.font(.callout.weight(.medium))
+        content.coveFont(size: 12, weight: .medium)
             .foregroundStyle(active ? Theme.onAccent(accentName) : Color.white)
             .padding(.horizontal, 16).frame(height: 36)
             .background(Capsule().fill(active ? AnyShapeStyle(TintShapeStyle().opacity(0.8)) : AnyShapeStyle(Color.clear)))
@@ -80,7 +80,7 @@ extension View {
     func pill(active: Bool = false) -> some View { modifier(PillStyle(active: active)) }
     func onAccent() -> some View { modifier(OnAccent()) }
     func circleButton() -> some View {
-        self.font(.title3).frame(width: 44, height: 44)
+        self.coveFont(size: 15).frame(width: 44, height: 44)
             .background(Color.white.opacity(0.14)).clipShape(Circle())
     }
 }
@@ -164,7 +164,7 @@ struct PosterCard: View {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
                         p.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        ZStack { Color(white: 0.15); Text(item.Name).font(.caption).padding(6) }
+                        ZStack { Color(white: 0.15); Text(item.Name).coveFont(size: 10).padding(6) }
                     }
                     .frame(width: 170, height: 255).clipped()
                     .opacity(played ? 0.6 : 1)
@@ -192,8 +192,8 @@ struct PosterCard: View {
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
-                        if showTitle { Text(item.Name).font(.callout.weight(.semibold)).lineLimit(1) }
-                        if showYear { Text(item.yearText).font(.caption).foregroundColor(.secondary) }
+                        if showTitle { Text(item.Name).coveFont(size: 12, weight: .semibold).lineLimit(1) }
+                        if showYear { Text(item.yearText).coveFont(size: 10).foregroundColor(.secondary) }
                     }
                     .multilineTextAlignment(centered ? .center : .leading)
                     .frame(width: 170, alignment: centered ? .center : .leading)
@@ -418,9 +418,9 @@ struct ListRow: View {
                 .frame(width: 60, height: 90).clipped().cornerRadius(4)
                 .opacity(played ? 0.6 : 1)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.Name).font(.headline).lineLimit(1)
-                    if let y = item.ProductionYear { Text(String(y)).font(.subheadline).foregroundColor(.secondary) }
-                    Text(item.Overview ?? "").font(.caption).foregroundColor(.secondary).lineLimit(2)
+                    Text(item.Name).coveFont(size: 13, weight: .bold).lineLimit(1)
+                    if let y = item.ProductionYear { Text(String(y)).coveFont(size: 11).foregroundColor(.secondary) }
+                    Text(item.Overview ?? "").coveFont(size: 10).foregroundColor(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 12)
                 ItemActionsButton(item: item).opacity(hover ? 1 : 0)

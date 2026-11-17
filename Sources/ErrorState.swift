@@ -11,7 +11,7 @@ struct ErrorStateView: View {
         VStack(spacing: 14) {
             Image(systemName: "wifi.exclamationmark").coveFont(size: 40, weight: .light).foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            Text(message).font(.headline).multilineTextAlignment(.center).frame(maxWidth: 460)
+            Text(message).coveFont(size: 13, weight: .bold).multilineTextAlignment(.center).frame(maxWidth: 460)
             if classic {
                 // Classic theme: glass buttons
                 HStack(spacing: 12) {
