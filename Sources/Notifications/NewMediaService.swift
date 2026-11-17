@@ -318,7 +318,7 @@ final class NewMediaService: ObservableObject {
     }
 
     /// What a notification carries for its click.
-    static func userInfo(_ n: NewMediaNotification) -> [String: String] {
+    nonisolated static func userInfo(_ n: NewMediaNotification) -> [String: String] {
         var d = ["server": n.server, "userId": n.userId, "libraryId": n.libraryId]
         switch n.target {
         case .item(let id): d["kind"] = "item"; d["id"] = id
