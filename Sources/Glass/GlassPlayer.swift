@@ -936,11 +936,10 @@ extension PlayerView {
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .background(Capsule().fill(Color.white.opacity(0.15)))
                     }.buttonStyle(HoverButton())
+                    .helpLabel(emby.syncPlay.group.isInGroup ? GroupUpNext.cancelTip : "Cancel")
                 }
-                if autoNext {
-                    Text("Next starts in \(secsLeft)s")
-                        .coveFont(size: 11).foregroundColor(.secondary)
-                }
+                // v1.18.8: in a SyncPlay group, the group's countdown (as Glass3D)
+                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: secsLeft, duration: ui.player.duration, glass: true)
             }
         }
         .padding(12)

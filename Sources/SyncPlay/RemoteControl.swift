@@ -173,6 +173,8 @@ final class RemoteCommandRouter {
         RemoteMessageCenter.shared.show(header: h, text: t, timeout: s)
     }
     var openItem: @MainActor (_ itemId: String, _ start: Double) async -> Void = { _, _ in }
+    /// In a SyncPlay group, PlayNow goes to the group (true = sent; the PlayQueue update opens it here)
+    var groupPlayNow: @MainActor (_ itemId: String, _ start: Double) -> Bool = { _, _ in false }
     var log: @MainActor (String) -> Void = { DebugLog.write($0) }
 
     /// The volume before Mute, for Unmute
@@ -207,7 +209,8 @@ final class RemoteCommandRouter {
             log("Remote: \(name) received")
             switch a {
             case .message(let h, let t, let s): showMessage(h, t, s)
-            case .playNow(let id, let start): Task { await openItem(id, start) }
+            case .playNow(let id, let start):
+                if !groupPlayNow(id, start) { Task { await openItem(id, start) } }
             default: break
             }
             return a
