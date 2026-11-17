@@ -107,7 +107,7 @@ enum RemoteCommands {
             let a = g.Arguments
             switch g.Name {
             case "SetVolume":
-                guard let v = a["Volume"].flatMap { Double($0) } else { return nil }
+                guard let v = a["Volume"].flatMap({ Double($0) }) else { return nil }
                 return .setVolume(Float(min(100, max(0, v)) / 100))
             case "VolumeUp": return .volumeStep(volumeStep)
             case "VolumeDown": return .volumeStep(-volumeStep)
