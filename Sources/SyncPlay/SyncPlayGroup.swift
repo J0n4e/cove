@@ -201,6 +201,7 @@ final class SyncPlayGroup: ObservableObject {
         pingTask?.cancel(); pingTask = nil
         driverTask?.cancel(); driverTask = nil
         if driver.stopped() { playback()?.syncPlaySetRate(1.0) }
+        if isActive { playback()?.syncPlaySetGroupMode(false) }   // timing
         busy = false; ignoreWait = false; rejoining = false
         loadTask?.cancel(); loadTask = nil
         playlistItemId = nil; playingItemId = nil
@@ -241,16 +242,27 @@ final class SyncPlayGroup: ObservableObject {
     }
 
     /// Buffering, then Ready once the player is ready (as jellyfin-web does after a load or a seek).
+    /// Timing: Ready as soon as the item is ready, the seek has landed and enough is buffered (SyncPlayTiming.swift),
+    /// or after a 10 s safety timeout.
     private func reportBufferingThenReady() async {
         busy = true
         defer { busy = false }
         let p = playback()
+        let began = Date()
         await report("/SyncPlay/Buffering", ticks: p?.syncPlayTicks ?? 0, playing: false)
-        for _ in 0..<240 {   // up to a minute
-            if let p = playback(), p.syncPlayReady, playingItemId == nil || p.syncPlayItemId == playingItemId { break }
-            do { try await sleep(0.25) } catch { return }
+        var ok = false
+        for _ in 0..<Int(Self.readyTimeout / Self.readyPoll) {
+            if let p = playback(), playingItemId == nil || p.syncPlayItemId == playingItemId,
+               Self.readyToReport(ready: p.syncPlayReady, seeking: p.syncPlaySeeking,
+                                  bufferedAhead: p.syncPlayBufferedAhead, likelyToKeepUp: p.syncPlayLikelyToKeepUp) {
+                ok = true; break
+            }
+            do { try await sleep(Self.readyPoll) } catch { return }
         }
         guard !Task.isCancelled, let p = playback() else { return }
+        log("SyncPlay: Ready after " + String(format: "%.1f s", Date().timeIntervalSince(began))
+            + (ok ? "" : " (timeout: ready \(p.syncPlayReady), seeking \(p.syncPlaySeeking), "
+               + String(format: "%.1f s buffered)", p.syncPlayBufferedAhead)))
         await report("/SyncPlay/Ready", ticks: p.syncPlayTicks, playing: p.syncPlayIsPlaying)
     }
 
@@ -270,6 +282,7 @@ final class SyncPlayGroup: ObservableObject {
         if !wasIn { log("SyncPlay: joined \"\(g.GroupName)\" (\((g.Participants ?? []).count) watching)") }
         else if rejoining { log("SyncPlay: back in \"\(g.GroupName)\"") }
         rejoining = false
+        playback()?.syncPlaySetGroupMode(true)   // timing: exact starts
         startPing()
         startDriver()
     }
@@ -349,6 +362,7 @@ final class SyncPlayGroup: ObservableObject {
         let delay = at.timeIntervalSince(now())
         log("SyncPlay: \(c.Command) received, runs in \(Int(delay * 1000)) ms")
         scheduled?.cancel()
+        if timedStart(c, delay: delay, at: at) { return }   // timing
         if delay > 0 {
             scheduled = Task {
                 do { try await sleep(delay) } catch { return }
@@ -358,6 +372,21 @@ final class SyncPlayGroup: ObservableObject {
         } else {
             apply(c, late: -delay)
         }
+    }
+
+    /// Timing: an Unpause started by the player itself at the command's host time (no sleep + play()). False = not
+    /// possible, the scheduled path runs instead.
+    private func timedStart(_ c: SyncPlayCommand, delay: TimeInterval, at: Date) -> Bool {
+        guard c.Command == "Unpause", let pos = c.PositionTicks, let p = playback(), !p.syncPlayIsPlaying,
+              let w = TimeSync.parseDate(c.When) else { return false }
+        let plan = Self.startPlan(positionTicks: pos, delay: delay, currentTicks: p.syncPlayTicks)
+        guard p.syncPlayPlay(atItemSeconds: plan.itemSeconds, hostDelay: plan.hostDelay) else {
+            log("SyncPlay: timed start not possible, playing at the scheduled time")
+            return false
+        }
+        if driver.stopped() { p.syncPlaySetRate(1.0) }
+        driver.unpaused(.init(positionTicks: pos, when: w, playlistItemId: c.PlaylistItemId, appliedAt: max(at, now())))
+        return true
     }
 
     /// Runs a command `late` seconds after its time.
