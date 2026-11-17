@@ -17,6 +17,8 @@ struct ClassicRootView: View {
                 ChosenPlayerView(req: req, theme: "classic").id(req.id).zIndex(10)
             }
         }
+        // A server or user change (switch, sign-in, sign-out) always starts on Home
+        .onChange(of: emby.server + "|" + emby.userId) { ClassicNavState.shared.reset() }
         .onChange(of: emby.playing?.id) { _, id in
             PlaybackFlag.shared.active = id != nil
         }
@@ -27,8 +29,11 @@ struct ClassicRootView: View {
         // text picks it up
         .fontDesign(classicFont == "rounded" ? .rounded : classicFont == "serif" ? .serif : .default)
         .id(classicFont)
-        // No scroll bars popping up over the pages (scroll with the wheel, trackpad or the row arrows)
+        // No scroll bars in the rows (scroll with the wheel, trackpad or the row arrows); pages that scroll
+        // vertically turn on thin overlay bars of their own (classicScrollBars)
         .scrollIndicators(.hidden)
+        // Transparent title bar: banners and the video run to the top edge under the traffic lights
+        .background(ClassicWindowChrome().frame(width: 0, height: 0))
     }
 }
 
@@ -187,13 +192,14 @@ struct ClassicHomeView: View {
                     else if let lib = emby.libs.first(where: { $0.id == sel }) { ClassicLibraryView(lib: lib, refresh: nav.reselect).id(lib.id) }
                     else { Color.black }
                 }
-                .modifier(NoTopScrollEdge())
                 // A page opened from search results is the only page: no Back (deeper pages get one)
                 .navigationDestination(for: Item.self) { ClassicDetailView(item: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: PersonRef.self) { ClassicPersonView(person: $0).environment(\.noBack, fromSearch && path.count == 1) }
                 .navigationDestination(for: FavoriteGridRef.self) { ClassicFavoriteGridView(title: $0.title, ids: $0.ids) }
                 .navigationDestination(for: FavoritePeopleRef.self) { _ in ClassicFavoritePeopleView() }
             }
+            // Readable under the see-through bar, on every page of the stack (see ClassicTopScrollEdge)
+            .modifier(ClassicTopScrollEdge())
             // Back button in the title bar, left of the window title, on every page
             .toolbar { ClassicTitleBarItems(back: nil) }   // top-level pages: no Back (pushed pages add their own)
             .classicHideToolbarTitle()
@@ -212,7 +218,6 @@ struct ClassicHomeView: View {
             // Back sits in the bar on pushed pages.
             detailPane(withSearch: false)
                 .frame(width: geo.size.width)
-                .modifier(NoTopScrollEdge())   // no dark edge line where the bar ends
                 .safeAreaInset(edge: .top, spacing: 0) {
                     ClassicTopNavBar(back: path.isEmpty || (fromSearch && path.count == 1) ? nil : { path.removeLast() })   // no Back on a search result
                         .frame(width: geo.size.width)
@@ -237,7 +242,7 @@ struct ClassicHomeView: View {
         Group {
             if navStyle == "topbar" { topLayout } else { splitLayout }
         }
-        .task { await emby.loadLibs() }
+        .task { await emby.ensureLibs() }
         .onAppear {
             updateTitleBarH(); nav.popToRoot = { path = NavigationPath(); nav.query = "" }
             nav.open = { path.append($0) }
@@ -281,6 +286,11 @@ struct ClassicHomeView: View {
             if new == 0 { fromSearch = false }
         }
         .onChange(of: sel) { fromSearch = false }
+        // A selected library this server or user doesn't have goes back to Home
+        .onChange(of: emby.libs.map(\.id), initial: true) { _, ids in
+            let s = NavState.selection(nav.sel, libIds: ids)
+            if s != nav.sel { nav.sel = s }
+        }
         .onChange(of: emby.openRequest) { _, item in
             guard let item else { return }
             path.append(item)
@@ -324,6 +334,12 @@ final class ClassicNavState: ObservableObject {
     var open: (Item) -> Void = { _ in }
     /// Pushes any page (a person, from the AppKit grid's header)
     var push: (any Hashable) -> Void = { _ in }
+
+    /// After a server or user change: back to Home with no pushed pages and the search closed (see NavState.reset).
+    func reset() {
+        sel = "home"; query = ""; searchOpen = false
+        popToRoot()
+    }
 }
 
 /// Window toolbar contents: the Back classicPill on pushed pages. (In the Top bar layout the navigation and Back
@@ -340,12 +356,6 @@ struct ClassicTitleBarItems: ToolbarContent {
 /// Top bar layout: the row under the title bar with Back (on pushed pages) on the left,
 /// the navigation classicPill in the middle and search and Settings on the right. It stays in place on every page.
 /// Laid out side by side, so a long classicPill never covers search and Settings.
-/// macOS 26 draws an edge effect (a dark line) where a page scrolls under the top bar; hide it.
-struct NoTopScrollEdge: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 26, *) { content.scrollEdgeEffectHidden(true, for: .top) } else { content }
-    }
-}
 
 struct ClassicTopNavBar: View {
     @Environment(\.appBG) var bg

@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in Cove doesn't work as it should
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Cove version
+      description: "Cove → About Cove"
+      placeholder: "1.17.6"
+    validations:
+      required: true
+  - type: dropdown
+    id: server
+    attributes:
+      label: Server
+      options:
+        - Emby
+        - Jellyfin
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Server version
+      placeholder: "4.8.10"
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: theme
+    attributes:
+      label: Theme
+      options:
+        - Glass3D
+        - Classic
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "For playback problems: turn on Settings → Playback → Debug log, reproduce, then paste ~/Library/Logs/Cove.log (optional)."
+      render: text

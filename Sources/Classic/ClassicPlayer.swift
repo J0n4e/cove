@@ -140,6 +140,8 @@ struct ClassicPlayerView: View {
     }
     /// Color of the strip under the title bar. The system draws the bar's own gray (about 93 % opaque) over it,
     /// and the result is the same gray on both sides only when this strip is (44, 45, 45).
+    /// Glass3D theme (key "classic"): glass pills instead of bare accent text.
+    var glass3DChrome: Bool { UserDefaults.standard.string(forKey: "theme") == "classic" }
     static let titleBarGray = Color(red: 44 / 255, green: 45 / 255, blue: 45 / 255)
 
     /// The Back classicPill that used to be drawn inside the player (top left). Off now; see `titleBarBack`.
@@ -673,6 +675,7 @@ struct ClassicPlayerView: View {
             }
             .padding(.vertical, classic ? 8 : 12)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .frame(width: classic ? 290 : 340)
         .frame(maxHeight: classic ? 440 : .infinity)
         .modifier(PanelSurface(classic: classic))
@@ -735,6 +738,7 @@ struct ClassicPlayerView: View {
                 }
                 .padding(.horizontal, 28).padding(.bottom, 28)
             }
+            .classicScrollBars()   // thin overlay bars, only while scrolling
         }
         .frame(width: classic ? 340 : 400)
         .frame(maxHeight: .infinity)
@@ -871,8 +875,17 @@ extension ClassicPlayerView {
                 HStack(spacing: 12) {
                     Image(systemName: "forward.fill")
                     Text("Intro skipped").cvFont(15, weight: .semibold)
-                    Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
-                        .cvFont(15, weight: .semibold).foregroundColor(accent)
+                    if glass3DChrome {
+                        // A secondary glass pill, as Cancel on the Up next card (no bare accent text as a button)
+                        Button { model.watchIntro() } label: {
+                            Text("Watch intro").cvFont(14, weight: .semibold).foregroundColor(.white)
+                                .padding(.horizontal, 14).padding(.vertical, 7)
+                                .classicGlassPill()
+                        }.buttonStyle(HoverButton())
+                    } else {
+                        Button("Watch intro") { model.watchIntro() }.buttonStyle(.plainHand)
+                            .cvFont(15, weight: .semibold).foregroundColor(accent)
+                    }
                 }
                 .padding(.horizontal, 18).frame(height: 44)
                 .searchGlass()
@@ -977,6 +990,7 @@ extension ClassicPlayerView {
                         ForEach(list) { ep in classicEpisodePickerRow(ep).id(ep.Id) }
                     }.padding(.bottom, 10)
                 }
+                .classicScrollBars()   // thin overlay bars, only while scrolling
                 .onAppear { proxy.scrollTo(item.Id, anchor: .center) }
             }
         }
@@ -1039,6 +1053,7 @@ extension ClassicPlayerView {
                 }
             }.padding(.vertical, 12)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .frame(width: 380)
         .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)

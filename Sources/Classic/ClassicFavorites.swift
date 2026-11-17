@@ -32,15 +32,13 @@ struct ClassicFavoritesView: View {
                 if !favPeople.isEmpty { peopleSection(favPeople) }
                 if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
-                    VStack(spacing: 10) {
-                        Image(systemName: "heart").cvFont(40).foregroundColor(.secondary)
-                        Text("No favorites yet").cvFont(13, weight: .bold)
-                        Text("Tap the heart on a movie, show, collection, episode or person to add it here.").foregroundColor(.secondary)
-                    }.frame(maxWidth: .infinity).padding(.top, 80)
+                    ClassicEmptyState(symbol: "heart", title: "No favorites yet",
+                                      message: "Tap the heart on a movie, show, collection, episode or person to add it here.")
                 }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
         // Loads on appear and again when something was added or removed elsewhere (a cast photo, an episode).
@@ -119,6 +117,7 @@ struct ClassicFavoriteGridView: View {
                        topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
                        open: { ClassicNavState.shared.open($0) })
             .ignoresSafeArea(edges: .top)
+            .modifier(ClassicGridTopFade())   // the AppKit grid: soft fade under the bar
         }
         .background(bg)
         .environment(\.inFavorites, true)   // no heart on the posters: everything here is a favorite
@@ -170,6 +169,7 @@ struct ClassicFavoritePeopleView: View {
                 }
             }.padding(.horizontal, 32).padding(.vertical, 24)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .background(bg)
         .navigationTitle("Favorite People")
         .navigationBarBackButtonHidden(true)

@@ -12,13 +12,14 @@ struct ClassicLoginView: View {
     @State private var error = ""
     @State private var busy = false
     @FocusState private var focus: Field?
+    @Environment(\.appBG) private var bg
     enum Field { case name, server, user, pw }
 
     var showForm: Bool { adding || emby.servers.isEmpty }
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            bg.ignoresSafeArea()   // Settings → General → Background, as every other page
             VStack(spacing: 14) {
                 if showForm { form } else { serverList }
                 if !error.isEmpty { Text(error).foregroundColor(.orange).cvFont(10, weight: .regular).multilineTextAlignment(.center) }
@@ -96,7 +97,7 @@ struct ClassicLoginView: View {
                 HStack {
                     if busy { Spinner().controlSize(.small) }
                     Text("Sign In").cvFont(14, weight: .bold)
-                }.frame(maxWidth: .infinity).frame(height: 40).classicGlassPill()
+                }.frame(maxWidth: .infinity).frame(height: 40).classicPrimaryPill()   // Glass3D's primary pill
             }.buttonStyle(HoverButton()).disabled(busy || server.isEmpty || user.isEmpty)
             .opacity(busy || server.isEmpty || user.isEmpty ? 0.5 : 1)
         }

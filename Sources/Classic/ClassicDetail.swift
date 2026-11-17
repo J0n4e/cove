@@ -274,6 +274,7 @@ struct ClassicDetailView: View {
                 similarSection
             }.padding(.bottom, 50)
         }
+        .classicScrollBars()   // thin overlay bars, only while scrolling
         .ignoresSafeArea(edges: bigBanner ? .top : [])   // the banner runs up under the floating top bar
         .background(GeometryReader { g in
             Color.clear.onAppear { pageH = g.size.height }.onChange(of: g.size.height) { _, h in pageH = h }
@@ -547,8 +548,12 @@ struct ClassicDetailView: View {
         return HStack(spacing: 16) {
             Text(heading).cvFont(15, weight: .bold)
             if model.canFilterWatched {
-                Button(model.showAllEps ? "Hide watched" : "Show all") { model.showAllEps.toggle() }
-                    .buttonStyle(.plainHand).cvFont(12, weight: .semibold).foregroundStyle(.tint)
+                // A secondary glass pill (no bare accent text as a button)
+                Button { model.showAllEps.toggle() } label: {
+                    Text(model.showAllEps ? "Hide watched" : "Show all").cvFont(12, weight: .semibold).foregroundColor(.white)
+                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .classicGlassPill()
+                }.buttonStyle(HoverButton())
             }
             Spacer()
             episodeLayoutToggle

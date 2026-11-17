@@ -58,9 +58,11 @@ struct ClassicGlassPillStyle: ViewModifier {
             sized(content).glossyLettering()
                 .background(hoverTint)
                 .background(ClassicGlassBacking(shape: Capsule()))
+                .background(ClassicGlassFrost(shape: Capsule()))   // Settings → General → Glass
                 .glassEffect(.clear.interactive(), in: Capsule())   // the clearest glass
         } else {
             sized(content).glossyLettering().background(hoverTint).background(ClassicGlassPill())
+                .background(ClassicGlassFrost(shape: Capsule()))
         }
     }
     private var accent: Color { Theme.accent(accentName) }
@@ -82,11 +84,18 @@ struct ClassicClearGlass<S: Shape>: ViewModifier {
     let shape: S
     /// false: still glass that does not react to the pointer (labels, not buttons)
     var interactive = true
+    /// false: a panel or card (not a control), which the Glass setting leaves alone
+    var frost = true
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26, *) {
-            content.background(ClassicGlassBacking(shape: shape)).glassEffect(interactive ? .clear.interactive() : .clear, in: shape)
+            content.background(ClassicGlassBacking(shape: shape))
+                .background { if frost { ClassicGlassFrost(shape: shape) } }
+                .glassEffect(interactive ? .clear.interactive() : .clear, in: shape)
         }
-        else { content.background(shape.fill(Color.white.opacity(0.1))) }
+        else {
+            content.background(shape.fill(Color.white.opacity(0.1)))
+                .background { if frost { ClassicGlassFrost(shape: shape) } }
+        }
     }
 }
 
@@ -323,5 +332,19 @@ extension View {
     /// Classic pill look: white label on accent glass.
     func classicGlassPill(size: CGFloat? = nil, iconOnly: Bool = true) -> some View {
         modifier(ClassicGlassPillStyle(size: size, iconOnly: iconOnly))
+    }
+    /// The primary action (Sign In, Try Again): the glass pill over an accent fill.
+    func classicPrimaryPill(size: CGFloat? = nil, iconOnly: Bool = false) -> some View {
+        modifier(ClassicPrimaryFill()).classicGlassPill(size: size, iconOnly: iconOnly)
+    }
+}
+
+/// The accent fill under a primary Glass3D pill.
+struct ClassicPrimaryFill: ViewModifier {
+    @AppStorage("accent") private var accentName = "red"
+    func body(content: Content) -> some View {
+        let a = Theme.accent(accentName)
+        return content.background(Capsule().fill(LinearGradient(colors: [a.opacity(0.85), a.opacity(0.6)],
+                                                                startPoint: .top, endPoint: .bottom)))
     }
 }
