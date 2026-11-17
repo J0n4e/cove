@@ -191,3 +191,27 @@ struct SyncPlayToast: View {
         .animation(.easeOut(duration: 0.25), value: group.toast)
     }
 }
+
+/// Phase 3: the panels' "Don't wait for others" switch (off by default, for this session only, as in jellyfin-web).
+struct SyncPlayIgnoreWaitRow: View {
+    @ObservedObject var group: SyncPlayGroup
+    let classic: Bool
+    @AppStorage("accent") private var accentName = "red"
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Don't wait for others").spFont(classic, 13, weight: .medium)
+                Text("Keep the group playing while this Mac buffers").spFont(classic, 11).foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Toggle("", isOn: Binding(get: { group.ignoreWait },
+                                     set: { on in Task { await group.setIgnoreWait(on) } }))
+                .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                .tint(Theme.accent(accentName))
+        }
+        .padding(.horizontal, 18).padding(.vertical, 6)
+        .helpLabel("When this Mac's stream stalls, the others keep playing and it catches up afterwards")
+    }
+}
