@@ -63,6 +63,8 @@ final class SyncPlayService: ObservableObject {
     private var tasks: [Task<Void, Never>] = []
     private var bag: Set<AnyCancellable> = []
     private var wakeObserver: NSObjectProtocol?
+    /// The socket dropped since it last connected (phase 3: rejoin the group when it's back)
+    private var wasDisconnected = false
 
     /// SyncPlay phase 2: the group this session is in (if any).
     lazy var group: SyncPlayGroup = makeGroup()
@@ -161,7 +163,11 @@ final class SyncPlayService: ObservableObject {
             .store(in: &bag)
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.socket?.reconnectNow() }
+            MainActor.assumeIsolated {
+                // reconnectNow doesn't report a disconnect: count the wake as one (phase 3 rejoin)
+                if self?.socket != nil { self?.wasDisconnected = true }
+                self?.socket?.reconnectNow()
+            }
         }
     }
 
@@ -205,15 +211,20 @@ final class SyncPlayService: ObservableObject {
             log("SyncPlay: not connecting, the socket address isn't the server's")
             return
         }
+        wasDisconnected = false
         let s = ServerSocket(request: r, makeTransport: makeTransport, sleep: sleep)
         s.log = log
         s.onConnect = { [weak self] in
             guard let self else { return }
+            let again = self.wasDisconnected
             self.connected = true
+            self.wasDisconnected = false
+            // Phase 3: back after a drop / sleep while in a group: make sure the server still has us in it
+            if again, self.group.isInGroup { self.tasks.append(Task { await self.group.rejoin() }) }
             // The server ties capabilities to the session; send them again after every (re)connect
             self.tasks.append(Task { await self.postCapabilities(c) })
         }
-        s.onDisconnect = { [weak self] in self?.connected = false }
+        s.onDisconnect = { [weak self] in self?.connected = false; self?.wasDisconnected = true }
         s.onMessage = { [weak self] m in self?.messages.send(m) }
         socket = s
         s.start()

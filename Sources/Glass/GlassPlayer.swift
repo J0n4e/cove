@@ -323,7 +323,7 @@ struct PlayerView: View {
             .onTapGesture { ui.tap(clickToPause: clickToPause) }
         }
         .foregroundColor(.white)
-        .onContinuousHover { _ in poke() }
+        .onContinuousHover { ui.pointer($0) }   // real mouse moves only (not a card appearing)
         .focusable().focused($focused).focusEffectDisabled()
         .onKeyPress(.space) {
             if showUpNext, let n = nextEp { play(n) } else { model.togglePlay() }
@@ -896,12 +896,13 @@ extension PlayerView {
                         .searchGlass()
                 }.buttonStyle(HoverButton())
             }
-            if showUpNext, let n = nextEp { upNextCard(n) }
+            if showUpNext, let n = nextEp { upNextCard(n).transition(.coveGlassPopIn) }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, 34)
         .padding(.bottom, ui.showUI ? 200 : 40)
         .animation(.easeOut(duration: 0.2), value: model.skippedIntro)
+        .coveGlassPopIn(value: showUpNext)   // as the bottom search pill
     }
 
     func upNextCard(_ n: Item) -> some View {

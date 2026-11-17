@@ -22,6 +22,7 @@ struct ClassicSyncPlayPanel: View {
                     Text(SyncPlayGroup.stateText(i.state)).spFont(classic, 13)
                         .foregroundColor(i.state == "Waiting" ? Theme.accent(accentName) : .white.opacity(0.8))
                 }.padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 6)
+                SyncPlayIgnoreWaitRow(group: group, classic: classic)
                 Divider().padding(.horizontal, 18).padding(.vertical, 6)
                 Text(SyncPlayGroup.watchingText(i.participants.count).uppercased()).spFont(classic, 10, weight: .semibold)
                     .foregroundColor(.secondary).kerning(0.6).padding(.horizontal, 18).padding(.bottom, 4)

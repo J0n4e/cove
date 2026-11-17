@@ -15,6 +15,16 @@ extension SyncPlayGroup {
         }
     }
 
+    /// The persistent pill at the top of the player while the group waits (nil = no pill). Jellyfin's
+    /// GroupStateUpdate {State, Reason} doesn't say who is buffering, so other members get the generic text
+    /// unless a name is known; the Mac that stalled itself says so.
+    nonisolated static func waitingText(state: String?, selfStalled: Bool, waitingFor name: String? = nil) -> String? {
+        guard state == "Waiting" else { return nil }
+        if selfStalled { return "Buffering… the group is waiting for you" }
+        if let n = name, !n.isEmpty { return "Waiting for \(n)…" }
+        return "Waiting for others…"
+    }
+
     nonisolated static func watchingText(_ n: Int) -> String { n == 1 ? "1 watching" : "\(n) watching" }
 
     nonisolated static func defaultName(user: String?) -> String {
@@ -174,7 +184,18 @@ struct SyncPlayToast: View {
     @ObservedObject var group: SyncPlayGroup
     var classic = true
     var body: some View {
-        VStack {
+        VStack(spacing: 8) {
+            if let w = Self.waiting(group) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(w).spFont(classic, 14, weight: .semibold)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 18).frame(height: 40)
+                .searchGlass()
+                .environment(\.colorScheme, .dark)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
             if let t = group.toast {
                 Label(t, systemImage: "person.2.fill").spFont(classic, 14, weight: .semibold)
                     .foregroundColor(.white)
@@ -189,5 +210,34 @@ struct SyncPlayToast: View {
         .frame(maxWidth: .infinity)
         .allowsHitTesting(false)
         .animation(.easeOut(duration: 0.25), value: group.toast)
+        .animation(.easeOut(duration: 0.25), value: Self.waiting(group))
+    }
+
+    static func waiting(_ g: SyncPlayGroup) -> String? {
+        SyncPlayGroup.waitingText(state: g.info?.state, selfStalled: g.selfStalled && !g.ignoreWait)
+    }
+}
+
+/// Phase 3: the panels' "Don't wait for others" switch (off by default, for this session only, as in jellyfin-web).
+struct SyncPlayIgnoreWaitRow: View {
+    @ObservedObject var group: SyncPlayGroup
+    let classic: Bool
+    @AppStorage("accent") private var accentName = "red"
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Don't wait for others").spFont(classic, 13, weight: .medium)
+                Text("Keep the group playing while this Mac buffers").spFont(classic, 11).foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Toggle("", isOn: Binding(get: { group.ignoreWait },
+                                     set: { on in Task { await group.setIgnoreWait(on) } }))
+                .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                .tint(Theme.accent(accentName))
+        }
+        .padding(.horizontal, 18).padding(.vertical, 6)
+        .helpLabel("When this Mac's stream stalls, the others keep playing and it catches up afterwards")
     }
 }

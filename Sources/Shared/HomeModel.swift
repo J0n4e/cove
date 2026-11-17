@@ -20,13 +20,30 @@ final class HomeModel: ObservableObject {
 
     func bind(_ emby: Emby) { self.emby = emby }
 
-    /// The `.task(id:)` key: a new reload token or a retry loads again.
-    func taskKey(_ reloadToken: Int) -> String { "\(reloadToken)-\(retryCount)" }
+    /// The `.task(id:)` key: a new reload token, a retry or another server/user (`session`) loads again.
+    /// A session change from the Home server pill keeps Home on screen, so the key is what reloads it
+    /// (SwiftUI cancels the old load when the key changes).
+    func taskKey(_ reloadToken: Int, session: String = "") -> String {
+        session.isEmpty ? "\(reloadToken)-\(retryCount)" : "\(reloadToken)-\(retryCount)-\(session)"
+    }
+
+    /// The server|user the rows on screen belong to.
+    private(set) var loadedSession: String?
+
+    /// Identifies a server and user (`emby.server + "|" + emby.userId`).
+    nonisolated static func sessionKey(server: String, userId: String) -> String { server + "|" + userId }
 
     func retry() { loading = true; retryCount += 1 }
 
-    func load() async {
-        if let loader { rows = await loader() } else if let emby { rows = await emby.loadHome() } else { rows = [] }
+    func load(session: String? = nil) async {
+        // Another server or user: drop the old server's rows at once (spinner) instead of showing them meanwhile
+        if let session, loadedSession != nil, session != loadedSession { rows = []; loading = true }
+        let new: [Row]
+        if let loader { new = await loader() } else if let emby { new = await emby.loadHome() } else { new = [] }
+        // A load overtaken by a newer one (key changed: server switch, reload) must not overwrite its rows
+        guard !Task.isCancelled else { return }
+        rows = new
+        if let session { loadedSession = session }
         loading = false
         guard prefetchRows, let emby else { return }
         // Look ahead: the first pictures of every row start downloading right away (low priority)

@@ -31,6 +31,7 @@ struct HomeContent: View {
     @State private var pageH: CGFloat = .infinity
     @State private var topInset: CGFloat = 0   // the title bar the banner runs up under
     let reloadToken: Int
+    private var homeSession: String { HomeModel.sessionKey(server: emby.server, userId: emby.userId) }
     /// Rows, banner items and loading (shared with Classic); Glass prefetches the rows' first pictures.
     @StateObject private var model = HomeModel(prefetchRows: true)
 
@@ -85,7 +86,7 @@ struct HomeContent: View {
                 .onChange(of: g.safeAreaInsets.top) { _, t in topInset = t }
         })
         .background(bg)
-        .task(id: model.taskKey(reloadToken)) { model.bind(emby); await model.load() }
+        .task(id: model.taskKey(reloadToken, session: homeSession)) { model.bind(emby); await model.load(session: homeSession) }
     }
 }
 

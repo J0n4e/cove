@@ -216,7 +216,7 @@ struct HomeView: View {
             NavigationStack(path: $path) {
                 Group {
                     if !query.isEmpty { SearchView(query: query) }
-                    else if sel == "home" { HomeContent(reloadToken: reloadToken) }
+                    else if sel == "home" { HomeContent(reloadToken: reloadToken).id(HomeModel.sessionKey(server: emby.server, userId: emby.userId)) }
                     else if sel == "favorites" { FavoritesView() }
                     else if sel == "nowplaying" { NowPlayingView() }
                     else if sel == "recent" { FeedView(feed: .recent, root: true) }

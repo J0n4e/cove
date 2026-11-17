@@ -68,6 +68,11 @@ final class SyncPlayGroup: ObservableObject {
     @Published private(set) var toast: String?
     @Published private(set) var groups: [SyncPlayGroupInfo] = []
     @Published private(set) var loadingList = false
+    /// Phase 3: "Don't wait for others" (POST /SyncPlay/SetIgnoreWait). Per session, like jellyfin-web's
+    /// followingGroupPlayback (Manager.js), which isn't saved either.
+    @Published private(set) var ignoreWait = false
+    /// This Mac stalled mid-playback and told the group to wait (cleared once it reports Ready again)
+    @Published private(set) var selfStalled = false
     /// The playlist entry the group is on (sent back with Ready / Buffering).
     private(set) var playlistItemId: String?
     private(set) var playingItemId: String?
@@ -96,6 +101,16 @@ final class SyncPlayGroup: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var bag: Set<AnyCancellable> = []
+    // Phase 3: drift correction and mid-playback buffering (SyncCorrection.swift)
+    private(set) var driver = SyncDriver()
+    private var driverTask: Task<Void, Never>?
+    /// A load / seek's Buffering → Ready report is running (no corrections, no stall reports meanwhile)
+    private(set) var busy = false
+    nonisolated static let driverInterval: TimeInterval = 0.25
+    /// Tests run the driver by hand
+    var runsDriver = true
+    private var rejoining = false
+    private var lastRejoin: Date?
 
     init() {}
 
@@ -175,12 +190,16 @@ final class SyncPlayGroup: ObservableObject {
     func reset() {
         scheduled?.cancel(); scheduled = nil
         pingTask?.cancel(); pingTask = nil
+        driverTask?.cancel(); driverTask = nil
+        if driver.stopped() { playback()?.syncPlaySetRate(1.0) }
+        busy = false; ignoreWait = false; rejoining = false
         loadTask?.cancel(); loadTask = nil
         playlistItemId = nil; playingItemId = nil
         state = .notInGroup
     }
 
     private func dropOut() {
+        selfStalled = false
         reset()
         socketNeeded(false)
     }
@@ -213,6 +232,8 @@ final class SyncPlayGroup: ObservableObject {
 
     /// Buffering, then Ready once the player is ready (as jellyfin-web does after a load or a seek).
     private func reportBufferingThenReady() async {
+        busy = true
+        defer { busy = false }
         let p = playback()
         await report("/SyncPlay/Buffering", ticks: p?.syncPlayTicks ?? 0, playing: false)
         for _ in 0..<240 {   // up to a minute
@@ -237,7 +258,10 @@ final class SyncPlayGroup: ObservableObject {
         let wasIn = info?.id == g.GroupId
         state = .inGroup(Info(id: g.GroupId, name: g.GroupName, participants: g.Participants ?? [], state: g.State ?? "Idle"))
         if !wasIn { log("SyncPlay: joined \"\(g.GroupName)\" (\((g.Participants ?? []).count) watching)") }
+        else if rejoining { log("SyncPlay: back in \"\(g.GroupName)\"") }
+        rejoining = false
         startPing()
+        startDriver()
     }
 
     func handle(_ u: SyncPlayGroupUpdate) {
@@ -253,16 +277,27 @@ final class SyncPlayGroup: ObservableObject {
             if let k = i.participants.firstIndex(of: name) { i.participants.remove(at: k) }
             state = .inGroup(i)
             log("SyncPlay: \(name) left"); show("\(name) left")
-        case "GroupLeft", "NotInGroup":
+        case "GroupLeft":
             guard isActive else { return }
             log("SyncPlay: \(u.type)"); dropOut()
+        case "NotInGroup":
+            // The server forgot us (its session ended while we were away): try to get back in once
+            guard isActive else { return }
+            log("SyncPlay: NotInGroup")
+            if isInGroup, !rejoining, lastRejoin.map({ now().timeIntervalSince($0) > 30 }) ?? true {
+                Task { await rejoin() }
+            } else if !rejoining {
+                dropOut()
+            }
         case "GroupDoesNotExist", "LibraryAccessDenied":
             log("SyncPlay: \(u.type)")
-            show(u.type == "GroupDoesNotExist" ? "That group no longer exists" : "No access to what the group is playing")
+            if u.type == "GroupDoesNotExist" { show(rejoining ? Self.endedText : "That group no longer exists") }
+            else { show("No access to what the group is playing") }
             dropOut()
         case "StateUpdate":
             guard var i = info, i.id == u.GroupId, let s = u.state else { return }
             i.state = s; state = .inGroup(i)
+            if s != "Waiting" { selfStalled = false }
         case "PlayQueue":
             guard isInGroup, let q = u.queue else { return }
             handle(q)
@@ -280,6 +315,7 @@ final class SyncPlayGroup: ObservableObject {
             let elapsed = now().timeIntervalSince(clock().localDate(forServer: d))
             if elapsed > 0 { ticks += Int64(elapsed * Self.ticksPerSecond) }
         }
+        if driver.stopped() { playback()?.syncPlaySetRate(1.0) }
         log("SyncPlay: play queue \(q.Reason), item at \(Int(Double(ticks) / Self.ticksPerSecond)) s")
         let itemId = e.ItemId
         playingItemId = itemId
@@ -315,11 +351,16 @@ final class SyncPlayGroup: ObservableObject {
     /// Runs a command `late` seconds after its time.
     private func apply(_ c: SyncPlayCommand, late: TimeInterval) {
         guard let p = playback() else { return }
+        if c.Command != "Unpause", driver.stopped() { p.syncPlaySetRate(1.0) }
         switch c.Command {
         case "Unpause":
             if let pos = c.PositionTicks {
                 let target = pos + Int64(late * Self.ticksPerSecond)
                 if late > 0 || abs(p.syncPlayTicks - target) > Int64(0.5 * Self.ticksPerSecond) { p.syncPlaySeek(ticks: target) }
+                if let w = TimeSync.parseDate(c.When) {
+                    if driver.stopped() { p.syncPlaySetRate(1.0) }
+                    driver.unpaused(.init(positionTicks: pos, when: w, playlistItemId: c.PlaylistItemId, appliedAt: now()))
+                }
             }
             p.syncPlayPlay()
         case "Pause":
@@ -334,6 +375,99 @@ final class SyncPlayGroup: ObservableObject {
             p.syncPlayPause()
         default: break
         }
+    }
+
+    // MARK: Phase 3: drift correction, mid-playback buffering, rejoin, don't wait
+
+    nonisolated static let endedText = "The group has ended"
+
+    private func startDriver() {
+        guard runsDriver, driverTask == nil else { return }
+        driverTask = Task {
+            while !Task.isCancelled, isInGroup {
+                do { try await sleep(Self.driverInterval) } catch { return }
+                driverStep()
+            }
+        }
+    }
+
+    /// One look at the player: corrects drift, reports a stall as Buffering and its end as Ready.
+    func driverStep() {
+        guard isInGroup, let p = playback() else { return }
+        let t = now()
+        let out = driver.step(now: t, serverNow: clock().serverNow(local: t), ticks: p.syncPlayTicks,
+                              playing: p.syncPlayIsPlaying, stalled: p.syncPlayStalled, busy: busy,
+                              playlistItemId: playlistItemId)
+        for o in out {
+            switch o {
+            case .resetRate: p.syncPlaySetRate(1.0)
+            case .correct(let a, let d):
+                switch a {
+                case .speed(let rate, let duration):
+                    log("SyncPlay: \(Int(abs(d))) ms \(d > 0 ? "behind" : "ahead"), SpeedToSync x"
+                        + String(format: "%.2f for %.1f s", rate, duration))
+                    p.syncPlaySetRate(rate)
+                case .skip(let ticks):
+                    log("SyncPlay: \(Int(abs(d))) ms \(d > 0 ? "behind" : "ahead"), SkipToSync")
+                    p.syncPlaySeek(ticks: ticks)
+                case .none: break
+                }
+            case .buffering:
+                // Don't wait for others: the group isn't held up by this client (the server ignores its
+                // buffering too); it catches up by SkipToSync once playing again
+                guard !ignoreWait else { log("SyncPlay: stalled, not holding up the group"); continue }
+                log("SyncPlay: stalled, telling the group to wait")
+                selfStalled = true
+                let ticks = p.syncPlayTicks, playing = p.syncPlayIsPlaying
+                Task { await report("/SyncPlay/Buffering", ticks: ticks, playing: playing) }
+            case .ready:
+                selfStalled = false
+                guard !ignoreWait else { continue }
+                log("SyncPlay: playing again, ready")
+                let ticks = p.syncPlayTicks, playing = p.syncPlayIsPlaying
+                Task { await report("/SyncPlay/Ready", ticks: ticks, playing: playing) }
+            }
+        }
+    }
+
+    /// The socket came back (Wi-Fi, sleep): the server may have dropped us. Join the group again if it still
+    /// exists (the server restores the session and sends its state and queue), else leave it.
+    func rejoin() async {
+        guard let i = info, !rejoining else { return }
+        rejoining = true
+        lastRejoin = now()
+        log("SyncPlay: reconnected, checking \"\(i.name)\" still exists")
+        if driver.stopped() { playback()?.syncPlaySetRate(1.0) }
+        guard let d = await send("/SyncPlay/List", nil, false),
+              let list = try? JSONDecoder().decode([SyncPlayGroupInfo].self, from: d) else {
+            log("SyncPlay: couldn't list the groups")
+            rejoining = false
+            return
+        }
+        guard info?.id == i.id else { rejoining = false; return }
+        guard list.contains(where: { $0.GroupId == i.id }) else {
+            log("SyncPlay: the group has ended")
+            show(Self.endedText)
+            dropOut()
+            return
+        }
+        if await post("/SyncPlay/Join", ["GroupId": i.id]) == nil {
+            log("SyncPlay: joining again failed")
+            rejoining = false
+            return
+        }
+        if ignoreWait { await post("/SyncPlay/SetIgnoreWait", ["IgnoreWait": true]) }
+        // GroupJoined clears `rejoining`; don't hang on it if it never comes
+        Task { try? await sleep(10); rejoining = false }
+    }
+
+    /// "Don't wait for others": the group keeps playing while this client buffers (server: Group.cs
+    /// SetIgnoreGroupWait; a member with IgnoreGroupWait doesn't count as buffering). This client then skips
+    /// back into step when its stream recovers.
+    func setIgnoreWait(_ on: Bool) async {
+        guard isInGroup else { return }
+        ignoreWait = on
+        await post("/SyncPlay/SetIgnoreWait", ["IgnoreWait": on])
     }
 
     // MARK: Ping, toast
