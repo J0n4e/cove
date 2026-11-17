@@ -192,7 +192,7 @@ final class NotificationsTests: XCTestCase {
     }
 
     func testBatchedTexts() {
-        let eps = (12...14).map { item("e\($0)", "Episode", date: "2026-11-10T12:00:00Z", series: "s1", seriesName: "Las Fierbinți", s: 18, e: $0) }
+        let eps = (12...14).map { (n: Int) in item("e\(n)", "Episode", date: "2026-11-10T12:00:00Z", series: "s1", seriesName: "Las Fierbinți", s: 18, e: n) }
         let movies = ["A", "B", "C", "D", "E"].map { item($0, date: "2026-11-10T12:00:00Z") }
         let n = NewMediaDetector.batches(movies + eps, library: lib, server: "https://a", userId: "u")
         XCTAssertEqual(n.count, 2)
@@ -202,7 +202,7 @@ final class NotificationsTests: XCTestCase {
     }
 
     func testManyShowsBecomeOneLibraryNotification() {
-        let eps = (1...5).map { item("e\($0)", "Episode", date: "2026-11-10T12:00:00Z", series: "s\($0)", seriesName: "Show \($0)") }
+        let eps = (1...5).map { (n: Int) in item("e\(n)", "Episode", date: "2026-11-10T12:00:00Z", series: "s\(n)", seriesName: "Show \(n)") }
         let n = NewMediaDetector.batches(eps, library: lib, server: "https://a", userId: "u")
         XCTAssertEqual(n.count, 1)
         XCTAssertEqual(n[0].body, "5 new episodes: Show 1, Show 2, Show 3…")
@@ -249,7 +249,7 @@ final class NotificationsTests: XCTestCase {
         XCTAssertTrue(n.posted.isEmpty, "first run notifies nothing")
 
         now = now.addingTimeInterval(600)
-        src.latestByLib["L2"] = (1...3).map { item("e\($0)", "Episode", date: "2026-11-12T00:00:0\($0)Z", series: "s1", seriesName: "Las Fierbinți", s: 1, e: $0) }
+        src.latestByLib["L2"] = (1...3).map { (i: Int) in item("e\(i)", "Episode", date: "2026-11-12T00:00:0\(i)Z", series: "s1", seriesName: "Las Fierbinți", s: 1, e: i) }
             + src.latestByLib["L2"]!
         src.latestByLib["L1"] = [item("new", date: "2026-11-12T00:00:00Z", name: "Dune", year: 2021),
                                  item("seen", date: "2026-11-12T00:00:00Z", played: true)] + src.latestByLib["L1"]!
