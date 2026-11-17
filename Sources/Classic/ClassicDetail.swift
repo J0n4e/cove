@@ -479,7 +479,6 @@ struct ClassicDetailView: View {
                 }.buttonStyle(HoverButton())
             }
             WatchTogetherButton(item: model.playTarget, start: r, classic: true)
-            RatingButton(item: item, full: model.full, classic: true)
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44).glass3DRoundOutline()
@@ -495,6 +494,8 @@ struct ClassicDetailView: View {
                 }
                 .classicGlassPill(size: 44).glass3DRoundOutline()
             }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
+            // v1.18.4: information after the actions: your ★ rating at the END, set apart by a thin divider
+            if RatingButton.isShown(item: item, full: model.full) { DetailRatingTail(item: item, full: model.full) }
         }
     }
 
