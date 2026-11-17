@@ -144,6 +144,10 @@ final class SyncPlayService: ObservableObject {
     func attach(to emby: Emby) {
         guard enabled else { return }
         group.opener = { [weak emby] id, start in await emby?.syncPlayOpen(id, start: start) }
+        // SyncPlay phase 4: a group started on an episode queues the series' following ones; Dashboard remote control ↓
+        group.queueFor = { [weak emby] id in await emby?.syncPlaySeriesQueue(id) ?? [id] }
+        RemoteCommandRouter.shared.attach(to: emby, messages: messages)
+        // ↑ phase 4
         // Closing the player while in a group leaves the group
         emby.$playing.map { $0 == nil }.removeDuplicates().dropFirst()
             .sink { [weak self] closed in

@@ -160,7 +160,7 @@ final class SyncPlayTests: XCTestCase {
         XCTAssertEqual(try msg(SyncPlayFixtures.forceKeepAlive), .forceKeepAlive(timeout: 40))
         XCTAssertEqual(SocketEnvelope.decode(SyncPlayFixtures.forceKeepAlive)?.messageId, "3c2b5a0e-8f3a-4d2b-9a51-0d0f3c1b7e11")
         XCTAssertEqual(try msg(SyncPlayFixtures.keepAlive), .keepAlive)
-        XCTAssertEqual(try msg(SyncPlayFixtures.playstate), .other("Playstate"))
+        XCTAssertEqual(try msg(SyncPlayFixtures.playstate), .playstate(RemotePlaystate(Command: "Pause", SeekPositionTicks: nil)))   // phase 4
         XCTAssertNil(SocketEnvelope.decode("not json"))
 
         guard case .syncPlayCommand(let c) = try msg(SyncPlayFixtures.command) else { return XCTFail("command") }
@@ -190,7 +190,7 @@ final class SyncPlayTests: XCTestCase {
         XCTAssertTrue(ok)
         XCTAssertTrue(s.connected)
         XCTAssertEqual(s.keepAliveInterval, 20)
-        XCTAssertEqual(got.count, 1)                    // only SyncPlay messages are passed on
+        XCTAssertEqual(got.count, 2)                    // SyncPlay and (phase 4) remote-control messages are passed on
         s.stop()
         XCTAssertFalse(s.connected)
     }
