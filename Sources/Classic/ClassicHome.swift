@@ -370,6 +370,7 @@ struct ClassicResumeCard: View {
                         .cvFont(12, weight: .semibold).foregroundColor(.white).lineLimit(1)
                         .classicBlackOutline()
                         .padding(.leading, 10).padding(.trailing, 10).padding(.bottom, 12)
+                        .modifier(ProgressRingClearance(active: progress > 0 && progress < 1))   // clear of the ring
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 // Series info (S3·E3 · 42m left), top-left
@@ -380,7 +381,7 @@ struct ClassicResumeCard: View {
                     }
                 }
                 // How far you got, bottom-right
-                .overlay { ThumbnailProgressLine(fraction: progress) }   // thin accent line (was a ring)
+                .overlay { ThumbnailProgress(fraction: progress, radius: 8) }   // TEMP: owner compares Ring / Glow, remove the loser before release
                 // Play button: resumes playback; clicking anywhere else on the card opens the page
                 .overlay {
                     if hover {

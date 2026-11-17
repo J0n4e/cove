@@ -102,26 +102,6 @@ struct ThumbnailScrim: View {
     }
 }
 
-/// A thin accent line along a thumbnail's bottom edge showing how far a partly watched item got.
-struct ThumbnailProgressLine: View {
-    let fraction: Double
-    @AppStorage("accent") private var accentName = "red"
-    var body: some View {
-        GeometryReader { g in
-            let w = Glass3DTokens.progressWidth(fraction: fraction, width: g.size.width)
-            if w > 0 {
-                ZStack(alignment: .leading) {
-                    Rectangle().fill(Color.white.opacity(0.25))
-                    Rectangle().fill(Theme.accent(accentName)).frame(width: w)
-                }
-                .frame(height: 3)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
 // MARK: - Rows
 
 /// A Home / page row heading at the section size, with an optional "See all ›" glass pill on the right.

@@ -407,9 +407,9 @@ struct ClassicTopNavButtons: View {
                     Text3D(text: badge > 0 ? "\(title) \(badge)" : title, size: 15, thick: false, weight: on ? .bold : .semibold)
                 } else if badge > 0 { Text3D(text: "\(badge)", size: 15, thick: false) }
             }
-                .opacity(on ? 1 : 0.6)
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
+                .modifier(Glass3DTabHover(on: on))   // the others: a lighter dark pill; hover sheen, lift and white label
                 .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
                 .contentShape(Capsule())
         }
