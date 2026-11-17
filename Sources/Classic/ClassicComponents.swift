@@ -48,7 +48,7 @@ struct SectionHoverGlow: ViewModifier {
         content
             .background {
                 // The chosen hover look, as the buttons
-                ClassicHoverEffect()
+                ClassicHoverEffect(shown: on && hover)
                     .opacity(on && hover ? 1 : 0)
                     .allowsHitTesting(false)
             }
