@@ -71,6 +71,8 @@ final class SyncPlayGroup: ObservableObject {
     /// Phase 3: "Don't wait for others" (POST /SyncPlay/SetIgnoreWait). Per session, like jellyfin-web's
     /// followingGroupPlayback (Manager.js), which isn't saved either.
     @Published private(set) var ignoreWait = false
+    /// This Mac stalled mid-playback and told the group to wait (cleared once it reports Ready again)
+    @Published private(set) var selfStalled = false
     /// The playlist entry the group is on (sent back with Ready / Buffering).
     private(set) var playlistItemId: String?
     private(set) var playingItemId: String?
@@ -197,6 +199,7 @@ final class SyncPlayGroup: ObservableObject {
     }
 
     private func dropOut() {
+        selfStalled = false
         reset()
         socketNeeded(false)
     }
@@ -294,6 +297,7 @@ final class SyncPlayGroup: ObservableObject {
         case "StateUpdate":
             guard var i = info, i.id == u.GroupId, let s = u.state else { return }
             i.state = s; state = .inGroup(i)
+            if s != "Waiting" { selfStalled = false }
         case "PlayQueue":
             guard isInGroup, let q = u.queue else { return }
             handle(q)
@@ -413,9 +417,11 @@ final class SyncPlayGroup: ObservableObject {
                 // buffering too); it catches up by SkipToSync once playing again
                 guard !ignoreWait else { log("SyncPlay: stalled, not holding up the group"); continue }
                 log("SyncPlay: stalled, telling the group to wait")
+                selfStalled = true
                 let ticks = p.syncPlayTicks, playing = p.syncPlayIsPlaying
                 Task { await report("/SyncPlay/Buffering", ticks: ticks, playing: playing) }
             case .ready:
+                selfStalled = false
                 guard !ignoreWait else { continue }
                 log("SyncPlay: playing again, ready")
                 let ticks = p.syncPlayTicks, playing = p.syncPlayIsPlaying
