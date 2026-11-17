@@ -60,8 +60,8 @@ final class SyncPlayGroup: ObservableObject {
         case seek(ticks: Int64)
     }
 
-    static let ticksPerSecond: Double = 10_000_000
-    static let pingInterval: TimeInterval = 10
+    nonisolated static let ticksPerSecond: Double = 10_000_000
+    nonisolated static let pingInterval: TimeInterval = 10
 
     @Published private(set) var state: State = .notInGroup
     /// "ldoctoru joined" for a few seconds
@@ -108,11 +108,11 @@ final class SyncPlayGroup: ObservableObject {
 
     // MARK: Requests
 
-    static func body(_ o: [String: Any]) -> Data {
+    nonisolated static func body(_ o: [String: Any]) -> Data {
         (try? JSONSerialization.data(withJSONObject: o, options: [.sortedKeys])) ?? Data()
     }
 
-    static func iso(_ d: Date) -> String {
+    nonisolated static func iso(_ d: Date) -> String {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f.string(from: d)
