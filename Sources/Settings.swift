@@ -323,7 +323,7 @@ struct GeneralSettings: View {
             PrefNote(theme == "classic" ? "Glass3D: glossy glass buttons, cards and lists. Applies to every window, this one included." : "Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
             if theme == "classic" {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
-                PrefRow(label: "Hover effect") { menuPicker($classicHover, [("fog", "Fogged mirror"), ("glow", "Soft glow"), ("glass", "Glass pill")]) }
+                PrefRow(label: "Hover effect") { menuPicker($classicHover, HoverStyle.options) }
                 PrefRow(label: "Glass") {
                     VStack(alignment: .leading, spacing: 8) {
                         if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }

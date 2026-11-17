@@ -149,7 +149,10 @@ enum AboutWindow {
     static func show() {
         if window == nil {
             let host = NSHostingController(rootView: AboutView())
-            host.sizingOptions = [.preferredContentSize]
+            // No automatic sizing: with a full-size transparent title bar the hosting view's size and the window's
+            // safe area kept changing each other, and macOS 27.3 aborts on that layout loop (crash on About).
+            // The window is sized once below from the content's fitting size instead.
+            host.sizingOptions = []
             let w = PanelWindow(contentViewController: host)
             w.title = "About Cove"
             w.styleMask = [.titled, .closable, .fullSizeContentView]

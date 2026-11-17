@@ -6,7 +6,7 @@ import AVKit
 struct AppearanceSurface: ViewModifier {
     let classic: Bool
     @ViewBuilder func body(content: Content) -> some View {
-        if classic { content.modifier(PanelSurface(classic: true)).padding(.vertical, 24).padding(.trailing, 24) }
+        if classic { content.modifier(PanelSurface(classic: true)) }   // padded by panelLayer, as the other panels
         else { content.background(Color(white: 0.16).opacity(0.97)) }
     }
 }
@@ -497,9 +497,11 @@ struct ClassicPlayerView: View {
                     .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).helpLabel("Next")
                 Spacer()
                 classicExtraButtons
-                iconButton(ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 18) {
-                    toggleFullScreen()
-                }.helpLabel(ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
+                if !classic {   // Glass3D: inside the glass bar (classicExtraButtons)
+                    iconButton(ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 18) {
+                        toggleFullScreen()
+                    }.helpLabel(ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
+                }
             }
             .padding(.top, 4)
         }
@@ -544,7 +546,13 @@ struct ClassicPlayerView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         case .appearance:
-            HStack { Spacer(); appearancePanel }.transition(.move(edge: .trailing))
+            if classic {   // placed and faded like the other panels
+                HStack { Spacer(); appearancePanel }
+                    .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                HStack { Spacer(); appearancePanel }.transition(.move(edge: .trailing))
+            }
         case .episodes:
             HStack { Spacer(); classicEpisodesPanel }
                 .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
@@ -609,8 +617,16 @@ struct ClassicPlayerView: View {
 
     func panelDivider() -> some View { Divider().padding(.horizontal, 18).padding(.vertical, 6) }
 
-    /// One side panel with everything the old Subtitles, Speed and Settings popups had.
-    var mediaPanel: some View {
+    /// One side panel with everything the old Subtitles, Speed and Settings popups had (Glass3D: Glass3DMediaPanel).
+    @ViewBuilder var mediaPanel: some View {
+        if classic {
+            Glass3DMediaPanel(ui: ui, model: model, emby: emby) { withAnimation { ui.panel = .appearance } }
+        } else {
+            plainMediaPanel
+        }
+    }
+
+    var plainMediaPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 sectionTitle("Subtitles")
@@ -690,10 +706,10 @@ struct ClassicPlayerView: View {
 
     @ViewBuilder func dropdown<T: Hashable>(_ label: String, _ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
         if classic {
-            // Classic: the glass pill and glass list
+            // Glass3D: a dropdown field (radius 8) opening the glass list
             VStack(alignment: .leading, spacing: 6) {
                 Text(label).cvFont(12, weight: .medium).foregroundColor(.white.opacity(0.75))
-                GlassPicker(selection: sel, options: opts, maxWidth: 300)
+                Glass3DFieldPicker(selection: sel, options: opts)
             }
         } else {
         VStack(alignment: .leading, spacing: 8) {
@@ -719,16 +735,24 @@ struct ClassicPlayerView: View {
         }
     }
 
-    var appearancePanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    @ViewBuilder var appearanceHeading: some View {
+        if classic {
+            Glass3DPanelHeading(title: "Subtitle Appearance", back: { withAnimation { ui.panel = .subtitles } })
+        } else {
             HStack(spacing: 20) {
                 Button { withAnimation { ui.panel = .subtitles } } label: { Image(systemName: "xmark").cvFont(18, weight: .semibold) }
                     .buttonStyle(.plainHand)
                 Text("Subtitle Appearance").cvFont(18, weight: .bold)
             }
             .padding(.horizontal, 28).padding(.vertical, 22)
+        }
+    }
+
+    var appearancePanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            appearanceHeading
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: classic ? 16 : 22) {
                     dropdown("Text size", $subTextSize, Self.sizes.map { ($0.0, $0.1) })
                     dropdown("Text color", $subColor, Self.colors.map { ($0.0, $0.1) })
                     dropdown("Drop shadow", $subShadow, Self.shadows)
@@ -741,7 +765,7 @@ struct ClassicPlayerView: View {
                     }
                     resetAppearanceButton.padding(.top, 6)
                 }
-                .padding(.horizontal, 28).padding(.bottom, 28)
+                .padding(.horizontal, classic ? 20 : 28).padding(.bottom, classic ? 18 : 28)
             }
             .classicScrollBars()   // thin overlay bars, only while scrolling
         }
@@ -757,25 +781,6 @@ extension ClassicPlayerView {
     // MARK: Extra controls
 
     static let qualities = PlayerUIModel.qualities
-
-    /// Quick dropdown: subtitle language.
-    var classicSubtitleMenu: some View {
-        Menu {
-            Button { ui.setSub(emby, nil) } label: {
-                if model.sub == nil { Label("Off", systemImage: "checkmark") } else { Text("Off") }
-            }
-            ForEach(model.subStreams) { st in
-                let name = PlayerUIModel.trackTitle(st)
-                Button { ui.setSub(emby, st.Index) } label: {
-                    if model.sub == st.Index { Label(name, systemImage: "checkmark") } else { Text(name) }
-                }
-            }
-        } label: {
-            classicMenuIcon("captions.bubble", on: model.sub != nil)
-        }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().modifier(HoverBacking())
-        .helpLabel("Subtitles")
-    }
 
     /// Quick dropdown: video quality.
     var classicQualityMenu: some View {
@@ -799,30 +804,61 @@ extension ClassicPlayerView {
             .contentShape(Rectangle())
     }
 
-    var classicExtraButtons: some View {
+    @ViewBuilder var classicExtraButtons: some View {
+        if classic {
+            Glass3DControlBar(group: emby.syncPlay.group, items: glass3DBarItems) { poke() }
+        } else {
+            plainExtraButtons
+        }
+    }
+
+    /// The Glass3D right-hand bar, in the old order (with the quick subtitle list).
+    var glass3DBarItems: [Glass3DBarItem] {
+        var a: [Glass3DBarItem] = []
+        if ui.hasEpisodeList(item) {
+            a.append(Glass3DBarItem(id: "episodes", icon: "list.and.film", on: ui.panel == .episodes, help: "Episodes (E)") {
+                withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
+            })
+        }
+        // Quick subtitle list (owner wanted it back), next to the floating captions button's full panel
+        if !model.subStreams.isEmpty {
+            let subs = ui.subtitleOptions
+            let sub = Glass3DBarItem.Menu(options: subs.map(\.1), selected: PlayerUIModel.selectedIndex(subs, model.sub)) { i in
+                ui.setSub(emby, subs[i].0)
+            }
+            a.append(Glass3DBarItem(id: "subtitles", icon: "captions.bubble", on: model.sub != nil, help: "Subtitles", menu: sub))
+        }
+        let qualities = Self.qualities
+        let quality = Glass3DBarItem.Menu(options: qualities.map(\.1), selected: PlayerUIModel.selectedIndex(qualities, model.quality)) { i in
+            ui.setQuality(emby, qualities[i].0)
+        }
+        a.append(Glass3DBarItem(id: "quality", icon: "dial.medium", on: model.quality != 0, help: "Video quality", menu: quality))
+        if !model.chapterList.isEmpty {
+            a.append(Glass3DBarItem(id: "chapters", icon: "list.bullet.rectangle", on: ui.panel == .chapters, help: "Chapters (C)") {
+                withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
+            })
+        }
+        a.append(Glass3DBarItem(id: "syncplay", icon: "person.2.fill", on: ui.panel == .syncPlay, help: "Watch together", syncPlayOnly: true) {
+            withAnimation(.easeOut(duration: 0.2)) { ui.toggleSyncPlay() }
+        })
+        a.append(Glass3DBarItem(id: "info", icon: "info.circle", on: ui.showInfo, help: "Playback info (I)") { ui.showInfo.toggle() })
+        if model.pipSupported {
+            a.append(Glass3DBarItem(id: "pip", icon: model.pipActive ? "pip.exit" : "pip.enter", on: model.pipActive,
+                                    help: "Picture in picture (P)") { model.togglePiP() })
+        }
+        a.append(Glass3DBarItem(id: "fullscreen", icon: ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                                help: ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)") { toggleFullScreen() })
+        return a
+    }
+
+    var plainExtraButtons: some View {
         HStack(spacing: 22) {
             if ui.hasEpisodeList(item) {
-                iconButton("rectangle.stack", size: 18, on: ui.panel == .episodes) {
+                iconButton("list.and.film", size: 18, on: ui.panel == .episodes) {
                     withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
                 }.helpLabel("Episodes (E)")
             }
-            if classic {
-                // Glass buttons opening the glass list, as the other controls
-                if !model.subStreams.isEmpty {
-                    let subs = ui.subtitleOptions
-                    GlassMenuButton(icon: "captions.bubble", on: model.sub != nil, options: subs.map(\.1),
-                                    selected: PlayerUIModel.selectedIndex(subs, model.sub)) { i in
-                        ui.setSub(emby, subs[i].0)
-                    }.accessibilityLabel("Subtitles")
-                }
-                GlassMenuButton(icon: "dial.medium", on: model.quality != 0, options: Self.qualities.map(\.1),
-                                selected: PlayerUIModel.selectedIndex(Self.qualities, model.quality)) { i in
-                    ui.setQuality(emby, Self.qualities[i].0)
-                }.accessibilityLabel("Video quality")
-            } else {
-                if !model.subStreams.isEmpty { classicSubtitleMenu }
-                classicQualityMenu
-            }
+            classicQualityMenu   // subtitles: only the floating captions button's panel
             if !model.chapterList.isEmpty {
                 iconButton("list.bullet.rectangle", size: 18, on: ui.panel == .chapters) {
                     withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
@@ -957,7 +993,7 @@ extension ClassicPlayerView {
         VStack {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Playback info").cvFont(13, weight: .bold)
+                    Text("Playback info").cvFont(classic ? 18 : 13, weight: .bold).padding(.bottom, classic ? 4 : 0)
                     ForEach(Array(ui.infoLines.enumerated()), id: \.offset) { _, l in
                         HStack(alignment: .top, spacing: 10) {
                             Text(l.0).foregroundColor(.white.opacity(0.6)).frame(width: 120, alignment: .leading)
@@ -1026,6 +1062,12 @@ extension ClassicPlayerView {
                             .padding(6).background(Circle().fill(Color.black.opacity(0.6)))
                     }
                 }
+                .overlay {
+                    if classic && !current {   // thin accent line on partly watched episodes
+                        Glass3DEpisodeProgress(fraction: Glass3DTrackLabel.episodeFraction(
+                            position: emby.resumeAt(ep), runtimeTicks: ep.RunTimeTicks, played: played))
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if played && !current {
                         Image(systemName: "checkmark.circle.fill").cvFont(14)
@@ -1056,16 +1098,19 @@ extension ClassicPlayerView {
     var classicChaptersPanel: some View {
         let list = model.chapterList
         let cur = ui.currentChapter
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                sectionTitle("Chapters")
-                ForEach(Array(list.enumerated()), id: \.offset) { k, e in
-                    classicChapterRow(e.i, e.c, current: k == cur)
-                }
-            }.padding(.vertical, 12)
+        return VStack(alignment: .leading, spacing: 0) {
+            if classic { Glass3DPanelHeading(title: "Chapters") }   // as the Episodes panel
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    if !classic { sectionTitle("Chapters") }
+                    ForEach(Array(list.enumerated()), id: \.offset) { k, e in
+                        classicChapterRow(e.i, e.c, current: k == cur)
+                    }
+                }.padding(.top, classic ? 0 : 12).padding(.bottom, classic ? 10 : 12)
+            }
+            .classicScrollBars()   // thin overlay bars, only while scrolling
         }
-        .classicScrollBars()   // thin overlay bars, only while scrolling
-        .frame(width: 380)
+        .frame(width: classic ? 400 : 380)
         .modifier(PanelSurface(classic: classic))
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
