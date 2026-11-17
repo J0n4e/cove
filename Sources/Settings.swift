@@ -29,6 +29,25 @@ struct SettingsView: View {
         }
     }
     @State private var section: Section = .general
+    @AppStorage("theme") private var theme = "apple"
+    /// Glass3D (key "classic"): glass-pill tabs and glass dropdowns; the Glass theme keeps its look
+    var glass3D: Bool { theme == "classic" }
+
+    /// Glass theme tab: filled with the accent when selected (unchanged)
+    func plainTab(_ s: Section) -> some View {
+        let on = section == s
+        return Button { section = s } label: {
+            VStack(spacing: 3) {
+                Image(systemName: s.icon).coveFont(size: 20)
+                Text(s.rawValue).coveFont(size: 11)
+            }
+            // Selected: filled with the accent, light text on it (accent-colored text was hard to read)
+            .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)
+            .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent : Color.clear))
+            .contentShape(Rectangle())
+        }.buttonStyle(.plainHand).focusEffectDisabled()
+    }
     @ObservedObject private var trakt = Trakt.shared
     /// The Trakt tab shows only while Trakt is connected.
     var sections: [Section] { Section.allCases.filter { $0 != .trakt || trakt.isConnected } }
@@ -36,25 +55,21 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Apple TV style: the section name on top, then a row of icon tabs
-            Text(section.rawValue).coveFont(size: 13, weight: .semibold).foregroundColor(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 12)
+            // Glass3D: the selected tab already names the page, so no title above the tabs
+            if !glass3D {
+                Text(section.rawValue).coveFont(size: 13, weight: .semibold).foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 12)
+            }
             HStack(spacing: 4) {
                 ForEach(sections) { s in
-                    let on = section == s
-                    Button { section = s } label: {
-                        VStack(spacing: 3) {
-                            Image(systemName: s.icon).coveFont(size: 20)
-                            Text(s.rawValue).coveFont(size: 11)
-                        }
-                        // Selected: filled with the accent, light text on it (accent-colored text was hard to read)
-                        .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)
-                        .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent : Color.clear))
-                        .contentShape(Rectangle())
-                    }.buttonStyle(.plainHand).focusEffectDisabled()
+                    if glass3D {
+                        Glass3DSettingsTab(title: s.rawValue, icon: s.icon, on: section == s) { section = s }
+                    } else {
+                        plainTab(s)
+                    }
                 }
-            }.padding(.top, 8).padding(.bottom, 10)
+            }.padding(.top, glass3D ? 14 : 8).padding(.bottom, 10)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -95,6 +110,7 @@ struct SettingsWindowRoot: View {
     var body: some View {
         SettingsView().environmentObject(emby).environment(\.appBG, Theme.bg(bgName))
             .frame(width: 760, height: 640)
+            .dropdownLayer()   // Glass3D's glass dropdowns open over the whole window
             .preferredColorScheme(.dark).focusEffectDisabled()
     }
 }
@@ -150,19 +166,22 @@ struct PrefSection<C: View>: View {
     var title: String? = nil
     var last = false
     @ViewBuilder var content: C
+    @AppStorage("theme") private var theme = "apple"
     var body: some View {
+        let g3 = theme == "classic"   // Glass3D: tighter, the panel radius and outline from Glass3DTokens
+        let r: CGFloat = g3 ? Glass3DTokens.Radius.panel : 10
         VStack(alignment: .leading, spacing: 6) {
             if let title {
                 Text(title.uppercased()).coveFont(size: 11, weight: .semibold).foregroundColor(.secondary)
                     .padding(.leading, 6)
             }
-            VStack(alignment: .leading, spacing: 12) { content }
-                .padding(.vertical, 16).padding(.trailing, 12)
+            VStack(alignment: .leading, spacing: g3 ? 10 : 12) { content }
+                .padding(.vertical, g3 ? 12 : 16).padding(.trailing, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+                .background(RoundedRectangle(cornerRadius: r).fill(Color.white.opacity(g3 ? Glass3DTokens.Fill.subtle : 0.04)))
+                .overlay(RoundedRectangle(cornerRadius: r).stroke(Color.white.opacity(g3 ? Glass3DTokens.Stroke.subtle : 0.08)))
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, g3 ? 6 : 9)
     }
 }
 
@@ -214,9 +233,23 @@ struct SettingRow<C: View>: View {
 }
 
 func menuPicker<T: Hashable>(_ sel: Binding<T>, _ opts: [(T, String)]) -> some View {
-    Picker("", selection: sel) {
-        ForEach(opts, id: \.0) { Text($0.1).tag($0.0) }
-    }.labelsHidden().fixedSize().settingsWhiteText()
+    SettingsMenuPicker(sel: sel, opts: opts)
+}
+
+/// A Settings choice: Cove's glass dropdown in Glass3D, the system menu in the Glass theme (unchanged).
+struct SettingsMenuPicker<T: Hashable>: View {
+    let sel: Binding<T>
+    let opts: [(T, String)]
+    @AppStorage("theme") private var theme = "apple"
+    var body: some View {
+        if theme == "classic" {
+            GlassPicker(selection: sel, options: opts)
+        } else {
+            Picker("", selection: sel) {
+                ForEach(opts, id: \.0) { Text($0.1).tag($0.0) }
+            }.labelsHidden().fixedSize().settingsWhiteText()
+        }
+    }
 }
 
 extension View {
@@ -287,7 +320,7 @@ struct GeneralSettings: View {
     var body: some View {
         PrefSection(title: "Appearance") {
             PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Glass3D")]) }
-            PrefNote("Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
+            PrefNote(theme == "classic" ? "Glass3D: glossy glass buttons, cards and lists. Applies to every window, this one included." : "Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
             if theme == "classic" {
                 PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
                 PrefRow(label: "Hover effect") { menuPicker($classicHover, [("fog", "Fogged mirror"), ("glow", "Soft glow")]) }

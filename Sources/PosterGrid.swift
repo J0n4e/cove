@@ -170,9 +170,16 @@ struct PosterGrid: NSViewRepresentable {
         /// Sizes the header to the grid's width; the posters start below it.
         func layoutHeader() {
             guard let h = headerHost, let cv else { return }
-            let w = cv.bounds.width
+            // Glass3D: the header is moved in by the posters' centering margin, so its title lines up with the
+            // first column (the Glass theme keeps the header at the edge)
+            let side: CGFloat
+            if look.glass3D, let layout = cv.collectionViewLayout as? NSCollectionViewFlowLayout {
+                side = PosterGrid.centering(width: cv.bounds.width - insets.left - insets.right,
+                                            item: layout.itemSize.width, spacing: layout.minimumInteritemSpacing)
+            } else { side = 0 }
+            let w = max(0, cv.bounds.width - 2 * side)
             let height = ceil(h.sizeThatFits(in: CGSize(width: w, height: 10_000)).height)
-            h.view.frame = CGRect(x: 0, y: 0, width: w, height: height)   // the collection view is flipped: y 0 is the top
+            h.view.frame = CGRect(x: side, y: 0, width: w, height: height)   // the collection view is flipped: y 0 is the top
             if abs(height - headerH) > 0.5 { headerH = height; applyLayout() }
         }
         /// The settings the posters are drawn with, to redraw them only when one of these changes
