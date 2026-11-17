@@ -55,8 +55,8 @@ struct ClassicFavoritesView: View {
             // "Favorite People ›" opens all of them on their own page, like the other sections
             NavigationLink(value: FavoritePeopleRef()) {
                 HStack(spacing: 6) {
-                    Text("Favorite People").cvFont(15, weight: .bold)
-                    Image(systemName: "chevron.right").cvFont(15, weight: .bold).foregroundColor(.secondary)
+                    Text("Favorite People").cvFont(Glass3DTokens.Text.section, weight: .bold)
+                    Image(systemName: "chevron.right").cvFont(17, weight: .bold).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
             if layout == "grid" {

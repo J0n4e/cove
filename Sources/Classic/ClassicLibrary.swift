@@ -91,7 +91,15 @@ struct ClassicLibraryView: View {
     var header: some View {
         VStack(spacing: 16) {
             ZStack {
-                HStack { ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind)); Spacer() }
+                // Title on the grid's leading edge, the count as small grey text under it
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind))
+                        Text(Glass3DTokens.itemCount(model.visibleCount))
+                            .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
+                    }
+                    Spacer()
+                }
                 HStack(spacing: 2) {
                     ForEach(0..<4, id: \.self) { i in
                         Button { model.tab = i } label: {
@@ -99,12 +107,12 @@ struct ClassicLibraryView: View {
                             Text3D(text: i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i], size: 12,
                                    weight: model.tab == i ? .bold : .semibold)
                                 .opacity(model.tab == i ? 1 : 0.6)
-                                .padding(.horizontal, 16).frame(height: 36)
-                                .classicSelectedPill(model.tab == i)
+                                .padding(.horizontal, 14).frame(height: 32)
+                                .classicSelectedGlass(model.tab == i)   // a step quieter than the top bar's pill
                         .modifier(SectionHoverGlow(on: !(model.tab == i)))   // accent glow on hover, as the top bar
                         }.buttonStyle(.plainHand)
                     }
-                }.padding(4).frame(height: 44).classicClearGlass()
+                }.padding(3).frame(height: 38).classicClearGlass().opacity(0.92)
             }
             if model.tab != 2 { controls }
         }
@@ -117,7 +125,6 @@ struct ClassicLibraryView: View {
 
     var controls: some View {
         HStack(spacing: 10) {
-            Text("\(model.visibleCount) Items").foregroundColor(.secondary).padding(.trailing, 4)
             Button { Task { await model.playFirst() } } label: {
                 glossyLabel("Play", "play.fill").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
@@ -134,7 +141,7 @@ struct ClassicLibraryView: View {
                     if (1...4).contains(i) { model.sort = sorts[i - 1].0 } else if i == 6 { model.desc = false } else if i == 7 { model.desc = true }
                 })
             }) {
-                glossyLabel(model.sortLabel, model.desc ? "arrow.down" : "arrow.up").classicGlassPill(size: 44, iconOnly: false)
+                glossyLabel(Glass3DTokens.sortLabel(field: model.sortLabel, ascending: !model.desc), "arrow.up.arrow.down").classicGlassPill(size: 44, iconOnly: false)
             }.helpLabel("Sort")
             GlassListButton(list: {
                 let status = [("all", "All"), ("unwatched", "Unwatched"), ("watched", "Watched")]

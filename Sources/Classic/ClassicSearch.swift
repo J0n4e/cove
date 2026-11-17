@@ -44,7 +44,7 @@ struct ClassicSearchView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Results for “\(query)”").cvFont(17, weight: .bold)
             if !people.isEmpty { peopleRow }
-            if !people.isEmpty && !results.isEmpty { Text("Titles").cvFont(15, weight: .bold).padding(.top, 8) }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").cvFont(Glass3DTokens.Text.section, weight: .bold).padding(.top, 8) }
         }
     }
 
@@ -83,7 +83,7 @@ struct ClassicSearchView: View {
     /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("People").cvFont(15, weight: .bold)
+            Text("People").cvFont(Glass3DTokens.Text.section, weight: .bold)
             // In rows like the titles below, not one line that scrolls sideways
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14, alignment: .top)], spacing: 18) {
                     ForEach(people) { p in

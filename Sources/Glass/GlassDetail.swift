@@ -97,6 +97,7 @@ struct CastTile: View {
     let p: Full.Person
     @AppStorage("castSize") private var castSize = "normal"   // Settings → Libraries → Movie and show pages
     @State private var hover = false
+    @Environment(\.classicGlass) private var classic   // Glass3D: outlined photo, Glass3D type
     var body: some View {
         let big = castSize == "large"
         VStack(spacing: 6) {
@@ -108,6 +109,12 @@ struct CastTile: View {
             // Large: a portrait photo card (2:3); Normal: the round photo
             .frame(width: big ? 132 : 88, height: big ? 198 : 88)
             .clipShape(RoundedRectangle(cornerRadius: big ? 10 : 44))
+            .overlay {
+                if classic {
+                    RoundedRectangle(cornerRadius: big ? 10 : 44)
+                        .strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 1)
+                }
+            }
             .shadow(color: .black.opacity(big ? 0.45 : 0), radius: 6, y: 3)
             // Favorites show a small heart top left, as posters do
             .overlay(alignment: .topLeading) {
@@ -127,8 +134,13 @@ struct CastTile: View {
             }
             .scrollHover($hover)
             .hoverLift()   // grows a little under the pointer, like posters
-            Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
-            Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+            if classic {
+                Text(p.Name).cvFont(big ? 13 : Glass3DTokens.Text.meta, weight: .semibold).lineLimit(1)
+                Text(p.Role ?? p.`Type` ?? "").cvFont(big ? 11 : 10).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
+            } else {
+                Text(p.Name).font((big ? Font.callout : .caption).weight(.semibold)).lineLimit(1)
+                Text(p.Role ?? p.`Type` ?? "").font(big ? .caption : .caption2).foregroundColor(.secondary).lineLimit(1)
+            }
         }.frame(width: CastTile.width(castSize)).multilineTextAlignment(.center)
     }
     /// Tile width for "normal" or "large" (the Cast & Crew row spaces its tiles by this)
