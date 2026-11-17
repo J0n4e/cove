@@ -90,6 +90,24 @@ final class PlayerUIModel: ObservableObject {
         }
     }
 
+    /// Where the pointer was at the last hover event (view coordinates).
+    private var lastPointer: CGPoint?
+
+    /// Whether a hover event is a real mouse move. SwiftUI also sends hover events when the pointer stands
+    /// still and the views under it change (the Up next card or a toast appearing): those must not wake the controls.
+    nonisolated static func isPointerMove(from last: CGPoint?, to p: CGPoint) -> Bool {
+        guard let last else { return true }
+        return abs(p.x - last.x) > 0.5 || abs(p.y - last.y) > 0.5
+    }
+
+    /// The player's hover handler: shows the controls only when the mouse really moved.
+    func pointer(_ phase: HoverPhase) {
+        guard case .active(let p) = phase else { return }
+        let moved = Self.isPointerMove(from: lastPointer, to: p)
+        lastPointer = p
+        if moved { poke() }
+    }
+
     /// A click on the picture: close a panel, else play/pause (or show/hide the controls).
     func tap(clickToPause: Bool) {
         if panel != nil { panel = nil }
