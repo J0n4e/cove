@@ -523,7 +523,7 @@ struct ClassicDetailView: View {
                 .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent(accentName), lineWidth: 2.5) } }
                 .classicHoverLift()
                 // v1.19.0: ♡ / ✓ badge buttons as on posters (✓ marks the whole season; shows the unwatched count)
-                .itemBadges(sItem, .season, children: model.episodes(inSeason: n), unwatched: model.unwatched(n))
+                .itemBadges(sItem, .season, children: model.episodes(inSeason: n), unwatched: model.unwatched(n) ?? 0)
                 Text(title).cvFont(13, weight: .regular).foregroundColor(selected ? .primary : .secondary)
             }.contentShape(Rectangle())
         }.buttonStyle(.plainHand)
