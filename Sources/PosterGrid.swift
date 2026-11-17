@@ -397,6 +397,12 @@ final class PosterGridCell: NSCollectionViewItem {
     private let glow = CALayer()
     /// The watched/favorite buttons, shown on hover (SwiftUI, made the first time this cell is hovered)
     private var buttons: NSHostingView<AnyView>?
+    /// Glass3D (v1.18.4): the clickable badges at the top (♡ + ★ left, ✓ right), shown while hovered; at rest
+    /// they're drawn into `decor` like before
+    private var badgeLeft: NSHostingView<AnyView>?
+    private var badgeRight: NSHostingView<AnyView>?
+    private var lastScale: CGFloat = 2
+    private var noHeart = false
     private var item: Item?
     private weak var emby: Emby?
     private(set) var hovered = false
@@ -451,13 +457,15 @@ final class PosterGridCell: NSCollectionViewItem {
         if !year.isHidden { y -= PosterLook.yearH; year.frame = CGRect(x: 0, y: y, width: ps.width, height: PosterLook.yearH) }
         CATransaction.commit()
         placeButtons()
+        placeBadges()
     }
 
     @MainActor func show(_ item: Item, emby: Emby, look: PosterLook, noHeart: Bool, scale: CGFloat) {
         if look != self.look { self.look = look; view.needsLayout = true }
-        self.item = item; self.emby = emby
+        self.item = item; self.emby = emby; self.noHeart = noHeart; self.lastScale = scale
         let played = emby.isPlayed(item)
-        let fav = emby.isFav(item) && !noHeart
+        // Glass3D: the ♡ is a button, so it shows on Favorites too (click to remove)
+        let fav = emby.isFav(item) && (!noHeart || look.glass3D)
         let rating = Trakt.shared.rating(item)
         let pct = item.UserData?.PlayedPercentage.map { Int($0) } ?? 0
         let progress = (pct > 0 && pct < 100 && !played) ? pct : 0
@@ -466,9 +474,12 @@ final class PosterGridCell: NSCollectionViewItem {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         poster.opacity = played ? 0.6 : 1
         poster.cornerRadius = look.radius
-        let key = "gridDecor|\(look.glass3D)|\(played)|\(unwatched)|\(fav)|\(rating ?? 0)|\(progress)|\(accent)"
+        // Glass3D while hovered: the badges come from the live buttons instead (see fadeBadges)
+        let badges = !(look.glass3D && hovered)
+        let key = "gridDecor|\(look.glass3D)|\(played)|\(unwatched)|\(fav)|\(rating ?? 0)|\(progress)|\(accent)|\(badges)"
         decor.contents = Raster.image(key, scale: scale, pad: 0) {
-            PosterDecor(item: item, played: played, fav: fav, progress: progress, accent: Theme.accent(accent), look: look)
+            PosterDecor(item: item, played: played, fav: fav, progress: progress, accent: Theme.accent(accent), look: look,
+                        badges: badges)
                 .environmentObject(emby).environment(\.classicGlass, look.glass3D)
         }
         for (l, lit) in [(edge, false), (edgeLit, true)] {
@@ -480,7 +491,8 @@ final class PosterGridCell: NSCollectionViewItem {
         // Follows the Settings accent; Glass has no glow (as its SwiftUI card)
         glow.shadowColor = look.glass3D ? NSColor(Theme.accent(accent)).cgColor : NSColor.clear.cgColor
         CATransaction.commit()
-        if hovered { buttons?.rootView = buttonsView() }
+        if hovered && !look.glass3D { buttons?.rootView = buttonsView() }
+        if hovered && look.glass3D { refreshBadges() }
 
         let d = UserDefaults.standard
         let showTitle = d.object(forKey: "posterShowTitle") as? Bool ?? true
@@ -542,7 +554,58 @@ final class PosterGridCell: NSCollectionViewItem {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         card.transform = zoom; edgeLit.opacity = lit; glow.opacity = lit
         CATransaction.commit()
-        fadeButtons(on, animated: animated)
+        if look.glass3D { showBadges(on) } else { fadeButtons(on, animated: animated) }
+    }
+
+    // MARK: Glass3D clickable badges (v1.18.4)
+
+    private func badgeViews() -> (AnyView, AnyView) {
+        guard let item, let emby else { return (AnyView(EmptyView()), AnyView(EmptyView())) }
+        let tint = Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red")
+        func wrap<V: View>(_ v: V) -> AnyView {
+            AnyView(v.environmentObject(emby).environment(\.classicGlass, true).tint(tint)
+                .environment(\.colorScheme, .dark).fixedSize())
+        }
+        return (wrap(PosterBadgesLeading(item: item, hover: true)), wrap(PosterWatchBadge(item: item, hover: true)))
+    }
+
+    /// Hovered: the badges baked into `decor` are swapped for live buttons at the same spots (on the zoomed poster).
+    private func showBadges(_ on: Bool) {
+        if on && badgeLeft == nil {
+            let (l, r) = badgeViews()
+            badgeLeft = NSHostingView(rootView: l); badgeRight = NSHostingView(rootView: r)
+            for b in [badgeLeft!, badgeRight!] { view.addSubview(b) }
+        }
+        if on { refreshBadges() }
+        for b in [badgeLeft, badgeRight] { b?.isHidden = !on }   // hidden: no clicks on it
+        if let item, let emby { redrawDecor(item, emby: emby) }
+    }
+
+    private func refreshBadges() {
+        let (l, r) = badgeViews()
+        badgeLeft?.rootView = l; badgeRight?.rootView = r
+        placeBadges()
+    }
+
+    /// The decor picture with or without the badges, after a hover change.
+    private func redrawDecor(_ item: Item, emby: Emby) {
+        show(item, emby: emby, look: look, noHeart: noHeart, scale: lastScale)
+    }
+
+    /// Top-left and top-right corners of the zoomed poster, 8 pt in (as on the SwiftUI card)
+    private func placeBadges() {
+        let ps = look.size, h = view.bounds.height, z: CGFloat = hovered ? 1.06 : 1
+        let center = CGPoint(x: ps.width / 2, y: h - ps.height / 2)
+        let top = center.y + (ps.height / 2 - PosterBadges.inset) * z
+        if let l = badgeLeft {
+            let s = l.fittingSize
+            l.frame = CGRect(x: center.x - (ps.width / 2 - PosterBadges.inset) * z, y: top - s.height, width: s.width, height: s.height)
+        }
+        if let r = badgeRight {
+            let s = r.fittingSize
+            r.frame = CGRect(x: center.x + (ps.width / 2 - PosterBadges.inset) * z - s.width, y: top - s.height,
+                             width: s.width, height: s.height)
+        }
     }
 
     private func buttonsView() -> AnyView {
@@ -635,9 +698,27 @@ struct PosterDecor: View {
     let progress: Int
     let accent: Color
     let look: PosterLook
+    /// Glass3D: off while hovered (the live badge buttons sit there instead)
+    var badges = true
     var body: some View {
         let s = look.size
-        Color.clear.frame(width: s.width, height: s.height)
+        if look.glass3D {
+            // v1.18.4: the dark glass badges (the same views as the live buttons, drawn at rest)
+            Color.clear.frame(width: s.width, height: s.height)
+                .overlay { if badges { PosterBadgesOverlay(item: item, hover: false) } }
+                .overlay(alignment: .bottom) {
+                    if progress > 0 { ProgressView(value: Double(progress) / 100).padding(.horizontal, 8).padding(.bottom, 8) }
+                }
+                .tint(accent)
+        } else {
+            legacy
+        }
+    }
+
+    /// The Glass theme's poster (unchanged)
+    private var legacy: some View {
+        let s = look.size
+        return Color.clear.frame(width: s.width, height: s.height)
             .overlay(alignment: .topTrailing) { WatchBadge(item: item, played: played).padding(8) }
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 6) {

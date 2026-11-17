@@ -18,8 +18,13 @@ struct RatingButton: View {
     var kind: String { Trakt.kind(item) ?? "movie" }
     var ids: [String: String] { Trakt.ids(full?.ProviderIds ?? item.ProviderIds) }
 
+    /// Whether the rating shows at all (the server knows an id Trakt can match).
+    static func isShown(item: Item, full: Full?) -> Bool {
+        !Trakt.ids(full?.ProviderIds ?? item.ProviderIds).isEmpty && Trakt.kind(item) != nil
+    }
+
     var body: some View {
-        if !ids.isEmpty && Trakt.kind(item) != nil {
+        if Self.isShown(item: item, full: full) {
             let r = trakt.rating(kind: kind, ids: ids)
             let help = r.map { "Your rating: \($0)/10" } ?? "Rate"
             Button { open.toggle() } label: { label(r) }
@@ -251,4 +256,24 @@ struct RatingPicker: View {
         }
         .padding(14)
     }
+}
+
+/// Glass3D detail page (v1.18.4): the rating at the end of the button row, after a thin divider and a little
+/// extra space, so the actions read as one group and the rating as information.
+struct DetailRatingTail: View {
+    let item: Item
+    let full: Full?
+    var body: some View {
+        HStack(spacing: 10) {
+            Rectangle().fill(Color.white.opacity(Glass3DTokens.Stroke.strong)).frame(width: 1, height: 26)
+                .padding(.leading, 6)
+                .accessibilityHidden(true)
+            RatingButton(item: item, full: full, classic: true)
+        }
+    }
+}
+
+/// The Glass3D detail page row, in order: the actions, then the rating (the order the owner chose).
+enum DetailRowOrder {
+    static let order = ["play", "resume", "watchTogether", "trailer", "watched", "favorite", "rating"]
 }
