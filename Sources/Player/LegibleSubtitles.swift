@@ -78,7 +78,12 @@ extension PlayerModel {
     /// playlist's DEFAULT one (`defaultIndex`; Emby marks the requested track so). nil: not in this stream.
     nonisolated static func pickLegible(_ options: [(name: String, lang: String?)], title: String?, lang: String?,
                                         requested: Bool = false, trackTitle: String? = nil,
-                                        defaultIndex: Int? = nil) -> Int? {
+                                        defaultIndex: Int? = nil, usable: [Bool]? = nil) -> Int? {
+        // Closed captions in the video and macOS's own transcribed captions are not the server's subtitle
+        // tracks: never take them for one (owner: Emby left Romanian SUBRIP out, Cove picked 'CC' and showed nothing)
+        let ok = { (i: Int) -> Bool in usable.map { $0.indices.contains(i) ? $0[i] : true } ?? true }
+        let options = options.enumerated().map { ok($0.offset) ? $0.element : (name: "", lang: Optional<String>.none) }
+        let real = options.indices.filter(ok)
         if let title, let i = options.firstIndex(where: { $0.name == title }) { return i }
         let titles = [trackTitle, title].compactMap { $0?.lowercased().trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
@@ -97,8 +102,8 @@ extension PlayerModel {
         let byName = options.indices.filter(named)
         if byName.count == 1 { return byName[0] }
         guard requested else { return nil }
-        if options.count == 1 { return 0 }
-        if let d = defaultIndex, options.indices.contains(d) { return d }
+        if real.count == 1, options.count == 1 { return real[0] }
+        if let d = defaultIndex, real.contains(d) { return d }
         return nil
     }
 
@@ -111,6 +116,17 @@ extension PlayerModel {
         if haveOption { return .select }
         if hls && !unsupported { return .restart }
         return .extract
+    }
+
+    /// Whether each rendition is one of the server's subtitle tracks (not closed captions carried in the video,
+    /// not macOS's automatically transcribed captions).
+    var legibleUsable: [Bool] {
+        (legibleGroup?.options ?? []).map { o in
+            if o.mediaType == .closedCaption { return false }
+            if o.hasMediaCharacteristic(.transcribesSpokenDialogForAccessibility),
+               o.displayName.localizedCaseInsensitiveContains("transcribed") { return false }
+            return !o.displayName.localizedCaseInsensitiveContains("transcribed") && o.displayName != "CC"
+        }
     }
 
     var legibleOptions: [(name: String, lang: String?)] {
@@ -149,7 +165,8 @@ extension PlayerModel {
                 self.dlog("subs: HLS renditions for track \(idx) (\(st?.Language ?? "-"), '\(st?.DisplayTitle ?? "")'): \(names.isEmpty ? "none" : names)")
             }
             if let g, let k = Self.pickLegible(self.legibleOptions, title: st?.DisplayTitle, lang: st?.Language, requested: true,
-                                               trackTitle: st?.Title, defaultIndex: g.defaultOption.flatMap { g.options.firstIndex(of: $0) }) {
+                                               trackTitle: st?.Title, defaultIndex: g.defaultOption.flatMap { g.options.firstIndex(of: $0) },
+                                               usable: self.legibleUsable) {
                 item.select(g.options[k], in: g)
                 self.dlog("subs: in-stream (HLS) track \(idx): \(g.options.count) rendition(s), selected '\(g.options[k].displayName)'")
             } else {
@@ -184,7 +201,8 @@ extension PlayerModel {
     func switchInStream(_ idx: Int) -> Bool {
         guard let g = legibleGroup, let item = player?.currentItem else { return false }
         let st = streams.first { $0.Index == idx }
-        guard let k = Self.pickLegible(legibleOptions, title: st?.DisplayTitle, lang: st?.Language, trackTitle: st?.Title) else { return false }
+        guard let k = Self.pickLegible(legibleOptions, title: st?.DisplayTitle, lang: st?.Language, trackTitle: st?.Title,
+                                       usable: legibleUsable) else { return false }
         if legible == nil { attachInStream(item, idx, gen: startGen) }
         inStreamSub = idx; inStreamDecided = true; caption = ""
         item.select(g.options[k], in: g)
