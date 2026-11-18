@@ -465,7 +465,7 @@ struct ClassicPlayerView: View {
                     Text(item.heroTitle).cvFont(28, weight: .bold)
                 }
                 Spacer()
-                HStack(spacing: 26) {
+                if !classic {   // Glass3D: subtitles, audio, quality & speed are in the glass bar
                     iconButton("captions.bubble", on: ui.panel != nil) {
                         withAnimation(.easeOut(duration: 0.2)) { ui.toggleMediaPanel() }
                     }.helpLabel("Subtitles, audio, quality & speed")
@@ -631,7 +631,7 @@ struct ClassicPlayerView: View {
     /// One side panel with everything the old Subtitles, Speed and Settings popups had (Glass3D: Glass3DMediaPanel).
     @ViewBuilder var mediaPanel: some View {
         if classic {
-            Glass3DMediaPanel(ui: ui, model: model, emby: emby) { withAnimation { ui.panel = .appearance } }
+            Glass3DSubtitlesPanel(ui: ui, model: model, emby: emby) { withAnimation { ui.panel = .appearance } }
         } else {
             plainMediaPanel
         }
@@ -823,7 +823,7 @@ extension ClassicPlayerView {
         }
     }
 
-    /// The Glass3D right-hand bar, in the old order (with the quick subtitle list).
+    /// The Glass3D right-hand bar, in the owner's order (Glass3DBarItem.order).
     var glass3DBarItems: [Glass3DBarItem] {
         var a: [Glass3DBarItem] = []
         if ui.hasEpisodeList(item) {
@@ -831,24 +831,26 @@ extension ClassicPlayerView {
                 withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
             })
         }
-        // Quick subtitle list (owner wanted it back), next to the floating captions button's full panel
-        if !model.subStreams.isEmpty {
-            let subs = ui.subtitleOptions
-            let sub = Glass3DBarItem.Menu(options: subs.map(\.1), selected: PlayerUIModel.selectedIndex(subs, model.sub)) { i in
-                ui.setSub(emby, subs[i].0)
-            }
-            a.append(Glass3DBarItem(id: "subtitles", icon: "captions.bubble", on: model.sub != nil, help: "Subtitles", menu: sub))
-        }
-        let qualities = Self.qualities
-        let quality = Glass3DBarItem.Menu(options: qualities.map(\.1), selected: PlayerUIModel.selectedIndex(qualities, model.quality)) { i in
-            ui.setQuality(emby, qualities[i].0)
-        }
-        a.append(Glass3DBarItem(id: "quality", icon: "dial.medium", on: model.quality != 0, help: "Video quality", menu: quality))
         if !model.chapterList.isEmpty {
             a.append(Glass3DBarItem(id: "chapters", icon: "list.bullet.rectangle", on: ui.panel == .chapters, help: "Chapters (C)") {
                 withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
             })
         }
+        // Subtitles: a glass panel (tracks, then offset and appearance)
+        let subsOpen = ui.panel == .subtitles || ui.panel == .appearance
+        a.append(Glass3DBarItem(id: "subtitles", icon: "captions.bubble", on: subsOpen || model.sub != nil, help: "Subtitles") {
+            withAnimation(.easeOut(duration: 0.2)) { ui.panel = subsOpen ? nil : .subtitles }
+        })
+        if !model.audioStreams.isEmpty {
+            let audio = model.audioStreams
+            let pick = Glass3DBarItem.Menu(options: Glass3DTrackLabel.audioLines(audio),
+                                           selected: audio.firstIndex { $0.Index == model.audio } ?? -1) { i in
+                ui.setAudio(emby, audio[i].Index)
+            }
+            a.append(Glass3DBarItem(id: "audio", icon: "speaker.wave.2", help: "Audio", menu: pick))
+        }
+        a.append(Glass3DBarItem(id: "quality", icon: "dial.medium", on: model.quality != 0 || model.speed != 1,
+                                help: "Quality & speed", menu: qualitySpeedMenu))
         a.append(Glass3DBarItem(id: "syncplay", icon: "person.2.fill", on: ui.panel == .syncPlay, help: "Watch together", syncPlayOnly: true) {
             withAnimation(.easeOut(duration: 0.2)) { ui.toggleSyncPlay() }
         })
@@ -859,7 +861,19 @@ extension ClassicPlayerView {
         }
         a.append(Glass3DBarItem(id: "fullscreen", icon: ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                 help: ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)") { toggleFullScreen() })
-        return a
+        return Glass3DBarItem.ordered(a)
+    }
+
+    /// Quality & speed: the qualities, then the speeds, each with its own tick.
+    var qualitySpeedMenu: Glass3DBarItem.Menu {
+        Glass3DBarItem.Menu(options: Glass3DBarMenus.qualitySpeedOptions(), selected: -1, pick: { i in
+            switch Glass3DBarMenus.qualitySpeedPick(i) {
+            case .quality(let q): ui.setQuality(emby, q)
+            case .speed(let r): ui.setSpeed(r)
+            case .nothing: break
+            }
+        }, checked: Glass3DBarMenus.qualitySpeedChecked(quality: model.quality, speed: model.speed),
+           headers: Glass3DBarMenus.qualitySpeedHeaders)
     }
 
     var plainExtraButtons: some View {

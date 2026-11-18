@@ -432,7 +432,7 @@ struct ClassicDetailView: View {
             }
             labeled("Subtitles") {
                 GlassPicker(selection: $model.subIdx,
-                            options: [(-1, "Off")] + model.streams("Subtitle").map { ($0.Index, $0.DisplayTitle ?? "Track \($0.Index)") })
+                            options: [(-1, "Off")] + Self.subtitleChoices(model.streams("Subtitle")))
             }
             labeled("Quality") {
                 GlassPicker(selection: $model.quality, options: [(0, "Original"), (8_000_000, "1080p · 8 Mbps"),
@@ -817,5 +817,12 @@ struct ClassicDetailView: View {
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
         }.padding(4).frame(height: 44).classicClearGlass()
+    }
+}
+
+extension ClassicDetailView {
+    /// The Subtitles picker's lines, saying where each comes from ("Romanian · SRT (file)").
+    static func subtitleChoices(_ subs: [MStream]) -> [(Int, String)] {
+        Array(zip(subs.map(\.Index), Glass3DTrackLabel.sourcedSubtitles(subs)))
     }
 }
