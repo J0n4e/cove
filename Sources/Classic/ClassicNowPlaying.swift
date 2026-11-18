@@ -86,7 +86,7 @@ struct ClassicNowPlayingView: View {
     @State private var loaded = false
     @State private var lastPush: Date?
     @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
-    @State private var tab = 0                                // 0 Now Playing (default), 1 Overview, 2 History
+    @State private var tab = 0                                // 0 Now Playing (default), 1 Overview, 2 History, 3 Users
     @StateObject private var stats = StatsModel()
 
     var body: some View {
@@ -104,15 +104,18 @@ struct ClassicNowPlayingView: View {
                         }
                         Spacer()
                     }
-                    Glass3DSegmentTabs(titles: ["Now Playing", "Overview", "History"], selection: $tab)
+                    Glass3DSegmentTabs(titles: ["Now Playing", "Overview", "History"] + (stats.availability == .available ? ["Users"] : []),
+                                       selection: $tab)
                 }
                 if tab == 1 { StatsOverviewView(model: stats) }
                 else if tab == 2 { StatsHistoryView(model: stats) }
+                else if tab == 3 && stats.availability == .available { StatsUsersView(model: stats) }
                 else { sessionsContent }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
         .background(bg)
+        .task(id: emby.server + "|" + emby.userId) { await stats.start(emby) }   // the Users tab shows only for admins with the plugin
         .task {
             // Fallback: every 5 s while the page is shown (the task ends with the page); skipped while the
             // Jellyfin socket is pushing the sessions

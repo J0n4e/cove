@@ -38,6 +38,18 @@ extension StatsService {
         return StatsDecode.activity(d, userId: userId)
     }
 
+    /// PlayActivity for every user at once (normalised user id → day → seconds).
+    func activityAll(days: Int, end: Date = Date()) async throws -> [String: [String: Int]] {
+        var q = activityQuery(days: days, end: StatsDecode.dayFormat.string(from: end), dataType: "time")
+        q["filter"] = await typeFilter()
+        return StatsDecode.activityAll(try await get("\(Self.base)/PlayActivity", q))
+    }
+
+    /// The server's users (`/Users`, admin only).
+    func serverUsers() async throws -> [StatsServerUser] {
+        StatsDecode.serverUsers(try await get("/Users", [:]))
+    }
+
     /// That day's plays for this user, plays under 60 s dropped.
     func dayPlays(userId: String, day: String) async throws -> [StatsPlay] {
         var q = dayQuery()
