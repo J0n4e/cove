@@ -1527,8 +1527,14 @@ let imageSubCodecs: Set<String> = ["pgs", "pgssub", "hdmv_pgs_subtitle", "dvdsub
 /// Preferred-language subtitle track: text formats first, then any.
 func preferredSub(_ streams: [MStream], lang: String) -> Int? {
     let subs = streams.filter { $0.`Type` == "Subtitle" && subLangName($0).lowercased() == lang.lowercased() }
-    let text = subs.first { !imageSubCodecs.contains(($0.Codec ?? "").lowercased()) }
-    return (text ?? subs.first)?.Index
+    return bestTextSub(subs)?.Index
+}
+
+/// Among subtitle tracks of one language: an external text file first (an .srt next to the film: loads at once
+/// and is drawn in sync), then an embedded text track (SUBRIP inside the MKV), then any (picture subs) (owner).
+func bestTextSub(_ subs: [MStream]) -> MStream? {
+    let text = subs.filter { !imageSubCodecs.contains(($0.Codec ?? "").lowercased()) }
+    return text.first { $0.IsExternal == true } ?? text.first ?? subs.first
 }
 
 /// The track's language in English ("Romanian"), so tracks match the language chosen in Settings on both
