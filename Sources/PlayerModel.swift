@@ -657,7 +657,10 @@ final class PlayerModel: ObservableObject {
             out.append(("Server audio", (t["IsAudioDirect"] as? Bool == true) ? "copied" : ((t["AudioCodec"] as? String ?? "?").uppercased())))
             if let b = num(t["Bitrate"]) { out.append(("Stream bitrate", mbps(b))) }
             if let f = num(t["Framerate"]) { out.append(("Encoder speed", String(format: "%.0f fps", f))) }
-            if let r = t["TranscodeReasons"] as? [String], !r.isEmpty {
+            // Only when something is really converted: a remux (video and audio copied) can still carry a
+            // reason such as SubtitleCodecNotSupported for a track that isn't played (owner)
+            let converted = !(t["IsVideoDirect"] as? Bool == true && t["IsAudioDirect"] as? Bool == true)
+            if converted, let r = t["TranscodeReasons"] as? [String], !r.isEmpty {
                 out.append(("Why transcoding", r.map { $0.replacingOccurrences(of: "NotSupported", with: " not supported") }.joined(separator: ", ")))
             }
         }
