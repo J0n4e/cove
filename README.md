@@ -25,23 +25,29 @@ After that, Cove keeps itself up to date. It checks for new releases at launch a
 ## Logs and bug reports
 
 - Something wrong with playback? Turn on **Settings → Playback → Debug log**, reproduce it, and find the log at `~/Library/Logs/Cove.log` (kept under about 1 MB). Leave it off otherwise.
-- Report a bug with the [bug report form](https://github.com/J0n4e/cove/issues/new/choose): it asks for your Cove and macOS versions, server type and steps. Security problems go privately, see [SECURITY.md](SECURITY.md).
+- **Help → Report an Issue…** opens a prefilled GitHub bug report (Cove and macOS versions, server type, theme). You can attach a cleaned copy of the debug log: tokens, user and device ids, IP addresses and server hosts are removed before you see it.
+- Or report a bug with the [bug report form](https://github.com/J0n4e/cove/issues/new/choose): it asks for your Cove and macOS versions, server type and steps. Security problems go privately, see [SECURITY.md](SECURITY.md).
 
 ## Features
 
 ### What's new in 1.17 and 1.18
-- **Themes:** Settings → General → **Theme** has **Glass** (default) and **Glass3D** (the former Classic theme, with a 3D glass look). On macOS 26+ both use Liquid Glass.
+- **Themes:** Settings → General → **Theme** has **Glass** (default) and **Glass3D** (the original Cove layout with a 3D glass look). On macOS 26+ both use Liquid Glass.
 - **Glass:** **Follow macOS**, or a slider from **Clear** to **Tinted**.
 - **Hover effects** for posters and cards: **Fogged mirror**, **Soft glow** or **Liquid lens**.
 - **Fonts:** SF Pro (default), SF Rounded, SF Pro Expanded, Avenir Next, Futura, New York or Seravek, with a live preview, plus **Text size**.
 - **Server pill** on Home shows the current server; click it to switch servers.
 - **Posters:** the ♡ (favorite) and ✓ (watched) badges are always shown and are buttons: click to toggle. With Trakt connected, ★ rates the title.
 - **Resume ring** on Continue Watching cards and episodes: click it to resume; the play button in the centre starts from the beginning.
-- **Now Playing** updates live.
-- **Player:** a glass control bar, a quick subtitle list plus the full subtitle panel, readable audio/subtitle track names, an **Episodes** panel and the **Up next** card.
-- **Watch together** (SyncPlay, Jellyfin 10.8+): create or join a group and play in sync with others. Pause, play and seek are shared, drift is corrected, everyone waits while someone buffers (unless **Don't wait for others** is on), you can rejoin a group, and a series can be watched together with the next episode starting for everyone.
+- **Activity** (was Now Playing): tabs **Now Playing · Overview · History · Users**, see [Activity](#activity) below.
+- **Play collection** on collection pages, with Up next at the credits, see [Play collection](#play-collection).
+- **Better playback (1.18.12–1.18.13):** MKV files stream with picture and sound copied (Direct stream), surround sound passes through, **Original** quality has no caps, and resume keeps the picture copied when no Cove-drawn subtitle is on.
+- **Player (Glass3D):** one control bar: Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed · Watch together · Info · Picture in Picture · Full screen.
+- **Glass windows:** Settings and About are see-through glass windows with the desktop blurred behind (dark translucent with Reduce Transparency on).
+- **Banner navigation** (Settings → Home): **Cards** or **Bullets** (clickable dots).
+- **Report an Issue** (Help menu): a prefilled GitHub report with an optional cleaned debug log.
+- **Watch together** (SyncPlay, Jellyfin 10.8+): create or join a group and play in sync with others. Playback starts at the same moment on every Mac, pause, play and seek are shared, drift is corrected, everyone waits while someone buffers (unless **Don't wait for others** is on), and you can rejoin a group. A series (or a collection) can be watched together: near the end the next-episode card shows the group's countdown ("Next episode for everyone in 0:12"), the same on every Mac. **Play now** from the Jellyfin Dashboard while in a group starts the item for everyone.
 - **Remote control from the Jellyfin Dashboard:** play/pause/seek/stop, volume and mute, audio and subtitle tracks, full screen and **Send message**. Needs **Settings → Playback → Live connection to the server**.
-- **Notifications** for new movies and episodes (Settings → Home). macOS asks for permission the first time. On Emby Cove checks every 10 minutes; on Jellyfin it uses the live connection. Only the server you're signed in to is watched.
+- **Notifications** for new movies and episodes (Settings → Home → Notifications). Banners show the poster or episode picture; clicking one opens the movie, or the series on that season (switching server if needed). Several new episodes of one series arrive as one banner ("3 new episodes · S2:E4–E6"), and 4 or more new movies as one. Each library can be switched on or off, and for TV you choose **All new episodes** or **Only series I'm watching or in Favorites**. macOS asks for permission the first time. On Emby Cove checks every 10 minutes; on Jellyfin it uses the live connection. Only the server you're signed in to is watched.
 - **Updates** are signed and verified; after an update **What's New** shows the release notes.
 - **Subtitle cache:** downloaded subtitles are kept on your Mac; Settings → About → Storage shows the size and clears it.
 
@@ -86,33 +92,64 @@ Switching is instant and swaps the whole app, including the Dock icon.
 - **Actor pages:** click anyone in Cast & Crew to see all their movies and shows in your libraries.
 - **Favorites** page like Emby: Favorite Movies, Favorite Shows and Favorite Collections rows; each heading opens the full list. Shows display their run (e.g. 2007 – 2019).
 - ♡ and ✓ badges on posters toggle favorite and watched with one click (an empty ♡ or a dim ✓ when not set).
-- **Activity → Now Playing:** every active stream on the server, with its title, position, direct play or transcode, client, device, user and IP.
+- **Activity:** see below.
 - Rows scroll with the arrows (one item per click; each arrow hides when that end is reached), by dragging with the mouse, or with the trackpad.
 - Search across movies, shows and people. Matching people appear in their own row and open their actor page.
 - Posters, seasons and episodes lift on hover; episodes show a play button.
 - Posters, series and episodes have a thin white border.
 - **Hover preview card:** rest on a poster to see the backdrop, details and summary, with Play, favorite and watched buttons. It opens over the poster with a zoom (Smooth or Spring, adjustable duration) that can be turned off, and clicking it opens the title. The delay is adjustable, and the whole hover preview can be switched off.
 
+### Activity
+The **Activity** section (called Now Playing before 1.18.12) shows the live-sessions count and has four tabs:
+- **Now Playing:** every active stream as a glass card: poster, user, device, time left, and Direct play, Direct stream or Transcoding. People watching together appear as one card. Click a card to open the item.
+- **Overview:** hours watched, plays, top movies and shows for 7 days, 30 days, 12 months or all time, plus a **Recently watched** row.
+- **History:** everything watched, one card per day, with device, app and play method; click to open.
+- **Users:** summary tiles and one card per user (plays, watch time, movies, episodes, device and play types). Click a user for their own overview.
+
+Overview, History and Users need the **Playback Reporting** plugin on the Emby or Jellyfin server and an admin account. Users who aren't admins see their recently watched items.
+
+### Play collection
+- Collection pages have **Play collection** (all films in order) and **Resume <film>**. Collection mode starts only from these buttons.
+- The next film's **Up next** card appears at the credits. Cove uses the server's credits markers: on Emby the `CreditsStart` chapter marker (for example from the TheIntroDB or EmbyCredits plugins), on Jellyfin the Outro media segment (for example from Intro Skipper). Without a marker it appears 5 minutes before the end.
+- A **Collection** panel in the player lets you jump between films.
+- Your subtitle and audio language are remembered for the whole collection.
+- Works with **Watch together**.
+
 ### Player
-- Direct play or HLS transcode. Quick **subtitle** and **quality** menus sit in the player's bottom bar. Server transcodes are stopped when you close the player, and are kept alive while you pause, so subtitles stay in sync after resuming.
+- **Methods:** Direct play, **Direct stream** (MKV files remuxed with picture and sound copied) or HLS transcode. Audio passes through when the Mac can play it (AAC, AC3, EAC3/Atmos, FLAC, ALAC, MP3); DTS and TrueHD are converted to EAC3 5.1. **Original** quality doesn't cap bitrate or resolution.
+- **Resume** keeps the picture copied (Direct stream) unless a subtitle drawn by Cove is on; then the video is re-encoded so the subtitles stay exactly in sync after resume and seeking. Quick **subtitle** and **quality** menus sit in the player's bottom bar. Server transcodes are stopped when you close the player, and are kept alive while you pause, so subtitles stay in sync after resuming.
 - Resume and Start Over, with progress synced to the server. Playback starts directly at the resume point, so subtitles stay in sync.
 - **Subtitles:**
-  - text subtitles (SRT and others) are drawn by the app; image subtitles (PGS) are burned in by the server
+  - text subtitles (SRT and others) are drawn by the app; picture subtitles (PGS) are burned in by the server
+  - an external SRT file is picked before the embedded SubRip track of the same language; tracks are labelled **SRT (file)** or **SubRip (embedded)**
+  - embedded text subtitles come inside the video stream when the server provides them; otherwise Cove downloads them (remembered per server)
+  - offset and appearance are in the **Subtitles** panel
   - adjustable offset, size, colour, shadow, background and position; subtitles move above the controls while they are shown
   - **Always load preferred subtitle language** applies everywhere (movies, episodes, Continue Watching), ahead of what was remembered for a series
   - audio and subtitle choices are remembered per series
 - **Skip intros automatically** using Emby's intro markers. You can turn this off to get a Skip Intro button instead.
-- **Up next card** in the last 30 seconds of an episode, showing when the next one starts. Space or Return plays it now.
+- **Up next card** in the last 30 seconds of an episode, showing when the next one starts. Space or Return plays it now; the next episode starts without bringing up the controls.
+- **Glass3D control bar**, in this order: Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed · Watch together · Info · Picture in Picture · Full screen.
 - **Thumbnail previews** when hovering or dragging the progress bar (uses Emby's generated thumbnails).
 - **Episode picker** (E) in the player: browse seasons and jump to another episode.
-- **Chapters** panel (C), **picture in picture** (P) and a **playback info** overlay (I) that shows codecs, bitrate and why the server is transcoding.
+- **Chapters** panel (C), **picture in picture** (P) and a **playback info** overlay (I) that shows the playback method from the first second, codecs, bitrate and, only when something is converted, why.
 - Video-only full screen (F). Esc leaves full screen without stopping the video. In full screen the pointer hides. The screen saver and display sleep are blocked while a video plays.
 - Keyboard: Space play/pause (or play the next episode when the Up next card shows), ← → skip, F full screen, E episodes, C chapters, I info, P picture in picture, Esc back.
 
 ### Settings (⌘,)
-General (theme, Glass, hover effect, font and text size, accent color, background, navigation style), Home (rows and new-media notifications), Libraries (**Poster labels**, hover preview, episode layout and description, library list), Subtitles, Playback (live connection to the server, Watch together, and an optional player debug log, off by default), Servers (saved servers and **Sign Out**, which also ends the session on the server), and About (version, update controls, Storage for the picture and subtitle caches, **Save and load settings** to a file, and **Reset all settings to default**).
+Settings and About are glass windows. General (theme, Glass, hover effect, font and text size, accent color, background, navigation style), Home (rows, **Banner navigation** Cards or Bullets, and **Notifications** per library), Libraries (**Poster labels**, hover preview, episode layout and description, library list), Subtitles, Playback (live connection to the server, Watch together, and an optional player debug log, off by default), Servers (saved servers and **Sign Out**, which also ends the session on the server), and About (version, update controls, Storage for the picture and subtitle caches, **Save and load settings** to a file, and **Reset all settings to default**).
+
+### Performance
+- Smoother scrolling in large libraries (posters don't redraw when the next page loads), blurred previews stay, memory use levels off, and Cove does less work while hidden.
 
 > Intro skipping and thumbnail previews depend on your Emby server: intro detection and thumbnail-image extraction must be enabled there.
+
+## Server plugins that help
+
+Cove works without them, but these optional server plugins add features:
+- **Playback Reporting**: the Overview, History and Users tabs in Activity. Emby: [faush01/playback_reporting](https://github.com/faush01/playback_reporting); Jellyfin: [jellyfin-plugin-playbackreporting](https://github.com/jellyfin/jellyfin-plugin-playbackreporting).
+- **TheIntroDB** or **EmbyCredits** (Emby): intro and credits markers, used for intro skipping and the Up next card in Play collection. [TheIntroDB/emby-plugin](https://github.com/TheIntroDB/emby-plugin), [yocksers/EmbyCredits](https://github.com/yocksers/EmbyCredits).
+- **Intro Skipper** (Jellyfin): intro and credits (Outro) segments. [intro-skipper/intro-skipper](https://github.com/intro-skipper/intro-skipper).
 
 ## Build from source
 
@@ -121,7 +158,7 @@ Requires macOS 14+ and Xcode 15+ (Swift 5.9).
 ```sh
 swift run                 # run in development
 ./make-app.sh             # build dist/Cove.app (Apple Silicon, ad-hoc signed)
-VERSION=v1.18.5 ./make-app.sh   # set the version shown in the app (default: latest git tag)
+VERSION=v1.18.14 ./make-app.sh   # set the version shown in the app (default: latest git tag)
 ```
 
 ## Development and releases
