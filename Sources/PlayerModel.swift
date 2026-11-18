@@ -152,8 +152,8 @@ final class PlayerModel: ObservableObject {
         let auds = streams.filter { $0.`Type` == "Audio" }
         audio = req.audio ?? (auds.first { $0.IsDefault == true } ?? auds.first)?.Index
         var req = req
-        // Audio / subtitles remembered for this series
-        if req.item.isEpisode, let sid = req.item.SeriesId, let m = SeriesLang.get(sid) {
+        // Audio / subtitles remembered for this series (or this collection, in collection mode)
+        if let sid = SeriesLang.key(req), let m = SeriesLang.get(sid) {
             // (with "Always load preferred subtitle language" on, that setting wins over what was remembered for the series)
             if req.sub == nil, !req.noSub, !UserDefaults.standard.bool(forKey: "subAlways"), let l = m["sub"] {
                 if l == "off" { req.noSub = true; self.req?.noSub = true }
@@ -212,7 +212,9 @@ final class PlayerModel: ObservableObject {
             return
         }
         // First guess from the URL; corrected from the server's TranscodingInfo once the stream runs
-        let method = PlayMethod.guess(url: u.absoluteString)
+        let srcAudio = (audioStreams.first { $0.Index == req.audio } ?? audioStreams.first { $0.IsDefault == true }
+                        ?? audioStreams.first)?.Codec
+        let method = PlayMethod.guess(url: u.absoluteString, sourceAudio: srcAudio)
         streamContainer = emby.lastStreamContainer
         let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u,
                                   server: emby.server, token: emby.token)
@@ -480,7 +482,7 @@ final class PlayerModel: ObservableObject {
 
     func setSub(_ emby: Emby, _ idx: Int?) async {
         guard idx != sub, let r = req else { return }
-        if r.item.isEpisode, let sid = r.item.SeriesId {
+        if let sid = SeriesLang.key(r) {
             SeriesLang.set(sid, "sub", idx.flatMap { i in streams.first { $0.Index == i } }.map(subLangName) ?? "off")
         }
         // Burned in by the server: an image subtitle, or a text one that couldn't be read (burnIn). Either way
@@ -518,7 +520,7 @@ final class PlayerModel: ObservableObject {
 
     func setAudio(_ emby: Emby, _ idx: Int) async {
         guard idx != audio else { return }
-        if let r = req, r.item.isEpisode, let sid = r.item.SeriesId,
+        if let r = req, let sid = SeriesLang.key(r),
            let l = streams.first(where: { $0.Index == idx })?.Language, !l.isEmpty {
             SeriesLang.set(sid, "audio", l)
         }

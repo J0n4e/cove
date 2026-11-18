@@ -138,8 +138,14 @@ struct ActiveSession: Decodable, Identifiable {
     }
 }
 
-/// Audio/subtitle choices remembered per series.
+/// Audio/subtitle choices remembered per series, and per collection ("box:<id>") in collection mode.
 enum SeriesLang {
+    /// Where a request's choices are kept: the collection in collection mode, else the episode's series.
+    static func key(_ r: PlayRequest) -> String? {
+        if let c = r.collection { return "box:" + c.id }
+        if r.item.isEpisode, let sid = r.item.SeriesId { return sid }
+        return nil
+    }
     private static let key = "seriesLang"
     private static var all: [String: [String: String]] {
         UserDefaults.standard.dictionary(forKey: key) as? [String: [String: String]] ?? [:]
