@@ -28,11 +28,11 @@ struct StatsOverviewContent: View {
                                message: "Data is collected from now on: the Playback Reporting plugin records every play from when it was installed. Check back after some watching.")
             }
             if !plays.isEmpty {
+                StatsRecentRow(recent: StatsAggregate.recentlyWatched(plays))   // first (owner)
                 StatsHeroRow(plays: plays)
                 StatsBarsCard(bars: StatsAggregate.bars(plays, range))
                 StatsTopRow(title: "Top movies", tops: StatsAggregate.topMovies(plays), show: false)
                 StatsTopRow(title: "Top shows", tops: StatsAggregate.topShows(plays), show: true)
-                StatsRecentRow(recent: StatsAggregate.recentlyWatched(plays))
             }
         }
     }
