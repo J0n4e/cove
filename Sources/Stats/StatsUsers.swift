@@ -21,6 +21,7 @@ struct StatsUsersView: View {
                 } else {
                     // Summary counts every server user; the cards only those with plays (as Unraid's Stream Viewer)
                     StatsUsersSummaryRow(totals: StatsUsersAggregate.totals(model.users))
+                        .frame(maxWidth: 860).frame(maxWidth: .infinity)   // as wide as the cards, centred (owner)
                     // One user per line, full width, most active first (owner)
                     LazyVStack(alignment: .center, spacing: 14) {   // centred in the page (owner)
                         ForEach(StatsUsersAggregate.withPlays(model.users)) { u in
@@ -66,11 +67,16 @@ private struct StatsUsersSummaryRow: View {
     let totals: StatsUsersTotals
     var body: some View {
         let avgHelp = "Averaged over the \(totals.activeUsers) user\(totals.activeUsers == 1 ? "" : "s") with at least one play in this range"
-        HStack(spacing: 14) {
-            StatsUsersSummaryTile(label: "Total users", value: "\(totals.totalUsers)", help: "Every user on this server")
-            StatsUsersSummaryTile(label: "Most active", value: totals.mostActive ?? "—", help: "Most watch time in this range")
-            StatsUsersSummaryTile(label: "Avg plays / user", value: totals.avgPlaysText, help: avgHelp)
-            StatsUsersSummaryTile(label: "Avg hours / user", value: totals.avgHoursText, help: avgHelp)
+        // 2 × 2 (owner): Total users · Avg hours, then Most active · Avg plays
+        VStack(spacing: 14) {
+            HStack(spacing: 14) {
+                StatsUsersSummaryTile(label: "Total users", value: "\(totals.totalUsers)", help: "Every user on this server")
+                StatsUsersSummaryTile(label: "Avg hours / user", value: totals.avgHoursText, help: avgHelp)
+            }
+            HStack(spacing: 14) {
+                StatsUsersSummaryTile(label: "Most active", value: totals.mostActive ?? "—", help: "Most watch time in this range")
+                StatsUsersSummaryTile(label: "Avg plays / user", value: totals.avgPlaysText, help: avgHelp)
+            }
         }
     }
 }
