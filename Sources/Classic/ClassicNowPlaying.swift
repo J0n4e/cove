@@ -86,26 +86,29 @@ struct ClassicNowPlayingView: View {
     @State private var loaded = false
     @State private var lastPush: Date?
     @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
+    @State private var tab = 0                                // 0 Now Playing (default), 1 Overview, 2 History
+    @StateObject private var stats = StatsModel()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    ClassicPageTitle(text: "Now Playing", icon: "dot.radiowaves.left.and.right")
-                    if !sessions.isEmpty {
-                        Text(NowPlayingStyle.activeText(sessions.count))
-                            .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
+                // v1.18.11: Now Playing · Overview · History, the library header's glass tabs (Stats inside Now Playing)
+                ZStack {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ClassicPageTitle(text: "Now Playing", icon: "dot.radiowaves.left.and.right")
+                            if tab == 0 && !sessions.isEmpty {
+                                Text(NowPlayingStyle.activeText(sessions.count))
+                                    .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
+                            }
+                        }
+                        Spacer()
                     }
+                    Glass3DSegmentTabs(titles: ["Now Playing", "Overview", "History"], selection: $tab)
                 }
-                if !loaded { Spinner().frame(maxWidth: .infinity).padding(60) }
-                else if sessions.isEmpty {
-                    ClassicEmptyState(symbol: "play.slash", title: "Nothing playing right now",
-                                      message: "Playback on any device signed in to this server shows here.")
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 600), spacing: 18)], alignment: .leading, spacing: 18) {
-                        ForEach(entries) { Glass3DNowPlayingCard(entry: $0, fetchedAt: fetchedAt) }
-                    }
-                }
+                if tab == 1 { StatsOverviewView(model: stats) }
+                else if tab == 2 { StatsHistoryView(model: stats) }
+                else { sessionsContent }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
@@ -124,6 +127,18 @@ struct ClassicNowPlayingView: View {
         }
         .modifier(NowPlayingSocketFeed(sessions: $sessions, fetchedAt: $fetchedAt, loaded: $loaded, lastPush: $lastPush))
         .nowPlayingGroups($syncGroups)
+    }
+
+    @ViewBuilder private var sessionsContent: some View {
+        if !loaded { Spinner().frame(maxWidth: .infinity).padding(60) }
+        else if sessions.isEmpty {
+            ClassicEmptyState(symbol: "play.slash", title: "Nothing playing right now",
+                              message: "Playback on any device signed in to this server shows here.")
+        } else {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 600), spacing: 18)], alignment: .leading, spacing: 18) {
+                ForEach(entries) { Glass3DNowPlayingCard(entry: $0, fetchedAt: fetchedAt) }
+            }
+        }
     }
 
     private var entries: [NowPlayingEntry] {

@@ -100,19 +100,8 @@ struct ClassicLibraryView: View {
                     }
                     Spacer()
                 }
-                HStack(spacing: 2) {
-                    ForEach(0..<4, id: \.self) { i in
-                        Button { model.tab = i } label: {
-                            // Glossy lettering, as the top bar
-                            Text3D(text: i == 0 ? lib.title : ["", "Collections", "Genres", "Favorites"][i], size: 12,
-                                   weight: model.tab == i ? .bold : .semibold)
-                                .padding(.horizontal, 14).frame(height: 32)
-                                .classicSelectedGlass(model.tab == i)   // a step quieter than the top bar's pill
-                                .modifier(Glass3DTabHover(on: model.tab == i))   // as the top bar's tabs
-                // No hover background on unselected tabs (owner): only the brighter text with its dark shadow
-                        }.buttonStyle(.plainHand)
-                    }
-                }.padding(3).frame(height: 38).classicTabBarGlass().opacity(0.92)
+                // Shared with the Now Playing page (Glass3DSegmentTabs), so both stay identical
+                Glass3DSegmentTabs(titles: [lib.title, "Collections", "Genres", "Favorites"], selection: $model.tab)
             }
             if model.tab != 2 { controls }
         }
