@@ -212,7 +212,7 @@ final class NotificationsTests: XCTestCase {
 
     func testUserInfo() {
         let n = NewMediaDetector.batches([item("m", date: "2026-11-10T12:00:00Z")], library: lib, server: "https://a", userId: "u")[0]
-        XCTAssertEqual(NewMediaService.userInfo(n), ["server": "https://a", "userId": "u", "libraryId": "L1", "kind": "item", "id": "m"])
+        XCTAssertEqual(NewMediaService.userInfo(n), ["server": "https://a", "userId": "u", "libraryId": "L1", "kind": "item", "id": "m", "type": "Movie"])
     }
 
     // MARK: storage
