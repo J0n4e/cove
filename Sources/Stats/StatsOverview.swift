@@ -29,8 +29,8 @@ struct StatsOverviewContent: View {
             }
             if !plays.isEmpty {
                 StatsHeroRow(plays: plays)
-                StatsRecentRow(recent: StatsAggregate.recentlyWatched(plays))   // right after the numbers (owner)
                 StatsBarsCard(bars: StatsAggregate.bars(plays, range))
+                StatsRecentRow(recent: StatsAggregate.recentlyWatched(plays))   // under the watched-time chart (owner)
                 StatsTopRow(title: "Top movies", tops: StatsAggregate.topMovies(plays), show: false)
                 StatsTopRow(title: "Top shows", tops: StatsAggregate.topShows(plays), show: true)
             }
