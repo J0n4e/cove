@@ -71,6 +71,12 @@ final class PlayerUIModel: ObservableObject {
         return playing && !panelOpen ? .hide : .keep
     }
 
+    /// The next episode is starting in the same player (autoplay, Space/Return on Up next, Up next's Play, the
+    /// Episodes panel, a group advancing): the new player opens without bringing up the controls (owner).
+    /// Read and cleared once by the new player view.
+    static var quietNextStart = false
+    static func takeQuietStart() -> Bool { defer { quietNextStart = false }; return quietNextStart }
+
     /// Shows the controls and starts the hide countdown again.
     func poke() {
         showUI = true
