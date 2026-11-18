@@ -989,7 +989,7 @@ extension ClassicPlayerView {
                     .helpLabel(emby.syncPlay.group.isInGroup ? GroupUpNext.cancelTip : "Cancel")
                 }
                 // v1.18.6: in a SyncPlay group, the group's countdown ("Next episode for everyone in 0:12")
-                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: classicSecsLeft, duration: ui.player.duration)
+                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: classicSecsLeft, duration: ui.player.duration, film: n.`Type` == "Movie")
             }
         }
         .modifier(Glass3DReadableText())   // the top bar tabs' text treatment (owner)
