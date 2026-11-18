@@ -90,7 +90,9 @@ enum StatsDecode {
 
     /// One day's rows from `GetItems`.
     static func dayPlays(_ data: Data, day: String) -> [StatsPlay] {
-        guard let arr = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return [] }
+        // Jellyfin: a list; Emby: { user_name, user_id, activity: [...] }
+        let json = try? JSONSerialization.jsonObject(with: data)
+        guard let arr = (json as? [[String: Any]]) ?? ((json as? [String: Any])?["activity"] as? [[String: Any]]) else { return [] }
         return arr.enumerated().compactMap { i, r in
             let itemId = string(r["Id"]), name = string(r["Name"])
             guard !itemId.isEmpty || !name.isEmpty else { return nil }

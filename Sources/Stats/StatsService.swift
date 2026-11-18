@@ -20,15 +20,29 @@ extension StatsService {
     static var base: String { "/user_usage_stats" }
 
     /// Seconds (or counts) per day for this user, `days` days ending `end`.
+    /// The item types the plugin has recorded ("Movie,Episode,Audio…"). The plugin builds `ItemType IN (<filter>)`
+    /// from the `filter` parameter: without it the list is empty and every report comes back empty (owner: Emby
+    /// showed no plays although it has 12+ months).
+    func typeFilter() async -> String {
+        guard let r = await fetch("\(Self.base)/type_filter_list", [:]), (200..<300).contains(r.status),
+              let arr = (try? JSONSerialization.jsonObject(with: r.data)) as? [Any] else { return Self.fallbackTypes }
+        let t = arr.compactMap { $0 as? String }.filter { !$0.isEmpty }
+        return t.isEmpty ? Self.fallbackTypes : t.joined(separator: ",")
+    }
+    static var fallbackTypes: String { "Movie,Episode,Audio,Video,MusicVideo,TvChannel,Recording" }
+
     func activity(userId: String, days: Int, end: Date = Date(), dataType: String = "time") async throws -> [String: Int] {
-        let q = activityQuery(days: days, end: StatsDecode.dayFormat.string(from: end), dataType: dataType)
+        var q = activityQuery(days: days, end: StatsDecode.dayFormat.string(from: end), dataType: dataType)
+        q["filter"] = await typeFilter()
         let d = try await get("\(Self.base)/PlayActivity", q)
         return StatsDecode.activity(d, userId: userId)
     }
 
     /// That day's plays for this user, plays under 60 s dropped.
     func dayPlays(userId: String, day: String) async throws -> [StatsPlay] {
-        let d = try await get("\(Self.base)/\(userId)/\(day)/GetItems", dayQuery())
+        var q = dayQuery()
+        q["filter"] = await typeFilter()
+        let d = try await get("\(Self.base)/\(userId)/\(day)/GetItems", q)
         return StatsAggregate.filtered(StatsDecode.dayPlays(d, day: day))
     }
 
