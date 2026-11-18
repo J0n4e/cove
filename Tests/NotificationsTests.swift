@@ -38,7 +38,8 @@ final class StubNewMediaSource: NewMediaSource {
     func items(ids: [String]) async -> [NewMediaItem] { ids.compactMap { byId[$0] } }
     func libraryOf(itemId: String, among: Set<String>) async -> String? { libOf[itemId].flatMap { among.contains($0) ? $0 : nil } }
     func followedSeries(_ ids: Set<String>) async -> Set<String> { followed.intersection(ids) }
-    func posterFile(_ id: String) async -> URL? { nil }
+    func imageFile(_ images: [NewMediaImage]) async -> URL? { imageAsked.append(images); return nil }
+    var imageAsked: [[NewMediaImage]] = []
 }
 
 final class StubNotifier: NewMediaNotifier {
@@ -187,8 +188,8 @@ final class NotificationsTests: XCTestCase {
         XCTAssertEqual(nm[0].title, "New movie"); XCTAssertEqual(nm[0].body, "Dune (2021)")
         XCTAssertEqual(nm[0].target, .item("m")); XCTAssertEqual(nm[0].thread, "cove-movies"); XCTAssertEqual(nm[0].posterId, "m")
         let ne = NewMediaDetector.batches([e], library: lib, server: "https://a", userId: "u")
-        XCTAssertEqual(ne[0].title, "New episode"); XCTAssertEqual(ne[0].target, .item("e"))
-        XCTAssertEqual(ne[0].thread, "cove-series-s1"); XCTAssertEqual(ne[0].posterId, "s1")
+        XCTAssertEqual(ne[0].title, "New episode"); XCTAssertEqual(ne[0].target, .episode("e", series: "s1", season: 18))
+        XCTAssertEqual(ne[0].thread, "s1"); XCTAssertEqual(ne[0].posterId, "e")
     }
 
     func testBatchedTexts() {
@@ -196,9 +197,9 @@ final class NotificationsTests: XCTestCase {
         let movies = ["A", "B", "C", "D", "E"].map { item($0, date: "2026-11-10T12:00:00Z") }
         let n = NewMediaDetector.batches(movies + eps, library: lib, server: "https://a", userId: "u")
         XCTAssertEqual(n.count, 2)
-        XCTAssertEqual(n[0].title, "New movies"); XCTAssertEqual(n[0].body, "5 new movies: A, B, C…"); XCTAssertEqual(n[0].target, .library("L1"))
-        XCTAssertEqual(n[1].title, "New episodes"); XCTAssertEqual(n[1].body, "3 new episodes of Las Fierbinți")
-        XCTAssertEqual(n[1].target, .series("s1")); XCTAssertEqual(n[1].thread, "cove-series-s1")
+        XCTAssertEqual(n[0].title, "5 new movies"); XCTAssertEqual(n[0].body, "A, B, C…"); XCTAssertEqual(n[0].target, .library("L1"))
+        XCTAssertEqual(n[1].title, "Las Fierbinți"); XCTAssertEqual(n[1].body, "3 new episodes · S18:E12–E14")
+        XCTAssertEqual(n[1].target, .series("s1")); XCTAssertEqual(n[1].thread, "s1")
     }
 
     func testManyShowsBecomeOneLibraryNotification() {
@@ -211,7 +212,7 @@ final class NotificationsTests: XCTestCase {
 
     func testUserInfo() {
         let n = NewMediaDetector.batches([item("m", date: "2026-11-10T12:00:00Z")], library: lib, server: "https://a", userId: "u")[0]
-        XCTAssertEqual(NewMediaService.userInfo(n), ["server": "https://a", "userId": "u", "libraryId": "L1", "kind": "item", "id": "m"])
+        XCTAssertEqual(NewMediaService.userInfo(n), ["server": "https://a", "userId": "u", "libraryId": "L1", "kind": "item", "id": "m", "type": "Movie"])
     }
 
     // MARK: storage
@@ -254,7 +255,7 @@ final class NotificationsTests: XCTestCase {
         src.latestByLib["L1"] = [item("new", date: "2026-11-12T00:00:00Z", name: "Dune", year: 2021),
                                  item("seen", date: "2026-11-12T00:00:00Z", played: true)] + src.latestByLib["L1"]!
         await svc.check()
-        XCTAssertEqual(n.posted.map(\.body).sorted(), ["3 new episodes of Las Fierbinți", "Dune (2021)"])
+        XCTAssertEqual(n.posted.map(\.body).sorted(), ["3 new episodes · S1:E1–E3", "Dune (2021)"])
         XCTAssertTrue(n.posted.allSatisfy { $0.server == "https://a" })
 
         now = now.addingTimeInterval(600)
@@ -276,7 +277,7 @@ final class NotificationsTests: XCTestCase {
                                  item("e2", "Episode", date: "2026-11-12T00:00:00Z", series: "s2", seriesName: "B")]
         src.followed = ["s2"]
         await svc.check()
-        XCTAssertEqual(n.posted.map(\.target), [.item("e2")])
+        XCTAssertEqual(n.posted.map(\.target), [.episode("e2", series: "s2", season: nil)])
     }
 
     func testServerSwitchDoesNotBurst() async {
