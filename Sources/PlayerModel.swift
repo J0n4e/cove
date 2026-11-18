@@ -212,7 +212,9 @@ final class PlayerModel: ObservableObject {
             return
         }
         // First guess from the URL; corrected from the server's TranscodingInfo once the stream runs
-        let method = PlayMethod.guess(url: u.absoluteString)
+        let srcAudio = (audioStreams.first { $0.Index == req.audio } ?? audioStreams.first { $0.IsDefault == true }
+                        ?? audioStreams.first)?.Codec
+        let method = PlayMethod.guess(url: u.absoluteString, sourceAudio: srcAudio)
         streamContainer = emby.lastStreamContainer
         let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u,
                                   server: emby.server, token: emby.token)
