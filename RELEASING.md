@@ -68,6 +68,8 @@ Only the repository owner can add environments, secrets and rulesets.
    files and check the attestation (below) before publishing.
 8. Write the release notes and **Publish**. Pre-releases are ignored by the updater. The notes (Markdown) are what
    the Software Update and What's New windows show, so write them for users.
+   The bug report form (`.github/ISSUE_TEMPLATE`) that **Help → Report an Issue…** prefills is read from `main`,
+   so changes to it reach users only after `Development` is merged into `main`.
 
 Anyone can check that a download came from this repository's workflow:
 `gh attestation verify Cove.zip -R J0n4e/cove`.

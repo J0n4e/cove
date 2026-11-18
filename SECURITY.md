@@ -32,6 +32,9 @@ For ordinary bugs, use the [bug report form](https://github.com/J0n4e/cove/issue
 - The live connection to a Jellyfin server (remote control, Watch together, new-media notifications) sends the
   token in the `Authorization` header, never in the socket URL.
 - Tokens are never written to the debug log (`~/Library/Logs/Cove.log`, off by default).
+- **Help → Report an Issue…** can attach the last lines of the debug log, cleaned first: tokens, API keys,
+  passwords, user/device/session ids, IP addresses and server hosts are replaced with placeholders. The cleaned file
+  is saved locally for you to check; nothing is uploaded until you attach it to the GitHub issue yourself.
 - New-media notifications are only shown for the server you're signed in to.
 - Your password is never stored; Cove keeps the server's sign-in token instead, and Sign Out ends that session on the server.
 
