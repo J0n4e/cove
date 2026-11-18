@@ -17,16 +17,16 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 // Like the update alert: the app icon on top, the bold white name under it
-                AppIconView(size: 64)
+                AppIconView(size: 84)
                 (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
-                    .coveFont(size: 16, weight: .bold)
+                    .coveFont(size: 20, weight: .bold)
                 Text("Version \(versionText.hasPrefix("v") ? String(versionText.dropFirst()) : versionText)")
-                    .coveFont(size: 12).foregroundColor(Color.white.opacity(0.8))
+                    .coveFont(size: 13).foregroundColor(Color.white.opacity(0.9))
                     .padding(.top, -4)
                 Text("A native macOS client for Emby and Jellyfin. Found a bug or have an idea? Let us know on GitHub.")
-                    .multilineTextAlignment(.center).coveFont(size: 13).foregroundColor(Color.white.opacity(0.85))
+                    .multilineTextAlignment(.center).coveFont(size: 14).foregroundColor(Color.white.opacity(0.95))
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     Button { open(Self.repo) } label: {
@@ -39,17 +39,16 @@ struct AboutView: View {
                 .padding(.top, 6)
             }
             .glassReadable()
-            .padding(.horizontal, 34).padding(.top, 34)
+            .padding(.horizontal, 40).padding(.top, 44)
 
             Button { open(Self.repo.appendingPathComponent("blob/main/LICENSE")) } label: {
                 Text("© 2026 J0n4e · GNU GPL-3.0")
-                    .coveFont(size: 10).foregroundColor(Color.white.opacity(0.75)).glassReadable()
+                    .coveFont(size: 11).foregroundColor(Color.white.opacity(0.85)).glassReadable()
             }
-            .buttonStyle(.plainHand).padding(.vertical, 20)
+            .buttonStyle(.plainHand).padding(.top, 22).padding(.bottom, 26)
         }
-        .frame(width: 440)
-        // Its natural height only: About sizes the window to its content (no stretching, so no empty band)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: AboutWindow.size.width)
+        .frame(height: AboutWindow.size.height, alignment: .top)
         // Content starts at the top edge (under the transparent title bar), straight on the window's glass
         // (GlassWindowContainer); no opaque background of its own
         .ignoresSafeArea(.container, edges: .top)
@@ -144,10 +143,12 @@ final class PanelWindow: NSWindow {
 @MainActor
 enum AboutWindow {
     private static var window: NSWindow?
+    /// Room for the icon, name, version, text, buttons and footer at the larger text sizes.
+    static let size = NSSize(width: 520, height: 430)
 
     static func show() {
         if window == nil {
-            let w = PanelWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 300),
+            let w = PanelWindow(contentRect: NSRect(origin: .zero, size: AboutWindow.size),
                                 styleMask: [.titled, .closable, .fullSizeContentView],
                                 backing: .buffered, defer: false)
             w.title = "About Cove"
@@ -162,10 +163,9 @@ enum AboutWindow {
             // safe area resizing each other). Measured once, then the window gets that fixed size.
             let host = NSHostingView(rootView: AboutView())
             host.sizingOptions = []
-            let fit = host.fittingSize
-            let h = min(max(fit.height, 200), 460)   // sane bounds, whatever happens
-            let size = NSSize(width: 440, height: h)
-            CoveWindowLook.applyGlass(w, content: host, size: size)
+            // A fixed size: the measured fitting size came out too short on the glass window and cut off
+            // the buttons and the footer (owner)
+            CoveWindowLook.applyGlass(w, content: host, size: AboutWindow.size)
             w.center()
         }
         NSApp.activate(ignoringOtherApps: true)

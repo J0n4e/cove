@@ -138,7 +138,10 @@ extension CoveWindowLook {
 /// White text with a soft dark shadow, readable straight on the glass (like the top bar tabs).
 struct GlassReadable: ViewModifier {
     func body(content: Content) -> some View {
-        content.shadow(color: .black.opacity(0.35), radius: 1.5, x: 0, y: 0.5)
+        // The unselected top bar tabs' treatment (owner): two dark shadows, a tight one and a soft halo
+        content
+            .shadow(color: .black.opacity(0.9), radius: 1.5, x: 0, y: 0.5)
+            .shadow(color: .black.opacity(0.6), radius: 5, x: 0, y: 0)
     }
 }
 extension View { func glassReadable() -> some View { modifier(GlassReadable()) } }
