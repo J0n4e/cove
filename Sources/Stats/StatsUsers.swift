@@ -21,10 +21,15 @@ struct StatsUsersView: View {
                 } else {
                     // Summary counts every server user; the cards only those with plays (as Unraid's Stream Viewer)
                     StatsUsersSummaryRow(totals: StatsUsersAggregate.totals(model.users))
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 680), spacing: 18)], alignment: .leading, spacing: 18) {
-                        ForEach(StatsUsersAggregate.withPlays(model.users)) { u in
-                            StatsUserCard(user: u) { model.userOverview = []; model.selectedUser = u }
+                    // One after another horizontally (owner), most active first, scrolling sideways
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(alignment: .top, spacing: 18) {
+                            ForEach(StatsUsersAggregate.withPlays(model.users)) { u in
+                                StatsUserCard(user: u) { model.userOverview = []; model.selectedUser = u }
+                                    .frame(width: 560)
+                            }
                         }
+                        .padding(.vertical, 8).padding(.horizontal, 6)   // room for the hover lift
                     }
                 }
             }
