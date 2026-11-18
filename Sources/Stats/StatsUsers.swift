@@ -7,6 +7,8 @@ struct StatsUsersView: View {
 
     var body: some View {
         StatsGate(model: model) {
+            if let user = model.selectedUser { StatsUserOverview(model: model, user: user) }
+            else {
             VStack(alignment: .leading, spacing: 20) {
                 StatsRangePills(range: $model.range)
                 if model.usersLoading && model.usersRange != model.range { Spinner().frame(maxWidth: .infinity).padding(60) }
@@ -20,12 +22,40 @@ struct StatsUsersView: View {
                     // Summary counts every server user; the cards only those with plays (as Unraid's Stream Viewer)
                     StatsUsersSummaryRow(totals: StatsUsersAggregate.totals(model.users))
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 680), spacing: 18)], alignment: .leading, spacing: 18) {
-                        ForEach(StatsUsersAggregate.withPlays(model.users)) { StatsUserCard(user: $0) }
+                        ForEach(StatsUsersAggregate.withPlays(model.users)) { u in
+                            StatsUserCard(user: u) { model.userOverview = []; model.selectedUser = u }
+                        }
                     }
                 }
             }
             .task(id: model.range) { await model.loadUsers() }
+            }
         }
+    }
+}
+
+/// One user's Overview (the same content as the Overview tab) with an avatar + name header and an
+/// "All users" back pill; the range pill is shared with the list.
+private struct StatsUserOverview: View {
+    @ObservedObject var model: StatsModel
+    let user: StatsUserSummary
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 12) {
+                Button { model.selectedUser = nil } label: {
+                    Label("All users", systemImage: "chevron.left").cvFont(Glass3DTokens.Text.meta + 1, weight: .semibold)
+                        .padding(.horizontal, 14).frame(height: 30).classicGlassPill(iconOnly: false)
+                }
+                .buttonStyle(.plainHand)
+                StatsUserAvatar(user: user)
+                Text(user.name).cvFont(Glass3DTokens.Text.section, weight: .bold).lineLimit(1).modifier(Glass3DReadableText())
+                Spacer(minLength: 0)
+            }
+            StatsRangePills(range: $model.range)
+            if model.userOverviewLoading && model.userOverview.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
+            else { StatsOverviewContent(plays: model.userOverview, range: model.range) }
+        }
+        .task(id: "\(user.id)|\(model.range.rawValue)") { await model.loadUserOverview() }
     }
 }
 
@@ -67,10 +97,17 @@ enum StatsUsersStyle {
 private struct StatsUserCard: View {
     @EnvironmentObject var emby: Emby
     let user: StatsUserSummary
+    var open: () -> Void = {}
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
 
     var body: some View {
+        Button(action: open) { content }
+            .buttonStyle(.plainHand)
+            .tip("Show \(user.name)'s overview")
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 StatsUserAvatar(user: user)
@@ -97,6 +134,11 @@ private struct StatsUserCard: View {
         }
         .statsCard()
         .opacity(user.plays == 0 ? 0.7 : 1)
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)
+            .strokeBorder(Color.white.opacity(hover ? Glass3DTokens.Stroke.strong : 0), lineWidth: 0.75))
+        .scaleEffect(hover ? 1.015 : 1)   // a gentle lift + brighter edge: the card opens the user's overview
+        .animation(Glass3DTokens.Motion.fast, value: hover)
+        .contentShape(Rectangle())
         .onHover { hover = $0 }
     }
 

@@ -16,7 +16,8 @@ struct StatsOverviewView: View {
     }
 }
 
-private struct StatsOverviewContent: View {
+/// Shared by Overview and the Users tab's per-user drill-down.
+struct StatsOverviewContent: View {
     let plays: [StatsPlay]
     let range: StatsRange
 

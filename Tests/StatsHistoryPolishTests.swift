@@ -76,4 +76,12 @@ final class StatsHistoryPolishTests: XCTestCase {
         XCTAssertEqual(StatsAggregate.recentlyWatched(many).count, 10)
         XCTAssertEqual(StatsAggregate.recentlyWatched(many).first?.top.itemId, "m14")
     }
+
+    // MARK: - Users drill-down
+    @MainActor func testUserDrillDownStateResets() {
+        let m = StatsModel()
+        XCTAssertNil(m.selectedUser)
+        XCTAssertTrue(m.userOverview.isEmpty)
+        XCTAssertFalse(m.userOverviewLoading)
+    }
 }
