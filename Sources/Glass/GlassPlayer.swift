@@ -248,6 +248,7 @@ struct PlayerView: View {
 
     /// Plays a neighbouring episode, keeping the current subtitle language.
     func play(_ ep: Item) {
+        PlayerUIModel.quietNextStart = true   // the next episode opens without the controls
         if emby.syncPlay.group.pick(ep.Id) { return }   // SyncPlay phase 4: in a group, everyone switches
         guard !ui.switching else { return }
         ui.switching = true
@@ -335,7 +336,8 @@ struct PlayerView: View {
         .onContinuousHover { ui.pointer($0) }   // real mouse moves only (not a card appearing)
         .focusable().focused($focused).focusEffectDisabled()
         .onKeyPress(.space) {
-            if showUpNext, let n = nextEp { play(n) } else { model.togglePlay() }
+            if showUpNext, let n = nextEp { play(n); return .handled }   // next episode: no controls
+            model.togglePlay()
             poke(); return .handled
         }
         .onKeyPress(.return) {
@@ -392,7 +394,7 @@ struct PlayerView: View {
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
-            poke()
+            if !PlayerUIModel.takeQuietStart() { poke() }   // next episode: no controls
             await ui.loadEpisodes(emby, item)
         }
         .task { await model.start(emby, req) }
