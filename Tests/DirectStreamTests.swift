@@ -2,6 +2,7 @@ import XCTest
 @testable import Cove
 
 /// Direct Stream: the real play method, audio pass-through in the HLS profiles, caps only on purpose.
+@MainActor
 final class DirectStreamTests: XCTestCase {
     // MARK: Classifier
 
