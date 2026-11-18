@@ -79,7 +79,7 @@ final class PlayCollectionTests: XCTestCase {
     }
 
     func testShortFilmNeverBeforeHalf() {
-        XCTAssertEqual(CollectionPlay.creditsStart(marker: nil, duration: 400), 300)
+        XCTAssertEqual(CollectionPlay.creditsStart(marker: nil, duration: 400), 200)   // half, not 100 s
         XCTAssertEqual(CollectionPlay.creditsStart(marker: nil, duration: 200), 100)
     }
 
