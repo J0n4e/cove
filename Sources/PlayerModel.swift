@@ -145,7 +145,9 @@ final class PlayerModel: ObservableObject {
             if metaFor != req.item.id {
                 metaFor = req.item.id
                 forceTranscode = false
-                inStreamUnsupported = false
+                // A server that left the subtitle out of its stream once (Emby) won't have it next time either:
+                // go straight to the download path, so a resume re-encodes and the cues stay in sync (owner)
+                inStreamUnsupported = Self.hlsSubsMissing.contains(emby.server)
                 chapters = f.Chapters ?? []
                 introDone = false; inIntro = false
                 loadThumbs(emby, req.item.id, src?.Id)
@@ -409,6 +411,16 @@ final class PlayerModel: ObservableObject {
     }
 
     /// Restart the stream with new settings, keeping the playback position.
+    /// Servers whose HLS stream didn't carry the requested text subtitle (learned once per app run).
+    static var hlsSubsMissing: Set<String> = []
+
+    /// The in-stream subtitle wasn't there and the running stream copies the video from mid-file: its picture can
+    /// be a GOP off the clock the downloaded cues use, so restart once re-encoded (owner: SUBRIP out of sync).
+    func restartForCoveDrawnSub(_ idx: Int) async {
+        guard let emby = embyRef else { return }
+        await restart(emby) { $0.sub = idx; $0.burnIn = false }
+    }
+
     private func restart(_ emby: Emby, _ change: (inout PlayRequest) -> Void) async {
         guard var r = req else { return }
         change(&r)
