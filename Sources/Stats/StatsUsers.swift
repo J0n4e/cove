@@ -22,12 +22,13 @@ struct StatsUsersView: View {
                     // Summary counts every server user; the cards only those with plays (as Unraid's Stream Viewer)
                     StatsUsersSummaryRow(totals: StatsUsersAggregate.totals(model.users))
                     // One user per line, full width, most active first (owner)
-                    LazyVStack(alignment: .leading, spacing: 14) {
+                    LazyVStack(alignment: .center, spacing: 14) {   // centred in the page (owner)
                         ForEach(StatsUsersAggregate.withPlays(model.users)) { u in
                             StatsUserCard(user: u) { model.userOverview = []; model.selectedUser = u }
-                                .frame(maxWidth: 860, alignment: .leading)   // fits the contents, not stretched (owner)
+                                .frame(maxWidth: 860)   // fits the contents, not stretched (owner)
                         }
                     }
+                    .frame(maxWidth: .infinity)   // the column spans the page so the cards sit in its middle
                 }
             }
             .task(id: model.range) { await model.loadUsers() }
