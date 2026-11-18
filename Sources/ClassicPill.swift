@@ -288,8 +288,8 @@ struct FoggedGlass<S: Shape>: View {
             shape.fill(accent.opacity(0.08))                                 // a breath of the accent
             shape.fill(LinearGradient(colors: [.white.opacity(0.22), .clear], startPoint: .top, endPoint: .center))
                 .blendMode(.plusLighter).opacity(0.6)                        // light on the top edge
-            shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.10)],
-                                              startPoint: .top, endPoint: .bottom), lineWidth: 0.75)
+            shape.stroke(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.10)],
+                                        startPoint: .top, endPoint: .bottom), lineWidth: 1.5)   // half clipped: a 0.75 pt inner rim
         }
         .clipShape(shape)
         .compositingGroup()
@@ -310,8 +310,8 @@ struct SoftAccentGlow<S: Shape>: View {
                                       startPoint: .top, endPoint: .bottom))
             shape.fill(RadialGradient(colors: [a.opacity(0.35), .clear], center: .bottom,
                                       startRadius: 0, endRadius: 60))
-            shape.strokeBorder(LinearGradient(colors: [a.opacity(0.25), a.opacity(0.75)],
-                                              startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            shape.stroke(LinearGradient(colors: [a.opacity(0.25), a.opacity(0.75)],
+                                        startPoint: .top, endPoint: .bottom), lineWidth: 2)   // half clipped: a 1 pt inner rim
         }
         .clipShape(shape)
         .shadow(color: a.opacity(0.45), radius: 8, y: 2)                   // a soft halo, not a smear
