@@ -56,6 +56,8 @@ final class PlayerModel: ObservableObject {
     var startGen = 0
     /// After a playback failure on this item: have the server convert the video (TS + H.264, no copy).
     private var forceTranscode = false
+    /// The running stream copies the video and started mid-file (its picture can be a GOP off the clock).
+    private(set) var streamCopiedMidFile = false
     private var failObs: NSObjectProtocol?
     private var retrying = false
     // Embedded text subtitles read from the HLS stream (Player/LegibleSubtitles.swift) ↓
@@ -175,6 +177,7 @@ final class PlayerModel: ObservableObject {
         // Embedded text tracks come inside the HLS stream when the server can (shown at once); external files and
         // the fallback are downloaded.
         var wantInStream: Int?
+        var coveDrawn = false
         if let s = req.sub, !isImageSub(s), !req.burnIn {
             req.sub = nil
             if !inStreamUnsupported,
@@ -182,6 +185,7 @@ final class PlayerModel: ObservableObject {
                 req.hlsSub = s; wantInStream = s
             } else {
                 dlog("subs: extraction (track \(s))")
+                coveDrawn = true
                 loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
             }
         }
@@ -190,9 +194,11 @@ final class PlayerModel: ObservableObject {
         // Resume keeps the video copied (Direct stream). The URL has no StartTimeTicks: the HLS playlist covers the
         // whole file and the player seeks in it, so the player's clock is the media time (see ResumeStrategy).
         let midFile = pendingSeek > 0
-        let resumeReencode = ResumeStrategy.reencode(resuming: midFile, forceTranscode: forceTranscode)
+        let resumeReencode = ResumeStrategy.reencode(resuming: midFile, forceTranscode: forceTranscode,
+                                                     coveDrawnSub: coveDrawn)
+        streamCopiedMidFile = midFile && !resumeReencode
         if midFile {
-            dlog("resume: \(resumeReencode ? "re-encode (retry)" : "video copy (Direct stream)"), seek in whole-file playlist to \(fmt(pendingSeek)), start offset 0 s (strategy: \(ResumeStrategy.name))")
+            dlog("resume: \(ResumeStrategy.logLine(reencode: resumeReencode, forceTranscode: forceTranscode, coveDrawnSub: coveDrawn)), seek in whole-file playlist to \(fmt(pendingSeek)), start offset 0 s (strategy: \(ResumeStrategy.name))")
         }
         // A 4K HEVC video passes through unchanged when the screen can show it (HDR needs an HDR screen)
         let passHEVC = sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR)
@@ -226,7 +232,7 @@ final class PlayerModel: ObservableObject {
         session = ps
         let it = AVPlayerItem(url: u)
         if let s = wantInStream {
-            if method == "DirectPlay" {   // no HLS, so no renditions: download the track
+            if method == "DirectPlay" {   // no HLS, so no renditions: download the track (the file itself: exact)
                 dlog("subs: extraction (track \(s), Direct Play)")
                 loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
             } else {
@@ -502,10 +508,18 @@ final class PlayerModel: ObservableObject {
                     // (the subtitle group is tried first: Jellyfin lists every text track in the playlist)
                     if inStreamSub != nil || legibleGroup != nil, cancelCues(), switchInStream(idx) { return }
                     if how == .restart { dlog("subs: in-stream (HLS) track \(idx): restarting the stream"); await restart(emby) { $0.sub = idx } }
-                    else { stopInStream(); dlog("subs: extraction (track \(idx))"); loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
+                    else if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && session?.method != "DirectPlay") == .restartReencode {
+                        dlog("subs: extraction (track \(idx)): restarting re-encoded (video copy started mid-file)")
+                        await restart(emby) { $0.sub = idx; $0.burnIn = false }
+                    }
+                    else { stopInStream(); dlog("subs: extraction (track \(idx)), no restart"); loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
+                } else if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && session?.method != "DirectPlay") == .restartReencode {
+                    // The copied video can be a GOP off the clock the cues use: restart once, re-encoded
+                    dlog("subs: \(path == .file ? "external file" : "extraction") (track \(idx)): restarting re-encoded (video copy started mid-file)")
+                    await restart(emby) { $0.sub = idx; $0.burnIn = false }
                 } else {
                     stopInStream()
-                    dlog("subs: \(path == .file ? "external file" : "extraction") (track \(idx))")
+                    dlog("subs: \(path == .file ? "external file" : "extraction") (track \(idx)), no restart")
                     loadCues(emby, r.item.id, r.sourceId, idx, from: now)
                 }
             }
