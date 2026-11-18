@@ -414,7 +414,7 @@ struct ClassicTopNavButtons: View {
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
                 .modifier(Glass3DTabHover(on: on))   // the others: a lighter dark pill; hover sheen, lift and white label
-                .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
+                // No hover background on unselected tabs (owner): only the brighter text with its dark shadow
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -448,7 +448,7 @@ struct ClassicTopNavButtons: View {
         }
         .padding(4)
         .frame(height: 44)
-        .classicClearGlass()
+        .classicTabBarGlass()
 
     }
 }

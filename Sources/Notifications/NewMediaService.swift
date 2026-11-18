@@ -17,10 +17,10 @@ protocol NewMediaSource: AnyObject {
     func items(ids: [String]) async -> [NewMediaItem]
     /// Which of `among` (library ids) the item is in.
     func libraryOf(itemId: String, among: Set<String>) async -> String?
-    /// Of these shows, the ones the user follows: in Favorites or with at least one played episode.
+    /// Of these shows, the ones the user follows: in Favorites or with a played or started episode.
     func followedSeries(_ ids: Set<String>) async -> Set<String>
-    /// A poster as a local file for the notification (nil = none).
-    func posterFile(_ id: String) async -> URL?
+    /// The first of these pictures the server has, as a local file for the notification (nil = none).
+    func imageFile(_ images: [NewMediaImage]) async -> URL?
 }
 
 enum NotificationPermission: Equatable { case notDetermined, allowed, denied }
@@ -190,7 +190,7 @@ final class NewMediaService: ObservableObject {
             let (new, state) = NewMediaDetector.diff(old, items, now: now())
             store.set(state, for: key)
             if old == nil { log("Notifications: baseline for a library (\(items.count) items)") }
-            guard !new.isEmpty, !p.libsOff.contains(lib.id) else { continue }
+            guard !new.isEmpty, p.libraryOn(server: s.server, library: lib.id) else { continue }
             await announce(new, in: lib, session: s, prefs: p, source: src)
         }
     }
@@ -198,17 +198,17 @@ final class NewMediaService: ObservableObject {
     private func announce(_ items: [NewMediaItem], in lib: NewMediaLibrary, session s: NewMediaSession,
                           prefs p: NewMediaPrefs, source src: NewMediaSource) async {
         var followed = Set<String>()
-        if p.onlyFollowed {
+        if p.episodes, p.tvMode(server: s.server, library: lib.id) == .followed {
             let shows = Set(items.filter(\.isEpisode).compactMap(\.SeriesId))
             if !shows.isEmpty { followed = await src.followedSeries(shows) }
         }
-        let wanted = NewMediaDetector.filter(items, prefs: p, followed: followed)
+        let wanted = NewMediaDetector.filter(items, library: lib.id, server: s.server, prefs: p, followed: followed)
         guard !wanted.isEmpty, session == s else { return }
         let notes = NewMediaDetector.batches(wanted, library: lib, server: s.server, userId: s.userId)
         log("Notifications: \(wanted.count) new item(s) in a library, \(notes.count) notification(s)")
         for n in notes {
             var file: URL?
-            if let id = n.posterId { file = await src.posterFile(id) }
+            if !n.images.isEmpty { file = await src.imageFile(n.images) }
             await notifier.post(n, poster: file)
         }
     }
@@ -237,7 +237,7 @@ final class NewMediaService: ObservableObject {
         await check()
         guard session == s else { return }
         let p = prefs()
-        let libs = libraries.filter { !p.libsOff.contains($0.id) }
+        let libs = libraries.filter { p.libraryOn(server: s.server, library: $0.id) }
         var seen = Set<String>()
         for lib in libraries {
             if let st = store.get(NewMediaDetector.stateKey(server: s.server, userId: s.userId, library: lib.id)) { seen.formUnion(st.seen) }
@@ -277,7 +277,7 @@ final class NewMediaService: ObservableObject {
         guard await ensurePermission() == .allowed else { return }
         let n = NewMediaNotification(id: "cove-test-\(UUID().uuidString)", title: "New movie",
                                      body: "This is how Cove tells you about new movies and episodes.",
-                                     thread: "cove-test", target: .test, posterId: nil,
+                                     thread: "cove-test", target: .test, images: [],
                                      server: session?.server ?? "", userId: session?.userId ?? "", libraryId: "")
         await notifier.post(n, poster: nil)
     }
@@ -290,43 +290,73 @@ final class NewMediaService: ObservableObject {
 
     // MARK: Clicks
 
-    /// A clicked notification: Cove to the front and the item, show or library opened. One from another
-    /// server or user than the current one only shows a message (switching servers behind the user's back
-    /// would drop what they were doing).
+    /// A clicked notification: Cove to the front and the movie, show (on the episode's season) or library opened.
+    /// One from another saved server is opened after switching to it with its saved sign-in (as the server pill
+    /// does); when that isn't possible, Cove only shows "From <server>".
     func open(_ info: [AnyHashable: Any]) async {
         NSApp.activate(ignoringOtherApps: true)
         if let w = NSApp.windows.first(where: { $0.isMiniaturized && $0.canBecomeMain }) { w.deminiaturize(nil) }
-        guard let emby, let kind = info["kind"] as? String, kind != "test" else { return }
-        let server = info["server"] as? String ?? "", user = info["userId"] as? String ?? ""
-        guard server.lowercased() == emby.server.lowercased(), user == emby.userId else {
-            let name = emby.servers.first { $0.id == server.lowercased() }?.name ?? (URL(string: server)?.host ?? "another server")
-            emby.toast = Emby.Toast(text: "That notification is from \(name). Switch to it to open it.", icon: "bell")
-            return
+        let strings = info.reduce(into: [String: String]()) { d, kv in
+            if let k = kv.key as? String, let v = kv.value as? String { d[k] = v }
         }
-        let id = info["id"] as? String ?? ""
-        switch kind {
-        case "item", "series":
+        guard let emby, let target = Self.target(strings), target != .test else { return }
+        let server = strings["server"] ?? "", user = strings["userId"] ?? ""
+        if server.lowercased() != emby.server.lowercased() || user != emby.userId {
+            let saved = emby.servers.first { $0.id == server.lowercased() }
+            let name = ServerPill.title(name: saved?.name ?? "", address: server.isEmpty ? "another server" : server)
+            guard let saved, saved.userId == user, saved.token != nil, await emby.resume(saved) == .ok else {
+                emby.toast = Emby.Toast(text: "From \(name)", icon: "bell")
+                return
+            }
+            emby.toast = Emby.Toast(text: "From \(name)", icon: "bell")
+            // Let the session change send the pages back to Home first, then open on top of it
+            try? await Task.sleep(nanoseconds: 600_000_000)
+        }
+        switch target {
+        case .item(let id), .series(let id):
             if let it = await emby.itemRecord(id) { emby.openPage(it) }
-        case "library":
+        case .episode(let id, let series, let season):
+            if let series, let show = await emby.itemRecord(series) {
+                emby.openSeason = season
+                emby.openRequest = show
+            } else if let it = await emby.itemRecord(id) { emby.openPage(it) }
+        case .library(let id):
             if UserDefaults.standard.string(forKey: "theme") ?? "apple" == "apple" {
                 NavState.shared.popToRoot(); NavState.shared.sel = id
             } else {
                 ClassicNavState.shared.popToRoot(); ClassicNavState.shared.sel = id
             }
-        default: break
+        case .test: break
         }
     }
 
-    /// What a notification carries for its click.
+    /// What a notification carries for its click (strings only, so it survives macOS's store).
     nonisolated static func userInfo(_ n: NewMediaNotification) -> [String: String] {
         var d = ["server": n.server, "userId": n.userId, "libraryId": n.libraryId]
         switch n.target {
-        case .item(let id): d["kind"] = "item"; d["id"] = id
-        case .series(let id): d["kind"] = "series"; d["id"] = id
+        case .item(let id): d["kind"] = "item"; d["id"] = id; d["type"] = "Movie"
+        case .episode(let id, let series, let season):
+            d["kind"] = "episode"; d["id"] = id; d["type"] = "Episode"
+            if let series { d["seriesId"] = series }
+            if let season { d["season"] = String(season) }
+        case .series(let id): d["kind"] = "series"; d["id"] = id; d["type"] = "Series"
         case .library(let id): d["kind"] = "library"; d["id"] = id
         case .test: d["kind"] = "test"
         }
         return d
+    }
+
+    /// Back from userInfo: where the click goes (nil = nothing usable).
+    nonisolated static func target(_ d: [String: String]) -> NewMediaTarget? {
+        let id = d["id"] ?? ""
+        switch d["kind"] {
+        case "test": return .test
+        case "item" where !id.isEmpty: return .item(id)
+        case "episode" where !id.isEmpty: return .episode(id, series: d["seriesId"], season: d["season"].flatMap { Int($0) })
+        case "series" where !id.isEmpty: return .series(id)
+        case "library" where !id.isEmpty: return .library(id)
+        default: return nil
+        }
     }
 }
 
@@ -340,7 +370,10 @@ final class SystemNotifier: NSObject, NewMediaNotifier, UNUserNotificationCenter
 
     /// Clicks and banners while Cove is in front; called once at launch (AppDelegate).
     static let shared = SystemNotifier()
-    static func install() { shared.center?.delegate = shared }
+    static func install() {
+        shared.center?.delegate = shared
+        DispatchQueue.global(qos: .utility).async { NotificationImages.prune() }
+    }
 
     func permission() async -> NotificationPermission {
         guard let c = center else { return .denied }
@@ -364,11 +397,19 @@ final class SystemNotifier: NSObject, NewMediaNotifier, UNUserNotificationCenter
         content.threadIdentifier = n.thread
         content.sound = .default
         content.userInfo = NewMediaService.userInfo(n)
-        if let poster, let a = try? UNNotificationAttachment(identifier: "poster", url: poster, options: nil) {
-            content.attachments = [a]
+        if let poster {
+            do {
+                content.attachments = [try UNNotificationAttachment(identifier: "poster", url: poster,
+                                                                    options: [UNNotificationAttachmentOptionsTypeHintKey: "public.jpeg"])]
+            } catch {
+                DebugLog.write("Notifications: image not attached \((error as NSError).domain) \((error as NSError).code)")
+            }
         }
         let r = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         do { try await c.add(r) } catch { DebugLog.write("Notifications: post failed \((error as NSError).domain) \((error as NSError).code)") }
+        // macOS moves an attached file into its own store; whatever is left (not attached, failed) goes
+        if let poster { try? FileManager.default.removeItem(at: poster) }
+        NotificationImages.prune()
     }
 
     // Banners also while Cove is the front app
@@ -383,6 +424,8 @@ final class SystemNotifier: NSObject, NewMediaNotifier, UNUserNotificationCenter
         let strings = info.reduce(into: [String: String]()) { d, kv in
             if let k = kv.key as? String, let v = kv.value as? String { d[k] = v }
         }
+        // Only the default action (a click on the banner or its row) opens; Clear / dismiss do nothing
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { completionHandler(); return }
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
                 Task { await NewMediaService.shared.open(strings) }
@@ -485,25 +528,73 @@ final class ServerNewMediaSource: NewMediaSource {
                 } else { unsure.append(s.Id) }
             }
         } else { unsure = ids.sorted() }
-        // The show's own numbers aren't always filled in: ask for one played episode of it
+        // The show's own numbers aren't always filled in: ask for one played, else one started episode of it
         for id in unsure.prefix(10) {
-            if let d = await data("/Users/\(session.userId)/Items", ["ParentId": id, "IncludeItemTypes": "Episode",
-                                    "Recursive": "true", "IsPlayed": "true", "Limit": "1", "EnableImages": "false"]),
-               let c = try? JSONDecoder().decode(Count.self, from: d),
-               NewMediaFollow.follows(favorite: nil, played: nil, playedPercentage: nil, playedEpisodes: c.TotalRecordCount) {
-                out.insert(id)
+            for q in [["IsPlayed": "true"], ["Filters": "IsResumable"]] {
+                let base = ["ParentId": id, "IncludeItemTypes": "Episode", "Recursive": "true", "Limit": "1",
+                            "EnableImages": "false", "EnableTotalRecordCount": "true"]
+                if let d = await data("/Users/\(session.userId)/Items", base.merging(q) { $1 }),
+                   let c = try? JSONDecoder().decode(Count.self, from: d),
+                   NewMediaFollow.follows(favorite: nil, played: nil, playedPercentage: nil, playedEpisodes: c.TotalRecordCount) {
+                    out.insert(id); break
+                }
             }
         }
         return out
     }
 
-    func posterFile(_ id: String) async -> URL? {
-        guard let d = await data("/Items/\(id)/Images/Primary", ["maxWidth": "300", "quality": "85", "format": "jpg"]),
-              !d.isEmpty else { return nil }
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("CoveNotifications", isDirectory: true)
+    func imageFile(_ images: [NewMediaImage]) async -> URL? {
+        for img in images {
+            // The same signed request as every other call here (the token in the header, never in the link)
+            guard let d = await data("/Items/\(img.id)/Images/\(img.kind)", ["maxWidth": "600", "quality": "85", "format": "jpg"]),
+                  d.count > 100, NotificationImages.looksLikeImage(d) else { continue }
+            if let f = NotificationImages.write(d) { return f }
+        }
+        return nil
+    }
+}
+
+/// Pictures for notifications, briefly in Caches/<app>/NotificationImages until macOS takes them.
+enum NotificationImages {
+    static var dir: URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent(Bundle.main.bundleIdentifier ?? "Cove", isDirectory: true)
+            .appendingPathComponent("NotificationImages", isDirectory: true)
+    }
+
+    /// JPEG, PNG, GIF or WebP by their first bytes (a server error page isn't attached)
+    static func looksLikeImage(_ d: Data) -> Bool {
+        let b = [UInt8](d.prefix(12))
+        guard b.count >= 4 else { return false }
+        if b[0] == 0xFF, b[1] == 0xD8 { return true }
+        if b[0] == 0x89, b[1] == 0x50, b[2] == 0x4E, b[3] == 0x47 { return true }
+        if b[0] == 0x47, b[1] == 0x49, b[2] == 0x46 { return true }
+        return b.count >= 12 && b[0] == 0x52 && b[1] == 0x49 && b[8] == 0x57 && b[9] == 0x45
+    }
+
+    /// The file's extension from its bytes (macOS picks the type by it)
+    static func ext(_ d: Data) -> String {
+        let b = [UInt8](d.prefix(4))
+        if b.count >= 2, b[0] == 0x89, b[1] == 0x50 { return "png" }
+        if b.count >= 2, b[0] == 0x47, b[1] == 0x49 { return "gif" }
+        if b.count >= 2, b[0] == 0x52, b[1] == 0x49 { return "webp" }
+        return "jpg"
+    }
+
+    static func write(_ d: Data) -> URL? {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let f = dir.appendingPathComponent(UUID().uuidString + ".jpg")
+        let f = dir.appendingPathComponent(UUID().uuidString + "." + ext(d))
         do { try d.write(to: f); return f } catch { return nil }
+    }
+
+    /// Removes leftovers older than an hour (a crash between download and post)
+    static func prune(olderThan age: TimeInterval = 3600, now: Date = Date()) {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
+        for f in files {
+            let m = (try? f.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            if now.timeIntervalSince(m) > age { try? fm.removeItem(at: f) }
+        }
     }
 }
 

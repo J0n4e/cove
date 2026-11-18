@@ -630,7 +630,7 @@ struct ClassicDetailView: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(4).frame(height: 44).classicClearGlass()
+        }.padding(4).frame(height: 44).classicTabBarGlass()
     }
 
 
@@ -812,6 +812,6 @@ struct ClassicDetailView: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(4).frame(height: 44).classicClearGlass()
+        }.padding(4).frame(height: 44).classicTabBarGlass()
     }
 }

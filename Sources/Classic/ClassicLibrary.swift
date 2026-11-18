@@ -109,10 +109,10 @@ struct ClassicLibraryView: View {
                                 .padding(.horizontal, 14).frame(height: 32)
                                 .classicSelectedGlass(model.tab == i)   // a step quieter than the top bar's pill
                                 .modifier(Glass3DTabHover(on: model.tab == i))   // as the top bar's tabs
-                        .modifier(SectionHoverGlow(on: !(model.tab == i)))   // accent glow on hover, as the top bar
+                // No hover background on unselected tabs (owner): only the brighter text with its dark shadow
                         }.buttonStyle(.plainHand)
                     }
-                }.padding(3).frame(height: 38).classicClearGlass().opacity(0.92)
+                }.padding(3).frame(height: 38).classicTabBarGlass().opacity(0.92)
             }
             if model.tab != 2 { controls }
         }
@@ -207,7 +207,7 @@ struct ClassicLibraryView: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(4).frame(height: 44).classicClearGlass()
+        }.padding(4).frame(height: 44).classicTabBarGlass()
     }
 
     var genreGrid: some View {

@@ -50,7 +50,8 @@ struct NewMediaLibraryState: Codable, Equatable {
 
 /// Where a click on a notification goes.
 enum NewMediaTarget: Equatable {
-    case item(String)          // a movie or an episode page
+    case item(String)          // a movie page
+    case episode(String, series: String?, season: Int?)   // the episode's show, on its season
     case series(String)        // the show (several episodes of it)
     case library(String)       // the library (several movies, or episodes of many shows)
     case test                  // Settings' test notification: just brings Cove to the front
@@ -64,11 +65,34 @@ struct NewMediaNotification: Equatable {
     /// Notifications with the same thread are grouped by macOS (one per show, one for movies).
     let thread: String
     let target: NewMediaTarget
-    /// Whose picture to attach (a movie's or the show's poster)
-    let posterId: String?
+    /// Pictures to attach, best first (the first one the server has is used)
+    let images: [NewMediaImage]
+    /// The first candidate's item id
+    var posterId: String? { images.first?.id }
     let server: String
     let userId: String
     let libraryId: String
+}
+
+/// One picture the notification can show: an item's image of one kind.
+struct NewMediaImage: Equatable, Hashable {
+    let id: String
+    let kind: String   // "Primary", "Thumb", "Backdrop"
+
+    /// A movie: its poster, else its wide pictures.
+    static func movie(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Primary"), .init(id: id, kind: "Thumb"), .init(id: id, kind: "Backdrop")] }
+    /// An episode: its own still, else the show's wide picture or poster.
+    static func episode(_ id: String, series: String?) -> [NewMediaImage] {
+        [.init(id: id, kind: "Primary")] + (series.map(show) ?? [])
+    }
+    /// A show: its wide picture, else its backdrop or poster.
+    static func show(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Thumb"), .init(id: id, kind: "Backdrop"), .init(id: id, kind: "Primary")] }
+}
+
+/// Per library: which new episodes notify.
+enum NewMediaTVMode: String, CaseIterable {
+    case all            // every new episode (the default, as before)
+    case followed       // only shows being watched or in Favorites
 }
 
 /// The user's choices (Settings → General → Notifications).
@@ -76,20 +100,48 @@ struct NewMediaPrefs: Equatable {
     var movies = true
     var episodes = true
     var onlyFollowed = false
-    /// Library ids switched off (default: none, so every movie / show library is on)
+    /// Libraries switched off: "server|library" (and plain library ids from before 1.18.10, on every server)
     var libsOff: Set<String> = []
+    /// "server|library" → the TV choice for that library (missing: `onlyFollowed` decides, i.e. All by default)
+    var tvModes: [String: NewMediaTVMode] = [:]
     var anyOn: Bool { movies || episodes }
+
+    /// The key of one library on one server.
+    static func libKey(server: String, library: String) -> String { server.lowercased() + "|" + library }
+
+    func libraryOn(server: String, library: String) -> Bool {
+        !libsOff.contains(library) && !libsOff.contains(Self.libKey(server: server, library: library))
+    }
+
+    func tvMode(server: String, library: String) -> NewMediaTVMode {
+        tvModes[Self.libKey(server: server, library: library)] ?? (onlyFollowed ? .followed : .all)
+    }
 
     static let moviesKey = "notifyNewMovies"
     static let episodesKey = "notifyNewEpisodes"
     static let followedKey = "notifyOnlyFollowed"
     static let libsOffKey = "notifyLibsOff"
+    static let tvModesKey = "notifyTVModes"
+
+    /// "key=mode" lines (the server address can't hold a newline)
+    static func decodeModes(_ s: String) -> [String: NewMediaTVMode] {
+        var out: [String: NewMediaTVMode] = [:]
+        for line in s.split(separator: "\n") {
+            guard let eq = line.lastIndex(of: "=") else { continue }
+            if let m = NewMediaTVMode(rawValue: String(line[line.index(after: eq)...])) { out[String(line[..<eq])] = m }
+        }
+        return out
+    }
+    static func encodeModes(_ d: [String: NewMediaTVMode]) -> String {
+        d.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value.rawValue)" }.joined(separator: "\n")
+    }
 
     static func load(_ d: UserDefaults = .standard) -> NewMediaPrefs {
         NewMediaPrefs(movies: d.object(forKey: moviesKey) as? Bool ?? true,
                       episodes: d.object(forKey: episodesKey) as? Bool ?? true,
                       onlyFollowed: d.bool(forKey: followedKey),
-                      libsOff: Set((d.string(forKey: libsOffKey) ?? "").split(separator: ",").map(String.init)))
+                      libsOff: Set((d.string(forKey: libsOffKey) ?? "").split(separator: ",").map(String.init)),
+                      tvModes: decodeModes(d.string(forKey: tvModesKey) ?? ""))
     }
 }
 
@@ -189,7 +241,52 @@ enum NewMediaDetector {
         }
     }
 
+    /// Per library: switched off → nothing; a TV choice of "only shows I watch / in Favorites" → only those
+    /// shows' episodes. Runs before batching.
+    static func filter(_ items: [NewMediaItem], library: String, server: String, prefs: NewMediaPrefs,
+                       followed: Set<String>) -> [NewMediaItem] {
+        guard prefs.libraryOn(server: server, library: library) else { return [] }
+        var p = prefs
+        p.onlyFollowed = prefs.tvMode(server: server, library: library) == .followed
+        return filter(items, prefs: p, followed: followed)
+    }
+
     // MARK: Text and batching
+
+    /// Several episodes of one show: "S2:E4–E6" when they run on in one season, else a short list
+    /// ("S2:E4, E6 · S3:E1", at most `max` codes, then …).
+    static func episodeSpan(_ eps: [NewMediaItem], max n: Int = 4) -> String {
+        let sorted = eps.sorted { ($0.ParentIndexNumber ?? -1, $0.IndexNumber ?? -1) < ($1.ParentIndexNumber ?? -1, $1.IndexNumber ?? -1) }
+        let seasons = Set(sorted.map { $0.ParentIndexNumber ?? -1 })
+        let nums = sorted.compactMap(\.IndexNumber)
+        if seasons.count == 1, nums.count == sorted.count, nums.count >= 2,
+           zip(nums, nums.dropFirst()).allSatisfy({ $1 == $0 + 1 }), let first = sorted.first {
+            let s = first.ParentIndexNumber.map { "S\($0):" } ?? ""
+            return "\(s)E\(nums[0])–E\(nums[nums.count - 1])"
+        }
+        var groups: [String] = []
+        var shown = 0
+        var started = false
+        var lastSeason: Int? = nil
+        var cur: [String] = []
+        for e in sorted where shown < n {
+            if !started || lastSeason != e.ParentIndexNumber {
+                if !cur.isEmpty { groups.append(cur.joined(separator: ", ")) }
+                cur = []
+                started = true
+                lastSeason = e.ParentIndexNumber
+                cur.append(episodeCode(e) ?? e.Name)
+            } else {
+                cur.append(e.IndexNumber.map { "E\($0)" } ?? e.Name)
+            }
+            shown += 1
+        }
+        if !cur.isEmpty { groups.append(cur.joined(separator: ", ")) }
+        return groups.joined(separator: " · ") + (sorted.count > n ? "…" : "")
+    }
+
+    /// At least this many new movies at once become one notification (fewer: one each)
+    static let movieBatchMin = 4
 
     /// "S18:E12" (or "S1" / "E3" when the server doesn't know one of them)
     static func episodeCode(_ it: NewMediaItem) -> String? {
@@ -223,17 +320,17 @@ enum NewMediaDetector {
     /// One library's new items as notifications: one for all new movies, one per show; more than
     /// `maxSeriesBatches` shows become one notification for the library.
     static func batches(_ items: [NewMediaItem], library: NewMediaLibrary, server: String, userId: String) -> [NewMediaNotification] {
-        func note(_ key: String, _ title: String, _ body: String, _ thread: String, _ target: NewMediaTarget, _ poster: String?) -> NewMediaNotification {
+        func note(_ key: String, _ title: String, _ body: String, _ thread: String, _ target: NewMediaTarget, _ images: [NewMediaImage]) -> NewMediaNotification {
             NewMediaNotification(id: "\(server)|\(userId)|\(library.id)|\(key)", title: title, body: body, thread: thread,
-                                 target: target, posterId: poster, server: server, userId: userId, libraryId: library.id)
+                                 target: target, images: images, server: server, userId: userId, libraryId: library.id)
         }
         var out: [NewMediaNotification] = []
         let movies = items.filter(\.isMovie)
-        if movies.count == 1, let m = movies.first {
-            out.append(note(m.Id, "New movie", line(m), "cove-movies", .item(m.Id), m.Id))
-        } else if movies.count > 1 {
-            out.append(note(movies.map(\.Id).joined(separator: ","), "New movies",
-                            "\(movies.count) new movies: \(names(movies))", "cove-movies", .library(library.id), movies.first?.Id))
+        if movies.count >= movieBatchMin {
+            out.append(note(movies.map(\.Id).joined(separator: ","), "\(movies.count) new movies", names(movies),
+                            "cove-movies", .library(library.id), movies.first.map { NewMediaImage.movie($0.Id) } ?? []))
+        } else {
+            for m in movies { out.append(note(m.Id, "New movie", line(m), "cove-movies", .item(m.Id), NewMediaImage.movie(m.Id))) }
         }
         let episodes = items.filter(\.isEpisode)
         var order: [String] = []
@@ -247,18 +344,24 @@ enum NewMediaDetector {
             let shows = order.compactMap { bySeries[$0]?.first?.SeriesName }
             let shown = shows.prefix(3).joined(separator: ", ") + (shows.count > 3 ? "…" : "")
             out.append(note(episodes.map(\.Id).joined(separator: ","), "New episodes",
-                            "\(episodes.count) new episodes: \(shown)", "cove-library-\(library.id)", .library(library.id), nil))
+                            "\(episodes.count) new episodes: \(shown)", "cove-library-\(library.id)", .library(library.id),
+                            order.first.map(NewMediaImage.show) ?? []))
             return out
         }
         for k in order {
             guard let eps = bySeries[k], let first = eps.first else { continue }
-            let thread = "cove-series-\(k)"
+            // The show's id: macOS groups its notifications in Notification Center
+            let thread = k
             if eps.count == 1 {
-                out.append(note(first.Id, "New episode", line(first), thread, .item(first.Id), first.SeriesId ?? first.Id))
+                out.append(note(first.Id, "New episode", line(first), thread,
+                                .episode(first.Id, series: first.SeriesId, season: first.ParentIndexNumber),
+                                NewMediaImage.episode(first.Id, series: first.SeriesId)))
             } else {
-                let show = first.SeriesName ?? "a show"
-                out.append(note(eps.map(\.Id).joined(separator: ","), "New episodes", "\(eps.count) new episodes of \(show)",
-                                thread, first.SeriesId.map { .series($0) } ?? .library(library.id), first.SeriesId))
+                let span = episodeSpan(eps)
+                out.append(note(eps.map(\.Id).joined(separator: ","), first.SeriesName ?? "New episodes",
+                                "\(eps.count) new episodes" + (span.isEmpty ? "" : " · " + span),
+                                thread, first.SeriesId.map { .series($0) } ?? .library(library.id),
+                                first.SeriesId.map(NewMediaImage.show) ?? NewMediaImage.episode(first.Id, series: nil)))
             }
         }
         return out
