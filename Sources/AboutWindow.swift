@@ -18,16 +18,15 @@ struct AboutView: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    AppIconView(size: 22)
-                    (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
-                        .coveFont(size: 16, weight: .bold)
-                }
+                // Like the update alert: the app icon on top, the bold white name under it
+                AppIconView(size: 64)
+                (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
+                    .coveFont(size: 16, weight: .bold)
                 Text("Version \(versionText.hasPrefix("v") ? String(versionText.dropFirst()) : versionText)")
-                    .coveFont(size: 12).foregroundColor(Color.white.opacity(0.55))
+                    .coveFont(size: 12).foregroundColor(Color.white.opacity(0.8))
                     .padding(.top, -4)
                 Text("A native macOS client for Emby and Jellyfin. Found a bug or have an idea? Let us know on GitHub.")
-                    .multilineTextAlignment(.center).coveFont(size: 13).foregroundColor(.secondary)
+                    .multilineTextAlignment(.center).coveFont(size: 13).foregroundColor(Color.white.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     Button { open(Self.repo) } label: {
@@ -39,21 +38,21 @@ struct AboutView: View {
                 }
                 .padding(.top, 6)
             }
+            .glassReadable()
             .padding(.horizontal, 34).padding(.top, 34)
 
             Button { open(Self.repo.appendingPathComponent("blob/main/LICENSE")) } label: {
                 Text("© 2026 J0n4e · GNU GPL-3.0")
-                    .coveFont(size: 10).foregroundColor(Color.white.opacity(0.4))
+                    .coveFont(size: 10).foregroundColor(Color.white.opacity(0.75)).glassReadable()
             }
             .buttonStyle(.plainHand).padding(.vertical, 20)
         }
         .frame(width: 440)
         // Its natural height only: About sizes the window to its content (no stretching, so no empty band)
         .fixedSize(horizontal: false, vertical: true)
-        // Content starts at the top edge (under the transparent title bar); the window is painted with the
-        // same Background, so nothing grey can show around it
+        // Content starts at the top edge (under the transparent title bar), straight on the window's glass
+        // (GlassWindowContainer); no opaque background of its own
         .ignoresSafeArea(.container, edges: .top)
-        .background(Theme.bg(bgName).ignoresSafeArea())
         .tint(accent)
         .preferredColorScheme(.dark)
         .focusEffectDisabled()
@@ -148,25 +147,25 @@ enum AboutWindow {
 
     static func show() {
         if window == nil {
-            let host = NSHostingController(rootView: AboutView())
-            // No automatic sizing: with a full-size transparent title bar the hosting view's size and the window's
-            // safe area kept changing each other, and macOS 27.3 aborts on that layout loop (crash on About).
-            // The window is sized once below from the content's fitting size instead.
-            host.sizingOptions = []
-            let w = PanelWindow(contentViewController: host)
+            let w = PanelWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 300),
+                                styleMask: [.titled, .closable, .fullSizeContentView],
+                                backing: .buffered, defer: false)
             w.title = "About Cove"
-            w.styleMask = [.titled, .closable, .fullSizeContentView]
             w.isReleasedWhenClosed = false
-            CoveWindowLook.apply(w)
-            w.isMovableByWindowBackground = true
+            w.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            w.standardWindowButton(.zoomButton)?.isHidden = true
             window = w
         }
         guard let w = window else { return }
-        if !w.isVisible, let host = w.contentViewController as? NSHostingController<AboutView> {
-            // Fit the window to the content's natural size (the view doesn't stretch), so no empty band
-            let fit = host.sizeThatFits(in: NSSize(width: 440, height: 2_000))
-            let h = min(max(fit.height, 160), 400)   // sane bounds, whatever happens
-            w.setContentSize(NSSize(width: 440, height: h))
+        if !w.isVisible {
+            // A plain NSHostingView with no automatic sizing (macOS 27.3 crashed on the hosting view and the
+            // safe area resizing each other). Measured once, then the window gets that fixed size.
+            let host = NSHostingView(rootView: AboutView())
+            host.sizingOptions = []
+            let fit = host.fittingSize
+            let h = min(max(fit.height, 200), 460)   // sane bounds, whatever happens
+            let size = NSSize(width: 440, height: h)
+            CoveWindowLook.applyGlass(w, content: host, size: size)
             w.center()
         }
         NSApp.activate(ignoringOtherApps: true)

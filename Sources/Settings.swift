@@ -42,7 +42,7 @@ struct SettingsView: View {
                 Text(s.rawValue).coveFont(size: 11)
             }
             // Selected: filled with the accent, light text on it (accent-colored text was hard to read)
-            .foregroundColor(on ? Theme.onAccent(accentName) : .secondary)
+            .foregroundColor(on ? Theme.onAccent(accentName) : Color.white.opacity(0.85))
             .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent : Color.clear))
             .contentShape(Rectangle())
@@ -57,7 +57,7 @@ struct SettingsView: View {
             // Apple TV style: the section name on top, then a row of icon tabs
             // Glass3D: the selected tab already names the page, so no title above the tabs
             if !glass3D {
-                Text(section.rawValue).coveFont(size: 13, weight: .semibold).foregroundColor(.secondary)
+                Text(section.rawValue).coveFont(size: 13, weight: .semibold).foregroundColor(.white).glassReadable()
                     .frame(maxWidth: .infinity)
                     .padding(.top, 12)
             }
@@ -97,8 +97,8 @@ struct SettingsView: View {
         .padding(.top, 18)
         // Fill the whole window; the background goes on last so it also covers the top padding and
         // every safe-area edge (it used to sit inside a fixed 640pt frame, leaving a grey strip at the bottom).
+        // No opaque background: the content sits straight on the window's glass (GlassWindowContainer)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(bg.ignoresSafeArea())   // follows Appearance → Background, like the rest of the app
         .ignoresSafeArea(.container, edges: .top)
     }
 }
@@ -133,15 +133,17 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         self.emby = emby
         self.onClose = onClose
         if window == nil {
-            let host = NSHostingController(rootView: SettingsWindowRoot(emby: emby))
-            let w = PanelWindow(contentViewController: host)
+            let size = NSSize(width: 760, height: 640)
+            let host = NSHostingView(rootView: SettingsWindowRoot(emby: emby))
+            host.sizingOptions = []   // fixed size; never let SwiftUI layout drive the window frame
+            let w = PanelWindow(contentRect: NSRect(origin: .zero, size: size),
+                                styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+                                backing: .buffered, defer: false)
             w.title = "Settings"
-            w.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
             w.isReleasedWhenClosed = false
-            CoveWindowLook.apply(w)   // dark, transparent title bar, window painted with the Background
+            CoveWindowLook.applyGlass(w, content: host, size: size)   // see-through glass like the update alert
             w.standardWindowButton(.zoomButton)?.isEnabled = false
             w.delegate = self
-            w.setContentSize(NSSize(width: 760, height: 640))
             window = w
         }
         guard let w = window else { return }
@@ -169,17 +171,18 @@ struct PrefSection<C: View>: View {
     @AppStorage("theme") private var theme = "apple"
     var body: some View {
         let g3 = theme == "classic"   // Glass3D: tighter, the panel radius and outline from Glass3DTokens
-        let r: CGFloat = g3 ? Glass3DTokens.Radius.panel : 10
+        let r: CGFloat = g3 ? max(12, Glass3DTokens.Radius.panel) : 13
         VStack(alignment: .leading, spacing: 6) {
             if let title {
-                Text(title.uppercased()).coveFont(size: 11, weight: .semibold).foregroundColor(.secondary)
-                    .padding(.leading, 6)
+                Text(title.uppercased()).coveFont(size: 11, weight: .semibold).foregroundColor(Color.white.opacity(0.8))
+                    .glassReadable().padding(.leading, 6)
             }
             VStack(alignment: .leading, spacing: g3 ? 10 : 12) { content }
                 .padding(.vertical, g3 ? 12 : 16).padding(.trailing, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: r).fill(Color.white.opacity(g3 ? Glass3DTokens.Fill.subtle : 0.04)))
-                .overlay(RoundedRectangle(cornerRadius: r).stroke(Color.white.opacity(g3 ? Glass3DTokens.Stroke.subtle : 0.08)))
+                // A subtle glass card on the window's glass: light fill, thin light outline
+                .background(RoundedRectangle(cornerRadius: r, style: .continuous).fill(Color.white.opacity(0.08)))
+                .overlay(RoundedRectangle(cornerRadius: r, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
         }
         .padding(.vertical, g3 ? 6 : 9)
     }
@@ -191,7 +194,8 @@ struct PrefRow<C: View>: View {
     @ViewBuilder var control: C
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Text(label.isEmpty ? "" : label + ":").frame(width: prefLabelW, alignment: .trailing)
+            Text(label.isEmpty ? "" : label + ":").foregroundColor(.white).glassReadable()
+                .frame(width: prefLabelW, alignment: .trailing)
                 .padding(.top, 4)
             control
             Spacer(minLength: 0)
@@ -204,7 +208,7 @@ struct PrefNote: View {
     let text: String
     init(_ t: String) { text = t }
     var body: some View {
-        Text(text).coveFont(size: 12).foregroundColor(.secondary)
+        Text(text).coveFont(size: 12).foregroundColor(Color.white.opacity(0.78))
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: 440, alignment: .leading)
             .padding(.leading, prefLabelW + 10)
