@@ -11,7 +11,7 @@ struct PosterLook: Equatable {
     let glass3D: Bool
     var size: CGSize { glass3D ? CGSize(width: 150, height: 225) : CGSize(width: 170, height: 255) }
     var radius: CGFloat { glass3D ? 8 : 12 }
-    var titleFont: NSFont { glass3D ? ClassicFont.nsFont(12, .semibold) : .systemFont(ofSize: 12, weight: .semibold) }
+    var titleFont: NSFont { glass3D ? ClassicFont.nsFont(12, .regular) : .systemFont(ofSize: 12, weight: .semibold) }
     var yearFont: NSFont { glass3D ? ClassicFont.nsFont(10, .regular) : .systemFont(ofSize: 10, weight: .regular) }
     static let titleH: CGFloat = 16, yearH: CGFloat = 13
 }

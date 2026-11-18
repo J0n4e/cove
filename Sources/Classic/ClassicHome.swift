@@ -119,7 +119,7 @@ struct ClassicHero: View {
     /// (an inset glass-framed card)
     @AppStorage("classicBannerStyle") private var style = "cinematic"
     /// Settings → General → Banner navigation: "deck" (cards, bottom right) or "bullets" (bottom center)
-    @AppStorage("classicBannerNav") private var bannerNav = "deck"
+    @AppStorage(Glass3DBannerNav.key) private var bannerNav = Glass3DBannerNav.defaultValue
     /// The whole visible page, so the rows (Continue Watching…) start just below it and show once you scroll
     var bannerH: CGFloat { pageH.isFinite ? max(pageH, 360) : max(width * 9 / 16, 520) }
 
@@ -303,20 +303,12 @@ struct ClassicHero: View {
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
 
-    /// Page bullets: small glass pills; the current one stretches longer and is lit.
+    /// Page bullets: small dots centred under the banner; the current one wider in the accent.
     var thumbs: some View {
         HStack(spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.element.id) { i, _ in
                 let on = i == index % items.count
-                Button { go(i) } label: {
-                    Capsule().fill(Color.white.opacity(on ? 0.85 : 0.25))
-                        .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.15)],
-                                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
-                        .frame(width: on ? 26 : 9, height: 9)
-                        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
-                        .contentShape(Rectangle().inset(by: -6))
-                }
-                .buttonStyle(HoverButton())
+                Glass3DBannerDot(on: on, accent: Theme.accent(accentName)) { go(i) }
                 .accessibilityLabel("Banner \(i + 1) of \(items.count): \(items[i].heroTitle)")
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
@@ -421,5 +413,32 @@ struct ClassicResumeCard: View {
             .accessibilityAction(named: "Play from the beginning") { playCentre() }
             .accessibilityLabel(item.isEpisode ? "\(item.heroTitle) — \(item.Name)" : item.Name)   // no tooltip on these cards
         }
+    }
+}
+
+/// Settings → Home → Banner → Navigation: "deck" (Cards, the stacked previews; default) or "bullets" (dots).
+enum Glass3DBannerNav {
+    static let key = "classicBannerNav"
+    static let defaultValue = "deck"
+    static let options: [(String, String)] = [("deck", "Cards"), ("bullets", "Bullets")]
+}
+
+/// One banner bullet: the current one wider and in the accent, the others white at half strength; a light
+/// brightening under the pointer. Clicking jumps to that banner.
+struct Glass3DBannerDot: View {
+    let on: Bool
+    let accent: Color
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            Capsule().fill(on ? accent : Color.white.opacity(hover ? 0.8 : 0.5))
+                .frame(width: on ? 24 : 8, height: 8)
+                .scaleEffect(hover && !on ? 1.2 : 1)
+                .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                .contentShape(Rectangle().inset(by: -6))
+        }
+        .buttonStyle(.plainHand)
+        .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
     }
 }
