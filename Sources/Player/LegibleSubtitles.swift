@@ -169,6 +169,7 @@ extension PlayerModel {
                                                usable: self.legibleUsable) {
                 item.select(g.options[k], in: g)
                 self.dlog("subs: in-stream (HLS) track \(idx): \(g.options.count) rendition(s), selected '\(g.options[k].displayName)'")
+                if let emby = self.embyRef { Self.hlsSubsMissing.remove(emby.server) }   // this server does carry them
             } else {
                 self.inStreamFallback(idx, why: g == nil ? "no subtitle group in the stream" : "track not among \(g?.options.count ?? 0) rendition(s)")
             }

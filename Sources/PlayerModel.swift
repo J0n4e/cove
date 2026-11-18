@@ -414,8 +414,12 @@ final class PlayerModel: ObservableObject {
     /// The running stream is the file itself (Direct Play), not an HLS stream from the server.
     var directPlaySession: Bool { session?.method == "DirectPlay" }
 
-    /// Servers whose HLS stream didn't carry the requested text subtitle (learned once per app run).
-    static var hlsSubsMissing: Set<String> = []
+    /// Servers whose HLS stream didn't carry the requested text subtitle. Kept across app launches, so the first
+    /// SUBRIP after a restart doesn't cost an extra stream restart (owner). Cleared if a server ever does carry one.
+    static var hlsSubsMissing: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: "hlsSubsMissing") ?? []) }
+        set { UserDefaults.standard.set(Array(newValue).sorted(), forKey: "hlsSubsMissing") }
+    }
 
     /// The in-stream subtitle wasn't there and the running stream copies the video from mid-file: its picture can
     /// be a GOP off the clock the downloaded cues use, so restart once re-encoded (owner: SUBRIP out of sync).
