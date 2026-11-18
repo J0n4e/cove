@@ -64,6 +64,9 @@ struct PlayRequest: Identifiable {
     var burnIn = false            // subtitle couldn't be read as text: have the server burn it in
     var trailer: URL? = nil       // a YouTube trailer of the item, played with YouTube's player instead
     var startPaused = false       // SyncPlay: loaded paused, the group starts it
+    /// An embedded text subtitle carried inside the HLS stream (SubtitleMethod=Hls, WebVTT segments) and read by
+    /// the app from the player item. Unlike `sub` it doesn't force a conversion and isn't sent to PlaybackInfo.
+    var hlsSub: Int? = nil
     var id: String { item.id }
     var transcode: Bool { audio != nil || sub != nil || maxBitrate != nil }
 }
@@ -83,6 +86,8 @@ struct MStream: Decodable, Identifiable {
     var Title: String? = nil
     /// Audio: "5.1", "stereo"… (decoded when present)
     var ChannelLayout: String? = nil
+    /// A separate subtitle file next to the video (decoded when present)
+    var IsExternal: Bool? = nil
     var id: Int { Index }
 }
 
@@ -1270,12 +1275,13 @@ final class Emby: ObservableObject {
 
     /// The server ignores the requested subtitle and burns in the user's default track,
     /// so force the chosen track into the transcode URL (or strip subtitles when "Off").
-    static func fixSubtitle(_ url: String, _ sub: Int?) -> String {
+    /// `method`: "Encode" burns the track in; "Hls" adds it to the master playlist as WebVTT segments.
+    static func fixSubtitle(_ url: String, _ sub: Int?, method: String = "Encode") -> String {
         guard var c = URLComponents(string: url) else { return url }
         var q = (c.queryItems ?? []).filter { $0.name != "SubtitleStreamIndex" && $0.name != "SubtitleMethod" }
         if let sub {
             q.append(URLQueryItem(name: "SubtitleStreamIndex", value: String(sub)))
-            q.append(URLQueryItem(name: "SubtitleMethod", value: "Encode"))
+            q.append(URLQueryItem(name: "SubtitleMethod", value: method))
         }
         c.queryItems = q
         return encodePlus(c) ?? url
@@ -1286,6 +1292,19 @@ final class Emby: ObservableObject {
     /// `upTo`: only the cues up to this many seconds. The server reads an embedded track from the start of the
     /// file up to there and stops (about a second per minute of film), so the first minutes come back quickly; the
     /// start position it takes is ignored. Whole tracks are kept on disk, so a film opened again has them at once.
+    /// The subtitle a stream URL asks for: a burned-in track (`sub`) wins, else an in-stream one (`hlsSub`).
+    static func streamSubtitle(_ req: PlayRequest) -> (index: Int?, method: String) {
+        if let s = req.sub { return (s, "Encode") }
+        if let s = req.hlsSub { return (s, "Hls") }
+        return (nil, "Encode")
+    }
+
+    /// Applies `streamSubtitle` to a stream URL the server gave.
+    static func subtitleURL(_ url: String, _ req: PlayRequest) -> String {
+        let s = streamSubtitle(req)
+        return fixSubtitle(url, s.index, method: s.method)
+    }
+
     func subtitleCues(_ itemId: String, _ sourceId: String?, _ index: Int, upTo: Double? = nil) async -> [Cue]? {
         var sid = sourceId
         if sid == nil { sid = await full(itemId)?.MediaSources?.first?.Id }
@@ -1368,7 +1387,9 @@ final class Emby: ObservableObject {
             // macOS can't decode 10-bit H.264 (Hi10P): have the server convert it instead of passing it through
             "CodecProfiles": [["Type": "Video", "Codec": "h264", "Conditions": [
                 ["Condition": "LessThanEqual", "Property": "VideoBitDepth", "Value": "8", "IsRequired": false]]]],
-            "SubtitleProfiles": ["srt", "subrip", "ass", "ssa", "vtt", "pgs", "pgssub", "dvdsub"].map { ["Format": $0, "Method": "Encode"] }
+            // vtt/Hls: embedded text tracks can come inside the HLS stream (see PlayRequest.hlsSub)
+            "SubtitleProfiles": [["Format": "vtt", "Method": "Hls"]]
+                + ["srt", "subrip", "ass", "ssa", "vtt", "pgs", "pgssub", "dvdsub"].map { ["Format": $0, "Method": "Encode"] }
         ]
         var qi = [URLQueryItem(name: "UserId", value: userId),
                   URLQueryItem(name: "IsPlayback", value: "true"),
@@ -1409,13 +1430,16 @@ final class Emby: ObservableObject {
             }
             if let t = src["TranscodingUrl"] as? String {
                 // (no width cap when a 4K HEVC video may pass through unchanged: the cap would force a conversion)
-                let capped = Self.capConversion(Self.fixSubtitle(t, req.sub), maxWidth: hevc ? nil : maxWidth,
+                let capped = Self.capConversion(Self.subtitleURL(t, req), maxWidth: hevc ? nil : maxWidth,
                                                 maxBitrate: req.maxBitrate ?? Self.defaultConversionBitrate)
                 return absolute(capped, noCopy: reencode)
             }
-            if let t = src["DirectStreamUrl"] as? String { return absolute(t, noCopy: reencode) }
+            if let t = src["DirectStreamUrl"] as? String {
+                return absolute(req.hlsSub != nil ? Self.subtitleURL(t, req) : t, noCopy: reencode)
+            }
         }
-        let fallback = "\(server)/Videos/\(id)/master.m3u8?MediaSourceId=\(req.sourceId ?? id)&DeviceId=\(deviceId)&PlaySessionId=\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))&VideoCodec=h264&AudioCodec=aac&\(keyName)=\(token)"
+        let fallback0 = "\(server)/Videos/\(id)/master.m3u8?MediaSourceId=\(req.sourceId ?? id)&DeviceId=\(deviceId)&PlaySessionId=\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))&VideoCodec=h264&AudioCodec=aac&\(keyName)=\(token)"
+        let fallback = req.hlsSub != nil ? Self.subtitleURL(fallback0, req) : fallback0
         return URL(string: reencode ? Self.withoutVideoCopy(fallback) : fallback)
     }
 }
