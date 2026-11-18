@@ -448,7 +448,7 @@ struct ClassicTopNavButtons: View {
         }
         .padding(4)
         .frame(height: 44)
-        .classicClearGlass()
+        .classicTabBarGlass()
 
     }
 }

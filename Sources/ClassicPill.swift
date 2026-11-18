@@ -43,11 +43,13 @@ struct ClassicGlassPillStyle: ViewModifier {
     /// Set: this tall; with `iconOnly` a circle showing just the icon (the title is the tooltip).
     var size: CGFloat? = nil
     var iconOnly = true
+    /// Tabs and segment selections: no hover tint and glass that doesn't react to the pointer (owner)
+    var quiet = false
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     func body(content: Content) -> some View {
         styled(content)
-            .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
+            .onHover { h in if !quiet { withAnimation(.easeOut(duration: 0.15)) { hover = h } } }
     }
     /// Under the mouse: Settings → General → Hover effect (fogged mirror or soft accent glow).
     var hoverTint: some View { ClassicHoverEffect(shown: hover).opacity(hover ? 1 : 0) }
@@ -59,7 +61,7 @@ struct ClassicGlassPillStyle: ViewModifier {
                 .background(hoverTint)
                 .background(ClassicGlassBacking(shape: Capsule()))
                 .background(ClassicGlassFrost(shape: Capsule()))   // Settings → General → Glass
-                .glassEffect(.clear.interactive(), in: Capsule())   // the clearest glass
+                .glassEffect(quiet ? .clear : .clear.interactive(), in: Capsule())   // the clearest glass
         } else {
             sized(content).glossyLettering().background(hoverTint).background(ClassicGlassPill())
                 .background(ClassicGlassFrost(shape: Capsule()))
@@ -326,13 +328,15 @@ extension View {
             .shadow(color: .black.opacity(0.6), radius: 3, x: 1, y: 3)
     }
     func classicClearGlass() -> some View { modifier(ClassicClearGlass(shape: Capsule())) }
+    /// The glass container behind tabs and segment pickers: doesn't react to the pointer (owner: no hover change)
+    func classicTabBarGlass() -> some View { modifier(ClassicClearGlass(shape: Capsule(), interactive: false)) }
     /// The banner Play button's glass pill, only when `on` (the selected top-bar section).
     @ViewBuilder func classicSelectedPill(_ on: Bool) -> some View {
-        if on { classicGlassPill() } else { self }
+        if on { modifier(ClassicGlassPillStyle(quiet: true)) } else { self }
     }
     /// The selected option of a strip of choices (top bar sections, view switches): Play-button glass.
     @ViewBuilder func classicSelectedGlass(_ on: Bool) -> some View {
-        if on { modifier(ClassicClearGlass(shape: Capsule())) } else { self }
+        if on { modifier(ClassicClearGlass(shape: Capsule(), interactive: false)) } else { self }
     }
     /// Classic pill look: white label on accent glass.
     func classicGlassPill(size: CGFloat? = nil, iconOnly: Bool = true) -> some View {
