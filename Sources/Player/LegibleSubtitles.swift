@@ -185,7 +185,13 @@ extension PlayerModel {
     private func inStreamFallback(_ idx: Int, why: String) {
         dlog("subs: in-stream unavailable (\(why)) → extraction")
         inStreamUnsupported = true
+        if let emby = embyRef { Self.hlsSubsMissing.insert(emby.server) }
         stopInStream()
+        if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && !directPlaySession) == .restartReencode {
+            dlog("subs: extraction (track \(idx)): restarting re-encoded (video copy started mid-file)")
+            Task { @MainActor [weak self] in await self?.restartForCoveDrawnSub(idx) }
+            return
+        }
         if let emby = embyRef, let r = currentRequest { loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
     }
 
