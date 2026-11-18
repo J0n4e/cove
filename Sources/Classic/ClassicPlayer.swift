@@ -349,7 +349,7 @@ struct ClassicPlayerView: View {
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
-            if !PlayerUIModel.takeQuietStart() { poke() }   // next episode: no controls
+            if PlayerUIModel.takeQuietStart() { ui.startQuiet() } else { poke() }   // next episode: no controls
             await ui.loadEpisodes(emby, item)
         }
         .task { await model.start(emby, req) }
@@ -971,7 +971,7 @@ extension ClassicPlayerView {
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").cvFont(12, weight: .semibold).foregroundColor(.secondary)
+                Text("Up next").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.88))
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
                     .cvFont(15, weight: .semibold).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
@@ -991,6 +991,7 @@ extension ClassicPlayerView {
                 UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: classicSecsLeft, duration: ui.player.duration)
             }
         }
+        .modifier(Glass3DReadableText())   // the top bar tabs' text treatment (owner)
         .padding(12)
         .glassPanel()
         .environment(\.colorScheme, .dark)

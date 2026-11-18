@@ -394,7 +394,7 @@ struct PlayerView: View {
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
-            if !PlayerUIModel.takeQuietStart() { poke() }   // next episode: no controls
+            if PlayerUIModel.takeQuietStart() { ui.startQuiet() } else { poke() }   // next episode: no controls
             await ui.loadEpisodes(emby, item)
         }
         .task { await model.start(emby, req) }
