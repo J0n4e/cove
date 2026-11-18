@@ -1,0 +1,179 @@
+import SwiftUI
+
+/// Now Playing → Users (admins with Playback Reporting): a summary row, then one glass card per server user,
+/// most watch time first. Same glass cards, readable text and range pill as Overview.
+struct StatsUsersView: View {
+    @ObservedObject var model: StatsModel
+
+    var body: some View {
+        StatsGate(model: model) {
+            VStack(alignment: .leading, spacing: 20) {
+                StatsRangePills(range: $model.range)
+                if model.usersLoading && model.usersRange != model.range { Spinner().frame(maxWidth: .infinity).padding(60) }
+                else if model.users.isEmpty {
+                    StatsStateCard(symbol: "person.2", title: "No users found",
+                                   message: "The server didn't list any users. Open this tab again to retry.")
+                } else {
+                    StatsUsersSummaryRow(totals: StatsUsersAggregate.totals(model.users))
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 680), spacing: 18)], alignment: .leading, spacing: 18) {
+                        ForEach(model.users) { StatsUserCard(user: $0) }
+                    }
+                }
+            }
+            .task(id: model.range) { await model.loadUsers() }
+        }
+    }
+}
+
+private struct StatsUsersSummaryRow: View {
+    let totals: StatsUsersTotals
+    var body: some View {
+        let avgHelp = "Averaged over the \(totals.activeUsers) user\(totals.activeUsers == 1 ? "" : "s") with at least one play in this range"
+        HStack(spacing: 14) {
+            StatsUsersSummaryTile(label: "Total users", value: "\(totals.totalUsers)", help: "Every user on this server")
+            StatsUsersSummaryTile(label: "Most active", value: totals.mostActive ?? "—", help: "Most watch time in this range")
+            StatsUsersSummaryTile(label: "Avg plays / user", value: totals.avgPlaysText, help: avgHelp)
+            StatsUsersSummaryTile(label: "Avg hours / user", value: totals.avgHoursText, help: avgHelp)
+        }
+    }
+}
+
+private struct StatsUsersSummaryTile: View {
+    let label: String, value: String, help: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
+            Text(value).cvFont(26, weight: .heavy).lineLimit(1).minimumScaleFactor(0.6).modifier(Glass3DReadableText())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).statsCard().help(help)
+    }
+}
+
+/// Softened tints that sit on the glass (Movies = accent, Episodes = blue, play types green / blue / orange).
+enum StatsUsersStyle {
+    static let episodes = Color(red: 0.45, green: 0.65, blue: 1.0)
+    static let directPlay = Color(red: 0.40, green: 0.80, blue: 0.52)
+    static let directStream = Color(red: 0.45, green: 0.65, blue: 1.0)
+    static let transcode = Color(red: 1.0, green: 0.66, blue: 0.32)
+    static let avatars: [Color] = [.init(red: 0.85, green: 0.35, blue: 0.40), .init(red: 0.40, green: 0.62, blue: 0.95),
+                                   .init(red: 0.45, green: 0.75, blue: 0.50), .init(red: 0.90, green: 0.62, blue: 0.30),
+                                   .init(red: 0.68, green: 0.50, blue: 0.92), .init(red: 0.30, green: 0.72, blue: 0.75)]
+}
+
+private struct StatsUserCard: View {
+    @EnvironmentObject var emby: Emby
+    let user: StatsUserSummary
+    @AppStorage("accent") private var accentName = "red"
+    @State private var hover = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                StatsUserAvatar(user: user)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(user.name).cvFont(Glass3DTokens.Text.cardTitle + 1, weight: .bold).lineLimit(1).modifier(Glass3DReadableText())
+                    Text(seenLine).cvFont(Glass3DTokens.Text.meta - 1).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                StatsUserBadge(text: emby.isJellyfin ? "JELLYFIN" : "EMBY",
+                               tint: emby.isJellyfin ? Color(red: 0.68, green: 0.50, blue: 0.92) : StatsUsersStyle.directPlay)
+                if let local = user.isLocal {
+                    StatsUserBadge(text: local ? "Local" : "Remote", tint: local ? StatsUsersStyle.directStream : Theme.accent(accentName))
+                }
+            }
+            HStack(spacing: 8) {
+                StatsUserTile(value: "\(user.plays)", label: "Plays")
+                StatsUserTile(value: StatsAggregate.hoursText(user.seconds), label: "Watch time")
+                StatsUserTile(value: "\(user.movies)", label: "Movies", tint: Theme.accent(accentName))
+                StatsUserTile(value: "\(user.episodes)", label: "Episodes", tint: StatsUsersStyle.episodes)
+                StatsUserTile(value: "\(user.titles)", label: "Titles")
+                StatsUserTile(value: user.topDevice ?? "—", label: "Device", small: true)
+            }
+            StatsPlayTypesBar(shares: user.methods)
+        }
+        .statsCard()
+        .opacity(user.plays == 0 ? 0.7 : 1)
+        .onHover { hover = $0 }
+    }
+
+    /// "Last seen: Nov 14, 00:01 · IP: 217.84.235.168" — the IP only while the pointer is on the card.
+    private var seenLine: String {
+        var s = "Last seen: " + (user.lastSeen.map { $0.formatted(.dateTime.month(.abbreviated).day().hour().minute()) } ?? "never")
+        if let a = user.address { s += hover ? " · IP: \(a)" : " · IP: hover to show" }
+        return s
+    }
+}
+
+private struct StatsUserAvatar: View {
+    @EnvironmentObject var emby: Emby
+    let user: StatsUserSummary
+    var body: some View {
+        let color = StatsUsersStyle.avatars[StatsUsersAggregate.colorIndex(user.name, count: StatsUsersStyle.avatars.count)]
+        let initials = ZStack {
+            Circle().fill(color.opacity(0.55))
+            Text(StatsUsersAggregate.initials(user.name)).cvFont(15, weight: .bold).foregroundColor(.white)
+        }
+        Group {
+            if let tag = user.imageTag, let url = URL(string: "\(emby.server)/Users/\(user.id)/Images/Primary?maxWidth=96&quality=80&tag=\(tag)") {
+                CachedImage(url: url) { img in img.resizable().aspectRatio(contentMode: .fill) } placeholder: { initials }
+            } else { initials }
+        }
+        .frame(width: 42, height: 42).clipShape(Circle())
+        .overlay(Circle().strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.75))
+    }
+}
+
+private struct StatsUserBadge: View {
+    let text: String, tint: Color
+    var body: some View {
+        Text(text).cvFont(10, weight: .bold).foregroundColor(.white).lineLimit(1)
+            .padding(.horizontal, 7).frame(height: 18)
+            .background(Capsule().fill(tint.opacity(0.35)))
+            .overlay(Capsule().strokeBorder(tint.opacity(0.6), lineWidth: 0.5))
+    }
+}
+
+private struct StatsUserTile: View {
+    let value: String, label: String
+    var tint: Color? = nil
+    var small = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).cvFont(small ? 13 : 18, weight: .heavy).lineLimit(1).minimumScaleFactor(0.6)
+                .foregroundColor(tint ?? Glass3DTokens.Grey.primary).modifier(Glass3DReadableText())
+            Text(label).cvFont(10, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+        .padding(.horizontal, 9).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous)
+            .fill(Color.white.opacity(Glass3DTokens.Fill.subtle)))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous)
+            .strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.subtle), lineWidth: 0.5))
+        .help(value + " " + label.lowercased())
+    }
+}
+
+/// "Play types:" a thin stacked bar (Direct play / Direct stream / Transcode) with the percents.
+private struct StatsPlayTypesBar: View {
+    let shares: StatsMethodShares
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("Play types:").cvFont(Glass3DTokens.Text.meta - 1, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
+            GeometryReader { g in
+                HStack(spacing: 0) {
+                    if shares.isEmpty { Color.white.opacity(0.1) }
+                    else {
+                        StatsUsersStyle.directPlay.frame(width: g.size.width * shares.directPlay)
+                        StatsUsersStyle.directStream.frame(width: g.size.width * shares.directStream)
+                        StatsUsersStyle.transcode.frame(width: g.size.width * shares.transcode)
+                    }
+                }
+                .opacity(0.8).clipShape(Capsule())
+            }
+            .frame(height: 6)
+            Text(shares.isEmpty ? "—" : shares.text).cvFont(Glass3DTokens.Text.meta - 1).foregroundColor(Glass3DTokens.Grey.secondary)
+                .lineLimit(1).fixedSize()
+        }
+        .help("Green: Direct play · Blue: Direct stream · Orange: Transcode")
+    }
+}

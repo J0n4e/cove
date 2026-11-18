@@ -16,6 +16,7 @@ struct StatsPlay: Identifiable, Hashable, Sendable {
     let device: String
     let method: String
     let seconds: Int
+    var remoteAddress: String = ""   // Emby logs it; Jellyfin's GetItems doesn't send it
 
     var isMovie: Bool { type.lowercased() == "movie" }
     var isEpisode: Bool { type.lowercased() == "episode" }
@@ -101,7 +102,7 @@ enum StatsDecode {
                              start: time(string(r["Time"]), day: day) ?? Date.distantPast, day: day,
                              itemId: itemId, name: name.isEmpty ? "Unknown" : name, type: string(r["Type"]),
                              client: string(r["Client"]), device: string(r["Device"]), method: string(r["Method"]),
-                             seconds: int(r["Duration"]))
+                             seconds: int(r["Duration"]), remoteAddress: string(r["RemoteAddress"]))
         }
     }
 
