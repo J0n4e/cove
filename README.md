@@ -76,7 +76,7 @@ Switching is instant and swaps the whole app, including the Dock icon.
 - Sign in to one or more Emby or Jellyfin servers (http or https). Switch between them in Settings → Servers.
 - Home page with a rotating featured banner (white text with a black outline over the picture), Continue Watching, and rows for each library.
 - **Continue Watching** cards show the title bottom-left, "S3·E3 · 42m left" (or the time left for a movie) top-left and a white progress ring bottom-right. The play button resumes; clicking the card opens the series page on that season (or the movie page).
-- **Navigation:** a sidebar, or a **top bar** under the title bar: the app name on the left, a pill with Home, Favorites, Now Playing, your libraries in the middle, search and Settings on the right. Choose it under Settings → General → Appearance → Navigation.
+- **Navigation:** a sidebar, or a **top bar** under the title bar: the app name on the left, a pill with Home, Favorites, Activity, your libraries in the middle, search and Settings on the right. Choose it under Settings → General → Appearance → Navigation.
 - Library pages:
   - grid or list view
   - sort and filter (watched, unwatched, genre), with an A–Z jump bar
@@ -86,7 +86,7 @@ Switching is instant and swaps the whole app, including the Dock icon.
 - **Actor pages:** click anyone in Cast & Crew to see all their movies and shows in your libraries.
 - **Favorites** page like Emby: Favorite Movies, Favorite Shows and Favorite Collections rows; each heading opens the full list. Shows display their run (e.g. 2007 – 2019).
 - ♡ and ✓ badges on posters toggle favorite and watched with one click (an empty ♡ or a dim ✓ when not set).
-- **Now Playing:** every active stream on the server, with its title, position, direct play or transcode, client, device, user and IP.
+- **Activity → Now Playing:** every active stream on the server, with its title, position, direct play or transcode, client, device, user and IP.
 - Rows scroll with the arrows (one item per click; each arrow hides when that end is reached), by dragging with the mouse, or with the trackpad.
 - Search across movies, shows and people. Matching people appear in their own row and open their actor page.
 - Posters, seasons and episodes lift on hover; episodes show a play button.

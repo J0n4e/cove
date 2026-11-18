@@ -45,6 +45,10 @@ final class PlayerUIModel: ObservableObject {
     @Published var pickerSeason = 1
     @Published var upNextCancelled = false
     var switching = false
+    /// Collection mode (Play collection): the films replace the episode list (CollectionPlay.swift)
+    @Published var collection: CollectionQueue?
+    /// Jellyfin's credits marker for a film in collection mode (Emby's is in the chapters)
+    @Published var creditsMarker: Double?
 
     // Esc / F key monitor
     private var keyMonitor: Any?
@@ -256,7 +260,7 @@ final class PlayerUIModel: ObservableObject {
     func prevEp(_ item: Item) -> Item? { index(of: item).flatMap { $0 > 0 ? episodes[$0 - 1] : nil } }
     func nextEp(_ item: Item) -> Item? { index(of: item).flatMap { $0 + 1 < episodes.count ? episodes[$0 + 1] : nil } }
     /// Previous / next / episode list buttons.
-    func hasEpisodeList(_ item: Item) -> Bool { item.isEpisode && episodes.count > 1 }
+    func hasEpisodeList(_ item: Item) -> Bool { (item.isEpisode || collection != nil) && episodes.count > 1 }
 
     /// The "Up next" card: the last 30 seconds of an episode longer than two minutes with a next one.
     nonisolated static func showUpNext(isEpisode: Bool, hasNext: Bool, cancelled: Bool, time: Double, duration: Double) -> Bool {
@@ -265,7 +269,11 @@ final class PlayerUIModel: ObservableObject {
     }
 
     func showUpNext(_ item: Item) -> Bool {
-        Self.showUpNext(isEpisode: item.isEpisode, hasNext: nextEp(item) != nil, cancelled: upNextCancelled,
+        if collection != nil {   // collection mode: from the credits on
+            return CollectionPlay.showUpNext(hasNext: nextEp(item) != nil, cancelled: upNextCancelled, time: player.time,
+                                             duration: player.duration, marker: creditsMarker ?? player.creditsStart)
+        }
+        return Self.showUpNext(isEpisode: item.isEpisode, hasNext: nextEp(item) != nil, cancelled: upNextCancelled,
                         time: player.time, duration: player.duration)
     }
 
@@ -279,6 +287,7 @@ final class PlayerUIModel: ObservableObject {
     }
 
     func loadEpisodes(_ emby: Emby, _ item: Item) async {
+        if let c = collection { episodes = c.items; await loadCredits(emby, item); return }
         if item.isEpisode, let sid = item.SeriesId { episodes = await emby.episodes(sid) }
     }
 

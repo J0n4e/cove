@@ -1,0 +1,97 @@
+import SwiftUI
+
+// Play collection (Glass3D): the collection page's Play collection / Resume <film> buttons and the player's
+// Collection panel (the Episodes panel's look). Logic in Sources/Shared/CollectionPlay.swift.
+
+/// The collection page's play buttons: "Play collection" (film 1 from the start) and, when a film of the collection
+/// is in progress, "Resume <film> (1:12:30)", which continues the collection from that film.
+struct CollectionPlayButtons: View {
+    @EnvironmentObject var emby: Emby
+    let collection: Item
+    /// The collection's films in the server's order
+    let films: [Item]
+
+    var body: some View {
+        let resume = CollectionPlay.resumeIndex(films: films, position: { emby.resumeAt($0) }, played: { emby.isPlayed($0) })
+        HStack(spacing: 10) {
+            Button { start(at: 0, from: 0) } label: {
+                Label("Play collection", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+            }.buttonStyle(HoverButton()).disabled(films.isEmpty)
+            if let i = resume {
+                let pos = emby.resumeAt(films[i])
+                Button { start(at: i, from: pos) } label: {
+                    Label(CollectionPlay.resumeLabel(films[i], position: pos), systemImage: "arrow.uturn.forward")
+                        .lineLimit(1).classicGlassPill(size: 44, iconOnly: false)
+                }.buttonStyle(HoverButton())
+            }
+        }
+    }
+
+    private func start(at i: Int, from pos: Double) {
+        guard let q = CollectionPlay.queue(collection: collection, films: films, start: i) else { return }
+        emby.playCollection(q, start: pos)
+    }
+}
+
+/// The player's Collection panel: the collection's films (poster, title, year, ✓ watched), the playing one
+/// highlighted; a click plays that film, still in collection mode.
+struct CollectionPanel: View {
+    @EnvironmentObject var emby: Emby
+    @ObservedObject var ui: PlayerUIModel
+    let current: Item
+    let classic: Bool
+    let play: (Item) -> Void
+    @AppStorage("accent") private var accentName = "red"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(ui.collection?.name ?? "Collection").cvFont(18, weight: .bold).lineLimit(1)
+                .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(ui.episodes) { film in row(film).id(film.Id) }
+                    }.padding(.bottom, 10)
+                }
+                .classicScrollBars()
+                .onAppear { proxy.scrollTo(current.Id, anchor: .center) }
+            }
+        }
+        .frame(width: 400)
+        .modifier(PanelSurface(classic: classic))
+        .environment(\.colorScheme, .dark)
+        .onTapGesture {}
+    }
+
+    private func row(_ film: Item) -> some View {
+        let isCurrent = film.Id == current.Id
+        let played = emby.isPlayed(film)
+        return Button { if !isCurrent { ui.panel = nil; play(film) } } label: {
+            HStack(spacing: 12) {
+                CachedImage(url: emby.image(film.Id, width: 200)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: { Color.white.opacity(0.08) }
+                .frame(width: 46, height: 68).clipped().cornerRadius(5)
+                .overlay(alignment: .topTrailing) {
+                    if played && !isCurrent {
+                        Image(systemName: "checkmark.circle.fill").cvFont(12).foregroundColor(.white).shadow(radius: 2).padding(3)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(film.Name).cvFont(14, weight: .semibold).lineLimit(2)
+                    if let y = film.ProductionYear { Text(String(y)).cvFont(12).foregroundColor(.secondary) }
+                }
+                Spacer(minLength: 0)
+                if isCurrent { Image(systemName: "speaker.wave.2.fill").cvFont(14) }
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 14).padding(.vertical, 6)
+            .background {
+                if isCurrent {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
+                }
+            }
+            .contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+}

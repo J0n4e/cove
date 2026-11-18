@@ -143,12 +143,12 @@ struct HomeView: View {
         if abs(h - titleBarH) > 0.5 { titleBarH = h }
     }
 
-    /// Favorites or Now Playing in the sidebar, wherever Settings → Libraries placed it.
+    /// Favorites or Activity in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
         if id == NavOrder.favorites && showFavorites {
             sideLabel("Favorites", "heart").modifier(RootTap(id: "favorites", sel: sel, action: popToRoot)).tag("favorites")
         } else if id == NavOrder.nowPlaying && showNowPlaying {
-            sideLabel("Now Playing", "dot.radiowaves.left.and.right")
+            sideLabel(ActivitySection.title, ActivitySection.icon)
                 .modifier(RootTap(id: "nowplaying", sel: sel, action: popToRoot))
                 .badge(activeCount)
                 .tag("nowplaying")   // tag last, or the badge hides it and the row can't be selected
@@ -476,11 +476,11 @@ struct TopNavButtons: View {
         default: return "folder"
         }
     }
-    /// Favorites or Now Playing, wherever Settings → Libraries placed it.
+    /// Favorites or Activity, wherever Settings → Libraries placed it.
     @ViewBuilder func section(_ id: String) -> some View {
         if id == NavOrder.favorites && showFavorites { item("Favorites", "favorites", "heart") }
         else if id == NavOrder.nowPlaying && showNowPlaying {
-            item("Now Playing", "nowplaying", "dot.radiowaves.left.and.right", badge: nav.activeCount)
+            item(ActivitySection.title, "nowplaying", ActivitySection.icon, badge: nav.activeCount)
         }
     }
     var body: some View {

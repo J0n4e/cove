@@ -359,7 +359,7 @@ struct GeneralSettings: View {
             }.disabled(navStyle != "topbar")
             PrefNote("Top bar replaces the sidebar with a bar across the top. Settings are in the Cove menu (⌘,).")
             PrefRow(label: "Also show") { Toggle("Recently Added", isOn: $showRecent) }
-            PrefNote("Home is always there. Libraries, Favorites and Now Playing are chosen in Libraries.")
+            PrefNote("Home is always there. Libraries, Favorites and Activity are chosen in Libraries.")
         }
         PrefSection(title: "Posters", last: true) {
             PrefRow(label: "Show under poster") {
@@ -602,7 +602,7 @@ struct LibrariesSettings: View {
                 PrefRow(label: "View") { menuPicker($favLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             }
         } else if selectedLib == NavOrder.nowPlaying {
-            PrefSection(title: "Now Playing") { PrefNote("Now Playing shows what is playing on your server right now. Move it with its ≡ handle.") }
+            PrefSection(title: ActivitySection.title) { PrefNote("Activity shows what is playing on your server right now, plus your stats and history. Move it with its ≡ handle.") }
         } else if let i = emby.libs.firstIndex(where: { $0.id == selectedLib }) ?? (emby.libs.isEmpty ? nil : 0) {
             libraryOptions(i, emby.libs[i])
         }
@@ -708,8 +708,8 @@ struct LibrariesSettings: View {
         let shown = fav ? $showFavorites : $showNowPlaying
         return HStack {
             dragHandle(id, on: on)
-            Image(systemName: fav ? "heart" : "dot.radiowaves.left.and.right").foregroundColor(on ? .white : blue).frame(width: 20)
-            Text(fav ? "Favorites" : "Now Playing").foregroundColor(shown.wrappedValue ? .primary : .secondary).lineLimit(1)
+            Image(systemName: fav ? "heart" : ActivitySection.icon).foregroundColor(on ? .white : blue).frame(width: 20)
+            Text(fav ? "Favorites" : ActivitySection.title).foregroundColor(shown.wrappedValue ? .primary : .secondary).lineLimit(1)
             Spacer()
             Toggle("", isOn: shown).labelsHidden().frame(width: 70)
             Color.clear.frame(width: 60, height: 1)

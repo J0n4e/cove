@@ -264,47 +264,57 @@ struct ClassicHoverEffect: View {
         if style == "glass" {
             Glass3DLiquidLens(shown: shown)   // Liquid lens (replaces the old flat "Glass pill")
         } else if style == "glow" {
-            Capsule()
-                .fill(RadialGradient(colors: [Theme.accent(accentName).opacity(0.5), Theme.accent(accentName).opacity(0.12)],
-                                     center: .bottom, startRadius: 2, endRadius: 50))
-                .blur(radius: 6)
+            SoftAccentGlow(shape: Capsule())
         } else {
             FoggedGlass(shape: Capsule())
         }
     }
 }
 
-/// A fogged mirror: frosted haze over what is behind, uneven patches of white mist (denser low down, as fog
-/// settles), a faint tint of the accent, and a soft clear edge where it fades out. Only drawn while hovered.
+/// A fogged mirror (polished): an even frosted pane instead of random mist patches. What's behind goes soft,
+/// a milky layer that is denser at the bottom (as fog settles), a light top edge like breath on glass catching
+/// the light, a faint accent breath, and a hairline inner rim. Only drawn while hovered.
 struct FoggedGlass<S: Shape>: View {
     let shape: S
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
         let accent = Theme.accent(accentName)
-        GeometryReader { g in
-            let w = g.size.width, h = g.size.height
-            ZStack {
-                shape.fill(.ultraThinMaterial)                       // frosted: what is behind goes soft
-                shape.fill(Color.white.opacity(0.08))                // thin milky haze
-                // uneven mist: thick clouds in some places, almost clear in others, heavier low down
-                Ellipse().fill(Color.white.opacity(0.32)).frame(width: w * 0.42, height: h * 1.0)
-                    .position(x: w * 0.18, y: h * 0.85).blur(radius: 5)
-                Ellipse().fill(Color.white.opacity(0.26)).frame(width: w * 0.30, height: h * 0.8)
-                    .position(x: w * 0.62, y: h * 0.95).blur(radius: 4)
-                Ellipse().fill(Color.white.opacity(0.20)).frame(width: w * 0.22, height: h * 0.6)
-                    .position(x: w * 0.88, y: h * 0.45).blur(radius: 4)
-                Ellipse().fill(Color.white.opacity(0.14)).frame(width: w * 0.28, height: h * 0.45)
-                    .position(x: w * 0.42, y: h * 0.15).blur(radius: 5)
-                Circle().fill(Color.white.opacity(0.22)).frame(width: h * 0.35)
-                    .position(x: w * 0.75, y: h * 0.3).blur(radius: 2)
-                // clearer streaks wiped through the fog
-                Capsule().fill(Color.black.opacity(0.18)).frame(width: w * 0.5, height: h * 0.14)
-                    .rotationEffect(.degrees(-8)).position(x: w * 0.5, y: h * 0.5).blur(radius: 3)
-                shape.fill(accent.opacity(0.12))                     // a breath of the accent
-                shape.fill(LinearGradient(colors: [.clear, .white.opacity(0.08)], startPoint: .top, endPoint: .bottom))
-            }
-            .clipShape(shape)
+        ZStack {
+            shape.fill(.ultraThinMaterial)                                  // frosted: what is behind goes soft
+            shape.fill(LinearGradient(stops: [.init(color: .white.opacity(0.10), location: 0),
+                                              .init(color: .white.opacity(0.16), location: 0.55),
+                                              .init(color: .white.opacity(0.24), location: 1)],
+                                      startPoint: .top, endPoint: .bottom))  // milky, settling low
+            shape.fill(accent.opacity(0.08))                                 // a breath of the accent
+            shape.fill(LinearGradient(colors: [.white.opacity(0.22), .clear], startPoint: .top, endPoint: .center))
+                .blendMode(.plusLighter).opacity(0.6)                        // light on the top edge
+            shape.stroke(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.10)],
+                                        startPoint: .top, endPoint: .bottom), lineWidth: 1.5)   // half clipped: a 0.75 pt inner rim
         }
+        .clipShape(shape)
+        .compositingGroup()
+    }
+}
+
+/// Soft glow (polished): the accent light rises from the bottom inside the pill and fades out upward, with a
+/// thin accent rim and a gentle halo around it, instead of a blurred blob that bled past the edges.
+struct SoftAccentGlow<S: Shape>: View {
+    let shape: S
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        let a = Theme.accent(accentName)
+        ZStack {
+            shape.fill(LinearGradient(stops: [.init(color: a.opacity(0.0), location: 0),
+                                              .init(color: a.opacity(0.18), location: 0.5),
+                                              .init(color: a.opacity(0.42), location: 1)],
+                                      startPoint: .top, endPoint: .bottom))
+            shape.fill(RadialGradient(colors: [a.opacity(0.35), .clear], center: .bottom,
+                                      startRadius: 0, endRadius: 60))
+            shape.stroke(LinearGradient(colors: [a.opacity(0.25), a.opacity(0.75)],
+                                        startPoint: .top, endPoint: .bottom), lineWidth: 2)   // half clipped: a 1 pt inner rim
+        }
+        .clipShape(shape)
+        .shadow(color: a.opacity(0.45), radius: 8, y: 2)                   // a soft halo, not a smear
     }
 }
 

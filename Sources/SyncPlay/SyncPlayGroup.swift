@@ -615,6 +615,16 @@ extension SyncPlayGroup {
         return true
     }
 
+    /// Play collection in a group: the whole collection as the group's queue, starting at `index`.
+    func playQueue(_ ids: [String], index: Int, startTicks: Int64) {
+        guard isInGroup, !ids.isEmpty else { return }
+        log("SyncPlay: playing a collection (\(ids.count) films) for the group")
+        Task {
+            await post("/SyncPlay/SetNewQueue", ["PlayingQueue": ids, "PlayingItemPosition": min(max(0, index), ids.count - 1),
+                                                 "StartPositionTicks": max(0, startTicks)])
+        }
+    }
+
     /// Dashboard → Play (PlayNow) while in a group (v1.18.8): the group starts the item for everyone, queued as
     /// a group start is (an episode → it and the series' following ones, a movie → itself), at the requested
     /// position. The PlayQueue update that follows loads it here like any group change. False = not in a group.

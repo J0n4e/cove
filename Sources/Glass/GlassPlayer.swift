@@ -265,7 +265,7 @@ struct PlayerView: View {
             model.stop()       // marks a finished episode watched (see close())
             let q = UserDefaults.standard.integer(forKey: "defaultQuality")
             emby.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: q > 0 ? q : nil,
-                                       start: emby.resumeAt(ep))
+                                       start: emby.resumeAt(ep), collection: ui.queue(for: ep))
         }
     }
 
@@ -394,6 +394,7 @@ struct PlayerView: View {
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
+            ui.adopt(req)   // Play collection: collection mode (CollectionPlay.swift)
             if PlayerUIModel.takeQuietStart() { ui.startQuiet() } else { poke() }   // next episode: no controls
             await ui.loadEpisodes(emby, item)
         }
@@ -549,7 +550,7 @@ struct PlayerView: View {
                             .opacity(nextEp == nil ? 0.35 : 1).disabled(nextEp == nil).helpLabel("Next")
                         glassIcon("rectangle.stack", on: ui.panel == .episodes) {
                             withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
-                        }.helpLabel("Episodes (E)")
+                        }.helpLabel(ui.listHelp)
                     }
                     if !model.subStreams.isEmpty { subtitleMenu.padding(.horizontal, 5) }
                     qualityMenu.padding(.horizontal, 5)
@@ -614,7 +615,7 @@ struct PlayerView: View {
         case .appearance:
             HStack { Spacer(); appearancePanel }.transition(.move(edge: .trailing))
         case .episodes:
-            HStack { Spacer(); episodesPanel }
+            HStack { Spacer(); if ui.inCollection { collectionPanel } else { episodesPanel } }
                 .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
         case .chapters:
@@ -833,7 +834,7 @@ extension PlayerView {
             if ui.hasEpisodeList(item) {
                 iconButton("rectangle.stack", size: 18, on: ui.panel == .episodes) {
                     withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
-                }.helpLabel("Episodes (E)")
+                }.helpLabel(ui.listHelp)
             }
             if !model.subStreams.isEmpty { subtitleMenu }
             qualityMenu
@@ -919,13 +920,13 @@ extension PlayerView {
 
     func upNextCard(_ n: Item) -> some View {
         HStack(spacing: 14) {
-            CachedImage(url: emby.image(n.Id, "Primary", width: 400, plain: true)) { img in
+            CachedImage(url: ui.upNextImage(emby, n)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").coveFont(size: 12, weight: .semibold).foregroundColor(.secondary)
-                Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
+                Text(ui.upNextHeading(n)).coveFont(size: 12, weight: .semibold).foregroundColor(.secondary)
+                Text(ui.upNextTitle(n))
                     .coveFont(size: 15, weight: .semibold).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
@@ -941,7 +942,7 @@ extension PlayerView {
                     .helpLabel(emby.syncPlay.group.isInGroup ? GroupUpNext.cancelTip : "Cancel")
                 }
                 // v1.18.8: in a SyncPlay group, the group's countdown (as Glass3D)
-                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: secsLeft, duration: ui.player.duration, glass: true)
+                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: secsLeft, duration: ui.player.duration, glass: true, film: n.`Type` == "Movie")
             }
         }
         .padding(12)
@@ -1205,4 +1206,10 @@ enum KeepAwake {
             id = 0
         }
     }
+}
+
+// MARK: Play collection: the Collection panel in place of Episodes (Glass3DCollectionPlay.swift)
+
+extension PlayerView {
+    var collectionPanel: some View { CollectionPanel(ui: ui, current: item, classic: false) { play($0) } }
 }

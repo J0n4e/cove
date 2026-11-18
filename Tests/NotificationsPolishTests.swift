@@ -27,7 +27,7 @@ final class NotificationsPolishTests: XCTestCase {
         XCTAssertEqual(n[0].body, "3 new episodes · S2:E4–E6")
         XCTAssertEqual(n[0].thread, "s")
         XCTAssertEqual(n[0].target, .series("s"))
-        XCTAssertEqual(n[0].images.first, NewMediaImage(id: "s", kind: "Thumb"))
+        XCTAssertEqual(n[0].images.first, NewMediaImage(id: "s", kind: "Backdrop"))
         XCTAssertTrue(n[0].images.allSatisfy { $0.id == "s" })
     }
 
@@ -57,7 +57,7 @@ final class NotificationsPolishTests: XCTestCase {
         let three = batches((1...3).map { movie("m\($0)") }, movieLib)
         XCTAssertEqual(three.count, 3)
         XCTAssertEqual(three.map(\.target), [.item("m1"), .item("m2"), .item("m3")])
-        XCTAssertEqual(three[0].images.first, NewMediaImage(id: "m1", kind: "Primary"))
+        XCTAssertEqual(three[0].images.first, NewMediaImage(id: "m1", kind: "Backdrop"))
         let four = batches((1...4).map { movie("m\($0)") }, movieLib)
         XCTAssertEqual(four.count, 1)
         XCTAssertEqual(four[0].title, "4 new movies"); XCTAssertEqual(four[0].body, "m1, m2, m3…")
@@ -146,6 +146,6 @@ final class NotificationsPolishTests: XCTestCase {
         src.latestByLib["L2"] = (4...6).map { ep("e\($0)", "s", "Severance", s: 2, e: $0) }
         await svc.check()
         XCTAssertEqual(n.posted.map(\.body), ["3 new episodes · S2:E4–E6"])
-        XCTAssertEqual(src.imageAsked.first?.first, NewMediaImage(id: "s", kind: "Thumb"))
+        XCTAssertEqual(src.imageAsked.first?.first, NewMediaImage(id: "s", kind: "Backdrop"))
     }
 }

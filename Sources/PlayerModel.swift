@@ -115,7 +115,8 @@ final class PlayerModel: ObservableObject {
     var creditsStart: Double? { chapters.first { $0.MarkerType == "CreditsStart" }?.start }
     /// Real chapters with their index on the server (needed for chapter images).
     var chapterList: [(i: Int, c: Chapter)] { chapters.enumerated().filter { !$0.element.isMarker }.map { ($0.offset, $0.element) } }
-    var isTranscoding: Bool { session?.method == "Transcode" }
+    /// Served through the server's HLS pipeline (Direct Stream or Transcode): the server runs a job for it.
+    var isTranscoding: Bool { session?.hls == true }
     var autoSkipIntro: Bool { UserDefaults.standard.object(forKey: "autoSkipIntro") as? Bool ?? true }
 
     var audioStreams: [MStream] { streams.filter { $0.`Type` == "Audio" } }
@@ -187,12 +188,19 @@ final class PlayerModel: ObservableObject {
         await emby.killStaleEncodings()
         guard current() else { return }
         // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
+        // TODO: this re-encodes the video on every resume (cause C in the transcode investigation); keep video
+        // copy and fix the subtitle offset instead, in a separate change.
         let midFile = pendingSeek > 0
         // A 4K HEVC video passes through unchanged when the screen can show it (HDR needs an HDR screen)
         let passHEVC = sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR)
         if sourceIsHEVC { dlog("HEVC source (\(sourceIsHDR ? "HDR" : "SDR"), screen \(Self.screenIsHDR ? "HDR" : "SDR")): \(passHEVC ? "fMP4 pass-through" : "converted")") }
+        // The server must convert the video when HEVC can't pass through (HDR on an SDR screen) or after a
+        // failure; the retry also goes back to stereo AAC, the proven audio (risk control for the audio copy).
+        let mustConvert = forceTranscode || (sourceIsHEVC && !passHEVC)
+        if forceTranscode { dlog("stream: retry after a playback error, forcing a conversion (video + stereo AAC)") }
         let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
-                                                hevc: passHEVC, maxWidth: Self.screenWidth)
+                                                hevc: passHEVC, maxWidth: Self.screenWidth,
+                                                convert: mustConvert, safeAudio: forceTranscode)
         guard let u = resolved else {
             // (a 401 or a server error from PlaybackInfo is shown as is: converting wouldn't help)
             if current(), Self.failureAction(.streamRequest, alreadyConverted: forceTranscode) == .showError {
@@ -200,12 +208,14 @@ final class PlayerModel: ObservableObject {
             }
             return
         }
-        let method = u.absoluteString.contains("Static=true") ? "DirectPlay" : "Transcode"
+        // First guess from the URL; corrected from the server's TranscodingInfo once the stream runs
+        let method = PlayMethod.guess(url: u.absoluteString)
+        streamContainer = emby.lastStreamContainer
         let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u,
                                   server: emby.server, token: emby.token)
         guard current() else {
             // Overtaken while the server prepared this stream: make sure its conversion doesn't keep running
-            if method == "Transcode" { Task { await emby.stopEncoding(ps) } }
+            if ps.hls { Task { await emby.stopEncoding(ps) } }
             return
         }
         session = ps
@@ -258,6 +268,7 @@ final class PlayerModel: ObservableObject {
                     if !self.reportedStart, let ps = self.session {
                         self.reportedStart = true
                         await self.emby?.reportStart(ps, self.now)
+                        self.confirmMethod(gen: gen)
                     }
                 }
             }
@@ -288,6 +299,37 @@ final class PlayerModel: ObservableObject {
             try? await Task.sleep(for: .seconds(60))
             guard let self, gen == self.startGen, !self.isReady, self.error.isEmpty else { return }
             self.error = "The server didn't start the video. Try again, or choose a lower quality."
+        }
+    }
+
+    /// The source container, for the Playback info overlay ("mkv → hls").
+    private var streamContainer: String?
+
+    /// A few seconds after the start, read the server's TranscodingInfo for this session and report the real
+    /// method (Direct Stream when video and audio are both copied). Logged once per start.
+    private func confirmMethod(gen: Int) {
+        guard let ps = session else { return }
+        guard ps.hls else { dlog("play method: DirectPlay (static file)"); return }
+        Task { @MainActor [weak self] in
+            var info: [String: Any]?
+            for _ in 0..<3 {   // the server may need a moment to start its job
+                try? await Task.sleep(for: .seconds(4))
+                guard let self, gen == self.startGen else { return }
+                info = await self.emby?.sessionInfo()?["TranscodingInfo"] as? [String: Any]
+                if info?["IsVideoDirect"] != nil { break }
+            }
+            guard let self, gen == self.startGen, var cur = self.session else { return }
+            let m = PlayMethod.classify(url: ps.url.absoluteString, transcodingInfo: info)
+            let reasons = PlayMethod.reasons(info)
+            self.dlog("play method: \(m) (first guess \(ps.method))"
+                      + (info == nil ? ", server gave no TranscodingInfo" : "")
+                      + "; video \((info?["IsVideoDirect"] as? Bool) == true ? "copied" : (info?["VideoCodec"] as? String ?? "?"))"
+                      + ", audio \((info?["IsAudioDirect"] as? Bool) == true ? "copied" : (info?["AudioCodec"] as? String ?? "?"))"
+                      + "; reasons: \(reasons.isEmpty ? "none" : reasons.joined(separator: ","))")
+            guard m != cur.method else { return }
+            cur.method = m
+            self.session = cur
+            if self.reportedStart { await self.emby?.reportProgress(cur, self.now, paused: !self.playing) }
         }
     }
 
@@ -594,7 +636,13 @@ final class PlayerModel: ObservableObject {
         func num(_ v: Any?) -> Double? { (v as? NSNumber)?.doubleValue }
         func mbps(_ b: Double) -> String { b >= 1_000_000 ? String(format: "%.1f Mbps", b / 1_000_000) : "\(Int(b / 1000)) kbps" }
         var out: [(String, String)] = []
-        out.append(("Play method", isTranscoding ? "Transcode" : "Direct play"))
+        var info: [String: Any]?
+        if isTranscoding { info = await emby?.sessionInfo()?["TranscodingInfo"] as? [String: Any] }
+        let method = session.map { PlayMethod.classify(url: $0.url.absoluteString, transcodingInfo: info) } ?? PlayMethod.directPlay
+        out.append(("Play method", PlayMethod.describe(method, container: streamContainer,
+                                                       sourceVideo: streams.first { $0.`Type` == "Video" }?.Codec,
+                                                       sourceAudio: streams.first { $0.Index == audio }?.Codec,
+                                                       transcodingInfo: info)))
         if let v = streams.first(where: { $0.`Type` == "Video" }) {
             var s = (v.Codec ?? "?").uppercased()
             if let w = v.Width, let h = v.Height { s += " · \(w)×\(h)" }
@@ -602,14 +650,17 @@ final class PlayerModel: ObservableObject {
             out.append(("Source video", s))
         }
         if let a = streams.first(where: { $0.Index == audio }) { out.append(("Source audio", a.DisplayTitle ?? a.Codec ?? "?")) }
-        if isTranscoding, let t = await emby?.sessionInfo()?["TranscodingInfo"] as? [String: Any] {
+        if isTranscoding, let t = info {
             var v = (t["IsVideoDirect"] as? Bool == true) ? "copied" : ((t["VideoCodec"] as? String ?? "?").uppercased())
             if let w = num(t["Width"]), let h = num(t["Height"]) { v += " · \(Int(w))×\(Int(h))" }
             out.append(("Server video", v))
             out.append(("Server audio", (t["IsAudioDirect"] as? Bool == true) ? "copied" : ((t["AudioCodec"] as? String ?? "?").uppercased())))
             if let b = num(t["Bitrate"]) { out.append(("Stream bitrate", mbps(b))) }
             if let f = num(t["Framerate"]) { out.append(("Encoder speed", String(format: "%.0f fps", f))) }
-            if let r = t["TranscodeReasons"] as? [String], !r.isEmpty {
+            // Only when something is really converted: a remux (video and audio copied) can still carry a
+            // reason such as SubtitleCodecNotSupported for a track that isn't played (owner)
+            let converted = !(t["IsVideoDirect"] as? Bool == true && t["IsAudioDirect"] as? Bool == true)
+            if converted, let r = t["TranscodeReasons"] as? [String], !r.isEmpty {
                 out.append(("Why transcoding", r.map { $0.replacingOccurrences(of: "NotSupported", with: " not supported") }.joined(separator: ", ")))
             }
         }

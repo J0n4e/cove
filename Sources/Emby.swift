@@ -67,6 +67,9 @@ struct PlayRequest: Identifiable {
     /// An embedded text subtitle carried inside the HLS stream (SubtitleMethod=Hls, WebVTT segments) and read by
     /// the app from the player item. Unlike `sub` it doesn't force a conversion and isn't sent to PlaybackInfo.
     var hlsSub: Int? = nil
+    /// Play collection: the collection's films and where this one is (collection mode, CollectionPlay.swift).
+    /// Nil for every other way of playing a film, which then behaves as before.
+    var collection: CollectionQueue? = nil
     var id: String { item.id }
     var transcode: Bool { audio != nil || sub != nil || maxBitrate != nil }
 }
@@ -211,6 +214,13 @@ struct LibPref: Identifiable, Codable, Hashable {
     var onHome: Bool = true      // gets a row on the home screen
     var style: String = "latest" // latest | random | top | az
     var kind: String?
+}
+
+/// The Activity section (stored id stays `NavOrder.nowPlaying`, so saved order/visibility survive): its visible
+/// name and its static icon in the top bar, sidebar, page title and Settings → Libraries.
+enum ActivitySection {
+    static let title = "Activity"
+    static let icon = "chart.bar.xaxis"
 }
 
 /// Where Favorites and Now Playing sit in the sidebar / top bar, set by moving them in Settings → Libraries.
@@ -448,9 +458,19 @@ final class Emby: ObservableObject {
         let s = server
         let key = "jellyfin-" + s.lowercased()
         isJellyfin = d.bool(forKey: key)
+        ReportIssue.note(server: s, jellyfin: isJellyfin, version: d.string(forKey: "serverVersion-" + s.lowercased()))
         guard let j = await Self.detectJellyfin(s) else { return }
         d.set(j, forKey: key)
         if server == s { isJellyfin = j }       // the user may have switched server meanwhile
+        // Server version for the bug report (Report an issue…), cached per server
+        if let u = URL(string: s + "/System/Info/Public"),
+           let (data, _) = try? await Net.session.data(for: URLRequest(url: u, timeoutInterval: 10)),
+           let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let v = o["Version"] as? String {
+            d.set(v, forKey: "serverVersion-" + s.lowercased())
+        }
+        if server == s {
+            ReportIssue.note(server: s, jellyfin: j, version: d.string(forKey: "serverVersion-" + s.lowercased()))
+        }
     }
 
     /// The list goes to the preferences file, its sign-in tokens sealed (ServerStore). Keychain storage is
@@ -962,7 +982,14 @@ final class Emby: ObservableObject {
     struct PlaySession {
         let itemId: String
         let sourceId: String?
-        let method: String          // DirectPlay | DirectStream | Transcode
+        /// DirectPlay | DirectStream | Transcode. Starts as a guess from the URL (PlayMethod.guess) and is
+        /// corrected from the server's TranscodingInfo a few seconds after the start (PlayMethod.classify).
+        var method: String
+        /// Served through the server's HLS pipeline (anything but a static file): the server runs ffmpeg even for a
+        /// pure remux (Direct Stream), so its job must be stopped whatever the label says.
+        let hls: Bool
+        /// The stream URL (holds the token: never logged)
+        let url: URL
         /// Must be the server's PlaySessionId (from the stream URL), or the server can't
         /// match our stop report to its transcode and leaves the ffmpeg job + temp files running.
         var id: String = UUID().uuidString.replacingOccurrences(of: "-", with: "")
@@ -973,6 +1000,8 @@ final class Emby: ObservableObject {
 
         init(itemId: String, sourceId: String?, method: String, url: URL, server: String, token: String) {
             self.itemId = itemId; self.sourceId = sourceId; self.method = method
+            self.url = url
+            self.hls = method != "DirectPlay"   // fixed at the start: only the label is corrected later
             self.server = server; self.token = token
             let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             if let v = q.first(where: { $0.name.lowercased() == "playsessionid" })?.value, !v.isEmpty { id = v }
@@ -981,7 +1010,7 @@ final class Emby: ObservableObject {
 
     /// Kills the server-side transcode (ffmpeg) and its temp segments for this playback.
     func stopEncoding(_ s: PlaySession) async {
-        guard s.method != "DirectPlay" else { return }
+        guard s.hls else { return }
         await send("DELETE", "/Videos/ActiveEncodings?DeviceId=\(deviceId)&PlaySessionId=\(s.id)", on: s)
     }
 
@@ -1240,8 +1269,24 @@ final class Emby: ObservableObject {
     /// be converted at up to ~100 Mbit/s, more than most networks carry and far more than the picture needs.
     static let defaultConversionBitrate = 40_000_000
 
+    /// Whether a stream URL gets the width/bitrate caps. Servers refuse to copy the video when the requested
+    /// VideoBitrate is below the source's or MaxWidth below its width, so the caps go on only when converting is
+    /// wanted anyway: a quality chosen by the user (1080p/720p/480p), or a conversion that is forced (burned-in
+    /// subtitle, HDR tone mapping, retry after an error, a re-encode requested on resume). With "Original"
+    /// (nil/0) nothing is added and the server may copy the video.
+    static func shouldCap(maxBitrate: Int?, forcedConversion: Bool) -> Bool {
+        (maxBitrate ?? 0) > 0 || forcedConversion
+    }
+
+    /// Applies the caps when `shouldCap` says so: the user's bitrate, else `defaultConversionBitrate`.
+    static func capIfWanted(_ url: String, maxWidth: Int?, maxBitrate: Int?, forcedConversion: Bool) -> String {
+        guard shouldCap(maxBitrate: maxBitrate, forcedConversion: forcedConversion) else { return url }
+        let b = (maxBitrate ?? 0) > 0 ? maxBitrate! : defaultConversionBitrate
+        return capConversion(url, maxWidth: maxWidth, maxBitrate: b)
+    }
+
     /// Limits what the server encodes when it converts the video: no wider than the screen, no more than
-    /// `maxBitrate`. A copied video is not affected (the server ignores these when it doesn't encode).
+    /// `maxBitrate`. Only used through `capIfWanted` (the caps can stop the server from copying the video).
     static func capConversion(_ url: String, maxWidth: Int?, maxBitrate: Int) -> String {
         guard var c = URLComponents(string: url) else { return url }
         var q = c.queryItems ?? []
@@ -1349,13 +1394,32 @@ final class Emby: ObservableObject {
     /// unchanged, and Apple Silicon decodes it in hardware. Everything else keeps the proven TS + H.264 profile.
     /// The codec order matters: the server copies the video when its codec is listed, and when it has to convert
     /// it uses the first one (H.264, which every server can encode quickly).
-    static func transcodingProfile(hevc: Bool) -> [String: Any] {
+    ///
+    /// Audio: every codec AVPlayer plays in that container is copied unchanged (surround and Atmos kept). AC3/EAC3
+    /// play in TS and fMP4; FLAC/ALAC only in fMP4. DTS and TrueHD aren't listed, so only they are converted, to
+    /// the first codec listed (EAC3, up to 5.1). `safeAudio` (the retry after AVPlayer failed) goes back to the
+    /// old, proven stereo AAC.
+    static let fmp4AudioCodecs = "eac3,ac3,aac,flac,alac,mp3"
+    static let tsAudioCodecs = "eac3,ac3,aac,mp3"
+    static let maxAudioChannels = "8"
+
+    static func transcodingProfile(hevc: Bool, safeAudio: Bool = false) -> [String: Any] {
         [
-            "Container": hevc ? "mp4" : "ts", "Type": "Video", "AudioCodec": "aac",
+            "Container": hevc ? "mp4" : "ts", "Type": "Video",
+            "AudioCodec": safeAudio ? "aac" : (hevc ? fmp4AudioCodecs : tsAudioCodecs),
             "VideoCodec": hevc ? "h264,hevc" : "h264",
-            "Context": "Streaming", "Protocol": "hls", "MaxAudioChannels": "2",
+            "Context": "Streaming", "Protocol": "hls", "MaxAudioChannels": safeAudio ? "2" : maxAudioChannels,
             "MinSegments": "1", "BreakOnNonKeyFrames": true,
         ]
+    }
+
+    /// Codec conditions. macOS can't decode 10-bit H.264 (Hi10P): the server converts it. AC3/EAC3 carry at most
+    /// 5.1 (the ffmpeg encoders can't write more), so a converted 7.1 DTS/TrueHD track comes out as 5.1 EAC3.
+    static func codecProfiles() -> [[String: Any]] {
+        [["Type": "Video", "Codec": "h264", "Conditions": [
+            ["Condition": "LessThanEqual", "Property": "VideoBitDepth", "Value": "8", "IsRequired": false]]],
+         ["Type": "VideoAudio", "Codec": "ac3,eac3", "Conditions": [
+            ["Condition": "LessThanEqual", "Property": "AudioChannels", "Value": "6", "IsRequired": false]]]]
     }
 
     /// Asks the server how to play the item for AVPlayer: direct play for MP4/MOV, otherwise HLS transcode
@@ -1372,9 +1436,13 @@ final class Emby: ObservableObject {
 
     /// Why the last resolveStream returned nil, when the server said so (shown by the player).
     var lastStreamError: String?
+    /// The chosen media source's container ("mkv"…), for the Playback info overlay.
+    var lastStreamContainer: String?
 
+    /// `convert`: the server has to convert the video anyway (HDR tone mapping, retry after an error), so the
+    /// width/bitrate caps apply (see `shouldCap`). `safeAudio`: stereo AAC only (retry after AVPlayer failed).
     func resolveStream(_ req: PlayRequest, direct: Bool = true, reencode: Bool = false, hevc: Bool = false,
-                       maxWidth: Int? = nil) async -> URL? {
+                       maxWidth: Int? = nil, convert: Bool = false, safeAudio: Bool = false) async -> URL? {
         let id = req.item.id
         let canDirect = direct && !req.transcode
         let profile: [String: Any] = [
@@ -1383,10 +1451,8 @@ final class Emby: ObservableObject {
             "DirectPlayProfiles": canDirect
                 ? [["Container": "mp4,m4v,mov", "Type": "Video", "VideoCodec": "h264,hevc", "AudioCodec": "aac,ac3,eac3,mp3"]]
                 : [[String: Any]](),
-            "TranscodingProfiles": [Self.transcodingProfile(hevc: hevc)],
-            // macOS can't decode 10-bit H.264 (Hi10P): have the server convert it instead of passing it through
-            "CodecProfiles": [["Type": "Video", "Codec": "h264", "Conditions": [
-                ["Condition": "LessThanEqual", "Property": "VideoBitDepth", "Value": "8", "IsRequired": false]]]],
+            "TranscodingProfiles": [Self.transcodingProfile(hevc: hevc, safeAudio: safeAudio)],
+            "CodecProfiles": Self.codecProfiles(),
             // vtt/Hls: embedded text tracks can come inside the HLS stream (see PlayRequest.hlsSub)
             "SubtitleProfiles": [["Format": "vtt", "Method": "Hls"]]
                 + ["srt", "subrip", "ass", "ssa", "vtt", "pgs", "pgssub", "dvdsub"].map { ["Format": $0, "Method": "Encode"] }
@@ -1407,6 +1473,7 @@ final class Emby: ObservableObject {
         authorize(&r)
         r.httpBody = try? JSONSerialization.data(withJSONObject: ["DeviceProfile": profile])
         lastStreamError = nil
+        lastStreamContainer = nil
         let got = try? await Net.session.data(for: r)
         switch Self.playbackInfoStatus((got?.1 as? HTTPURLResponse)?.statusCode) {
         case .ok: break
@@ -1423,15 +1490,19 @@ final class Emby: ObservableObject {
            let list = j["MediaSources"] as? [[String: Any]],
            let src = list.first(where: { ($0["Id"] as? String) == req.sourceId }) ?? list.first {
             let sid = src["Id"] as? String ?? id
+            lastStreamContainer = src["Container"] as? String
             let cont = (src["Container"] as? String ?? "").lowercased().split(separator: ",").map(String.init)
             if canDirect, src["SupportsDirectPlay"] as? Bool == true,
                cont.contains(where: { ["mp4", "m4v", "mov"].contains($0) }) {
                 return URL(string: "\(server)/Videos/\(id)/stream.mp4?Static=true&MediaSourceId=\(sid)&\(keyName)=\(token)")
             }
             if let t = src["TranscodingUrl"] as? String {
-                // (no width cap when a 4K HEVC video may pass through unchanged: the cap would force a conversion)
-                let capped = Self.capConversion(Self.subtitleURL(t, req), maxWidth: hevc ? nil : maxWidth,
-                                                maxBitrate: req.maxBitrate ?? Self.defaultConversionBitrate)
+                // Caps only when converting is wanted (a lower quality, burn-in, forced conversion), never
+                // with "Original": they would stop the server from copying the video. No width cap when a 4K HEVC
+                // video may pass through unchanged.
+                let forced = convert || reencode || req.sub != nil || req.burnIn
+                let capped = Self.capIfWanted(Self.subtitleURL(t, req), maxWidth: hevc ? nil : maxWidth,
+                                              maxBitrate: req.maxBitrate, forcedConversion: forced)
                 return absolute(capped, noCopy: reencode)
             }
             if let t = src["DirectStreamUrl"] as? String {
