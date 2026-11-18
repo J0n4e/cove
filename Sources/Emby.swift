@@ -458,9 +458,19 @@ final class Emby: ObservableObject {
         let s = server
         let key = "jellyfin-" + s.lowercased()
         isJellyfin = d.bool(forKey: key)
+        ReportIssue.note(server: s, jellyfin: isJellyfin, version: d.string(forKey: "serverVersion-" + s.lowercased()))
         guard let j = await Self.detectJellyfin(s) else { return }
         d.set(j, forKey: key)
         if server == s { isJellyfin = j }       // the user may have switched server meanwhile
+        // Server version for the bug report (Report an issue…), cached per server
+        if let u = URL(string: s + "/System/Info/Public"),
+           let (data, _) = try? await Net.session.data(for: URLRequest(url: u, timeoutInterval: 10)),
+           let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let v = o["Version"] as? String {
+            d.set(v, forKey: "serverVersion-" + s.lowercased())
+        }
+        if server == s {
+            ReportIssue.note(server: s, jellyfin: j, version: d.string(forKey: "serverVersion-" + s.lowercased()))
+        }
     }
 
     /// The list goes to the preferences file, its sign-in tokens sealed (ServerStore). Keychain storage is

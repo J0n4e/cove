@@ -38,7 +38,13 @@ body:
       label: Theme
       options:
         - Glass3D
-        - Classic
+        - Glass
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: "Mac model, text size, debug log on/off (filled in by Cove → Report an Issue…)"
+      placeholder: "Mac14,2 · Text size: Default · Debug log: off"
   - type: textarea
     id: what-happened
     attributes:
@@ -68,5 +74,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: "For playback problems: turn on Settings → Playback → Debug log, reproduce, then paste ~/Library/Logs/Cove.log (optional)."
+      description: "For playback problems: turn on Settings → Playback → Debug log, reproduce, then use Help → Report an Issue… with \"Attach debug log\": Cove saves a copy with tokens, addresses and IDs removed and shows it in Finder; drag it here (optional)."
       render: text

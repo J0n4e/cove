@@ -32,7 +32,7 @@ struct AboutView: View {
                     Button { open(Self.repo) } label: {
                         Label("Cove on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                     }.buttonStyle(AboutButton(primary: true, accentName: accentName))
-                    Button { open(Self.repo.appendingPathComponent("issues")) } label: {
+                    Button { ReportIssueWindow.show() } label: {
                         Label("Report an issue", systemImage: "exclamationmark.bubble")
                     }.buttonStyle(AboutButton(accentName: accentName))
                 }
