@@ -165,6 +165,14 @@ struct StatsTop: Identifiable, Hashable, Sendable {
     let plays: Int
 }
 
+/// A Recently watched card: a movie, or a series (its latest episode as "S2:E4").
+struct StatsRecent: Identifiable, Hashable, Sendable {
+    let top: StatsTop
+    let show: Bool
+    let caption: String
+    var id: String { top.id }
+}
+
 struct StatsBar: Identifiable, Hashable, Sendable {
     let id: String, label: String, seconds: Int
 }
@@ -212,6 +220,24 @@ enum StatsAggregate {
         let g = Dictionary(grouping: plays.filter(\.isMovie), by: \.itemId)
         return g.map { id, ps in StatsTop(id: id, title: ps[0].name, itemId: id, seconds: totalSeconds(ps), plays: ps.count) }
             .sorted { ($0.seconds, $1.title) > ($1.seconds, $0.title) }.prefix(limit).map { $0 }
+    }
+
+    /// The last `limit` distinct titles, newest first: movies by item, episodes collapsed to their series.
+    /// Other types (music, …) are left out, as in the Top lists.
+    static func recentlyWatched(_ plays: [StatsPlay], limit: Int = 10) -> [StatsRecent] {
+        var seen = Set<String>(), out: [StatsRecent] = []
+        for p in plays.sorted(by: { $0.start > $1.start }) where p.isMovie || p.isEpisode {
+            let key = p.isEpisode ? "s:" + p.displayTitle : "i:" + p.itemId
+            guard seen.insert(key).inserted else { continue }
+            let ps = plays.filter { ($0.isEpisode ? "s:" + $0.displayTitle : "i:" + $0.itemId) == key }
+            let top = StatsTop(id: key, title: p.displayTitle, itemId: p.itemId, seconds: totalSeconds(ps), plays: ps.count)
+            let caption: String
+            if p.isEpisode, let e = p.episode { caption = "S\(e.season):E\(e.number)" }
+            else { caption = durationText(p.seconds) }
+            out.append(StatsRecent(top: top, show: p.isEpisode, caption: caption))
+            if out.count == limit { break }
+        }
+        return out
     }
 
     static func topShows(_ plays: [StatsPlay], limit: Int = 5) -> [StatsTop] {

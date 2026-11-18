@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Now Playing → Users (admins with Playback Reporting): a summary row, then one glass card per server user,
+/// Activity → Users (admins with Playback Reporting): a summary row, then one glass card per server user,
 /// most watch time first. Same glass cards, readable text and range pill as Overview.
 struct StatsUsersView: View {
     @ObservedObject var model: StatsModel
@@ -13,10 +13,14 @@ struct StatsUsersView: View {
                 else if model.users.isEmpty {
                     StatsStateCard(symbol: "person.2", title: "No users found",
                                    message: "The server didn't list any users. Open this tab again to retry.")
+                } else if StatsUsersAggregate.withPlays(model.users).isEmpty {
+                    StatsStateCard(symbol: "person.2", title: "No plays in this range",
+                                   message: "Nobody on this server played anything in the chosen range. Try a longer one.")
                 } else {
+                    // Summary counts every server user; the cards only those with plays (as Unraid's Stream Viewer)
                     StatsUsersSummaryRow(totals: StatsUsersAggregate.totals(model.users))
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 680), spacing: 18)], alignment: .leading, spacing: 18) {
-                        ForEach(model.users) { StatsUserCard(user: $0) }
+                        ForEach(StatsUsersAggregate.withPlays(model.users)) { StatsUserCard(user: $0) }
                     }
                 }
             }
