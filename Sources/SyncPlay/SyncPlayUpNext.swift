@@ -18,7 +18,10 @@ enum GroupUpNext {
     }
 
     /// The card's countdown line in a group.
-    nonisolated static func text(_ secs: Int) -> String { "Next episode for everyone in \(clock(secs))" }
+    /// Films (Play collection): "Next film for everyone in 0:12".
+    nonisolated static func text(_ secs: Int, film: Bool = false) -> String {
+        "Next \(film ? "film" : "episode") for everyone in \(clock(secs))"
+    }
     /// Cancel's tooltip in a group: it only hides the card here.
     static let cancelTip = "Hide on this Mac (the group still moves on)"
 }
@@ -44,9 +47,11 @@ struct UpNextCountdown: View {
     let duration: Double
     /// Glass theme (v1.18.8): the theme's own font instead of the Glass3D one
     var glass = false
+    /// The next item is a film (Play collection)
+    var film = false
     var body: some View {
         if group.isInGroup {
-            line(GroupUpNext.text(group.upNextSecsLeft(duration: duration, local: localSecs)))
+            line(GroupUpNext.text(group.upNextSecsLeft(duration: duration, local: localSecs), film: film))
         } else if autoNext {
             line(localSecs > 60 ? "Next starts in \(GroupUpNext.clock(localSecs))" : "Next starts in \(localSecs)s")
         }

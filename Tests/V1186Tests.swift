@@ -52,6 +52,7 @@ final class V1186Tests: XCTestCase {
         XCTAssertEqual(GroupUpNext.clock(65), "1:05")
         XCTAssertEqual(GroupUpNext.clock(-3), "0:00")
         XCTAssertEqual(GroupUpNext.text(12), "Next episode for everyone in 0:12")
+        XCTAssertEqual(GroupUpNext.text(12, film: true), "Next film for everyone in 0:12")
     }
 
     func testGroupCountdownFollowsServerTime() {

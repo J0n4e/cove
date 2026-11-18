@@ -942,7 +942,7 @@ extension PlayerView {
                     .helpLabel(emby.syncPlay.group.isInGroup ? GroupUpNext.cancelTip : "Cancel")
                 }
                 // v1.18.8: in a SyncPlay group, the group's countdown (as Glass3D)
-                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: secsLeft, duration: ui.player.duration, glass: true)
+                UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: secsLeft, duration: ui.player.duration, glass: true, film: n.`Type` == "Movie")
             }
         }
         .padding(12)
