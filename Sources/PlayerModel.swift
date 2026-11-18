@@ -411,6 +411,9 @@ final class PlayerModel: ObservableObject {
     }
 
     /// Restart the stream with new settings, keeping the playback position.
+    /// The running stream is the file itself (Direct Play), not an HLS stream from the server.
+    var directPlaySession: Bool { session?.method == "DirectPlay" }
+
     /// Servers whose HLS stream didn't carry the requested text subtitle (learned once per app run).
     static var hlsSubsMissing: Set<String> = []
 

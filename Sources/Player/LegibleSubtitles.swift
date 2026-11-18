@@ -187,7 +187,7 @@ extension PlayerModel {
         inStreamUnsupported = true
         if let emby = embyRef { Self.hlsSubsMissing.insert(emby.server) }
         stopInStream()
-        if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && session?.method != "DirectPlay") == .restartReencode {
+        if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && !directPlaySession) == .restartReencode {
             dlog("subs: extraction (track \(idx)): restarting re-encoded (video copy started mid-file)")
             Task { @MainActor [weak self] in await self?.restartForCoveDrawnSub(idx) }
             return
