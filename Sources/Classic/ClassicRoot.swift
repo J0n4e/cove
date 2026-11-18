@@ -86,10 +86,10 @@ struct ClassicHomeView: View {
         if abs(h - titleBarH) > 0.5 { titleBarH = h }
     }
 
-    /// Favorites or Now Playing in the sidebar, wherever Settings → Libraries placed it.
+    /// Favorites or Activity in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
         if id == NavOrder.favorites { sideRow("Favorites", "heart.fill", "favorites") }
-        else if id == NavOrder.nowPlaying { sideRow("Now Playing", "dot.radiowaves.left.and.right", "nowplaying", badge: activeCount) }
+        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount) }
     }
 
     /// One sidebar line: the chosen one on an accent glass band, the one under the pointer lit softly (as the glass
@@ -421,10 +421,10 @@ struct ClassicTopNavButtons: View {
         .tip(labels == "icons" ? title : "")   // names show on hover when only icons are shown
         .focusEffectDisabled()   // no blue keyboard-focus ring around a section
     }
-    /// Favorites or Now Playing, wherever Settings → Libraries placed it.
+    /// Favorites or Activity, wherever Settings → Libraries placed it.
     @ViewBuilder func section(_ id: String) -> some View {
         if id == NavOrder.favorites { item("Favorites", "favorites", "heart.fill") }
-        else if id == NavOrder.nowPlaying { item("Now Playing", "nowplaying", "dot.radiowaves.left.and.right", badge: nav.activeCount) }
+        else if id == NavOrder.nowPlaying { item(ActivitySection.title, "nowplaying", ActivitySection.icon, badge: nav.activeCount) }
     }
     func icon(_ lib: LibPref) -> String {
         switch lib.kind {

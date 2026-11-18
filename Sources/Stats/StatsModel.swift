@@ -14,6 +14,9 @@ final class StatsModel: ObservableObject {
     @Published var users: [StatsUserSummary] = []
     @Published var usersLoading = false
     @Published var usersRange: StatsRange?        // the range `users` was loaded for
+    @Published var selectedUser: StatsUserSummary?   // Users tab drill-down: that user's Overview
+    @Published var userOverview: [StatsPlay] = []
+    @Published var userOverviewLoading = false
     @Published var fallback: [Item] = []
     @Published var fallbackLoaded = false
 
@@ -34,7 +37,7 @@ final class StatsModel: ObservableObject {
             sessionKey = key
             overview = []; history = []; historyDays = []; historyShown = 0; fallback = []; fallbackLoaded = false
             dayCache = [:]; availability = nil
-            users = []; usersRange = nil; userDayCache = [:]
+            users = []; usersRange = nil; userDayCache = [:]; selectedUser = nil; userOverview = []
         }
         userId = emby.userId
         let fetch = emby.statsFetcher()
@@ -60,6 +63,25 @@ final class StatsModel: ObservableObject {
         let plays = await fetchDays(days, service)
         guard !Task.isCancelled else { return }
         overview = StatsAggregate.inRange(plays, range)
+    }
+
+    /// Users tab drill-down: the selected user's plays in the range (same rules as Overview, cached per user/day).
+    func loadUserOverview() async {
+        guard let service, availability == .available, let u = selectedUser else { return }
+        let range = self.range
+        userOverviewLoading = true
+        defer { userOverviewLoading = false }
+        let usage = (try? await service.activity(userId: u.id, days: range.days)) ?? [:]
+        let days = StatsAggregate.activeDays(usage)
+        let today = StatsDecode.dayFormat.string(from: Date())
+        let missing = days.filter { $0 == today || userDayCache[u.id + "|" + $0] == nil }
+        if !missing.isEmpty {
+            let got = await service.plays(userId: u.id, days: missing)
+            let byDay = Dictionary(grouping: got, by: \.day)
+            for d in missing { userDayCache[u.id + "|" + d] = byDay[d] ?? [] }
+        }
+        guard !Task.isCancelled, u.id == selectedUser?.id, range == self.range else { return }
+        userOverview = StatsAggregate.inRange(days.flatMap { userDayCache[u.id + "|" + $0] ?? [] }, range)
     }
 
     func loadHistory() async {

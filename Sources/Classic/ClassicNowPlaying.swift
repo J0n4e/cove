@@ -96,7 +96,7 @@ struct ClassicNowPlayingView: View {
                 ZStack {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            ClassicPageTitle(text: "Now Playing", icon: "dot.radiowaves.left.and.right")
+                            ClassicPageTitle(text: ActivitySection.title, icon: ActivitySection.icon)
                             if tab == 0 && !sessions.isEmpty {
                                 Text(NowPlayingStyle.activeText(sessions.count))
                                     .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)

@@ -213,6 +213,13 @@ struct LibPref: Identifiable, Codable, Hashable {
     var kind: String?
 }
 
+/// The Activity section (stored id stays `NavOrder.nowPlaying`, so saved order/visibility survive): its visible
+/// name and its static icon in the top bar, sidebar, page title and Settings → Libraries.
+enum ActivitySection {
+    static let title = "Activity"
+    static let icon = "chart.bar.xaxis"
+}
+
 /// Where Favorites and Now Playing sit in the sidebar / top bar, set by moving them in Settings → Libraries.
 /// Saved as one comma-separated order of library ids and the two section ids. Sections above the first
 /// library stay in their usual place after Home; the others follow the library just above them.

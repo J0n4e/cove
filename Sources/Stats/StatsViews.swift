@@ -132,11 +132,13 @@ struct StatsThumb: View {
     @EnvironmentObject var emby: Emby
     let id: String?
     var wide = false
+    var height: CGFloat? = nil   // History: 44 pt rows; nil keeps the 54/60 pt default
     var body: some View {
+        let h = height ?? (wide ? 54 : 60)
         CachedImage(url: id.flatMap { emby.image($0, width: 200) }) { img in
             img.resizable().aspectRatio(contentMode: .fill)
         } placeholder: { Color.white.opacity(0.08) }
-        .frame(width: wide ? 96 : 40, height: wide ? 54 : 60)
+        .frame(width: wide ? h * 16 / 9 : h * 2 / 3, height: h)
         .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb, style: .continuous)
             .strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.subtle), lineWidth: 0.5))

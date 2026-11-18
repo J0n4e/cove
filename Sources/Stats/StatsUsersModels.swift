@@ -121,6 +121,9 @@ enum StatsUsersAggregate {
         }
     }
 
+    /// The cards shown: users with at least one play in the range, in the given (watch time) order.
+    static func withPlays(_ users: [StatsUserSummary]) -> [StatsUserSummary] { users.filter { $0.plays > 0 } }
+
     static func totals(_ users: [StatsUserSummary]) -> StatsUsersTotals {
         let active = users.filter { $0.plays > 0 }
         let n = Double(active.count)
