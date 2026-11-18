@@ -49,20 +49,62 @@ extension PlayerModel {
         return .inStream
     }
 
-    /// The rendition in the stream's subtitle group for a track: same name as the track's DisplayTitle (Jellyfin
-    /// names them so), else the only one of its language, else (`requested`: the stream was asked for this track)
-    /// the only one there is. nil: not in this stream.
+    /// ISO 639-2/B and 639-2/T codes → 639-1, so "rum", "ron" and "ro" (or "ro-RO") are the same language.
+    nonisolated static let iso639: [String: String] = [
+        "rum": "ro", "ron": "ro", "ger": "de", "deu": "de", "fre": "fr", "fra": "fr", "dut": "nl", "nld": "nl",
+        "chi": "zh", "zho": "zh", "cze": "cs", "ces": "cs", "gre": "el", "ell": "el", "per": "fa", "fas": "fa",
+        "alb": "sq", "sqi": "sq", "arm": "hy", "hye": "hy", "baq": "eu", "eus": "eu", "bur": "my", "mya": "my",
+        "geo": "ka", "kat": "ka", "ice": "is", "isl": "is", "mac": "mk", "mkd": "mk", "mao": "mi", "mri": "mi",
+        "may": "ms", "msa": "ms", "slo": "sk", "slk": "sk", "wel": "cy", "cym": "cy", "tib": "bo", "bod": "bo",
+        "eng": "en", "spa": "es", "ita": "it", "por": "pt", "rus": "ru", "jpn": "ja", "kor": "ko", "ara": "ar",
+        "hun": "hu", "pol": "pl", "swe": "sv", "nor": "no", "nob": "nb", "nno": "nn", "dan": "da", "fin": "fi",
+        "tur": "tr", "heb": "he", "hin": "hi", "tha": "th", "vie": "vi", "ukr": "uk", "bul": "bg", "hrv": "hr",
+        "srp": "sr", "slv": "sl", "est": "et", "lav": "lv", "lit": "lt", "ind": "id", "cat": "ca", "glg": "gl",
+        "bos": "bs", "fil": "fil", "tam": "ta", "tel": "te", "ben": "bn", "urd": "ur", "mal": "ml", "kan": "kn",
+    ]
+
+    /// A language tag reduced to its ISO 639-1 base ("ro-RO", "rum", "ron" → "ro"). nil when empty/undetermined.
+    nonisolated static func normLang(_ s: String?) -> String? {
+        guard let s else { return nil }
+        let base = s.lowercased().replacingOccurrences(of: "_", with: "-").split(separator: "-").first.map(String.init) ?? ""
+        if base.isEmpty || base == "und" || base == "zxx" || base == "mis" || base == "mul" { return nil }
+        return iso639[base] ?? base
+    }
+
+    /// The rendition in the stream's subtitle group for a track. In order: same name as the DisplayTitle (Jellyfin
+    /// names them so); among the renditions of the track's language (ISO codes normalised), the only one, else
+    /// the one whose name contains the track's title (or the other way round); a name match on any rendition;
+    /// then, when the stream was asked for this track (`requested`), the only rendition there is, else the
+    /// playlist's DEFAULT one (`defaultIndex`; Emby marks the requested track so). nil: not in this stream.
     nonisolated static func pickLegible(_ options: [(name: String, lang: String?)], title: String?, lang: String?,
-                                        requested: Bool = false) -> Int? {
+                                        requested: Bool = false, trackTitle: String? = nil,
+                                        defaultIndex: Int? = nil, usable: [Bool]? = nil) -> Int? {
+        // Closed captions in the video and macOS's own transcribed captions are not the server's subtitle
+        // tracks: never take them for one (owner: Emby left Romanian SUBRIP out, Cove picked 'CC' and showed nothing)
+        let ok = { (i: Int) -> Bool in usable.map { $0.indices.contains(i) ? $0[i] : true } ?? true }
+        let options = options.enumerated().map { ok($0.offset) ? $0.element : (name: "", lang: Optional<String>.none) }
+        let real = options.indices.filter(ok)
         if let title, let i = options.firstIndex(where: { $0.name == title }) { return i }
-        if let lang = lang?.lowercased(), !lang.isEmpty {
-            let same = options.indices.filter { i in
-                guard let l = options[i].lang?.lowercased() else { return false }
-                return l == lang || l.hasPrefix(lang + "-") || lang.hasPrefix(l)
-            }
-            if same.count == 1 { return same[0] }
+        let titles = [trackTitle, title].compactMap { $0?.lowercased().trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        func named(_ i: Int) -> Bool {
+            let n = options[i].name.lowercased().trimmingCharacters(in: .whitespaces)
+            guard !n.isEmpty else { return false }
+            return titles.contains { $0.contains(n) || n.contains($0) }
         }
-        return options.count == 1 && requested ? 0 : nil
+        if let want = normLang(lang) {
+            let same = options.indices.filter { normLang(options[$0].lang) == want }
+            if same.count == 1 { return same[0] }
+            let byName = same.filter(named)
+            if byName.count == 1 { return byName[0] }
+            if same.count > 1, requested, let d = defaultIndex, same.contains(d) { return d }
+        }
+        let byName = options.indices.filter(named)
+        if byName.count == 1 { return byName[0] }
+        guard requested else { return nil }
+        if real.count == 1, options.count == 1 { return real[0] }
+        if let d = defaultIndex, real.contains(d) { return d }
+        return nil
     }
 
     enum InStreamSwitch: Equatable { case select, restart, extract }
@@ -76,8 +118,24 @@ extension PlayerModel {
         return .extract
     }
 
+    /// Whether each rendition is one of the server's subtitle tracks (not closed captions carried in the video,
+    /// not macOS's automatically transcribed captions).
+    var legibleUsable: [Bool] {
+        (legibleGroup?.options ?? []).map { o in
+            if o.mediaType == .closedCaption { return false }
+            if o.hasMediaCharacteristic(.transcribesSpokenDialogForAccessibility),
+               o.displayName.localizedCaseInsensitiveContains("transcribed") { return false }
+            return !o.displayName.localizedCaseInsensitiveContains("transcribed") && o.displayName != "CC"
+        }
+    }
+
     var legibleOptions: [(name: String, lang: String?)] {
-        (legibleGroup?.options ?? []).map { ($0.displayName, $0.extendedLanguageTag ?? $0.locale?.identifier) }
+        (legibleGroup?.options ?? []).map { o in
+            let title = AVMetadataItem.metadataItems(from: o.commonMetadata, filteredByIdentifier: .commonIdentifierTitle)
+                .first?.stringValue
+            let name = o.displayName.isEmpty ? (title ?? "") : o.displayName
+            return (name, o.extendedLanguageTag ?? o.locale?.identifier)
+        }
     }
 
     /// Hooks the legible output to a new HLS item that carries track `idx`.
@@ -102,9 +160,16 @@ extension PlayerModel {
             self.inStreamDecided = true
             self.legibleGroup = g
             let st = self.streams.first { $0.Index == idx }
-            if let g, let k = Self.pickLegible(self.legibleOptions, title: st?.DisplayTitle, lang: st?.Language, requested: true) {
+            if let g {
+                let names = self.legibleOptions.map { "'\($0.name)' [\($0.lang ?? "-")]" }.joined(separator: ", ")
+                self.dlog("subs: HLS renditions for track \(idx) (\(st?.Language ?? "-"), '\(st?.DisplayTitle ?? "")'): \(names.isEmpty ? "none" : names)")
+            }
+            if let g, let k = Self.pickLegible(self.legibleOptions, title: st?.DisplayTitle, lang: st?.Language, requested: true,
+                                               trackTitle: st?.Title, defaultIndex: g.defaultOption.flatMap { g.options.firstIndex(of: $0) },
+                                               usable: self.legibleUsable) {
                 item.select(g.options[k], in: g)
                 self.dlog("subs: in-stream (HLS) track \(idx): \(g.options.count) rendition(s), selected '\(g.options[k].displayName)'")
+                if let emby = self.embyRef { Self.hlsSubsMissing.remove(emby.server) }   // this server does carry them
             } else {
                 self.inStreamFallback(idx, why: g == nil ? "no subtitle group in the stream" : "track not among \(g?.options.count ?? 0) rendition(s)")
             }
@@ -121,7 +186,13 @@ extension PlayerModel {
     private func inStreamFallback(_ idx: Int, why: String) {
         dlog("subs: in-stream unavailable (\(why)) → extraction")
         inStreamUnsupported = true
+        if let emby = embyRef { Self.hlsSubsMissing.insert(emby.server) }
         stopInStream()
+        if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && !directPlaySession) == .restartReencode {
+            dlog("subs: extraction (track \(idx)): restarting re-encoded (video copy started mid-file)")
+            Task { @MainActor [weak self] in await self?.restartForCoveDrawnSub(idx) }
+            return
+        }
         if let emby = embyRef, let r = currentRequest { loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
     }
 
@@ -137,7 +208,8 @@ extension PlayerModel {
     func switchInStream(_ idx: Int) -> Bool {
         guard let g = legibleGroup, let item = player?.currentItem else { return false }
         let st = streams.first { $0.Index == idx }
-        guard let k = Self.pickLegible(legibleOptions, title: st?.DisplayTitle, lang: st?.Language) else { return false }
+        guard let k = Self.pickLegible(legibleOptions, title: st?.DisplayTitle, lang: st?.Language, trackTitle: st?.Title,
+                                       usable: legibleUsable) else { return false }
         if legible == nil { attachInStream(item, idx, gen: startGen) }
         inStreamSub = idx; inStreamDecided = true; caption = ""
         item.select(g.options[k], in: g)

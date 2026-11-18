@@ -214,8 +214,7 @@ struct ClassicPlayerView: View {
             var pick: Int?
             if let lang {
                 let subs = (src?.MediaStreams ?? []).filter { $0.`Type` == "Subtitle" && ClassicDetailView.langName($0) == lang }
-                let text = ["srt", "subrip", "vtt", "ass", "ssa"]
-                pick = (subs.first { text.contains(($0.Codec ?? "").lowercased()) } ?? subs.first)?.Index
+                pick = bestTextSub(subs)?.Index
             }
             model.stop()       // marks a finished episode watched (see close())
             let q = UserDefaults.standard.integer(forKey: "defaultQuality")

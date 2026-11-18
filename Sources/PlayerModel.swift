@@ -56,6 +56,8 @@ final class PlayerModel: ObservableObject {
     var startGen = 0
     /// After a playback failure on this item: have the server convert the video (TS + H.264, no copy).
     private var forceTranscode = false
+    /// The running stream copies the video and started mid-file (its picture can be a GOP off the clock).
+    private(set) var streamCopiedMidFile = false
     private var failObs: NSObjectProtocol?
     private var retrying = false
     // Embedded text subtitles read from the HLS stream (Player/LegibleSubtitles.swift) ↓
@@ -143,7 +145,9 @@ final class PlayerModel: ObservableObject {
             if metaFor != req.item.id {
                 metaFor = req.item.id
                 forceTranscode = false
-                inStreamUnsupported = false
+                // A server that left the subtitle out of its stream once (Emby) won't have it next time either:
+                // go straight to the download path, so a resume re-encodes and the cues stay in sync (owner)
+                inStreamUnsupported = Self.hlsSubsMissing.contains(emby.server)
                 chapters = f.Chapters ?? []
                 introDone = false; inIntro = false
                 loadThumbs(emby, req.item.id, src?.Id)
@@ -152,8 +156,8 @@ final class PlayerModel: ObservableObject {
         let auds = streams.filter { $0.`Type` == "Audio" }
         audio = req.audio ?? (auds.first { $0.IsDefault == true } ?? auds.first)?.Index
         var req = req
-        // Audio / subtitles remembered for this series
-        if req.item.isEpisode, let sid = req.item.SeriesId, let m = SeriesLang.get(sid) {
+        // Audio / subtitles remembered for this series (or this collection, in collection mode)
+        if let sid = SeriesLang.key(req), let m = SeriesLang.get(sid) {
             // (with "Always load preferred subtitle language" on, that setting wins over what was remembered for the series)
             if req.sub == nil, !req.noSub, !UserDefaults.standard.bool(forKey: "subAlways"), let l = m["sub"] {
                 if l == "off" { req.noSub = true; self.req?.noSub = true }
@@ -175,6 +179,7 @@ final class PlayerModel: ObservableObject {
         // Embedded text tracks come inside the HLS stream when the server can (shown at once); external files and
         // the fallback are downloaded.
         var wantInStream: Int?
+        var coveDrawn = false
         if let s = req.sub, !isImageSub(s), !req.burnIn {
             req.sub = nil
             if !inStreamUnsupported,
@@ -182,15 +187,21 @@ final class PlayerModel: ObservableObject {
                 req.hlsSub = s; wantInStream = s
             } else {
                 dlog("subs: extraction (track \(s))")
+                coveDrawn = true
                 loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
             }
         }
         await emby.killStaleEncodings()
         guard current() else { return }
-        // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
-        // TODO: this re-encodes the video on every resume (cause C in the transcode investigation); keep video
-        // copy and fix the subtitle offset instead, in a separate change.
+        // Resume keeps the video copied (Direct stream). The URL has no StartTimeTicks: the HLS playlist covers the
+        // whole file and the player seeks in it, so the player's clock is the media time (see ResumeStrategy).
         let midFile = pendingSeek > 0
+        let resumeReencode = ResumeStrategy.reencode(resuming: midFile, forceTranscode: forceTranscode,
+                                                     coveDrawnSub: coveDrawn)
+        streamCopiedMidFile = midFile && !resumeReencode
+        if midFile {
+            dlog("resume: \(ResumeStrategy.logLine(reencode: resumeReencode, forceTranscode: forceTranscode, coveDrawnSub: coveDrawn)), seek in whole-file playlist to \(fmt(pendingSeek)), start offset 0 s (strategy: \(ResumeStrategy.name))")
+        }
         // A 4K HEVC video passes through unchanged when the screen can show it (HDR needs an HDR screen)
         let passHEVC = sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR)
         if sourceIsHEVC { dlog("HEVC source (\(sourceIsHDR ? "HDR" : "SDR"), screen \(Self.screenIsHDR ? "HDR" : "SDR")): \(passHEVC ? "fMP4 pass-through" : "converted")") }
@@ -198,7 +209,7 @@ final class PlayerModel: ObservableObject {
         // failure; the retry also goes back to stereo AAC, the proven audio (risk control for the audio copy).
         let mustConvert = forceTranscode || (sourceIsHEVC && !passHEVC)
         if forceTranscode { dlog("stream: retry after a playback error, forcing a conversion (video + stereo AAC)") }
-        let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
+        let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: resumeReencode,
                                                 hevc: passHEVC, maxWidth: Self.screenWidth,
                                                 convert: mustConvert, safeAudio: forceTranscode)
         guard let u = resolved else {
@@ -209,7 +220,9 @@ final class PlayerModel: ObservableObject {
             return
         }
         // First guess from the URL; corrected from the server's TranscodingInfo once the stream runs
-        let method = PlayMethod.guess(url: u.absoluteString)
+        let srcAudio = (audioStreams.first { $0.Index == req.audio } ?? audioStreams.first { $0.IsDefault == true }
+                        ?? audioStreams.first)?.Codec
+        let method = PlayMethod.guess(url: u.absoluteString, sourceAudio: srcAudio)
         streamContainer = emby.lastStreamContainer
         let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u,
                                   server: emby.server, token: emby.token)
@@ -221,7 +234,7 @@ final class PlayerModel: ObservableObject {
         session = ps
         let it = AVPlayerItem(url: u)
         if let s = wantInStream {
-            if method == "DirectPlay" {   // no HLS, so no renditions: download the track
+            if method == "DirectPlay" {   // no HLS, so no renditions: download the track (the file itself: exact)
                 dlog("subs: extraction (track \(s), Direct Play)")
                 loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
             } else {
@@ -258,7 +271,7 @@ final class PlayerModel: ObservableObject {
                         }
                         self.updateCaption(self.now)
                         self.syncPreroll()   // SyncPlay timing
-                        self.dlog("resume to \(self.fmt(t)): player at \(self.fmt(self.now)) (\(self.session?.method ?? "?")), re-encode requested")
+                        self.dlog("resume to \(self.fmt(t)): player at \(self.fmt(self.now)) (\(self.session?.method ?? "?")), start offset \(String(format: "%.2f", ResumeStrategy.offset(requested: t, playerAt: self.now))) s")
                         Task { @MainActor [weak self] in
                             try? await Task.sleep(for: .seconds(5))
                             self?.logServer()
@@ -398,6 +411,23 @@ final class PlayerModel: ObservableObject {
     }
 
     /// Restart the stream with new settings, keeping the playback position.
+    /// The running stream is the file itself (Direct Play), not an HLS stream from the server.
+    var directPlaySession: Bool { session?.method == "DirectPlay" }
+
+    /// Servers whose HLS stream didn't carry the requested text subtitle. Kept across app launches, so the first
+    /// SUBRIP after a restart doesn't cost an extra stream restart (owner). Cleared if a server ever does carry one.
+    static var hlsSubsMissing: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: "hlsSubsMissing") ?? []) }
+        set { UserDefaults.standard.set(Array(newValue).sorted(), forKey: "hlsSubsMissing") }
+    }
+
+    /// The in-stream subtitle wasn't there and the running stream copies the video from mid-file: its picture can
+    /// be a GOP off the clock the downloaded cues use, so restart once re-encoded (owner: SUBRIP out of sync).
+    func restartForCoveDrawnSub(_ idx: Int) async {
+        guard let emby = embyRef else { return }
+        await restart(emby) { $0.sub = idx; $0.burnIn = false }
+    }
+
     private func restart(_ emby: Emby, _ change: (inout PlayRequest) -> Void) async {
         guard var r = req else { return }
         change(&r)
@@ -477,7 +507,7 @@ final class PlayerModel: ObservableObject {
 
     func setSub(_ emby: Emby, _ idx: Int?) async {
         guard idx != sub, let r = req else { return }
-        if r.item.isEpisode, let sid = r.item.SeriesId {
+        if let sid = SeriesLang.key(r) {
             SeriesLang.set(sid, "sub", idx.flatMap { i in streams.first { $0.Index == i } }.map(subLangName) ?? "off")
         }
         // Burned in by the server: an image subtitle, or a text one that couldn't be read (burnIn). Either way
@@ -497,10 +527,18 @@ final class PlayerModel: ObservableObject {
                     // (the subtitle group is tried first: Jellyfin lists every text track in the playlist)
                     if inStreamSub != nil || legibleGroup != nil, cancelCues(), switchInStream(idx) { return }
                     if how == .restart { dlog("subs: in-stream (HLS) track \(idx): restarting the stream"); await restart(emby) { $0.sub = idx } }
-                    else { stopInStream(); dlog("subs: extraction (track \(idx))"); loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
+                    else if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && session?.method != "DirectPlay") == .restartReencode {
+                        dlog("subs: extraction (track \(idx)): restarting re-encoded (video copy started mid-file)")
+                        await restart(emby) { $0.sub = idx; $0.burnIn = false }
+                    }
+                    else { stopInStream(); dlog("subs: extraction (track \(idx)), no restart"); loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
+                } else if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && session?.method != "DirectPlay") == .restartReencode {
+                    // The copied video can be a GOP off the clock the cues use: restart once, re-encoded
+                    dlog("subs: \(path == .file ? "external file" : "extraction") (track \(idx)): restarting re-encoded (video copy started mid-file)")
+                    await restart(emby) { $0.sub = idx; $0.burnIn = false }
                 } else {
                     stopInStream()
-                    dlog("subs: \(path == .file ? "external file" : "extraction") (track \(idx))")
+                    dlog("subs: \(path == .file ? "external file" : "extraction") (track \(idx)), no restart")
                     loadCues(emby, r.item.id, r.sourceId, idx, from: now)
                 }
             }
@@ -515,7 +553,7 @@ final class PlayerModel: ObservableObject {
 
     func setAudio(_ emby: Emby, _ idx: Int) async {
         guard idx != audio else { return }
-        if let r = req, r.item.isEpisode, let sid = r.item.SeriesId,
+        if let r = req, let sid = SeriesLang.key(r),
            let l = streams.first(where: { $0.Index == idx })?.Language, !l.isEmpty {
             SeriesLang.set(sid, "audio", l)
         }

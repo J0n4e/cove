@@ -138,8 +138,14 @@ struct ActiveSession: Decodable, Identifiable {
     }
 }
 
-/// Audio/subtitle choices remembered per series.
+/// Audio/subtitle choices remembered per series, and per collection ("box:<id>") in collection mode.
 enum SeriesLang {
+    /// Where a request's choices are kept: the collection in collection mode, else the episode's series.
+    static func key(_ r: PlayRequest) -> String? {
+        if let c = r.collection { return "box:" + c.id }
+        if r.item.isEpisode, let sid = r.item.SeriesId { return sid }
+        return nil
+    }
     private static let key = "seriesLang"
     private static var all: [String: [String: String]] {
         UserDefaults.standard.dictionary(forKey: key) as? [String: [String: String]] ?? [:]
@@ -1262,9 +1268,6 @@ final class Emby: ObservableObject {
         return URL(string: s)
     }
 
-    /// Asks the server to re-encode the video instead of copying it. A copied video can only start at a
-    /// keyframe, so a stream that starts part-way through the file (resume) begins a few seconds before the
-    /// position the player thinks it has, which puts the subtitles ahead of the picture.
     /// Without a quality chosen by the user, a converted video is limited to this. A 4K source would otherwise
     /// be converted at up to ~100 Mbit/s, more than most networks carry and far more than the picture needs.
     static let defaultConversionBitrate = 40_000_000
@@ -1272,7 +1275,7 @@ final class Emby: ObservableObject {
     /// Whether a stream URL gets the width/bitrate caps. Servers refuse to copy the video when the requested
     /// VideoBitrate is below the source's or MaxWidth below its width, so the caps go on only when converting is
     /// wanted anyway: a quality chosen by the user (1080p/720p/480p), or a conversion that is forced (burned-in
-    /// subtitle, HDR tone mapping, retry after an error, a re-encode requested on resume). With "Original"
+    /// subtitle, HDR tone mapping, retry after an error). With "Original"
     /// (nil/0) nothing is added and the server may copy the video.
     static func shouldCap(maxBitrate: Int?, forcedConversion: Bool) -> Bool {
         (maxBitrate ?? 0) > 0 || forcedConversion
@@ -1310,6 +1313,8 @@ final class Emby: ObservableObject {
         return c.string
     }
 
+    /// Asks the server to re-encode the video instead of copying it. Only for the retry after a playback error;
+    /// a resume keeps the copy (see ResumeStrategy).
     static func withoutVideoCopy(_ url: String) -> String {
         guard var c = URLComponents(string: url) else { return url }
         var q = (c.queryItems ?? []).filter { $0.name.lowercased() != "allowvideostreamcopy" }
@@ -1522,8 +1527,14 @@ let imageSubCodecs: Set<String> = ["pgs", "pgssub", "hdmv_pgs_subtitle", "dvdsub
 /// Preferred-language subtitle track: text formats first, then any.
 func preferredSub(_ streams: [MStream], lang: String) -> Int? {
     let subs = streams.filter { $0.`Type` == "Subtitle" && subLangName($0).lowercased() == lang.lowercased() }
-    let text = subs.first { !imageSubCodecs.contains(($0.Codec ?? "").lowercased()) }
-    return (text ?? subs.first)?.Index
+    return bestTextSub(subs)?.Index
+}
+
+/// Among subtitle tracks of one language: an external text file first (an .srt next to the film: loads at once
+/// and is drawn in sync), then an embedded text track (SUBRIP inside the MKV), then any (picture subs) (owner).
+func bestTextSub(_ subs: [MStream]) -> MStream? {
+    let text = subs.filter { !imageSubCodecs.contains(($0.Codec ?? "").lowercased()) }
+    return text.first { $0.IsExternal == true } ?? text.first ?? subs.first
 }
 
 /// The track's language in English ("Romanian"), so tracks match the language chosen in Settings on both
