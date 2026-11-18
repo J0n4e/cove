@@ -54,6 +54,6 @@ struct UpNextCountdown: View {
 
     @ViewBuilder private func line(_ s: String) -> some View {
         if glass { Text(s).coveFont(size: 11).foregroundColor(.secondary) }
-        else { Text(s).cvFont(11).foregroundColor(.secondary) }
+        else { Text(s).cvFont(11).foregroundColor(.white.opacity(0.88)) }
     }
 }

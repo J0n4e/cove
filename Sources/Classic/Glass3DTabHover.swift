@@ -48,3 +48,14 @@ private struct Glass3DTabSheen: View {
                 .padding(0.75))
     }
 }
+
+/// The unselected top bar tabs' readability treatment without the hover: white text with a soft dark shadow,
+/// no extra background. Used on the player's Up next card (owner).
+struct Glass3DReadableText: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.9), radius: 1.5, x: 0, y: 0.5)
+            .shadow(color: .black.opacity(0.6), radius: 5, x: 0, y: 0)
+    }
+}

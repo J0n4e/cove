@@ -77,6 +77,15 @@ final class PlayerUIModel: ObservableObject {
     static var quietNextStart = false
     static func takeQuietStart() -> Bool { defer { quietNextStart = false }; return quietNextStart }
 
+    /// The new player for the next episode: controls hidden (a fresh model starts with them shown), and the first
+    /// hover event, which SwiftUI sends when the view appears under a still pointer, doesn't wake them.
+    func startQuiet() {
+        hideTask?.cancel()
+        showUI = false
+        swallowFirstHover = true
+    }
+    private var swallowFirstHover = false
+
     /// Shows the controls and starts the hide countdown again.
     func poke() {
         showUI = true
@@ -109,6 +118,7 @@ final class PlayerUIModel: ObservableObject {
     /// The player's hover handler: shows the controls only when the mouse really moved.
     func pointer(_ phase: HoverPhase) {
         guard case .active(let p) = phase else { return }
+        if swallowFirstHover { swallowFirstHover = false; lastPointer = p; return }
         let moved = Self.isPointerMove(from: lastPointer, to: p)
         lastPointer = p
         if moved { poke() }
