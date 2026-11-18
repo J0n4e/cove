@@ -25,7 +25,7 @@ final class ResumeDirectStreamTests: XCTestCase {
         XCTAssertFalse(src.contains("StartTimeTicks"))
     }
 
-    func testWithoutVideoCopyOnlyWhenAsked() {
+    @MainActor func testWithoutVideoCopyOnlyWhenAsked() {
         let u = "https://s/Videos/1/master.m3u8?AllowVideoStreamCopy=true"
         XCTAssertTrue(Emby.withoutVideoCopy(u).contains("AllowVideoStreamCopy=false"))
     }
