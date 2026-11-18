@@ -67,6 +67,9 @@ struct PlayRequest: Identifiable {
     /// An embedded text subtitle carried inside the HLS stream (SubtitleMethod=Hls, WebVTT segments) and read by
     /// the app from the player item. Unlike `sub` it doesn't force a conversion and isn't sent to PlaybackInfo.
     var hlsSub: Int? = nil
+    /// Play collection: the collection's films and where this one is (collection mode, CollectionPlay.swift).
+    /// Nil for every other way of playing a film, which then behaves as before.
+    var collection: CollectionQueue? = nil
     var id: String { item.id }
     var transcode: Bool { audio != nil || sub != nil || maxBitrate != nil }
 }

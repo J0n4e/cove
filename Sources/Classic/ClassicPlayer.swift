@@ -220,7 +220,7 @@ struct ClassicPlayerView: View {
             model.stop()       // marks a finished episode watched (see close())
             let q = UserDefaults.standard.integer(forKey: "defaultQuality")
             emby.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: q > 0 ? q : nil,
-                                       start: emby.resumeAt(ep))
+                                       start: emby.resumeAt(ep), collection: ui.queue(for: ep))
         }
     }
 
@@ -349,6 +349,7 @@ struct ClassicPlayerView: View {
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
+            ui.adopt(req)   // Play collection: collection mode (CollectionPlay.swift)
             if PlayerUIModel.takeQuietStart() { ui.startQuiet() } else { poke() }   // next episode: no controls
             await ui.loadEpisodes(emby, item)
         }
@@ -565,7 +566,7 @@ struct ClassicPlayerView: View {
                 HStack { Spacer(); appearancePanel }.transition(.move(edge: .trailing))
             }
         case .episodes:
-            HStack { Spacer(); classicEpisodesPanel }
+            HStack { Spacer(); if ui.inCollection { collectionPanel } else { classicEpisodesPanel } }
                 .padding(.top, 84).padding(.bottom, 190).padding(.trailing, 24)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
         case .chapters:
@@ -827,7 +828,7 @@ extension ClassicPlayerView {
     var glass3DBarItems: [Glass3DBarItem] {
         var a: [Glass3DBarItem] = []
         if ui.hasEpisodeList(item) {
-            a.append(Glass3DBarItem(id: "episodes", icon: "list.and.film", on: ui.panel == .episodes, help: "Episodes (E)") {
+            a.append(Glass3DBarItem(id: "episodes", icon: "list.and.film", on: ui.panel == .episodes, help: ui.listHelp) {
                 withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
             })
         }
@@ -867,7 +868,7 @@ extension ClassicPlayerView {
             if ui.hasEpisodeList(item) {
                 iconButton("list.and.film", size: 18, on: ui.panel == .episodes) {
                     withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
-                }.helpLabel("Episodes (E)")
+                }.helpLabel(ui.listHelp)
             }
             classicQualityMenu   // subtitles: only the floating captions button's panel
             if !model.chapterList.isEmpty {
@@ -966,13 +967,13 @@ extension ClassicPlayerView {
 
     func classicUpNextCard(_ n: Item) -> some View {
         HStack(spacing: 14) {
-            CachedImage(url: emby.image(n.Id, "Primary", width: 400, plain: true)) { img in
+            CachedImage(url: ui.upNextImage(emby, n)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.88))
-                Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
+                Text(ui.upNextHeading(n)).cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.88))
+                Text(ui.upNextTitle(n))
                     .cvFont(15, weight: .semibold).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
@@ -1152,4 +1153,10 @@ extension ClassicPlayerView {
             .contentShape(Rectangle())
         }.buttonStyle(PanelRowStyle(glass: classic)).padding(.horizontal, classic ? 6 : 0)
     }
+}
+
+// MARK: Play collection: the Collection panel in place of Episodes (Glass3DCollectionPlay.swift)
+
+extension ClassicPlayerView {
+    var collectionPanel: some View { CollectionPanel(ui: ui, current: item, classic: classic) { play($0) } }
 }

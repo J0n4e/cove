@@ -76,6 +76,10 @@ extension Emby {
         }
         // The group moved to the next episode while a player is open: no controls on the new one either
         if let cur = playing, cur.item.SeriesId != nil, cur.item.SeriesId == it.SeriesId { PlayerUIModel.quietNextStart = true }
-        playing = PlayRequest(item: it, start: start > 0 ? start : nil, startPaused: true)
+        // Play collection in a group: the queue started here stays in collection mode while the group plays it
+        let coll = CollectionPlay.groupCollection(CollectionPlay.groupQueue, playlist: syncPlay.group.playlist.map(\.ItemId),
+                                                  itemId: itemId)
+        if coll != nil, playing?.collection != nil { PlayerUIModel.quietNextStart = true }
+        playing = PlayRequest(item: it, start: start > 0 ? start : nil, startPaused: true, collection: coll)
     }
 }

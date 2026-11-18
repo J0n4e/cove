@@ -48,7 +48,7 @@ struct UpNextCountdown: View {
         if group.isInGroup {
             line(GroupUpNext.text(group.upNextSecsLeft(duration: duration, local: localSecs)))
         } else if autoNext {
-            line("Next starts in \(localSecs)s")
+            line(localSecs > 60 ? "Next starts in \(GroupUpNext.clock(localSecs))" : "Next starts in \(localSecs)s")
         }
     }
 

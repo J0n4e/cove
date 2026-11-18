@@ -77,16 +77,21 @@ struct NewMediaNotification: Equatable {
 /// One picture the notification can show: an item's image of one kind.
 struct NewMediaImage: Equatable, Hashable {
     let id: String
-    let kind: String   // "Primary", "Thumb", "Backdrop"
+    let kind: String   // "Primary", "Backdrop" (never "Thumb")
 
-    /// A movie: its poster, else its wide pictures.
-    static func movie(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Primary"), .init(id: id, kind: "Thumb"), .init(id: id, kind: "Backdrop")] }
-    /// An episode: its own still, else the show's wide picture or poster.
+    /// Width asked for: a wide 16:9 picture this size keeps the expanded banner sharp.
+    static let width = 1200
+
+    // Never "Thumb": on some servers an art plugin bakes a TV-set frame into it (owner). Wide pictures first.
+
+    /// A movie: its backdrop, else its poster.
+    static func movie(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Backdrop"), .init(id: id, kind: "Primary")] }
+    /// An episode: its own still, else the show's backdrop or poster.
     static func episode(_ id: String, series: String?) -> [NewMediaImage] {
         [.init(id: id, kind: "Primary")] + (series.map(show) ?? [])
     }
-    /// A show: its wide picture, else its backdrop or poster.
-    static func show(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Thumb"), .init(id: id, kind: "Backdrop"), .init(id: id, kind: "Primary")] }
+    /// A show (batches of episodes): its backdrop, else its poster.
+    static func show(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Backdrop"), .init(id: id, kind: "Primary")] }
 }
 
 /// Per library: which new episodes notify.
