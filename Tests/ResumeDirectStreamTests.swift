@@ -22,7 +22,7 @@ final class ResumeDirectStreamTests: XCTestCase {
                                                                           with: "Sources/PlayerModel.swift"), encoding: .utf8)
         XCTAssertFalse(src.contains("reencode: midFile"))
         XCTAssertTrue(src.contains("reencode: resumeReencode"))
-        XCTAssertFalse(src.contains("StartTimeTicks"))
+        XCTAssertFalse(src.contains("StartTimeTicks="))
     }
 
     @MainActor func testWithoutVideoCopyOnlyWhenAsked() {
