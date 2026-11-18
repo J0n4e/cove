@@ -301,7 +301,7 @@ struct PosterGrid: NSViewRepresentable {
             if let i { cell(i)?.setHover(true) }
         }
 
-        private func cell(_ i: Int) -> PosterGridCell? { cv?.item(at: IndexPath(item: i, section: 0)) as? PosterGridCell }
+        func cell(_ i: Int) -> PosterGridCell? { cv?.item(at: IndexPath(item: i, section: 0)) as? PosterGridCell }
 
         func item(at p: NSPoint) -> Int? {
             // From the layout, not the views: indexPathForItem(at:) hit-tests views (a zoomed neighbour, a button)
@@ -356,13 +356,27 @@ final class PosterCollectionView: NSCollectionView {
 
     /// NSCollectionView's own mouseDown tracks a selection and keeps the mouse-up: a poster click is taken here
     private var downAt: Int?
+    /// Glass3D: a click on a poster's ♡ / ★ / ✓ (hit-tested on the baked badges, see PosterBadgeHit): toggles,
+    /// never opens the item
+    private var downBadge: (Int, PosterBadgeHit)?
+    private func badge(_ e: NSEvent) -> (Int, PosterBadgeHit)? {
+        guard let c = coordinator, let i = c.item(at: convert(e.locationInWindow, from: nil)), let cell = c.cell(i),
+              let b = cell.badge(at: cell.view.convert(e.locationInWindow, from: nil)) else { return nil }
+        return (i, b)
+    }
     override func mouseDown(with e: NSEvent) {
+        downBadge = badge(e)
+        if downBadge != nil { downAt = nil; return }
         downAt = coordinator?.item(at: convert(e.locationInWindow, from: nil))
         if downAt == nil { super.mouseDown(with: e) }
     }
 
     override func mouseUp(with e: NSEvent) {
-        defer { downAt = nil }
+        defer { downAt = nil; downBadge = nil }
+        if let (i, b) = downBadge {
+            if let now = badge(e), now.0 == i, now.1 == b { coordinator?.cell(i)?.toggle(b) }
+            return
+        }
         guard let c = coordinator, let i = c.item(at: convert(e.locationInWindow, from: nil)), i == downAt
         else { return super.mouseUp(with: e) }
         c.hover(nil)
@@ -405,18 +419,17 @@ final class PosterGridCell: NSCollectionViewItem {
     private let glow = CALayer()
     /// The watched/favorite buttons, shown on hover (SwiftUI, made the first time this cell is hovered)
     private var buttons: NSHostingView<AnyView>?
-    /// Glass3D (v1.18.4): the clickable badges at the top (♡ + ★ left, ✓ right), shown while hovered; at rest
-    /// they're drawn into `decor` like before
-    private var badgeLeft: NSHostingView<AnyView>?
-    private var badgeRight: NSHostingView<AnyView>?
+    /// Glass3D: the sizes of the badge groups baked into `decor` (♡ + ★ left, ✓ right), for clicks and tooltips.
+    /// The badges are never swapped for live views (v1.19.x, owner): they stay in `decor` and zoom with the poster.
+    private var leftSize = CGSize.zero
+    private var rightSize = CGSize.zero
+    /// Holes in the hover edge over the badges, so the brighter edge never shows through their glass
+    private let litMask = CAShapeLayer()
     private var lastScale: CGFloat = 2
     private var noHeart = false
     private var item: Item?
     private weak var emby: Emby?
     private(set) var hovered = false
-    /// Glass3D: the live badge buttons are showing (after the zoom has finished); until then the badges stay in
-    /// `decor`, which zooms with the poster, so nothing jumps
-    private var liveBadges = false
     private let nameLabel = CALayer()
     private let year = CALayer()
     /// Which labels the cell shows now, so a label drawn late for an earlier poster is dropped
@@ -438,6 +451,8 @@ final class PosterGridCell: NSCollectionViewItem {
         card.addSublayer(glow)   // first: behind the poster
         for l in [poster, decor, edge, edgeLit] { card.addSublayer(l) }
         edgeLit.opacity = 0; glow.opacity = 0
+        litMask.fillRule = .evenOdd
+        litMask.actions = ["path": NSNull(), "bounds": NSNull(), "position": NSNull()]
         v.layer?.addSublayer(card)
         for t in [nameLabel, year] {
             t.contentsGravity = .topLeft
@@ -471,6 +486,78 @@ final class PosterGridCell: NSCollectionViewItem {
         placeBadges()
     }
 
+    // MARK: Glass3D badges: baked into `decor`, clicked by hit-testing (no live views, no swap)
+
+    /// The badge under `p` (cell view coordinates), at the current zoom
+    func badge(at p: CGPoint) -> PosterBadgeHit? {
+        guard look.glass3D, item != nil else { return nil }
+        return PosterBadgeHit.hit(p, poster: look.size, viewHeight: view.bounds.height, left: leftSize, right: rightSize,
+                                  zoom: hovered ? PosterBadgeHit.zoom : 1)
+    }
+
+    /// The same calls as PosterFavBadge / PosterWatchBadge (grid posters have no children); the decor picture is
+    /// drawn again with the new state
+    func toggle(_ b: PosterBadgeHit) {
+        guard let item, let emby else { return }
+        switch b {
+        case .fav:
+            let fav = emby.isFav(item)
+            Task { @MainActor [weak self] in await emby.setFavChecked(item.id, !fav, name: item.Name); self?.redrawSame(item) }
+        case .watched:
+            let played = emby.isPlayed(item)
+            Task { @MainActor [weak self] in await emby.setPlayedChecked(item.id, !played, name: item.Name); self?.redrawSame(item) }
+        case .rating: return   // not a toggle (as PosterRatingBadge)
+        }
+        // The state flips at once (before the server answers): show it now
+        Task { @MainActor [weak self] in await Task.yield(); self?.redrawSame(item) }
+    }
+
+    private func redrawSame(_ it: Item) {
+        guard let item, item.id == it.id, let emby else { return }
+        show(item, emby: emby, look: look, noHeart: noHeart, scale: lastScale)
+    }
+
+    /// Measured once per content (fittingSize of the very views baked into `decor`)
+    private static var sizes: [String: CGSize] = [:]
+    private func measureBadges(_ item: Item, emby: Emby) {
+        let played = emby.isPlayed(item)
+        let n = item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0
+        let w = PosterBadges.watchedContent(played: played, unwatched: n, hover: false)?.text ?? ""
+        let kl = "L|\(Trakt.shared.rating(item).map(String.init) ?? "-")", kr = "R|\(n > 0 ? w : "c")"
+        func size<V: View>(_ k: String, _ v: V) -> CGSize {
+            if let s = Self.sizes[k] { return s }
+            let h = NSHostingView(rootView: AnyView(v.environmentObject(emby).environment(\.classicGlass, true).fixedSize()))
+            let s = h.fittingSize
+            Self.sizes[k] = s
+            return s
+        }
+        leftSize = size(kl, PosterBadgesLeading(item: item, hover: false))
+        rightSize = size(kr, PosterWatchBadge(item: item, hover: false))
+    }
+
+    /// Tooltips over the badges and the holes in the hover edge, after a layout, zoom or state change
+    private func placeBadges() {
+        guard look.glass3D, item != nil else { edgeLit.mask = nil; view.removeAllToolTips(); return }
+        let ps = look.size
+        let (l, r) = PosterBadgeHit.cardRects(poster: ps, left: leftSize, right: rightSize)
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        litMask.frame = CGRect(origin: .zero, size: ps)
+        let path = CGMutablePath()
+        path.addRect(litMask.bounds.insetBy(dx: -2, dy: -2))
+        for b in [l, r] where b.width > 0 {
+            let o = b.insetBy(dx: -3, dy: -3)   // and their small shadow
+            path.addRoundedRect(in: o, cornerWidth: o.height / 2, cornerHeight: o.height / 2)
+        }
+        litMask.path = path
+        edgeLit.mask = litMask
+        CATransaction.commit()
+        view.removeAllToolTips()
+        let z = hovered ? PosterBadgeHit.zoom : 1, h = view.bounds.height
+        for b in [l, r] where b.width > 0 {
+            view.addToolTip(PosterBadgeHit.toView(b, poster: ps, viewHeight: h, zoom: z), owner: self, userData: nil)
+        }
+    }
+
     @MainActor func show(_ item: Item, emby: Emby, look: PosterLook, noHeart: Bool, scale: CGFloat) {
         if look != self.look { self.look = look; view.needsLayout = true }
         self.item = item; self.emby = emby; self.noHeart = noHeart; self.lastScale = scale
@@ -485,12 +572,12 @@ final class PosterGridCell: NSCollectionViewItem {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         poster.opacity = played ? 0.6 : 1
         poster.cornerRadius = look.radius
-        // Glass3D while hovered: the badges come from the live buttons instead (see fadeBadges)
-        let badges = !(look.glass3D && liveBadges)
-        let key = "gridDecor|\(look.glass3D)|\(played)|\(unwatched)|\(fav)|\(rating ?? 0)|\(progress)|\(accent)|\(badges)"
+        // The badges are always in this picture, at rest and on hover (no swap: the same pixels, zoomed)
+        let key = PosterGridCell.decorKey(glass3D: look.glass3D, played: played, unwatched: unwatched, fav: fav,
+                                          rating: rating, progress: progress, accent: accent)
         decor.contents = Raster.image(key, scale: scale, pad: 0) {
             PosterDecor(item: item, played: played, fav: fav, progress: progress, accent: Theme.accent(accent), look: look,
-                        badges: badges)
+                        badges: true)
                 .environmentObject(emby).environment(\.classicGlass, look.glass3D)
         }
         for (l, lit) in [(edge, false), (edgeLit, true)] {
@@ -503,7 +590,7 @@ final class PosterGridCell: NSCollectionViewItem {
         glow.shadowColor = look.glass3D ? NSColor(Theme.accent(accent)).cgColor : NSColor.clear.cgColor
         CATransaction.commit()
         if hovered && !look.glass3D { buttons?.rootView = buttonsView() }
-        if hovered && look.glass3D { refreshBadges() }
+        if look.glass3D { measureBadges(item, emby: emby) }
 
         let d = UserDefaults.standard
         let showTitle = d.object(forKey: "posterShowTitle") as? Bool ?? true
@@ -565,77 +652,13 @@ final class PosterGridCell: NSCollectionViewItem {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         card.transform = zoom; edgeLit.opacity = lit; glow.opacity = lit
         CATransaction.commit()
-        if look.glass3D { showBadges(on) } else { fadeButtons(on, animated: animated) }
+        if look.glass3D { placeBadges() } else { fadeButtons(on, animated: animated) }
     }
 
-    // MARK: Glass3D clickable badges (v1.18.4)
-
-    private func badgeViews() -> (AnyView, AnyView) {
-        guard let item, let emby else { return (AnyView(EmptyView()), AnyView(EmptyView())) }
-        let tint = Theme.accent(UserDefaults.standard.string(forKey: "accent") ?? "red")
-        func wrap<V: View>(_ v: V) -> AnyView {
-            AnyView(v.environmentObject(emby).environment(\.classicGlass, true).tint(tint)
-                .environment(\.colorScheme, .dark).fixedSize())
-        }
-        // Drawn at the zoomed size (1.06), like the badges in the zoomed picture
-        return (wrap(PosterBadgesLeading(item: item, hover: true).scaleEffect(1.06, anchor: .topLeading)
-                        .padding(.trailing, 2).padding(.bottom, 2)),
-                wrap(PosterWatchBadge(item: item, hover: true).scaleEffect(1.06, anchor: .topTrailing)
-                        .padding(.leading, 2).padding(.bottom, 2)))
-    }
-
-    /// Hovered: once the 0.2 s zoom has finished, the badges baked into `decor` (which zoom with the poster) are
-    /// swapped for live buttons drawn at the same zoomed size and spots, so they don't jump. Leaving: swapped back
-    /// at once, before the zoom out.
-    private var badgeSwap: DispatchWorkItem?
-    private func showBadges(_ on: Bool) {
-        badgeSwap?.cancel(); badgeSwap = nil
-        if on && badgeLeft == nil {
-            let (l, r) = badgeViews()
-            badgeLeft = NSHostingView(rootView: l); badgeRight = NSHostingView(rootView: r)
-            for b in [badgeLeft!, badgeRight!] { b.isHidden = true; view.addSubview(b) }
-        }
-        guard on else { setLiveBadges(false); return }
-        let w = DispatchWorkItem { [weak self] in
-            guard let self, self.hovered else { return }
-            self.setLiveBadges(true)
-        }
-        badgeSwap = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: w)
-    }
-
-    private func setLiveBadges(_ on: Bool) {
-        if on { refreshBadges() }
-        liveBadges = on
-        for b in [badgeLeft, badgeRight] { b?.isHidden = !on }   // hidden: no clicks on it
-        if let item, let emby { redrawDecor(item, emby: emby) }
-    }
-
-    private func refreshBadges() {
-        let (l, r) = badgeViews()
-        badgeLeft?.rootView = l; badgeRight?.rootView = r
-        placeBadges()
-    }
-
-    /// The decor picture with or without the badges, after a hover change.
-    private func redrawDecor(_ item: Item, emby: Emby) {
-        show(item, emby: emby, look: look, noHeart: noHeart, scale: lastScale)
-    }
-
-    /// Top-left and top-right corners of the zoomed poster, 8 pt in (as on the SwiftUI card)
-    private func placeBadges() {
-        let ps = look.size, h = view.bounds.height, z: CGFloat = hovered ? 1.06 : 1
-        let center = CGPoint(x: ps.width / 2, y: h - ps.height / 2)
-        let top = center.y + (ps.height / 2 - PosterBadges.inset) * z
-        if let l = badgeLeft {
-            let s = l.fittingSize
-            l.frame = CGRect(x: center.x - (ps.width / 2 - PosterBadges.inset) * z, y: top - s.height, width: s.width, height: s.height)
-        }
-        if let r = badgeRight {
-            let s = r.fittingSize
-            r.frame = CGRect(x: center.x + (ps.width / 2 - PosterBadges.inset) * z - s.width, y: top - s.height,
-                             width: s.width, height: s.height)
-        }
+    /// The decor picture's cache key: nothing about the hover in it (the badges never change on hover)
+    static func decorKey(glass3D: Bool, played: Bool, unwatched: Int, fav: Bool, rating: Int?, progress: Int,
+                         accent: String) -> String {
+        "gridDecor|\(glass3D)|\(played)|\(unwatched)|\(fav)|\(rating ?? 0)|\(progress)|\(accent)|true"
     }
 
     private func buttonsView() -> AnyView {
@@ -793,5 +816,51 @@ struct PageLink<V: Hashable, Label: View>: View {
     var body: some View {
         if let push { Button { push(value) } label: { label() } }
         else { NavigationLink(value: value) { label() } }
+    }
+}
+
+extension PosterGridCell: NSViewToolTipOwner {
+    func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint,
+              userData data: UnsafeMutableRawPointer?) -> String {
+        guard let item, let emby, let b = badge(at: point) else { return "" }
+        switch b {
+        case .fav: return PosterBadges.favTip(emby.isFav(item))
+        case .rating: return Trakt.shared.rating(item).map { "Your rating: \($0)/10" } ?? ""
+        case .watched:
+            let played = emby.isPlayed(item)
+            let n = item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0
+            return n > 0 ? "\(n) unwatched episode\(n == 1 ? "" : "s") · \(PosterBadges.watchedTip(played))"
+                         : PosterBadges.watchedTip(played)
+        }
+    }
+}
+
+/// Glass3D grid posters: where the badges baked into the decor picture are, for clicks and tooltips. The card is
+/// drawn at the top of the cell (origin bottom-left) and zooms about its centre on hover.
+enum PosterBadgeHit: Equatable {
+    case fav, rating, watched
+    static let zoom: CGFloat = 1.06
+
+    /// In card coordinates: the top-left group (♡ then ★) and the top-right ✓, `PosterBadges.inset` in
+    static func cardRects(poster: CGSize, left: CGSize, right: CGSize) -> (left: CGRect, right: CGRect) {
+        let i = PosterBadges.inset
+        return (CGRect(x: i, y: poster.height - i - left.height, width: left.width, height: left.height),
+                CGRect(x: poster.width - i - right.width, y: poster.height - i - right.height, width: right.width, height: right.height))
+    }
+
+    /// A card rect in the cell view, with the card zoomed by `zoom` about its centre
+    static func toView(_ r: CGRect, poster: CGSize, viewHeight: CGFloat, zoom z: CGFloat) -> CGRect {
+        let c = CGPoint(x: poster.width / 2, y: viewHeight - poster.height / 2)
+        return CGRect(x: c.x + (r.minX - poster.width / 2) * z, y: c.y + (r.minY - poster.height / 2) * z,
+                      width: r.width * z, height: r.height * z)
+    }
+
+    static func hit(_ p: CGPoint, poster: CGSize, viewHeight: CGFloat, left: CGSize, right: CGSize, zoom: CGFloat) -> PosterBadgeHit? {
+        let (l, r) = cardRects(poster: poster, left: left, right: right)
+        let rv = toView(r, poster: poster, viewHeight: viewHeight, zoom: zoom)
+        if right.width > 0, rv.contains(p) { return .watched }
+        let lv = toView(l, poster: poster, viewHeight: viewHeight, zoom: zoom)
+        if left.width > 0, lv.contains(p) { return p.x < lv.minX + PosterBadges.size * zoom ? .fav : .rating }
+        return nil
     }
 }

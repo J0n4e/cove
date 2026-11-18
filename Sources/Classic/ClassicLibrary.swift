@@ -196,7 +196,7 @@ struct ClassicLibraryView: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(4).frame(height: 44).classicTabBarGlass()
+        }.padding(4).frame(height: 44).classicClearGlass()
     }
 
     var genreGrid: some View {
