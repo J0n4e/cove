@@ -456,9 +456,13 @@ struct ClassicDetailView: View {
         // All the same size and shape: 44-pt glass pills
         return HStack(spacing: 10) {
             let r = model.resumePoint
-            Button { model.playNow(from: r > 0 ? 0 : nil) } label: {
-                Label(model.playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
-            }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? model.playLabel + " from the beginning" : model.playLabel)
+            if item.isBox {   // Play collection (+ Resume <film>): collection mode, Glass3DCollectionPlay.swift
+                CollectionPlayButtons(collection: item, films: model.kids)
+            } else {
+                Button { model.playNow(from: r > 0 ? 0 : nil) } label: {
+                    Label(model.playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+                }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? model.playLabel + " from the beginning" : model.playLabel)
+            }
             if r > 0 {
                 Button { model.playNow() } label: {
                     Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)

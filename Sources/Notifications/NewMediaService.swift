@@ -546,7 +546,7 @@ final class ServerNewMediaSource: NewMediaSource {
     func imageFile(_ images: [NewMediaImage]) async -> URL? {
         for img in images {
             // The same signed request as every other call here (the token in the header, never in the link)
-            guard let d = await data("/Items/\(img.id)/Images/\(img.kind)", ["maxWidth": "600", "quality": "85", "format": "jpg"]),
+            guard let d = await data("/Items/\(img.id)/Images/\(img.kind)", ["maxWidth": String(NewMediaImage.width), "quality": "85", "format": "jpg"]),
                   d.count > 100, NotificationImages.looksLikeImage(d) else { continue }
             if let f = NotificationImages.write(d) { return f }
         }
