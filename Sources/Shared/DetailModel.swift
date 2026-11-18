@@ -160,8 +160,7 @@ final class DetailModel: ObservableObject {
             let src = f?.MediaSources?.first
             let all = src?.MediaStreams ?? []
             let subs = all.filter { $0.`Type` == "Subtitle" && subLangName($0).lowercased() == wanted }
-            let text = ["srt", "subrip", "vtt", "ass", "ssa"]
-            var pick = (subs.first { text.contains(($0.Codec ?? "").lowercased()) } ?? subs.first)?.Index
+            var pick = bestTextSub(subs)?.Index
             if pick == nil { pick = preferredSub(all, lang: wanted) }
             source.playing = PlayRequest(item: ep, sourceId: src?.Id, sub: pick, maxBitrate: maxBitrate, start: start)
         }
