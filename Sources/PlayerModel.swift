@@ -187,10 +187,13 @@ final class PlayerModel: ObservableObject {
         }
         await emby.killStaleEncodings()
         guard current() else { return }
-        // A stream that starts part-way through the file must not copy the video (see Emby.withoutVideoCopy)
-        // TODO: this re-encodes the video on every resume (cause C in the transcode investigation); keep video
-        // copy and fix the subtitle offset instead, in a separate change.
+        // Resume keeps the video copied (Direct stream). The URL has no StartTimeTicks: the HLS playlist covers the
+        // whole file and the player seeks in it, so the player's clock is the media time (see ResumeStrategy).
         let midFile = pendingSeek > 0
+        let resumeReencode = ResumeStrategy.reencode(resuming: midFile, forceTranscode: forceTranscode)
+        if midFile {
+            dlog("resume: \(resumeReencode ? "re-encode (retry)" : "video copy (Direct stream)"), seek in whole-file playlist to \(fmt(pendingSeek)), start offset 0 s (strategy: \(ResumeStrategy.name))")
+        }
         // A 4K HEVC video passes through unchanged when the screen can show it (HDR needs an HDR screen)
         let passHEVC = sourceIsHEVC && !forceTranscode && (!sourceIsHDR || Self.screenIsHDR)
         if sourceIsHEVC { dlog("HEVC source (\(sourceIsHDR ? "HDR" : "SDR"), screen \(Self.screenIsHDR ? "HDR" : "SDR")): \(passHEVC ? "fMP4 pass-through" : "converted")") }
@@ -198,7 +201,7 @@ final class PlayerModel: ObservableObject {
         // failure; the retry also goes back to stereo AAC, the proven audio (risk control for the audio copy).
         let mustConvert = forceTranscode || (sourceIsHEVC && !passHEVC)
         if forceTranscode { dlog("stream: retry after a playback error, forcing a conversion (video + stereo AAC)") }
-        let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: midFile || forceTranscode,
+        let resolved = await emby.resolveStream(req, direct: direct && !forceTranscode, reencode: resumeReencode,
                                                 hevc: passHEVC, maxWidth: Self.screenWidth,
                                                 convert: mustConvert, safeAudio: forceTranscode)
         guard let u = resolved else {
@@ -258,7 +261,7 @@ final class PlayerModel: ObservableObject {
                         }
                         self.updateCaption(self.now)
                         self.syncPreroll()   // SyncPlay timing
-                        self.dlog("resume to \(self.fmt(t)): player at \(self.fmt(self.now)) (\(self.session?.method ?? "?")), re-encode requested")
+                        self.dlog("resume to \(self.fmt(t)): player at \(self.fmt(self.now)) (\(self.session?.method ?? "?")), start offset \(String(format: "%.2f", ResumeStrategy.offset(requested: t, playerAt: self.now))) s")
                         Task { @MainActor [weak self] in
                             try? await Task.sleep(for: .seconds(5))
                             self?.logServer()
