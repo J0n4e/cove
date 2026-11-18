@@ -53,11 +53,24 @@ final class PlayerModel: ObservableObject {
     private var session: Emby.PlaySession?
     /// Bumped by every start() and stop(): a start that was overtaken (another track chosen meanwhile, or the
     /// player closed while it was still loading) sees the change after its next await and gives up.
-    private var startGen = 0
+    var startGen = 0
     /// After a playback failure on this item: have the server convert the video (TS + H.264, no copy).
     private var forceTranscode = false
     private var failObs: NSObjectProtocol?
     private var retrying = false
+    // Embedded text subtitles read from the HLS stream (Player/LegibleSubtitles.swift) ↓
+    var legible: LegibleSubtitles?
+    var legibleGroup: AVMediaSelectionGroup?
+    /// The track shown from the stream (nil: cues, or none)
+    var inStreamSub: Int?
+    var inStreamDecided = false
+    var inStreamFirst = false
+    var inStreamT0 = Date()
+    /// This film's stream brought no subtitle rendition once: later tracks are downloaded instead
+    var inStreamUnsupported = false
+    var embyRef: Emby? { emby }
+    var currentRequest: PlayRequest? { req }
+    // ↑ in-stream subtitles
     /// The file's video is HEVC (typically 4K / HDR): ask for fMP4 segments so it can be passed through.
     var sourceIsHEVC: Bool {
         let c = (streams.first { $0.`Type` == "Video" }?.Codec ?? "").lowercased()
@@ -129,6 +142,7 @@ final class PlayerModel: ObservableObject {
             if metaFor != req.item.id {
                 metaFor = req.item.id
                 forceTranscode = false
+                inStreamUnsupported = false
                 chapters = f.Chapters ?? []
                 introDone = false; inIntro = false
                 loadThumbs(emby, req.item.id, src?.Id)
@@ -157,9 +171,18 @@ final class PlayerModel: ObservableObject {
         }
         // Text subtitles are drawn by the app and load in the background, so the video starts right away
         // (embedded ones can take a while the first time). Image subtitles are burned in by the server.
+        // Embedded text tracks come inside the HLS stream when the server can (shown at once); external files and
+        // the fallback are downloaded.
+        var wantInStream: Int?
         if let s = req.sub, !isImageSub(s), !req.burnIn {
             req.sub = nil
-            loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
+            if !inStreamUnsupported,
+               Self.subPath(streams.first { $0.Index == s }, burnIn: false, directPlay: false) == .inStream {
+                req.hlsSub = s; wantInStream = s
+            } else {
+                dlog("subs: extraction (track \(s))")
+                loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
+            }
         }
         await emby.killStaleEncodings()
         guard current() else { return }
@@ -187,6 +210,14 @@ final class PlayerModel: ObservableObject {
         }
         session = ps
         let it = AVPlayerItem(url: u)
+        if let s = wantInStream {
+            if method == "DirectPlay" {   // no HLS, so no renditions: download the track
+                dlog("subs: extraction (track \(s), Direct Play)")
+                loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
+            } else {
+                attachInStream(it, s, gen: gen)
+            }
+        }
         // Start at the resume point right away. Loading from 0 and seeking afterwards makes the server restart
         // its transcode part-way, which can shift the stream's timeline against the subtitles.
         if pendingSeek > 0 {
@@ -206,6 +237,7 @@ final class PlayerModel: ObservableObject {
                     // A stale event from a stream that was restarted meanwhile must not mark the new one ready
                     guard let self, gen == self.startGen, self.player?.currentItem === i else { return }
                     self.isReady = true
+                    self.selectInStream(i, gen: gen)
                     if self.resumeTarget <= 0 { self.syncPreroll() }   // SyncPlay timing
                     if self.resumeTarget > 0 {
                         let t = self.resumeTarget; self.resumeTarget = 0
@@ -355,7 +387,7 @@ final class PlayerModel: ObservableObject {
     /// Downloads a text subtitle in the background; playback keeps going meanwhile. The server reads it from the
     /// start of the file up to the end asked for (each request reads it again), so: the next minutes first, so
     /// they show quickly, then the whole track.
-    private func loadCues(_ emby: Emby, _ itemId: String, _ sourceId: String?, _ idx: Int, from pos: Double) {
+    func loadCues(_ emby: Emby, _ itemId: String, _ sourceId: String?, _ idx: Int, from pos: Double) {
         subGen += 1
         let gen = subGen
         subTask?.cancel()
@@ -414,10 +446,24 @@ final class PlayerModel: ObservableObject {
                 await restart(emby) { $0.sub = idx; $0.burnIn = false }
             } else {
                 sub = idx; req?.sub = idx
+                let path = Self.subPath(streams.first { $0.Index == idx }, burnIn: false,
+                                        directPlay: session?.method == "DirectPlay")
                 if wasBurned { await restart(emby) { $0.sub = idx; $0.burnIn = false } }
-                else { loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
+                else if path == .inStream {
+                    let how = Self.inStreamSwitch(haveOption: false, hls: session?.method != "DirectPlay",
+                                                  unsupported: inStreamUnsupported)
+                    // (the subtitle group is tried first: Jellyfin lists every text track in the playlist)
+                    if inStreamSub != nil || legibleGroup != nil, cancelCues(), switchInStream(idx) { return }
+                    if how == .restart { dlog("subs: in-stream (HLS) track \(idx): restarting the stream"); await restart(emby) { $0.sub = idx } }
+                    else { stopInStream(); dlog("subs: extraction (track \(idx))"); loadCues(emby, r.item.id, r.sourceId, idx, from: now) }
+                } else {
+                    stopInStream()
+                    dlog("subs: \(path == .file ? "external file" : "extraction") (track \(idx))")
+                    loadCues(emby, r.item.id, r.sourceId, idx, from: now)
+                }
             }
         } else {
+            stopInStream()
             subGen += 1
             subTask?.cancel(); subFetching = false
         cues = []; caption = ""; loadingSubs = false; sub = nil; req?.sub = nil; req?.noSub = true
@@ -693,7 +739,15 @@ final class PlayerModel: ObservableObject {
     /// SyncPlay timing: caption refresh after a group seek
     func localSeekCaption(_ t: Double) { updateCaption(t) }
 
+    /// Stops a download in progress (another path takes over). Always true, so it can sit in a condition.
+    private func cancelCues() -> Bool {
+        subGen += 1; subTask?.cancel(); subFetching = false; cues = []; cuesUpTo = 0; loadingSubs = false
+        return true
+    }
+
     private func updateCaption(_ raw: Double) {
+        // (captions read from the stream are set by the legible output)
+        if inStreamSub != nil { if loadingSubs { loadingSubs = false }; return }
         let t = raw - Double(subOffset) / 1000
         // binary search for the last cue starting at or before t
         var lo = 0, hi = cues.count - 1, found = -1
@@ -738,6 +792,7 @@ final class PlayerModel: ObservableObject {
         debugTimer?.invalidate(); debugTimer = nil; pausedAt = nil
         keepAlive?.invalidate(); keepAlive = nil
         if pip?.isPictureInPictureActive == true { pip?.stopPictureInPicture() }
+        legible?.detach(); legible = nil; legibleGroup = nil; inStreamSub = nil; inStreamDecided = false
         player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
         pendingSeek = 0                           // a start that was interrupted must not leak its position
     }
