@@ -25,7 +25,7 @@ struct StatsUsersView: View {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         ForEach(StatsUsersAggregate.withPlays(model.users)) { u in
                             StatsUserCard(user: u) { model.userOverview = []; model.selectedUser = u }
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(maxWidth: 860, alignment: .leading)   // fits the contents, not stretched (owner)
                         }
                     }
                 }
