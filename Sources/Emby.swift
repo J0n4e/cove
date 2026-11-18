@@ -1262,9 +1262,6 @@ final class Emby: ObservableObject {
         return URL(string: s)
     }
 
-    /// Asks the server to re-encode the video instead of copying it. A copied video can only start at a
-    /// keyframe, so a stream that starts part-way through the file (resume) begins a few seconds before the
-    /// position the player thinks it has, which puts the subtitles ahead of the picture.
     /// Without a quality chosen by the user, a converted video is limited to this. A 4K source would otherwise
     /// be converted at up to ~100 Mbit/s, more than most networks carry and far more than the picture needs.
     static let defaultConversionBitrate = 40_000_000
@@ -1272,7 +1269,7 @@ final class Emby: ObservableObject {
     /// Whether a stream URL gets the width/bitrate caps. Servers refuse to copy the video when the requested
     /// VideoBitrate is below the source's or MaxWidth below its width, so the caps go on only when converting is
     /// wanted anyway: a quality chosen by the user (1080p/720p/480p), or a conversion that is forced (burned-in
-    /// subtitle, HDR tone mapping, retry after an error, a re-encode requested on resume). With "Original"
+    /// subtitle, HDR tone mapping, retry after an error). With "Original"
     /// (nil/0) nothing is added and the server may copy the video.
     static func shouldCap(maxBitrate: Int?, forcedConversion: Bool) -> Bool {
         (maxBitrate ?? 0) > 0 || forcedConversion
@@ -1310,6 +1307,8 @@ final class Emby: ObservableObject {
         return c.string
     }
 
+    /// Asks the server to re-encode the video instead of copying it. Only for the retry after a playback error;
+    /// a resume keeps the copy (see ResumeStrategy).
     static func withoutVideoCopy(_ url: String) -> String {
         guard var c = URLComponents(string: url) else { return url }
         var q = (c.queryItems ?? []).filter { $0.name.lowercased() != "allowvideostreamcopy" }
