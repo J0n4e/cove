@@ -85,6 +85,7 @@ struct ClassicNowPlayingView: View {
     @State private var fetchedAt = Date()
     @State private var loaded = false
     @State private var lastPush: Date?
+    @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
 
     var body: some View {
         ScrollView {
@@ -102,7 +103,7 @@ struct ClassicNowPlayingView: View {
                                       message: "Playback on any device signed in to this server shows here.")
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 600), spacing: 18)], alignment: .leading, spacing: 18) {
-                        ForEach(sessions) { Glass3DSessionCard(s: $0, fetchedAt: fetchedAt) }
+                        ForEach(entries) { Glass3DNowPlayingCard(entry: $0, fetchedAt: fetchedAt) }
                     }
                 }
             }
@@ -122,6 +123,12 @@ struct ClassicNowPlayingView: View {
             }
         }
         .modifier(NowPlayingSocketFeed(sessions: $sessions, fetchedAt: $fetchedAt, loaded: $loaded, lastPush: $lastPush))
+        .nowPlayingGroups($syncGroups)
+    }
+
+    private var entries: [NowPlayingEntry] {
+        let g = emby.syncPlay.group
+        return NowPlayingGroups.entries(sessions, groups: syncGroups, own: g.info.map { (groupId: $0.id, itemId: g.playingItemId) })
     }
 
     private var source: NowPlayingLive.Source {

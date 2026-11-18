@@ -147,6 +147,9 @@ final class SyncPlayService: ObservableObject {
         // SyncPlay phase 4: a group started on an episode queues the series' following ones; Dashboard remote control ↓
         group.queueFor = { [weak emby] id in await emby?.syncPlaySeriesQueue(id) ?? [id] }
         RemoteCommandRouter.shared.attach(to: emby, messages: messages)
+        RemoteCommandRouter.shared.groupPlayNow = { [weak self] id, start in
+            self?.group.remotePlayNow(id, startTicks: Int64((start * SyncPlayGroup.ticksPerSecond).rounded())) ?? false
+        }
         // ↑ phase 4
         // Closing the player while in a group leaves the group
         emby.$playing.map { $0 == nil }.removeDuplicates().dropFirst()

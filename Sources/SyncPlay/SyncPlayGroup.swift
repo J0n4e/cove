@@ -614,6 +614,20 @@ extension SyncPlayGroup {
         }
         return true
     }
+
+    /// Dashboard → Play (PlayNow) while in a group (v1.18.8): the group starts the item for everyone, queued as
+    /// a group start is (an episode → it and the series' following ones, a movie → itself), at the requested
+    /// position. The PlayQueue update that follows loads it here like any group change. False = not in a group.
+    func remotePlayNow(_ itemId: String, startTicks: Int64) -> Bool {
+        guard isInGroup else { return false }
+        log("SyncPlay: Dashboard Play now, starting it for the group")
+        Task {
+            let ids = await queueFor(itemId)
+            await post("/SyncPlay/SetNewQueue", ["PlayingQueue": ids.first == itemId ? ids : [itemId],
+                                                 "PlayingItemPosition": 0, "StartPositionTicks": max(0, startTicks)])
+        }
+        return true
+    }
 }
 
 extension Emby {

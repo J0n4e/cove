@@ -268,7 +268,11 @@ struct ClassicHomeView: View {
         .task {
             // Keep the sidebar's Now Playing count fresh
             while !Task.isCancelled {
-                nav.activeCount = await emby.nowPlaying().count
+                // Not while the app is hidden or fully covered: nobody sees the count (refreshed within 20 s of coming back)
+                if AppVisibility.isVisible {
+                    let n = await emby.nowPlaying().count
+                    if nav.activeCount != n { nav.activeCount = n }      // publish only real changes
+                }
                 try? await Task.sleep(for: .seconds(20))
             }
         }

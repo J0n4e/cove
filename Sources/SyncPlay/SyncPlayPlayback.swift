@@ -74,6 +74,8 @@ extension Emby {
             DebugLog.write("SyncPlay: couldn't load the group's item")
             return
         }
+        // The group moved to the next episode while a player is open: no controls on the new one either
+        if let cur = playing, cur.item.SeriesId != nil, cur.item.SeriesId == it.SeriesId { PlayerUIModel.quietNextStart = true }
         playing = PlayRequest(item: it, start: start > 0 ? start : nil, startPaused: true)
     }
 }

@@ -203,6 +203,7 @@ struct ClassicPlayerView: View {
 
     /// Plays a neighbouring episode, keeping the current subtitle language.
     func play(_ ep: Item) {
+        PlayerUIModel.quietNextStart = true   // the next episode opens without the controls
         if emby.syncPlay.group.pick(ep.Id) { return }   // SyncPlay phase 4: in a group, everyone switches
         guard !ui.switching else { return }
         ui.switching = true
@@ -288,7 +289,8 @@ struct ClassicPlayerView: View {
         .onContinuousHover { ui.pointer($0) }   // real mouse moves only (not a card appearing)
         .focusable().focused($focused).focusEffectDisabled()
         .onKeyPress(.space) {
-            if classicShowUpNext, let n = nextEp { play(n) } else { model.togglePlay() }
+            if classicShowUpNext, let n = nextEp { play(n); return .handled }   // next episode: no controls
+            model.togglePlay()
             poke(); return .handled
         }
         .onKeyPress(.return) {
@@ -347,7 +349,7 @@ struct ClassicPlayerView: View {
         .task {
             focused = true
             ui.isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
-            poke()
+            if PlayerUIModel.takeQuietStart() { ui.startQuiet() } else { poke() }   // next episode: no controls
             await ui.loadEpisodes(emby, item)
         }
         .task { await model.start(emby, req) }
@@ -969,7 +971,7 @@ extension ClassicPlayerView {
             } placeholder: { Color.white.opacity(0.1) }
             .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Up next").cvFont(12, weight: .semibold).foregroundColor(.secondary)
+                Text("Up next").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.88))
                 Text("S\(n.ParentIndexNumber ?? 0):E\(n.IndexNumber ?? 0) · \(n.Name)")
                     .cvFont(15, weight: .semibold).lineLimit(2).frame(maxWidth: 220, alignment: .leading)
                 HStack(spacing: 10) {
@@ -989,6 +991,7 @@ extension ClassicPlayerView {
                 UpNextCountdown(group: emby.syncPlay.group, autoNext: autoNext, localSecs: classicSecsLeft, duration: ui.player.duration)
             }
         }
+        .modifier(Glass3DReadableText())   // the top bar tabs' text treatment (owner)
         .padding(12)
         .glassPanel()
         .environment(\.colorScheme, .dark)
