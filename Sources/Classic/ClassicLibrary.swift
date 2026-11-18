@@ -109,7 +109,7 @@ struct ClassicLibraryView: View {
                                 .padding(.horizontal, 14).frame(height: 32)
                                 .classicSelectedGlass(model.tab == i)   // a step quieter than the top bar's pill
                                 .modifier(Glass3DTabHover(on: model.tab == i))   // as the top bar's tabs
-                        .modifier(SectionHoverGlow(on: !(model.tab == i)))   // accent glow on hover, as the top bar
+                // No hover background on unselected tabs (owner): only the brighter text with its dark shadow
                         }.buttonStyle(.plainHand)
                     }
                 }.padding(3).frame(height: 38).classicClearGlass().opacity(0.92)
