@@ -148,7 +148,7 @@ struct ClassicPosterCard: View {
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
-                        if showTitle { Text(item.Name).cvFont(12, weight: .semibold).lineLimit(1) }
+                        if showTitle { Text(item.Name).cvFont(12, weight: .regular).lineLimit(1) }
                         if showYear { Text(item.yearText).cvFont(10, weight: .regular).foregroundColor(.secondary) }
                     }
                     .multilineTextAlignment(centered ? .center : .leading)

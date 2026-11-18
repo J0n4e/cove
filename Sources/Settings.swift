@@ -382,7 +382,7 @@ struct HomeSettings: View {
     @AppStorage("showUpNextRow") private var showUpNextRow = true
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
-    @AppStorage("classicBannerNav") private var bannerNav = "deck"
+    @AppStorage(Glass3DBannerNav.key) private var bannerNav = Glass3DBannerNav.defaultValue
 
     var body: some View {
         // The Classic theme's banner choices
@@ -391,8 +391,8 @@ struct HomeSettings: View {
                 PrefRow(label: "Style") {
                     menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
                 }
-                PrefRow(label: "Navigation") {
-                    menuPicker($bannerNav, [("deck", "Cards"), ("bullets", "Bullets")])
+                PrefRow(label: "Banner navigation") {
+                    menuPicker($bannerNav, Glass3DBannerNav.options)
                 }
             }
         }

@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-// Glass3D player, polish round 3: the subtitles/audio/quality/speed panel, the shared panel heading and rows (the
+// Glass3D player, polish round 3: the subtitles panel, the bar's menus, the shared panel heading and rows (the
 // Episodes panel's style), the right-hand Liquid Glass control bar, speed chips, dropdown fields and the episode
 // progress line. Kept out of ClassicPlayer.swift, whose body is at the type checker's limit.
 
@@ -79,6 +79,40 @@ enum Glass3DTrackLabel {
             return subtitle(position: k + 1, title: st.Title, displayTitle: st.DisplayTitle, codec: st.Codec,
                             sameNameElsewhere: dup)
         }
+    }
+
+    /// Where a subtitle comes from, after its format: an external file shows its codec as the file type
+    /// ("SRT (file)"), an embedded track the friendly codec name ("SubRip (embedded)", "PGS (embedded)").
+    static func subtitleSource(codec: String?, isExternal: Bool) -> String {
+        if isExternal {
+            let c = (codec ?? "").trimmingCharacters(in: .whitespaces).uppercased()
+            let type = c == "SUBRIP" ? "SRT" : c == "WEBVTT" ? "VTT" : c
+            return type.isEmpty ? "File" : "\(type) (file)"
+        }
+        return "\(codecName(codec) ?? "Unknown format") (embedded)"
+    }
+
+    /// One subtitle line with its source: "Romanian · SRT (file)", "Romanian · SubRip (embedded)";
+    /// an unnamed track reads "Track 2 · PGS (embedded)".
+    static func sourcedSubtitle(position: Int, title: String?, displayTitle: String?, codec: String?,
+                                isExternal: Bool) -> String {
+        var n = name(title: title, displayTitle: displayTitle, codec: codec) ?? "Track \(position)"
+        // "Romanian External" → "Romanian": the source is said after the dot
+        let words = n.split(separator: " ").filter { !["EXTERNAL", "(EXTERNAL)"].contains($0.uppercased()) }
+        if !words.isEmpty { n = words.joined(separator: " ") }
+        return n + " · " + subtitleSource(codec: codec, isExternal: isExternal)
+    }
+
+    static func sourcedSubtitles(_ streams: [MStream]) -> [String] {
+        streams.enumerated().map { k, st in
+            sourcedSubtitle(position: k + 1, title: st.Title, displayTitle: st.DisplayTitle, codec: st.Codec,
+                            isExternal: st.IsExternal == true)
+        }
+    }
+
+    /// One audio track on one line: "English · AC3 · 5.1".
+    static func audioLines(_ streams: [MStream]) -> [String] {
+        audios(streams).map { a in [a.title, a.detail].compactMap { $0 }.joined(separator: " · ") }
     }
 
     /// One audio line: the name on line 1 (wraps to two lines, never cut), codec and channels on a smaller line 2
@@ -280,11 +314,12 @@ struct Glass3DFieldPicker<T: Hashable>: View {
     }
 }
 
-// MARK: - Subtitles, audio, quality & speed
+// MARK: - Subtitles panel
 
-/// The one subtitles entry point's panel (opened by the floating captions button), in the Episodes panel's style.
-/// As tall as its content, at most the room the player gives it (then it scrolls).
-struct Glass3DMediaPanel: View {
+/// The Subtitles panel opened from the bar's Subtitles button, in the Episodes panel's style: the tracks (with
+/// where each comes from), then Subtitle Offset and Subtitle Appearance at the bottom. Audio, quality and speed
+/// live in their own bar buttons. As tall as its content, at most the room the player gives it (then it scrolls).
+struct Glass3DSubtitlesPanel: View {
     @ObservedObject var ui: PlayerUIModel
     @ObservedObject var model: PlayerModel
     let emby: Emby
@@ -292,7 +327,7 @@ struct Glass3DMediaPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Glass3DPanelHeading(title: "Subtitles & audio")
+            Glass3DPanelHeading(title: "Subtitles")
             ViewThatFits(in: .vertical) {
                 rows
                 ScrollView { rows }.classicScrollBars()   // thin overlay bars, only while scrolling
@@ -306,15 +341,13 @@ struct Glass3DMediaPanel: View {
 
     var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Glass3DPanelSection(title: "Subtitles", icon: "captions.bubble")
             Glass3DPanelRow(title: "Off", checked: model.sub == nil) { ui.setSub(emby, nil) }
             let subs = model.subStreams
-            let subLabels = Glass3DTrackLabel.subtitles(subs)
+            let subLabels = Glass3DTrackLabel.sourcedSubtitles(subs)
             ForEach(Array(subs.enumerated()), id: \.element.Index) { k, st in
-                Glass3DPanelRow(title: subLabels[k].title, detail: subLabels[k].detail, checked: model.sub == st.Index) {
-                    ui.setSub(emby, st.Index)
-                }
+                Glass3DPanelRow(title: subLabels[k], checked: model.sub == st.Index) { ui.setSub(emby, st.Index) }
             }
+            divider
             Glass3DPanelControlRow(title: "Subtitle Offset") {
                 Glass3DStepButton(icon: "minus", help: "Show subtitles 100 ms earlier") { model.subOffset -= 100 }
                 Text(Glass3DTrackLabel.offsetText(model.subOffset)).cvFont(12) { $0.monospacedDigit() }
@@ -325,38 +358,36 @@ struct Glass3DMediaPanel: View {
                 }
             }
             Glass3DPanelRow(title: "Subtitle Appearance", chevron: true, action: openAppearance)
-
-            if !model.audioStreams.isEmpty {
-                divider
-                Glass3DPanelSection(title: "Audio", icon: "waveform")
-                let audio = model.audioStreams
-                let labels = Glass3DTrackLabel.audios(audio)
-                ForEach(Array(audio.enumerated()), id: \.element.Index) { k, st in
-                    Glass3DPanelRow(title: labels[k].title, detail: labels[k].detail, checked: model.audio == st.Index) {
-                        ui.setAudio(emby, st.Index)
-                    }
-                }
-            }
-
-            divider
-            Glass3DPanelSection(title: "Quality", icon: "dial.medium")
-            ForEach(PlayerUIModel.qualities, id: \.0) { q in
-                Glass3DPanelRow(title: q.1, checked: model.quality == q.0) { ui.setQuality(emby, q.0) }
-            }
-
-            divider
-            Glass3DPanelSection(title: "Speed", icon: "speedometer")
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                ForEach(PlayerUIModel.speeds, id: \.self) { r in
-                    Glass3DSpeedChip(label: PlayerUIModel.speedLabel(r), on: model.speed == r,
-                                     help: PlayerUIModel.speedHelp(r)) { ui.setSpeed(r) }
-                }
-            }
-            .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 14)
         }
+        .padding(.bottom, 8)
     }
 
     var divider: some View { Divider().padding(.horizontal, 20).padding(.vertical, 6) }
+}
+
+// MARK: - Bar menus (audio; quality & speed)
+
+enum Glass3DBarMenus {
+    /// The Quality & speed list: a "Quality" header, the qualities, a "Speed" header, the speeds 0.5×…2×.
+    static func qualitySpeedOptions() -> [String] {
+        ["Quality"] + PlayerUIModel.qualities.map(\.1) + ["Speed"] + PlayerUIModel.speeds.map(PlayerUIModel.speedLabel)
+    }
+    static var qualitySpeedHeaders: Set<Int> { [0, PlayerUIModel.qualities.count + 1] }
+    /// The ticked lines: the current quality and the current speed.
+    static func qualitySpeedChecked(quality: Int, speed: Float) -> Set<Int> {
+        var c: Set<Int> = []
+        if let q = PlayerUIModel.qualities.firstIndex(where: { $0.0 == quality }) { c.insert(q + 1) }
+        if let r = PlayerUIModel.speeds.firstIndex(of: speed) { c.insert(PlayerUIModel.qualities.count + 2 + r) }
+        return c
+    }
+    enum Pick: Equatable { case quality(Int), speed(Float), nothing }
+    static func qualitySpeedPick(_ i: Int) -> Pick {
+        let q = PlayerUIModel.qualities
+        if i >= 1 && i <= q.count { return .quality(q[i - 1].0) }
+        let r = i - q.count - 2
+        if r >= 0 && r < PlayerUIModel.speeds.count { return .speed(PlayerUIModel.speeds[r]) }
+        return .nothing
+    }
 }
 
 // MARK: - Episodes panel progress line
@@ -388,7 +419,17 @@ struct Glass3DEpisodeProgress: View {
 /// One button of the right-hand bar. `menu` makes it open the glass list instead; `syncPlayOnly` hides it outside
 /// a SyncPlay group.
 struct Glass3DBarItem: Identifiable {
-    struct Menu { let options: [String]; let selected: Int; let pick: (Int) -> Void }
+    struct Menu {
+        let options: [String]; let selected: Int; let pick: (Int) -> Void
+        var checked: Set<Int>? = nil
+        var headers: Set<Int> = []
+    }
+    /// The bar's order (owner): Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed ·
+    /// (Watch together) · Info · PiP · Full screen.
+    static let order = ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "fullscreen"]
+    static func ordered(_ items: [Glass3DBarItem]) -> [Glass3DBarItem] {
+        items.sorted { (order.firstIndex(of: $0.id) ?? order.count) < (order.firstIndex(of: $1.id) ?? order.count) }
+    }
     let id: String
     let icon: String
     var on = false
@@ -453,7 +494,8 @@ private struct Glass3DBarButton: View {
             if let m = item.menu {
                 if let center {
                     if center.list != nil { center.close() }
-                    else { center.list = .init(anchor: frame, options: m.options, selected: m.selected, pick: m.pick, closeOnLeave: true) }
+                    else { center.list = .init(anchor: frame, options: m.options, selected: m.selected, pick: m.pick,
+                                               checked: m.checked, headers: m.headers, closeOnLeave: true) }
                 }
             } else {
                 item.action()
