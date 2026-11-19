@@ -145,7 +145,7 @@ struct ClassicPosterCard: View {
                 .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
                 // ♡ ★ ✓ as on the library grid: after the clip and the glass edge, so their soft shadow isn't cut off
                 // and the lit hover edge / sheen never wash over their dark glass (the grid masks them out too)
-                .overlay { PosterBadgesOverlay(item: item, hover: hover) }
+                .overlay { PosterBadgesOverlay(item: item, hover: hover).environment(\.posterBadgeHalo, hover) }
                 .modifier(HoverLift(hover: hover))
                 if showTitle || showYear {
                     VStack(alignment: centered ? .center : .leading, spacing: 2) {
