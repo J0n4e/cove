@@ -197,3 +197,10 @@ final class NotificationCenterTests: XCTestCase {
         XCTAssertEqual(inbox.unread, 1)
     }
 }
+
+extension NotificationCenterTests {
+    func testCardDetailDropsPlaceholderTitle() {
+        let e = NewMediaItem(Id: "e1", Name: "TBA", type: "Episode", SeriesId: "s", SeriesName: "Show", ParentIndexNumber: 1, IndexNumber: 3)
+        XCTAssertEqual(NewMediaDetector.episodeDetail(e), "S1:E3")
+    }
+}

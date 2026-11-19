@@ -337,7 +337,7 @@ enum NewMediaDetector {
     /// The card's detail line for one episode: "S2:E10 · The Queen is Dead" (just the code when the server only
     /// knows the show's name for it)
     static func episodeDetail(_ it: NewMediaItem) -> String {
-        let name = it.SeriesName == nil ? nil : it.Name
+        let name = it.SeriesName == nil || isPlaceholderTitle(it.Name, index: it.IndexNumber) ? nil : it.Name
         return [episodeCode(it), name].compactMap { $0 }.joined(separator: " · ")
     }
 
