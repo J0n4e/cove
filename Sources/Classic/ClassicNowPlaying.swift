@@ -86,7 +86,7 @@ struct ClassicNowPlayingView: View {
     @State private var loaded = false
     @State private var lastPush: Date?
     @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
-    @State private var tab = 0                                // 0 Now Playing (default), 1 Overview, 2 History, 3 Users
+    @State private var tab = 0                                // 0 Now Playing (default), 1 Overview, 2 History, 3 Users, 4 Graphs, 5 Libraries
     @StateObject private var stats = StatsModel()
 
     var body: some View {
@@ -104,12 +104,14 @@ struct ClassicNowPlayingView: View {
                         }
                         Spacer()
                     }
-                    Glass3DSegmentTabs(titles: ["Now Playing", "Overview", "History"] + (stats.availability == .available ? ["Users"] : []),
+                    Glass3DSegmentTabs(titles: ["Now Playing", "Overview", "History"] + (stats.availability == .available ? ["Users", "Graphs", "Libraries"] : []),
                                        selection: $tab)
                 }
                 if tab == 1 { StatsOverviewView(model: stats) }
                 else if tab == 2 { StatsHistoryView(model: stats) }
                 else if tab == 3 && stats.availability == .available { StatsUsersView(model: stats) }
+                else if tab == 4 && stats.availability == .available { StatsGraphsView(model: stats) }
+                else if tab == 5 && stats.availability == .available { StatsLibrariesView(model: stats) }
                 else { sessionsContent }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
