@@ -59,6 +59,9 @@ struct PosterBadgeGlass<S: InsettableShape>: View {
             .overlay(shape.fill(Color.white.opacity(Glass3DTokens.Fill.strong)))
             .overlay(shape.strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.75))
             .g3Shadow(Glass3DTokens.shadowSmall)
+            // One look everywhere: the library grid bakes its badges with a dark colour scheme (Raster), so the
+            // live badges (Home, Favorites, search, seasons, episodes, lists) render with the same one
+            .environment(\.colorScheme, .dark)
     }
 }
 
