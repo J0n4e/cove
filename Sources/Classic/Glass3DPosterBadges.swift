@@ -52,13 +52,27 @@ enum ItemBadgeRules {
 }
 
 /// The dark glass backing of a badge (circle or capsule).
+/// Hovered card: a soft dark ring around each badge. The library grid gets it from the holes cut in its lit
+/// hover edge around the badges (PosterGridCell.litMask, 3 pt out); SwiftUI cards draw it here (owner: "that nice shadow").
+private struct PosterBadgeHaloKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var posterBadgeHalo: Bool {
+        get { self[PosterBadgeHaloKey.self] }
+        set { self[PosterBadgeHaloKey.self] = newValue }
+    }
+}
+
 struct PosterBadgeGlass<S: InsettableShape>: View {
     let shape: S
+    @Environment(\.posterBadgeHalo) private var halo
     var body: some View {
-        shape.fill(Color.black.opacity(0.55))
+        shape.inset(by: -3).fill(Color.black.opacity(halo ? 0.38 : 0)).blur(radius: 2.5)
+            .animation(.easeOut(duration: 0.15), value: halo)
+            .allowsHitTesting(false)
+            .overlay(shape.fill(Color.black.opacity(0.55))
             .overlay(shape.fill(Color.white.opacity(Glass3DTokens.Fill.strong)))
             .overlay(shape.strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.75))
-            .g3Shadow(Glass3DTokens.shadowSmall)
+            .g3Shadow(Glass3DTokens.shadowSmall))
             // One look everywhere: the library grid bakes its badges with a dark colour scheme (Raster), so the
             // live badges (Home, Favorites, search, seasons, episodes, lists) render with the same one
             .environment(\.colorScheme, .dark)
@@ -209,6 +223,7 @@ struct ItemBadges: ViewModifier {
                     .padding(inset)
                 }
             }
+            .environment(\.posterBadgeHalo, hover)
             .scrollHover($hover)
     }
 }
