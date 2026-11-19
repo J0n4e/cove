@@ -189,7 +189,7 @@ final class NotificationsTests: XCTestCase {
         XCTAssertEqual(nm[0].target, .item("m")); XCTAssertEqual(nm[0].thread, "cove-movies"); XCTAssertEqual(nm[0].posterId, "m")
         let ne = NewMediaDetector.batches([e], library: lib, server: "https://a", userId: "u")
         XCTAssertEqual(ne[0].title, "New episode"); XCTAssertEqual(ne[0].target, .episode("e", series: "s1", season: 18))
-        XCTAssertEqual(ne[0].thread, "s1"); XCTAssertEqual(ne[0].posterId, "e")
+        XCTAssertEqual(ne[0].thread, "s1"); XCTAssertEqual(ne[0].posterId, "s1")   // the show's backdrop comes first now
     }
 
     func testBatchedTexts() {
