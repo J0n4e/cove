@@ -86,9 +86,11 @@ struct NewMediaImage: Equatable, Hashable {
 
     /// A movie: its backdrop, else its poster.
     static func movie(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Backdrop"), .init(id: id, kind: "Primary")] }
-    /// An episode: its own still, else the show's backdrop or poster.
+    /// An episode: the show's wide backdrop first (a clean 16:9 picture; a new episode's own "still" is often
+    /// a placeholder the server's art plugin draws inside a TV set, owner), then its own still, then the poster.
     static func episode(_ id: String, series: String?) -> [NewMediaImage] {
-        [.init(id: id, kind: "Primary")] + (series.map(show) ?? [])
+        guard let series else { return [.init(id: id, kind: "Primary")] }
+        return [.init(id: series, kind: "Backdrop"), .init(id: id, kind: "Primary"), .init(id: series, kind: "Primary")]
     }
     /// A show (batches of episodes): its backdrop, else its poster.
     static func show(_ id: String) -> [NewMediaImage] { [.init(id: id, kind: "Backdrop"), .init(id: id, kind: "Primary")] }
