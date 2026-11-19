@@ -89,7 +89,7 @@ struct ClassicHomeView: View {
     /// Favorites or Activity in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
         if id == NavOrder.favorites { sideRow("Favorites", "heart.fill", "favorites") }
-        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount) }
+        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount).modifier(ActivityUnreadDot(inset: 6)) }
     }
 
     /// One sidebar line: the chosen one on an accent glass band, the one under the pointer lit softly (as the glass
@@ -314,6 +314,7 @@ struct ClassicHomeView: View {
             }
         }
         .overlay { ToastOverlay(raised: navStyle == "topbar" && nav.searchOpen) }
+        .overlay { NotificationToastLayer() }   // new movies / episodes while Cove is in front (Sources/Notifications)
     }
 }
 
@@ -424,7 +425,7 @@ struct ClassicTopNavButtons: View {
     /// Favorites or Activity, wherever Settings → Libraries placed it.
     @ViewBuilder func section(_ id: String) -> some View {
         if id == NavOrder.favorites { item("Favorites", "favorites", "heart.fill") }
-        else if id == NavOrder.nowPlaying { item(ActivitySection.title, "nowplaying", ActivitySection.icon, badge: nav.activeCount) }
+        else if id == NavOrder.nowPlaying { item(ActivitySection.title, "nowplaying", ActivitySection.icon, badge: nav.activeCount).modifier(ActivityUnreadDot()) }
     }
     func icon(_ lib: LibPref) -> String {
         switch lib.kind {

@@ -86,7 +86,8 @@ struct ClassicNowPlayingView: View {
     @State private var loaded = false
     @State private var lastPush: Date?
     @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
-    @State private var tab = 0                                // 0 Now Playing (default), 1 Overview, 2 History, 3 Users, 4 Graphs, 5 Libraries
+    @State private var tab = 0                                // 0 Now Playing (default), 1 Notifications, 2 Overview, 3 History, 4 Users, 5 Graphs, 6 Libraries
+    @ObservedObject private var inbox = NotificationCenterStore.shared
     @StateObject private var stats = StatsModel()
 
     var body: some View {
@@ -104,14 +105,15 @@ struct ClassicNowPlayingView: View {
                         }
                         Spacer()
                     }
-                    Glass3DSegmentTabs(titles: ["Now Playing", "Overview", "History"] + (stats.availability == .available ? ["Users", "Graphs", "Libraries"] : []),
+                    Glass3DSegmentTabs(titles: ActivityTabs.titles(unread: inbox.unread, stats: stats.availability == .available),
                                        selection: $tab)
                 }
-                if tab == 1 { StatsOverviewView(model: stats) }
-                else if tab == 2 { StatsHistoryView(model: stats) }
-                else if tab == 3 && stats.availability == .available { StatsUsersView(model: stats) }
-                else if tab == 4 && stats.availability == .available { StatsGraphsView(model: stats) }
-                else if tab == 5 && stats.availability == .available { StatsLibrariesView(model: stats) }
+                if tab == ActivityTabs.notifications { NotificationsTabView() }
+                else if tab == 2 { StatsOverviewView(model: stats) }
+                else if tab == 3 { StatsHistoryView(model: stats) }
+                else if tab == 4 && stats.availability == .available { StatsUsersView(model: stats) }
+                else if tab == 5 && stats.availability == .available { StatsGraphsView(model: stats) }
+                else if tab == 6 && stats.availability == .available { StatsLibrariesView(model: stats) }
                 else { sessionsContent }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
@@ -132,6 +134,7 @@ struct ClassicNowPlayingView: View {
         }
         .modifier(NowPlayingSocketFeed(sessions: $sessions, fetchedAt: $fetchedAt, loaded: $loaded, lastPush: $lastPush))
         .nowPlayingGroups($syncGroups)
+        .modifier(ActivityShowNotifications(tab: $tab))   // the toast's "Show all"
     }
 
     @ViewBuilder private var sessionsContent: some View {
