@@ -115,7 +115,7 @@ final class PlayCollectionTests: XCTestCase {
         XCTAssertEqual(NewMediaImage.movie("m").map(\.kind), ["Backdrop", "Primary"])
         XCTAssertEqual(NewMediaImage.show("s").map(\.kind), ["Backdrop", "Primary"])
         XCTAssertEqual(NewMediaImage.episode("e", series: "s"),
-                       [NewMediaImage(id: "e", kind: "Primary"), NewMediaImage(id: "s", kind: "Backdrop"),
+                       [NewMediaImage(id: "s", kind: "Backdrop"), NewMediaImage(id: "e", kind: "Primary"),
                         NewMediaImage(id: "s", kind: "Primary")])
         XCTAssertEqual(NewMediaImage.width, 1200)
     }

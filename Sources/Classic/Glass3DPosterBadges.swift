@@ -13,6 +13,11 @@ enum PosterBadges {
 
     static func favTip(_ fav: Bool) -> String { fav ? "Remove from Favorites" : "Add to Favorites" }
     static func watchedTip(_ played: Bool) -> String { played ? "Mark as unwatched" : "Mark as watched" }
+    /// The ✓ badge's tooltip: a series' count, a collection's "Mark all N films watched", else watchedTip.
+    @MainActor static func watchedHelp(_ item: Item, played: Bool, unwatched n: Int, emby: Emby) -> String {
+        if item.isBox { return CollectionWatched.tip(played: played, count: emby.boxFilms[item.id]?.count ?? item.ChildCount) }
+        return n > 0 ? "\(n) unwatched episode\(n == 1 ? "" : "s") · \(watchedTip(played))" : watchedTip(played)
+    }
 
     /// The favourite badge, always shown and never changed by hover (owner): "heart.fill" (favourite) or the
     /// empty "heart" (not a favourite). Always there, so the ★ next to it never moves.
@@ -47,13 +52,30 @@ enum ItemBadgeRules {
 }
 
 /// The dark glass backing of a badge (circle or capsule).
+/// Hovered card: a soft dark ring around each badge. The library grid gets it from the holes cut in its lit
+/// hover edge around the badges (PosterGridCell.litMask, 3 pt out); SwiftUI cards draw it here (owner: "that nice shadow").
+private struct PosterBadgeHaloKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var posterBadgeHalo: Bool {
+        get { self[PosterBadgeHaloKey.self] }
+        set { self[PosterBadgeHaloKey.self] = newValue }
+    }
+}
+
 struct PosterBadgeGlass<S: InsettableShape>: View {
     let shape: S
+    @Environment(\.posterBadgeHalo) private var halo
     var body: some View {
-        shape.fill(Color.black.opacity(0.55))
+        shape.inset(by: -3).fill(Color.black.opacity(halo ? 0.38 : 0)).blur(radius: 2.5)
+            .animation(.easeOut(duration: 0.15), value: halo)
+            .allowsHitTesting(false)
+            .overlay(shape.fill(Color.black.opacity(0.55))
             .overlay(shape.fill(Color.white.opacity(Glass3DTokens.Fill.strong)))
             .overlay(shape.strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.75))
-            .g3Shadow(Glass3DTokens.shadowSmall)
+            .g3Shadow(Glass3DTokens.shadowSmall))
+            // One look everywhere: the library grid bakes its badges with a dark colour scheme (Raster), so the
+            // live badges (Home, Favorites, search, seasons, episodes, lists) render with the same one
+            .environment(\.colorScheme, .dark)
     }
 }
 
@@ -103,7 +125,7 @@ struct PosterWatchBadge: View {
         let played = emby.isPlayed(item)
         let n = unwatched ?? (item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0)
         if let c = PosterBadges.watchedContent(played: played, unwatched: n, hover: hover) {
-            Button { Task { await emby.setPlayedChecked(item.id, !played, children: children, name: item.Name) } } label: {
+            Button { Task { await emby.setItemPlayed(item, !played, children: children, name: item.Name) } } label: {
                 if n > 0 {
                     Text(c.text).cvFont(11, weight: .bold).foregroundColor(.white)
                         .padding(.horizontal, 7).frame(minWidth: PosterBadges.size, minHeight: PosterBadges.size)
@@ -114,8 +136,8 @@ struct PosterWatchBadge: View {
                 }
             }
             .buttonStyle(.plainHand)
-            .helpLabel(n > 0 ? "\(n) unwatched episode\(n == 1 ? "" : "s") · \(PosterBadges.watchedTip(played))"
-                             : PosterBadges.watchedTip(played))
+            .helpLabel(PosterBadges.watchedHelp(item, played: played, unwatched: n, emby: emby))
+            .onAppear { emby.ensureCollectionWatched(item) }
         }
     }
 }
@@ -201,6 +223,7 @@ struct ItemBadges: ViewModifier {
                     .padding(inset)
                 }
             }
+            .environment(\.posterBadgeHalo, hover)
             .scrollHover($hover)
     }
 }

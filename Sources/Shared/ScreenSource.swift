@@ -22,6 +22,8 @@ protocol DetailSource: AnyObject {
     func seasons(_ seriesId: String) async -> [Item]
     func nextUp(_ seriesId: String) async -> Item?
     func children(_ parentId: String) async -> [Item]
+    /// A collection page loaded its titles: remember its films, so the collection's ✓ follows them
+    func noteCollection(_ boxId: String, _ children: [Item])
     func collections(containing id: String) async -> [Item]
     func similar(_ id: String) async -> [Item]
     func isPlayed(_ it: Item) -> Bool
@@ -32,3 +34,7 @@ protocol DetailSource: AnyObject {
 }
 
 extension Emby: DetailSource {}
+
+extension DetailSource {
+    func noteCollection(_ boxId: String, _ children: [Item]) {}
+}

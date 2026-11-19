@@ -37,9 +37,9 @@ final class NotificationsPolishTests: XCTestCase {
         XCTAssertEqual(n[0].title, "Alpha"); XCTAssertEqual(n[0].body, "2 new episodes · S1:E1–E2"); XCTAssertEqual(n[0].thread, "A")
         XCTAssertEqual(n[1].title, "New episode"); XCTAssertEqual(n[1].target, .episode("b1", series: "B", season: 3))
         XCTAssertEqual(n[1].thread, "B")
-        // A single episode: its own still first, then the show's pictures
-        XCTAssertEqual(n[1].images.first, NewMediaImage(id: "b1", kind: "Primary"))
-        XCTAssertEqual(n[1].images.dropFirst().first?.id, "B")
+        // A single episode: the show's backdrop first (no art-plugin TV frame), then its own still
+        XCTAssertEqual(n[1].images.first, NewMediaImage(id: "B", kind: "Backdrop"))
+        XCTAssertEqual(n[1].images.dropFirst().first, NewMediaImage(id: "b1", kind: "Primary"))
     }
 
     func testNonConsecutiveEpisodes() {

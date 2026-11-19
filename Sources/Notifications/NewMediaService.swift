@@ -62,6 +62,10 @@ final class NewMediaService: ObservableObject {
     private let sleep: (TimeInterval) async throws -> Void
     private let log: (String) -> Void
     private let enabled: Bool
+    /// The in-app list (Activity → Notifications); tests get their own without a file
+    let inbox: NotificationCenterStore
+    /// Toast, banner or list only, decided when a notification is made
+    private let presentation: () -> NotificationPresentation
 
     private(set) var session: NewMediaSession?
     private var source: NewMediaSource?
@@ -80,8 +84,12 @@ final class NewMediaService: ObservableObject {
          prefs: (() -> NewMediaPrefs)? = nil,
          now: @escaping () -> Date = Date.init,
          sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) },
-         log: @escaping (String) -> Void = { DebugLog.write($0) }) {
+         log: @escaping (String) -> Void = { DebugLog.write($0) },
+         inbox: NotificationCenterStore? = nil,
+         presentation: (() -> NotificationPresentation)? = nil) {
         self.enabled = enabled
+        self.inbox = inbox ?? (enabled ? .shared : NotificationCenterStore(file: nil))
+        self.presentation = presentation ?? (enabled ? { NewMediaService.currentPresentation() } : { .banner })
         self.notifier = notifier ?? SystemNotifier.shared
         self.makeSource = makeSource ?? { s -> NewMediaSource in ServerNewMediaSource(session: s) }
         self.store = NewMediaStore(defaults: defaults)
@@ -207,6 +215,11 @@ final class NewMediaService: ObservableObject {
         let notes = NewMediaDetector.batches(wanted, library: lib, server: s.server, userId: s.userId)
         log("Notifications: \(wanted.count) new item(s) in a library, \(notes.count) notification(s)")
         for n in notes {
+            // Kept in the list in every case; Cove in front → its own toast instead of the macOS banner (no
+            // double), a video playing → only the list
+            let how = presentation()
+            inbox.add(n, presentation: how)
+            guard how == .banner else { log("Notifications: shown in Cove (\(how == .toast ? "toast" : "list only"))"); continue }
             var file: URL?
             if !n.images.isEmpty { file = await src.imageFile(n.images) }
             await notifier.post(n, poster: file)
@@ -288,30 +301,44 @@ final class NewMediaService: ObservableObject {
         }
     }
 
+    // MARK: In-app list
+
+    /// Cove in front (active, a main window key), a video playing, the Glass3D theme.
+    static func currentPresentation() -> NotificationPresentation {
+        let front = NSApp.isActive && (NSApp.keyWindow?.isMainWindow ?? false) && !NSApp.isHidden
+        return NotificationPresentation.decide(frontmost: front, playing: PlaybackFlag.shared.active,
+                                               glass3D: UserDefaults.standard.string(forKey: "theme") == "classic")
+    }
+
+    /// A card's Open (or a click on it): the same as a banner click; marks it read.
+    func openStored(_ n: StoredNotification) async {
+        inbox.markRead(n.id)
+        if inbox.toast?.id == n.id { inbox.toast = nil }
+        await open(n.target as [AnyHashable: Any])
+    }
+
+    /// A card's Play: the movie / episode (a batch: its first new episode), after switching server if needed.
+    func playStored(_ n: StoredNotification) async {
+        inbox.markRead(n.id)
+        if inbox.toast?.id == n.id { inbox.toast = nil }
+        guard let id = n.playId else { await open(n.target as [AnyHashable: Any]); return }
+        guard let emby, await reach(n.target) else { return }
+        if let it = await emby.itemRecord(id) { await emby.play(it) }
+    }
+
     // MARK: Clicks
 
     /// A clicked notification: Cove to the front and the movie, show (on the episode's season) or library opened.
     /// One from another saved server is opened after switching to it with its saved sign-in (as the server pill
     /// does); when that isn't possible, Cove only shows "From <server>".
     func open(_ info: [AnyHashable: Any]) async {
-        NSApp.activate(ignoringOtherApps: true)
-        if let w = NSApp.windows.first(where: { $0.isMiniaturized && $0.canBecomeMain }) { w.deminiaturize(nil) }
         let strings = info.reduce(into: [String: String]()) { d, kv in
             if let k = kv.key as? String, let v = kv.value as? String { d[k] = v }
         }
-        guard let emby, let target = Self.target(strings), target != .test else { return }
-        let server = strings["server"] ?? "", user = strings["userId"] ?? ""
-        if server.lowercased() != emby.server.lowercased() || user != emby.userId {
-            let saved = emby.servers.first { $0.id == server.lowercased() }
-            let name = ServerPill.title(name: saved?.name ?? "", address: server.isEmpty ? "another server" : server)
-            guard let saved, saved.userId == user, saved.token != nil, await emby.resume(saved) == .ok else {
-                emby.toast = Emby.Toast(text: "From \(name)", icon: "bell")
-                return
-            }
-            emby.toast = Emby.Toast(text: "From \(name)", icon: "bell")
-            // Let the session change send the pages back to Home first, then open on top of it
-            try? await Task.sleep(nanoseconds: 600_000_000)
+        guard let target = Self.target(strings), target != .test else {
+            NSApp.activate(ignoringOtherApps: true); return
         }
+        guard let emby, await reach(strings) else { return }
         switch target {
         case .item(let id), .series(let id):
             if let it = await emby.itemRecord(id) { emby.openPage(it) }
@@ -328,6 +355,27 @@ final class NewMediaService: ObservableObject {
             }
         case .test: break
         }
+    }
+
+    /// Cove to the front and on the notification's server (switching like the server pill when it's another
+    /// saved one). false = it can't be reached (a "From <server>" toast says where it came from).
+    private func reach(_ strings: [String: String]) async -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+        if let w = NSApp.windows.first(where: { $0.isMiniaturized && $0.canBecomeMain }) { w.deminiaturize(nil) }
+        guard let emby else { return false }
+        let server = strings["server"] ?? "", user = strings["userId"] ?? ""
+        if server.lowercased() != emby.server.lowercased() || user != emby.userId {
+            let saved = emby.servers.first { $0.id == server.lowercased() }
+            let name = ServerPill.title(name: saved?.name ?? "", address: server.isEmpty ? "another server" : server)
+            guard let saved, saved.userId == user, saved.token != nil, await emby.resume(saved) == .ok else {
+                emby.toast = Emby.Toast(text: "From \(name)", icon: "bell")
+                return false
+            }
+            emby.toast = Emby.Toast(text: "From \(name)", icon: "bell")
+            // Let the session change send the pages back to Home first, then open on top of it
+            try? await Task.sleep(nanoseconds: 600_000_000)
+        }
+        return true
     }
 
     /// What a notification carries for its click (strings only, so it survives macOS's store).
@@ -546,9 +594,15 @@ final class ServerNewMediaSource: NewMediaSource {
     func imageFile(_ images: [NewMediaImage]) async -> URL? {
         for img in images {
             // The same signed request as every other call here (the token in the header, never in the link)
-            guard let d = await data("/Items/\(img.id)/Images/\(img.kind)", ["maxWidth": String(NewMediaImage.width), "quality": "85", "format": "jpg"]),
+            // EnableImageEnhancers=false: the picture without the server's overlays (art plugins draw frames and
+            // badges); only for notifications, posters in the app keep them (owner)
+            guard let d = await data("/Items/\(img.id)/Images/\(img.kind)", ["maxWidth": String(NewMediaImage.width), "quality": "85", "format": "jpg",
+                                                                           "EnableImageEnhancers": "false"]),
                   d.count > 100, NotificationImages.looksLikeImage(d) else { continue }
-            if let f = NotificationImages.write(d) { return f }
+            if let f = NotificationImages.write(d) {
+                DebugLog.write("notification image: \(img.kind) of \(img.id) (no enhancers)")
+                return f
+            }
         }
         return nil
     }
