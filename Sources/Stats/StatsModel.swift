@@ -235,7 +235,7 @@ final class StatsModel: ObservableObject {
     }
 
     /// Which of `ids` the library holds (60 ids per request, 4 requests at a time).
-    private nonisolated static func held(_ ids: [String], library: String, userId: String, fetch: StatsFetch) async -> [String] {
+    private nonisolated static func held(_ ids: [String], library: String, userId: String, fetch: @escaping StatsFetch) async -> [String] {
         let chunks = stride(from: 0, to: ids.count, by: 60).map { Array(ids[$0..<min($0 + 60, ids.count)]) }
         var out: [String] = []
         var i = 0
