@@ -107,6 +107,7 @@ struct PosterGrid: NSViewRepresentable {
         if c.look != look { c.look = look; c.cv?.reloadData() }
         c.applyLayout()
         c.emby = emby
+        c.watchPlayed(emby)
         c.willShow = willShow
         c.open = open
         c.scale = context.environment.displayScale
@@ -256,6 +257,15 @@ struct PosterGrid: NSViewRepresentable {
 
         func collectionView(_ cv: NSCollectionView, willDisplay item: NSCollectionViewItem,
                             forRepresentedObjectAt ip: IndexPath) { willShow(ip.item) }
+
+        /// A ✓ changed anywhere (a collection following its films, playback, sync): redraw the posters on screen
+        private var playedWatch: AnyCancellable?
+        func watchPlayed(_ emby: Emby) {
+            guard playedWatch == nil else { return }
+            playedWatch = emby.$played.dropFirst().removeDuplicates()
+                .debounce(for: .milliseconds(30), scheduler: DispatchQueue.main)
+                .sink { [weak self] _ in self?.refreshVisible() }
+        }
 
         func refreshVisible() {
             guard let cv, let emby else { return }
@@ -505,7 +515,7 @@ final class PosterGridCell: NSCollectionViewItem {
             Task { @MainActor [weak self] in await emby.setFavChecked(item.id, !fav, name: item.Name); self?.redrawSame(item) }
         case .watched:
             let played = emby.isPlayed(item)
-            Task { @MainActor [weak self] in await emby.setPlayedChecked(item.id, !played, name: item.Name); self?.redrawSame(item) }
+            Task { @MainActor [weak self] in await emby.setItemPlayed(item, !played, name: item.Name); self?.redrawSame(item) }
         case .rating: return   // not a toggle (as PosterRatingBadge)
         }
         // The state flips at once (before the server answers): show it now
@@ -561,6 +571,7 @@ final class PosterGridCell: NSCollectionViewItem {
     @MainActor func show(_ item: Item, emby: Emby, look: PosterLook, noHeart: Bool, scale: CGFloat) {
         if look != self.look { self.look = look; view.needsLayout = true }
         self.item = item; self.emby = emby; self.noHeart = noHeart; self.lastScale = scale
+        emby.ensureCollectionWatched(item)
         let played = emby.isPlayed(item)
         // Glass3D: the ♡ is a button, so it shows on Favorites too (click to remove)
         let fav = emby.isFav(item) && (!noHeart || look.glass3D)
@@ -829,8 +840,7 @@ extension PosterGridCell: NSViewToolTipOwner {
         case .watched:
             let played = emby.isPlayed(item)
             let n = item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0
-            return n > 0 ? "\(n) unwatched episode\(n == 1 ? "" : "s") · \(PosterBadges.watchedTip(played))"
-                         : PosterBadges.watchedTip(played)
+            return PosterBadges.watchedHelp(item, played: played, unwatched: n, emby: emby)
         }
     }
 }

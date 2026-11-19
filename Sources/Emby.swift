@@ -25,6 +25,9 @@ struct Item: Identifiable, Decodable, Hashable {
     /// Jellyfin only: tiny blurred previews by kind and tag ("Primary": {tag: hash}).
     let ImageBlurHashes: [String: [String: String]]?
     let CollectionType: String?
+    /// Folders (collections): how many items they hold. With UserData.UnplayedItemCount it tells whether a
+    /// collection is fully watched (CollectionWatched.swift).
+    var ChildCount: Int? = nil
     let UserData: UD?
     let RunTimeTicks: Int64?
     let CommunityRating: Double?
@@ -357,7 +360,15 @@ final class Emby: ObservableObject {
     @Published var openRequest: Item?
     /// Season to pre-select when the opened item is a series (Continue Watching card click).
     @Published var openSeason: Int?
-    @Published var played: [String: Bool] = [:]
+    @Published var played: [String: Bool] = [:] {
+        // A collection's ✓ follows its films: any change recomputes the collections whose films are known
+        didSet { if !boxFilms.isEmpty { syncCollections() } }
+    }
+    /// Collections whose films are known (collection id → film ids), from the collection page or the badges.
+    /// Their ✓ is derived from the films' (CollectionWatched.swift).
+    var boxFilms: [String: [String]] = [:]
+    /// Collections whose films are being fetched (one fetch each)
+    var boxLoading: Set<String> = []
     @Published var faved: [String: Bool] = [:]
     /// Favorite people from the last `favoritePeople()` call (cast tiles have no favorite flag of their own)
     @Published var favPeopleIds: Set<String> = []
@@ -583,6 +594,7 @@ final class Emby: ObservableObject {
     }
 
     private func resetSession() {
+        boxFilms = [:]; boxLoading = []
         playing = nil; libs = []; played = [:]; faved = [:]
         libsFlight = SingleFlight()   // a load still running for the previous server/user is not joined
         // Resume points and image tags/previews are keyed by item id only, so they must not carry over to
@@ -691,7 +703,7 @@ final class Emby: ObservableObject {
         // The server leaves the year out unless asked; posters show it under the title
         // ProviderIds: posters show your Trakt rating, matched by IMDb / TMDB / TVDB id
         var fields = q["Fields"].map { $0.split(separator: ",").map(String.init) } ?? []
-        for extra in ["ProductionYear", "ProviderIds"] where !fields.contains(extra) { fields.append(extra) }
+        for extra in ["ProductionYear", "ProviderIds", "ChildCount"] where !fields.contains(extra) { fields.append(extra) }
         q["Fields"] = fields.joined(separator: ",")
         guard var c = URLComponents(string: server + path) else { throw URLError(.badURL) }
         c.queryItems = q.map { URLQueryItem(name: $0.key, value: $0.value) }
@@ -956,7 +968,12 @@ final class Emby: ObservableObject {
 
     // MARK: Watched / favorites / play
 
-    func isPlayed(_ it: Item) -> Bool { played[it.id] ?? it.UserData?.Played ?? false }
+    func isPlayed(_ it: Item) -> Bool {
+        if let p = played[it.id] { return p }
+        // Collections: the server often doesn't keep a BoxSet's own Played; its unwatched count tells
+        if it.isBox, let d = CollectionWatched.fromUserData(it) { return d }
+        return it.UserData?.Played ?? false
+    }
     /// Where to resume an item from, in seconds (0 = start). Ignores the first 30 s.
     /// A saved position wins even if the item is marked watched (e.g. re-watching a movie);
     /// finishing an item or marking it watched in the app clears the position.
@@ -1089,7 +1106,7 @@ final class Emby: ObservableObject {
     }
     /// As `send`, but reports whether the server accepted it (HTTP 2xx). v1.19.0: the poster badges roll back on false.
     @discardableResult
-    private func sendChecked(_ method: String, _ path: String, on s: PlaySession? = nil) async -> Bool {
+    func sendChecked(_ method: String, _ path: String, on s: PlaySession? = nil) async -> Bool {
         guard let url = URL(string: (s?.server ?? server) + path) else { return false }
         var r = URLRequest(url: url)
         r.httpMethod = method

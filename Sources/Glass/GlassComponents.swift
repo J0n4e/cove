@@ -322,7 +322,7 @@ struct ItemActionsButton: View {
         let fav = children.isEmpty ? emby.isFav(item) : emby.isFav(item) && children.allSatisfy { emby.isFav($0) }
         HStack(spacing: 6) {
             Self.circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
-                Task { await emby.setPlayed(item.id, !played, children: children, name: item.Name) }
+                Task { await emby.setItemPlayed(item, !played, children: children, name: item.Name, rollback: false) }
             }
             Self.circle(fav ? "heart.fill" : "heart", on: fav, help: fav ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await emby.setFav(item.id, !fav, children: children, name: item.Name) }

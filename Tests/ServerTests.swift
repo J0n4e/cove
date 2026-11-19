@@ -151,7 +151,7 @@ final class ServerTests: XCTestCase {
         XCTAssertEqual(q["SortOrder"], "Descending")
         XCTAssertEqual(q["Filters"], "IsUnplayed")
         XCTAssertEqual(q["Recursive"], "true")
-        XCTAssertEqual(q["Fields"], "Overview,Genres,EndDate,Status,ProductionYear,ProviderIds")
+        XCTAssertEqual(q["Fields"], "Overview,Genres,EndDate,Status,ProductionYear,ProviderIds,ChildCount")
         // Token only in headers for API calls, never in the link
         XCTAssertNil(q["api_key"]); XCTAssertNil(q["ApiKey"])
         XCTAssertEqual(r.headers["X-Emby-Token"], token)
