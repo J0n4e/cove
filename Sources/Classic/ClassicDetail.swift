@@ -474,10 +474,10 @@ struct ClassicDetailView: View {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44).glass3DRoundOutline()
                 }.buttonStyle(HoverButton()).helpLabel("Trailer")
             }
-            Button { Task { await emby.setPlayed(item.id, !played, name: item.Name) } } label: {
+            Button { Task { await emby.setItemPlayed(item, !played, name: item.Name, rollback: false) } } label: {
                 Label(played ? "Watched" : "Mark as Watched", systemImage: played ? "checkmark.circle.fill" : "checkmark.circle")
                     .classicGlassPill(size: 44).glass3DRoundOutline()
-            }.buttonStyle(HoverButton()).helpLabel(played ? "Mark as unwatched" : "Mark as watched")
+            }.buttonStyle(HoverButton()).helpLabel(item.isBox ? CollectionWatched.tip(played: played, count: emby.boxFilms[item.id]?.count) : played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                 Label { Text(fav ? "Favorite" : "Add to Favorites") } icon: {
                     if fav { FavHeart(size: 17) } else { Image(systemName: "heart") }

@@ -379,7 +379,7 @@ struct DetailView: View {
                 Task { await emby.setFav(item.id, !fav, name: item.Name) }
             }
             glassCircle(played ? "eye.slash" : "eye", help: played ? "Mark as unwatched" : "Mark as watched") {
-                Task { await emby.setPlayed(item.id, !played, name: item.Name) }
+                Task { await emby.setItemPlayed(item, !played, name: item.Name, rollback: false) }
             }
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 glassCircle("film", help: "Trailer") { Trailer.open(u, item: item, emby: emby) }

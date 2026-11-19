@@ -75,6 +75,7 @@ final class DetailModel: ObservableObject {
             let c = await source.children(item.id)
             guard !Task.isCancelled else { return }
             kids = c
+            source.noteCollection(item.id, c)
         }
         if !item.isEpisode && !item.isBox {
             let c = await source.collections(containing: item.id)
