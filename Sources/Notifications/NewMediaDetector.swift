@@ -72,6 +72,11 @@ struct NewMediaNotification: Equatable {
     let server: String
     let userId: String
     let libraryId: String
+    /// In-app list and toast (Activity → Notifications): the card's bold title, its detail line
+    /// ("S2:E10 · The Queen is Dead", "3 new episodes · S2:E4–E6") and what Play starts (the first new one)
+    var cardTitle: String = ""
+    var cardDetail: String = ""
+    var playId: String? = nil
 }
 
 /// One picture the notification can show: an item's image of one kind.
@@ -329,6 +334,13 @@ enum NewMediaDetector {
         return it.Name
     }
 
+    /// The card's detail line for one episode: "S2:E10 · The Queen is Dead" (just the code when the server only
+    /// knows the show's name for it)
+    static func episodeDetail(_ it: NewMediaItem) -> String {
+        let name = it.SeriesName == nil ? nil : it.Name
+        return [episodeCode(it), name].compactMap { $0 }.joined(separator: " · ")
+    }
+
     /// "A, B, C…" (the first three names, … when there are more)
     static func names(_ items: [NewMediaItem], max n: Int = 3) -> String {
         let shown = items.prefix(n).map(\.Name).joined(separator: ", ")
@@ -338,17 +350,24 @@ enum NewMediaDetector {
     /// One library's new items as notifications: one for all new movies, one per show; more than
     /// `maxSeriesBatches` shows become one notification for the library.
     static func batches(_ items: [NewMediaItem], library: NewMediaLibrary, server: String, userId: String) -> [NewMediaNotification] {
-        func note(_ key: String, _ title: String, _ body: String, _ thread: String, _ target: NewMediaTarget, _ images: [NewMediaImage]) -> NewMediaNotification {
+        func note(_ key: String, _ title: String, _ body: String, _ thread: String, _ target: NewMediaTarget, _ images: [NewMediaImage],
+                  card: (title: String, detail: String, play: String?)) -> NewMediaNotification {
             NewMediaNotification(id: "\(server)|\(userId)|\(library.id)|\(key)", title: title, body: body, thread: thread,
-                                 target: target, images: images, server: server, userId: userId, libraryId: library.id)
+                                 target: target, images: images, server: server, userId: userId, libraryId: library.id,
+                                 cardTitle: card.title, cardDetail: card.detail, playId: card.play)
+        }
+        func firstNew(_ eps: [NewMediaItem]) -> NewMediaItem? {
+            eps.min { ($0.ParentIndexNumber ?? Int.max, $0.IndexNumber ?? Int.max) < ($1.ParentIndexNumber ?? Int.max, $1.IndexNumber ?? Int.max) }
         }
         var out: [NewMediaNotification] = []
         let movies = items.filter(\.isMovie)
         if movies.count >= movieBatchMin {
             out.append(note(movies.map(\.Id).joined(separator: ","), "\(movies.count) new movies", names(movies),
-                            "cove-movies", .library(library.id), movies.first.map { NewMediaImage.movie($0.Id) } ?? []))
+                            "cove-movies", .library(library.id), movies.first.map { NewMediaImage.movie($0.Id) } ?? [],
+                            card: ("\(movies.count) new movies", names(movies), movies.first?.Id)))
         } else {
-            for m in movies { out.append(note(m.Id, "New movie", line(m), "cove-movies", .item(m.Id), NewMediaImage.movie(m.Id))) }
+            for m in movies { out.append(note(m.Id, "New movie", line(m), "cove-movies", .item(m.Id), NewMediaImage.movie(m.Id),
+                                       card: (m.Name, ["New movie", m.ProductionYear.map(String.init)].compactMap { $0 }.joined(separator: " · "), m.Id))) }
         }
         let episodes = items.filter(\.isEpisode)
         var order: [String] = []
@@ -363,7 +382,9 @@ enum NewMediaDetector {
             let shown = shows.prefix(3).joined(separator: ", ") + (shows.count > 3 ? "…" : "")
             out.append(note(episodes.map(\.Id).joined(separator: ","), "New episodes",
                             "\(episodes.count) new episodes: \(shown)", "cove-library-\(library.id)", .library(library.id),
-                            order.first.map(NewMediaImage.show) ?? []))
+                            order.first.map(NewMediaImage.show) ?? [],
+                            card: ("New episodes", "\(episodes.count) new episodes · \(shown)",
+                                   firstNew(order.first.flatMap { bySeries[$0] } ?? [])?.Id)))
             return out
         }
         for k in order {
@@ -373,13 +394,16 @@ enum NewMediaDetector {
             if eps.count == 1 {
                 out.append(note(first.Id, "New episode", line(first), thread,
                                 .episode(first.Id, series: first.SeriesId, season: first.ParentIndexNumber),
-                                NewMediaImage.episode(first.Id, series: first.SeriesId)))
+                                NewMediaImage.episode(first.Id, series: first.SeriesId),
+                                card: (first.SeriesName ?? first.Name, episodeDetail(first), first.Id)))
             } else {
                 let span = episodeSpan(eps)
                 out.append(note(eps.map(\.Id).joined(separator: ","), first.SeriesName ?? "New episodes",
                                 "\(eps.count) new episodes" + (span.isEmpty ? "" : " · " + span),
                                 thread, first.SeriesId.map { .series($0) } ?? .library(library.id),
-                                first.SeriesId.map(NewMediaImage.show) ?? NewMediaImage.episode(first.Id, series: nil)))
+                                first.SeriesId.map(NewMediaImage.show) ?? NewMediaImage.episode(first.Id, series: nil),
+                                card: (first.SeriesName ?? "New episodes", "\(eps.count) new episodes" + (span.isEmpty ? "" : " · " + span),
+                                       firstNew(eps)?.Id)))
             }
         }
         return out
