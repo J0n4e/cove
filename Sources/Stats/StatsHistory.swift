@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Activity → History: your plays grouped by day (last 90 days, 7 active days at a time). One glass card per day
-/// with a clear header ("Today", "Yesterday", "Mon 16 Nov") and a small summary ("3 plays · 2h 40m"); calm rows:
-/// thumb, title over a grey second line, the device and play method as small icons, start time over duration.
+/// with a clear header ("Today", "Yesterday", "Mon 16 Nov") and a small summary ("3 plays · 2h 40m"),
+/// then the day's titles as poster cards (same title played twice that day → one card with "×2").
 struct StatsHistoryView: View {
     @ObservedObject var model: StatsModel
 
@@ -33,11 +33,13 @@ struct StatsHistoryView: View {
     }
 }
 
-/// One day: header + summary, then the plays with thin dividers, in a glass card.
+/// One day: header + summary, then the day's titles as poster cards in a wrapping grid, in a glass card.
 private struct StatsDayCard: View {
     let group: StatsDayGroup
+    @AppStorage("textSize") private var textSize = "default"
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let w = 150 * TextScale.inApp(textSize)
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(StatsHistoryText.dayTitle(group.date)).cvFont(Glass3DTokens.Text.cardTitle + 2, weight: .bold)
                     .modifier(Glass3DReadableText())
@@ -46,85 +48,82 @@ private struct StatsDayCard: View {
                     .foregroundColor(Glass3DTokens.Grey.secondary)
             }
             .padding(.horizontal, 8)
-            VStack(spacing: 0) {
-                ForEach(Array(group.plays.enumerated()), id: \.element.id) { i, play in
-                    if i > 0 {
-                        Rectangle().fill(Color.white.opacity(Glass3DTokens.Stroke.subtle)).frame(height: 0.5).padding(.horizontal, 8)
-                    }
-                    StatsHistoryRow(play: play)
-                }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: w, maximum: w + 30), spacing: 16, alignment: .top)],
+                      alignment: .leading, spacing: 18) {
+                ForEach(StatsHistoryText.cards(group.plays)) { StatsHistoryTile(card: $0) }
             }
+            .padding(.horizontal, 8).padding(.bottom, 4)
         }
         .statsCard()
     }
 }
 
-private struct StatsHistoryRow: View {
+/// One title played that day: a 2:3 poster (episodes show their series' poster) with the device + method in a
+/// corner, the title, and one grey line "S2:E4 · 20:15 · 45 min". Click opens the played item.
+private struct StatsHistoryTile: View {
     @EnvironmentObject var emby: Emby
-    let play: StatsPlay
+    let card: StatsHistoryCard
+    @State private var posterId: String?
     @State private var hover = false
-    @AppStorage("textSize") private var textSize = "default"
 
     var body: some View {
+        let play = card.play
         Button { StatsOpen.item(play.itemId, emby) } label: {
-            HStack(spacing: 12) {
-                StatsThumb(id: play.itemId, wide: play.isEpisode, height: 44)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(play.displayTitle).cvFont(Glass3DTokens.Text.cardTitle - 1, weight: .semibold).lineLimit(1)
-                        .modifier(Glass3DReadableText())
-                    if let sub = StatsHistoryText.secondLine(play) {
-                        Text(sub).cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
+            VStack(alignment: .leading, spacing: 6) {
+                Color.white.opacity(0.08)
+                    .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                    .overlay {
+                        if let url = posterURL {
+                            CachedImage(url: url) { img in img.resizable().aspectRatio(contentMode: .fill) }
+                                placeholder: { Color.clear }
+                        }
                     }
-                }
-                Spacer(minLength: 8)
-                StatsRowIcons(play: play)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(play.start.formatted(date: .omitted, time: .shortened))
-                        .cvFont(Glass3DTokens.Text.meta, weight: .semibold) { $0.monospacedDigit() }
-                        .modifier(Glass3DReadableText())
-                    Text(StatsAggregate.durationText(play.seconds))
-                        .cvFont(Glass3DTokens.Text.meta - 1) { $0.monospacedDigit() }
-                        .foregroundColor(Glass3DTokens.Grey.secondary)
-                }
-                .lineLimit(1)
-                .frame(minWidth: 70 * TextScale.inApp(textSize), alignment: .trailing)   // one column for every row
+                    .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous))
+                    .overlay(alignment: .topTrailing) {
+                        if card.count > 1 {
+                            Text("×\(card.count)").cvFont(Glass3DTokens.Text.meta - 1, weight: .heavy).foregroundColor(.white)
+                                .padding(.horizontal, 7).frame(height: 20).background(Capsule().fill(.black.opacity(0.6))).padding(6)
+                        }
+                    }
+                    .overlay(alignment: .bottomTrailing) { StatsTileBadge(play: play).padding(6) }
+                    .g3Shadow(Glass3DTokens.shadowMedium)
+                    .modifier(HoverLift(hover: hover))
+                Text(play.displayTitle).cvFont(Glass3DTokens.Text.meta + 1).lineLimit(2)
+                    .modifier(Glass3DReadableText())
+                Text(StatsHistoryText.caption(card)).cvFont(Glass3DTokens.Text.meta - 1) { $0.monospacedDigit() }
+                    .foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
             }
-            .padding(.horizontal, 8).padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous)
-                .fill(Color.white.opacity(hover ? Glass3DTokens.Fill.strong : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)
-        .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
-    }
-}
-
-/// The device type as an SF Symbol (tooltip: app · device) and the play method as a tiny DP/DS/TC pill
-/// (tooltip: the full method), in fixed slots so the rows line up.
-private struct StatsRowIcons: View {
-    let play: StatsPlay
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: StatsHistoryText.deviceIcon(play))
-                .cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Grey.secondary)
-                .frame(width: 20)
-                .tip(StatsHistoryText.deviceTip(play))
-            StatsMethodPill(method: play.method)
+        .onHover { hover = $0 }
+        .zIndex(hover ? 1 : 0)
+        .task(id: play.itemId) {
+            guard play.isEpisode else { return }
+            if let it = await emby.itemRecord(play.itemId) { posterId = it.SeriesId ?? it.Id }
         }
     }
+
+    private var posterURL: URL? {
+        if card.play.isEpisode {
+            guard let posterId else { return nil }
+            return emby.image(posterId, width: 300)
+        }
+        return emby.image(card.play.itemId, width: 300)
+    }
 }
 
-/// DP / DS / TC, tinted as on the Now Playing cards.
-private struct StatsMethodPill: View {
-    let method: String
+/// Device icon + DP/DS/TC dot in a small dark corner pill (tooltip: app · device · method).
+private struct StatsTileBadge: View {
+    let play: StatsPlay
     var body: some View {
-        let tint = NowPlayingStyle.color(StatsHistoryText.methodTint(method))
-        Text(StatsHistoryText.methodShort(method)).cvFont(9, weight: .bold).lineLimit(1)
-            .foregroundColor(.white)
-            .frame(minWidth: 26).frame(height: 16)
-            .background(Capsule().fill(tint.opacity(0.35)))
-            .overlay(Capsule().strokeBorder(tint.opacity(0.6), lineWidth: 0.5))
-            .tip(StatsAggregate.methodText(method))
+        HStack(spacing: 5) {
+            Image(systemName: StatsHistoryText.deviceIcon(play)).cvFont(Glass3DTokens.Text.meta - 2).foregroundColor(.white)
+            Circle().fill(NowPlayingStyle.color(StatsHistoryText.methodTint(play.method))).frame(width: 7, height: 7)
+        }
+        .padding(.horizontal, 7).frame(height: 20)
+        .background(Capsule().fill(.black.opacity(0.6)))
+        .tip(StatsHistoryText.badgeTip(play))
     }
 }
 
@@ -154,6 +153,40 @@ enum StatsHistoryText {
         return play.type.isEmpty ? nil : play.type
     }
 
+    /// The day's plays as poster cards, newest first; repeat plays of the same item merge into one card.
+    static func cards(_ plays: [StatsPlay]) -> [StatsHistoryCard] {
+        var order: [String] = [], byItem: [String: [StatsPlay]] = [:]
+        for p in plays.sorted(by: { $0.start > $1.start }) {
+            if byItem[p.itemId] == nil { order.append(p.itemId) }
+            byItem[p.itemId, default: []].append(p)
+        }
+        return order.compactMap { id in
+            guard let ps = byItem[id], let first = ps.first else { return nil }
+            return StatsHistoryCard(play: first, count: ps.count, seconds: StatsAggregate.totalSeconds(ps))
+        }
+    }
+
+    /// "S2:E4 · 20:15 · 45 min" (episodes) / "20:15 · 1 h 52 min" (anything else); time = the latest play.
+    static func caption(_ card: StatsHistoryCard, timeZone: TimeZone = .current) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_GB"); f.timeZone = timeZone; f.dateFormat = "HH:mm"
+        var parts = [f.string(from: card.play.start), length(card.seconds)]
+        if let e = card.play.episode { parts.insert("S\(e.season):E\(e.number)", at: 0) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// "45 min", "1 h 52 min", "2 h".
+    static func length(_ seconds: Int) -> String {
+        let h = seconds / 3600, m = (seconds % 3600) / 60
+        if h == 0 { return "\(max(1, m)) min" }
+        return m == 0 ? "\(h) h" : "\(h) h \(m) min"
+    }
+
+    /// "Cove · Mac · Direct play".
+    static func badgeTip(_ play: StatsPlay) -> String {
+        [play.client, play.device, StatsAggregate.methodText(play.method)].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
     static func deviceIcon(_ play: StatsPlay) -> String {
         let i = NowPlayingStyle.clientIcon(client: play.client, device: play.device)
         return i == "macbook" ? "laptopcomputer" : i
@@ -177,4 +210,12 @@ enum StatsHistoryText {
         default: return .green
         }
     }
+}
+
+/// One poster card in a History day: the newest play of the item, how often it was played that day, total time.
+struct StatsHistoryCard: Identifiable, Hashable, Sendable {
+    let play: StatsPlay
+    let count: Int
+    let seconds: Int
+    var id: String { play.itemId }
 }
