@@ -170,6 +170,15 @@ struct NewMediaLibrary: Equatable {
 }
 
 enum NewMediaDetector {
+    /// Episode titles servers use before the real one is known: "-", "TBA", "TBD", "Episode 23", "Episode #23".
+    nonisolated static func isPlaceholderTitle(_ name: String, index: Int?) -> Bool {
+        let t = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if t.isEmpty || t.allSatisfy({ "-–—_.?".contains($0) }) { return true }
+        if ["tba", "tbd", "tbc", "to be announced", "unknown"].contains(t) { return true }
+        if let r = t.range(of: #"^episode\s*#?\s*\d+$"#, options: .regularExpression), !r.isEmpty { return true }
+        return false
+    }
+
     /// Ids remembered per library (the poll asks for 50 at most, so this covers a few rounds)
     static let maxSeen = 200
     /// A library not checked for this long gets a fresh baseline instead of a burst of old news
@@ -310,7 +319,9 @@ enum NewMediaDetector {
         if it.isEpisode {
             var parts = [it.SeriesName ?? it.Name]
             let code = episodeCode(it)
-            let detail = [code, it.SeriesName == nil ? nil : it.Name].compactMap { $0 }.joined(separator: " · ")
+            // A placeholder title ("-", "TBA", "Episode 23") adds nothing: leave it out (owner)
+            let name: String? = it.SeriesName == nil || Self.isPlaceholderTitle(it.Name, index: it.IndexNumber) ? nil : it.Name
+            let detail = [code, name].compactMap { $0 }.joined(separator: " · ")
             if !detail.isEmpty { parts.append(detail) }
             return parts.joined(separator: " — ")
         }
