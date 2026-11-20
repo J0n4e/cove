@@ -32,13 +32,6 @@ body:
       placeholder: "15.5"
     validations:
       required: true
-  - type: dropdown
-    id: theme
-    attributes:
-      label: Theme
-      options:
-        - Glass3D
-        - Glass
   - type: input
     id: environment
     attributes:

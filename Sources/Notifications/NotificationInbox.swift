@@ -54,12 +54,10 @@ enum NotificationPresentation: Equatable {
     /// Only the list (Cove in front while a video plays: keep it unobtrusive)
     case listOnly
 
-    /// `frontmost`: NSApp.isActive with a main window key; `playing`: a video is open in the player;
-    /// `glass3D`: the toast exists only in Glass3D (the Glass theme keeps the banner).
-    static func decide(frontmost: Bool, playing: Bool, glass3D: Bool) -> NotificationPresentation {
+    /// `frontmost`: NSApp.isActive with a main window key; `playing`: a video is open in the player.
+    static func decide(frontmost: Bool, playing: Bool) -> NotificationPresentation {
         guard frontmost else { return .banner }
-        if playing { return .listOnly }
-        return glass3D ? .toast : .banner
+        return playing ? .listOnly : .toast
     }
 }
 

@@ -7,8 +7,8 @@ struct CoveApp: App {
     @StateObject private var emby = Emby()
     @AppStorage("accent") private var accent = "red"
     @AppStorage("bg") private var bg = "black"
-    @AppStorage("theme") private var theme = "apple"
     init() {
+        ThemeMigration.run()     // first: Glass (and every other stored theme) → the one look, before any window
         Self.importEmbyFlixSettings()
         Self.scrubEmbyFlixTokens()
         NSApplication.shared.setActivationPolicy(.regular)
@@ -49,9 +49,7 @@ struct CoveApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // Classic = the original Cove screens (v1.9.2), Apple TV = the Apple TV screens; switching swaps them all
-            Group { if theme == "apple" { RootView() } else { ClassicRootView() } }
-                .id(theme)
+            ClassicRootView()
                 .environmentObject(emby)
                 .environment(\.appBG, Theme.bg(bg))
                 .tint(Theme.accent(accent))
@@ -81,7 +79,7 @@ struct CoveApp: App {
             // Cove → Settings… (⌘,), as in the Apple TV app
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
-                    if theme == "apple" { NavState.shared.showSettings = true } else { ClassicNavState.shared.showSettings = true }
+                    ClassicNavState.shared.showSettings = true
                 }
                     .keyboardShortcut(",", modifiers: .command)
             }
@@ -99,18 +97,6 @@ struct CoveApp: App {
                 Button("Report an Issue…") { ReportIssueWindow.show() }
             }
         }
-        // Videos play in their own window, like the Apple TV app
-        Window("Player", id: "player") {
-            PlayerWindow()
-                .environmentObject(emby)
-                .environment(\.appBG, Theme.bg(bg))
-                .tint(Theme.accent(accent))
-                .preferredColorScheme(.dark)
-                .focusEffectDisabled()
-                .frame(minWidth: 640, minHeight: 360)
-        }
-        .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 1280, height: 760)
     }
 }
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 // SyncPlay phase 2: the pieces both themes share: the "Watch together" pill on a detail page with its group
 // list, the player's SyncPlay button wrapper and the "ldoctoru joined" toast. The player panels themselves are
-// per theme (Classic/ClassicSyncPlayPanel.swift, Glass/GlassSyncPlayPanel.swift).
+// in Classic/ClassicSyncPlayPanel.swift.
 
 extension SyncPlayGroup {
     /// The panel's state line.

@@ -34,7 +34,7 @@ enum Trailer {
     }
 }
 
-/// Plays a trailer where videos play (in the window or the separate player window). Esc leaves full screen,
+/// Plays a trailer in the main window. Esc leaves full screen,
 /// then the trailer; F toggles full screen.
 struct TrailerPlayerView: View {
     @EnvironmentObject var emby: Emby
@@ -47,7 +47,6 @@ struct TrailerPlayerView: View {
     @State private var isFullScreen = false
 
     var videoID: String { Trailer.youTubeID(link) ?? "" }
-    var separate: Bool { UserDefaults.standard.bool(forKey: "separatePlayer") }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -64,8 +63,7 @@ struct TrailerPlayerView: View {
                 .buttonStyle(HoverButton(backing: true))
                 .helpLabel(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
             }
-            // The separate window has no title bar: room for its window buttons
-            .padding(.leading, separate ? 80 : 14).padding(.trailing, 14).frame(height: 48)
+            .padding(.horizontal, 14).frame(height: 48)
             ZStack {
                 Color.black
                 if blocked {
@@ -109,32 +107,17 @@ struct TrailerPlayerView: View {
         .task { isFullScreen = playerWin.window?.styleMask.contains(.fullScreen) ?? false }
     }
 
-    @AppStorage("theme") private var theme = "apple"
-
-    /// The page Back button of the current theme: Glass's round ‹, Glass3D's round glass ‹.
-    /// (The pages' own Back buttons switch off while something plays, so these are drawn here.)
+    /// The round glass ‹, as on the pages (ClassicTopBackButton switches off while something plays, so it is
+    /// drawn here).
     @ViewBuilder var backButton: some View {
-        if theme == "apple" {
-            Button(action: close) {
-                Image(systemName: "chevron.left").coveFont(size: 15, weight: .semibold)
-                    .foregroundStyle(Color.white)
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.black.opacity(0.4)))
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
-                    .contentShape(Circle())
-            }.buttonStyle(HoverButton())
-        } else {
-            // Glass3D's round glass ‹, as on the pages (ClassicTopBackButton switches off while something plays)
-            Button(action: close) {
-                Image(systemName: "chevron.left").cvFont(15, weight: .semibold)
-                    .frame(width: 44, height: 44)
-                    .classicGlassPill()
-                    .contentShape(Capsule())
-            }
-            .buttonStyle(HoverButton())
-            .focusEffectDisabled()
+        Button(action: close) {
+            Image(systemName: "chevron.left").cvFont(15, weight: .semibold)
+                .frame(width: 44, height: 44)
+                .classicGlassPill()
+                .contentShape(Capsule())
         }
+        .buttonStyle(HoverButton())
+        .focusEffectDisabled()
     }
 
     func toggleFullScreen(_ w: NSWindow) {
