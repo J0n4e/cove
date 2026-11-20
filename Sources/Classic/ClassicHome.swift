@@ -104,7 +104,11 @@ struct ClassicHero: View {
     @State private var leaving: Item?       // the deck's front card while it fades away
     @State private var busy = false
     @State private var leavingGone = false
-    @State private var hover = false
+    /// Pointer on the text + buttons or on the cards/bullets: the banner waits (not the whole picture, which fills
+    /// the page, so a resting pointer anywhere on Home stopped it, owner)
+    @State private var hoverInfo = false
+    @State private var hoverNav = false
+    var hover: Bool { hoverInfo || hoverNav }
     @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
@@ -167,6 +171,7 @@ struct ClassicHero: View {
                 } else { info(item) }
             }
             .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, 56)
+            .scrollHover($hoverInfo)
             // Old text fades out quickly, then the new text fades in (they overlapped mid-change)
             .id("t" + item.id)
             .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.4).delay(0.3)),
@@ -182,7 +187,9 @@ struct ClassicHero: View {
                             .padding(.trailing, 44).padding(.bottom, 56)
                     }
                 }
-            }.zIndex(Double(pos) + 1)
+            }
+            .scrollHover($hoverNav)
+            .zIndex(Double(pos) + 1)
         }
         .animation(.easeOut(duration: 0.15), value: hover)
         .frame(height: style == "card" ? max(bannerH - 24, 340) : bannerH)
@@ -192,12 +199,15 @@ struct ClassicHero: View {
             Color.clear.onAppear { width = g.size.width; HomeModel.bannerImageWidth = min(Int(g.size.width * 2), 2560) }
                 .onChange(of: g.size.width) { _, w in width = w; HomeModel.bannerImageWidth = min(Int(w * 2), 2560) }
         })
-        .scrollHover($hover)
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
-        // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
-        .task(id: "\(pos)-\(hover)-\(playback.active)") {
+        // Next banner every 9 s, but not under the pointer (text/buttons/cards), not during playback and not with
+        // Reduce Motion. Restarts when the items change (loaded later, banner refresh); a click or ← → changes `pos`,
+        // so the full 9 s start again. A move skipped while one is still animating waits for it (it used to be lost
+        // and the banner stopped for good).
+        .task(id: "\(pos)-\(hover)-\(playback.active)-\(items.map(\.id).joined(separator: ","))") {
             guard !hover, !playback.active, !reduceMotion, items.count > 1 else { return }
             try? await Task.sleep(nanoseconds: 9_000_000_000)
+            while busy && !Task.isCancelled { try? await Task.sleep(nanoseconds: 200_000_000) }
             if !Task.isCancelled { go(index + 1) }
         }
     }
