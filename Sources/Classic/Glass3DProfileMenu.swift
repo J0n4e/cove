@@ -39,7 +39,7 @@ enum ProfileActions {
             ProfileJump.shared.prefill = .init(url: emby.server, name: emby.currentServer?.name ?? "")
             emby.switchServer()   // the server list keeps this user's token; the login form opens prefilled
         case .otherUser(let key, _): switchTo(key, emby: emby)
-        case .search:   // no top-bar button any more: ⌘F, S or this row opens the bottom search pill
+        case .search:   // no top-bar button any more: ⌘F or this row opens the bottom search pill
             ClassicNavState.shared.focusSearch += 1
         case .myActivity:
             ProfileJump.shared.myActivityPending = true; ProfileJump.shared.myActivityTick += 1
