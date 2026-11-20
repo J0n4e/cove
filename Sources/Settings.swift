@@ -903,6 +903,9 @@ struct PlaybackSettings: View {
     @AppStorage("debugLog") private var debugLog = false
     @AppStorage("playerControls") private var controls = "theme"
     @AppStorage(SyncPlayService.liveSocketKey) private var liveSocket = true
+    @AppStorage(TvTarget.key) private var tvTarget = TvTarget.cast
+    @ObservedObject private var castSession = CastSession.shared
+    @ObservedObject private var tvRoute = TvRouteState.shared
 
     var body: some View {
         PrefSection(title: "Player") {
@@ -912,6 +915,8 @@ struct PlaybackSettings: View {
             PrefRow(label: "Window") { Toggle("Open videos in a separate window", isOn: $separatePlayer) }
             PrefRow(label: "Clicking the video") { Toggle("Plays or pauses", isOn: $clickToPause) }
             PrefNote("With this off, clicking the video shows or hides the controls.")
+            TvTargetRow(tvTarget: $tvTarget, casting: castSession.isCasting, airPlayActive: tvRoute.airPlayActive)
+            PrefNote("Google Cast: Chromecast, Google TV and Cast TVs — the TV streams from the server. AirPlay: Apple TV and AirPlay TVs — the Mac plays and sends the picture.")
         }
         PrefSection(title: "Start with") {
             PrefRow(label: "Quality") {
@@ -1352,5 +1357,23 @@ struct TraktStatsSettings: View {
     func monthName(_ key: String) -> String {
         guard let d = monthDate(key) else { return key }
         let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f.string(from: d)
+    }
+}
+
+/// Settings → Playback "Play on a TV with": greyed out (and changes ignored) while a cast or AirPlay runs.
+private struct TvTargetRow: View {
+    @Binding var tvTarget: String
+    let casting: Bool
+    let airPlayActive: Bool
+
+    var body: some View {
+        let reason = TvTarget.lockReason(casting: casting, airPlayActive: airPlayActive)
+        let guarded = Binding<String>(get: { TvTarget.normalized(tvTarget) }, set: { new in
+            tvTarget = TvTarget.apply(new, current: tvTarget, casting: casting, airPlayActive: airPlayActive)
+        })
+        PrefRow(label: "Play on a TV with") {
+            menuPicker(guarded, TvTarget.options).disabled(reason != nil).help(reason ?? "")
+        }
+        if let reason { PrefNote(reason + ".") }
     }
 }

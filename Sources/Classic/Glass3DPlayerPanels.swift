@@ -447,9 +447,12 @@ struct Glass3DControlBar: View {
     @ObservedObject var group: SyncPlayGroup
     let items: [Glass3DBarItem]
     let poke: () -> Void
+    @AppStorage(TvTarget.key) private var tvTarget = TvTarget.cast
+    @ObservedObject private var castSession = CastSession.shared
 
     var body: some View {
-        let shown = items.filter { !$0.syncPlayOnly || group.isActive }
+        let shown = PlayerBarItems.items(items, tvTarget: tvTarget, casting: castSession.isCasting)
+            .filter { !$0.syncPlayOnly || group.isActive }
         HStack(spacing: 0) {
             ForEach(Array(shown.enumerated()), id: \.element.id) { k, it in
                 if k > 0 {
