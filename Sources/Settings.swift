@@ -989,6 +989,7 @@ struct ShortcutsSettings: View {
         PrefSection(title: "Everywhere") {
             keys([("⌘ F", "Search"),
                   ("H", "Home (when not typing in a field)"),
+                  ("F  or  ⌃ ⌘ F", "Full screen on / off (F when not typing in a field)"),
                   ("← →", "Home: previous / next banner"),
                   ("⌘ ,", "Open Settings"),
                   ("⌘ ←  or  ⌘ [", "Back")])
@@ -1000,7 +1001,7 @@ struct ShortcutsSettings: View {
         PrefSection(title: "Other", last: true) {
             keys([("Return", "Open the selected Continue Watching card"),
                   ("Return", "Try Again when the server can't be reached")])
-            PrefNote("The usual Mac shortcuts work too, such as ⌘Q, ⌘W, ⌘H and ⌃⌘F.")
+            PrefNote("The usual Mac shortcuts work too, such as ⌘Q, ⌘W and ⌘H.")
         }
     }
 }

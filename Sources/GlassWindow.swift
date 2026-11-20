@@ -121,6 +121,10 @@ final class GlassWindowContainer: NSView {
 extension CoveWindowLook {
     /// Turns a window into a see-through glass panel hosting `content` at a fixed size (no automatic sizing).
     static func applyGlass(_ w: NSWindow, content: NSView, size: NSSize) {
+        // Settings, About, Report an issue, Change picture: open OVER a full-screen Cove instead of macOS switching
+        // to the desktop Space and leaving the main window behind (owner)
+        w.collectionBehavior.insert(.fullScreenAuxiliary)
+        w.collectionBehavior.insert(.moveToActiveSpace)
         w.styleMask.insert(.fullSizeContentView)
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
