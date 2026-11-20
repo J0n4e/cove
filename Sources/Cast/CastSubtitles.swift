@@ -1,74 +1,55 @@
 import Foundation
 
 // How a subtitle reaches the TV while casting, and what happens when the TV fails on it (pure parts unit-tested in
-// Tests/CastSubtitleTests.swift).
-// Google's Default Media Receiver fails the WHOLE media (IDLE, ERROR, "The TV couldn't play this video") when a
-// WebVTT side track can't be fetched or parsed: an embedded SubRip/ASS the server has to extract first (slow → the
-// receiver times out), a 404/500, or non-WebVTT content. So only text that's ready fast goes as a side track; ASS/SSA
-// and picture subtitles are burned in by the server, and an embedded text track is fetched once first (warm-up,
-// ~8 s): a slow or bad answer → burned in. A side track that still fails is retried burned in, then without subtitles.
+// Tests/CastSubtitleTests.swift and Tests/CastSubtitleServerTests.swift).
+// Emby's /Subtitles/{i}/Stream.vtt has no CORS headers (the Default Media Receiver fails it, detailedErrorCode=100)
+// and Emby's burn-in shows nothing on the TV, so Cove serves every TEXT subtitle itself (CastSubtitleServer.swift):
+// the track is read exactly as the local player reads it (Emby.subtitleCues, cached whole tracks), converted to
+// WebVTT and served from this Mac with CORS headers. Same path for Emby and Jellyfin. Only PICTURE subtitles
+// (PGS/VOBSUB/DVB) are still burned in by the server. A side track that still fails → retried without subtitles.
 
 enum CastSubDelivery: Equatable {
-    case sideTrack       // WebVTT side track (the TV fetches /Subtitles/{index}/Stream.vtt)
-    case warmThenSide    // embedded text: fetch the VTT first; ok → side track, else burn in
-    case burnIn          // SubtitleMethod=Encode on the HLS stream
+    case local     // text: Cove serves it as a WebVTT side track
+    case burnIn    // picture: SubtitleMethod=Encode / PlaybackInfo burn-in on the HLS stream
 }
 
 enum CastSubtitles {
-    /// Text codecs the server converts to WebVTT quickly enough to be a side track.
-    nonisolated static let sideTrackCodecs: Set<String> = ["srt", "subrip", "vtt", "webvtt", "text", "mov_text", "tx3g"]
-    /// Styled text the receiver shows badly or the server converts slowly: burned in.
-    nonisolated static let styledCodecs: Set<String> = ["ass", "ssa"]
-    /// Seconds the warm-up fetch may take.
-    nonisolated static let warmTimeout: TimeInterval = 8
+    /// Seconds to wait for a whole track (an embedded one is extracted first) before the LOAD.
+    nonisolated static let fullWait: TimeInterval = 20
     /// An ERROR this soon after a LOAD is blamed on the subtitle.
     nonisolated static let retryWindow: TimeInterval = 20
-    static let noSubsNotice = "The TV couldn't show these subtitles — playing without them."
+    static let noSubsNotice = "The TV couldn't load the subtitles — playing without them."
+    static let preparingNotice = "Preparing subtitles…"
+    static let notReadyNotice = "The subtitles aren't ready yet — playing without them. Choose them again in a moment."
 
-    /// The delivery for a subtitle track (nil stream: unknown → burned in, the safe path).
+    /// Picture subtitles → burned in; every other known track (SRT, embedded SubRip, ASS, VTT, mov_text…) → local.
     nonisolated static func delivery(codec: String?, isExternal: Bool) -> CastSubDelivery {
         let c = (codec ?? "").lowercased()
-        if imageSubCodecs.contains(c) || styledCodecs.contains(c) { return .burnIn }
-        guard sideTrackCodecs.contains(c) else { return .burnIn }
-        return isExternal ? .sideTrack : .warmThenSide
+        return imageSubCodecs.contains(c) ? .burnIn : .local
     }
 
     nonisolated static func delivery(_ st: MStream?) -> CastSubDelivery {
-        guard let st else { return .burnIn }
+        guard let st else { return .burnIn }   // unknown track: the server's burn-in is the safe path
         return delivery(codec: st.Codec, isExternal: st.IsExternal ?? false)
     }
 
-    /// The final delivery (pure, tested). Emby's /Subtitles/{i}/Stream.vtt has no CORS headers for the Cast
-    /// receiver, so the Default Media Receiver fails even an external SRT side track there (owner log: error 100,
-    /// IDLE(ERROR)): on Emby every subtitle is burned in. Jellyfin sends CORS: side track, with the retry chain. A
-    /// track whose side track already failed this session goes straight to burn-in (a seek reload must not retry it).
-    nonisolated static func decide(_ base: CastSubDelivery, isJellyfin: Bool, sideFailedBefore: Bool) -> CastSubDelivery {
-        if base == .burnIn || !isJellyfin || sideFailedBefore { return .burnIn }
-        return base
-    }
-
-    /// Item + track whose side track failed on the TV in this app session.
-    @MainActor static var sideFailed: Set<String> = []
-    nonisolated static func key(item: String, index: Int) -> String { "\(item)#\(index)" }
-
-    /// Warm-up verdict: the answer must be fast, 2xx and WebVTT.
-    nonisolated static func warmOK(status: Int?, body: Data?, elapsed: TimeInterval) -> Bool {
-        guard let status, (200..<300).contains(status), elapsed < warmTimeout, let body else { return false }
-        let head = String(decoding: body.prefix(16), as: UTF8.self).trimmingCharacters(in: CharacterSet(charactersIn: "\u{FEFF}").union(.whitespacesAndNewlines))
-        return head.hasPrefix("WEBVTT")
-    }
-
     /// The step after an IDLE(ERROR). `mode`: how the subtitle went in the failed LOAD.
-    enum Retry: Equatable { case burnIn, noSubs, fail }
+    enum Retry: Equatable { case noSubs, fail }
     enum Mode: Equatable { case none, side, burned }
 
     nonisolated static func retry(mode: Mode, sinceLoad: TimeInterval, triedNoSubs: Bool) -> Retry {
-        guard sinceLoad <= retryWindow, !triedNoSubs else { return .fail }
-        switch mode {
-        case .none: return .fail
-        case .side: return .burnIn
-        case .burned: return .noSubs
-        }
+        guard sinceLoad <= retryWindow, !triedNoSubs, mode != .none else { return .fail }
+        return .noSubs
+    }
+
+    /// Cast text style from Cove's subtitle settings (size, colour, edge).
+    nonisolated static func style(size: String?, color: String?, shadow: String?, bg: String?) -> [String: Any] {
+        let frac = PlayerUIModel.sizes.first { $0.0 == (size ?? "normal") }?.2 ?? 0.045
+        let fg = ["yellow": "#FFFF00FF", "gray": "#CCCCCCFF", "black": "#000000FF"][color ?? ""] ?? "#FFFFFFFF"
+        let edge = ["none": "NONE", "outline": "OUTLINE", "raised": "RAISED"][shadow ?? ""] ?? "DROP_SHADOW"
+        let back = ["semi": "#00000080", "black": "#000000FF"][bg ?? ""] ?? "#00000000"
+        return ["foregroundColor": fg, "edgeType": edge, "edgeColor": color == "black" ? "#FFFFFFFF" : "#000000FF",
+                "backgroundColor": back, "fontScale": (frac / 0.045 * 100).rounded() / 100]
     }
 
     /// For the log: "4 (subrip, embedded, eng)".
@@ -78,57 +59,89 @@ enum CastSubtitles {
 }
 
 extension CastSession {
-    /// Decides side track vs burn-in for the request's subtitle (warming an embedded track's VTT first).
+    /// Text subtitle → reads its cues (waiting up to 20 s for the whole track) and serves it from this Mac;
+    /// picture → burned in. Sets request.subIsImage / subURL.
     func prepareSubtitle() async {
-        guard let s = request?.sub else { return }
+        subURL = nil; subVTT = nil
+        guard let s = request?.sub else { stopSubtitleServer(); return }
         let st = streams.first { $0.Index == s }
-        let jf = emby?.isJellyfin ?? false
-        let failed = item.map { CastSubtitles.sideFailed.contains(CastSubtitles.key(item: $0.id, index: s)) } ?? false
-        var d = CastSubtitles.decide(CastSubtitles.delivery(st), isJellyfin: jf, sideFailedBefore: failed)
-        if d == .burnIn, CastSubtitles.delivery(st) != .burnIn {
-            DebugLog.write("cast: subtitle \(s) burned in (\(failed ? "its side track failed earlier" : "Emby: no CORS on side tracks"))")
+        let d = CastSubtitles.delivery(st)
+        if d == .burnIn {
+            request?.subIsImage = true
+            stopSubtitleServer()
+            DebugLog.write("cast: subtitle \(CastSubtitles.describe(s, st)) → burned in (picture subtitle)")
+            return
         }
-        if d == .warmThenSide {
-            d = await warm(s) ? .sideTrack : .burnIn
+        request?.subIsImage = false
+        guard let emby, let item else { return }
+        let itemId = item.id, sid = request?.sourceId
+        var cues = emby.cachedCues(itemId, sid, s)
+        if cues == nil {
+            notice = CastSubtitles.preparingNotice
+            let full = Task { await emby.subtitleCues(itemId, sid, s) }   // keeps going after the timeout: fills the cache
+            cues = await Self.within(CastSubtitles.fullWait) { await full.value }
+            if cues == nil {
+                // Not whole yet: what the server can give for the next minutes
+                let from = request?.start ?? 0
+                cues = await Self.within(10) { await emby.subtitleCues(itemId, sid, s, upTo: from + 900) }
+            }
+            if notice == CastSubtitles.preparingNotice { notice = nil }
         }
-        guard request?.sub == s else { return }
-        request?.subIsImage = d == .burnIn
-        DebugLog.write("cast: subtitle \(CastSubtitles.describe(s, st)) → \(d == .burnIn ? "burned in" : "side track")")
+        guard request?.sub == s, self.item?.id == itemId else { return }
+        guard let cues, !cues.isEmpty else {
+            DebugLog.write("cast: subtitle \(CastSubtitles.describe(s, st)) not ready → LOAD without it")
+            request?.sub = nil; sub = nil
+            show(notice: CastSubtitles.notReadyNotice)
+            stopSubtitleServer()
+            return
+        }
+        subVTT = CastVTT.make(cues)
+        DebugLog.write("cast: serving subtitle \(CastSubtitles.describe(s, st)) (\(cues.count) cues)")
     }
 
-    private func warm(_ idx: Int) async -> Bool {
-        guard let emby, let item, let sid = request?.sourceId,
-              let u = CastStream.subtitleURL(server: emby.server, token: emby.token, keyName: emby.keyName,
-                                             itemId: item.id, sourceId: sid, index: idx) else { return false }
-        var r = URLRequest(url: u)
-        r.timeoutInterval = CastSubtitles.warmTimeout
-        let t0 = Date()
-        let res = try? await URLSession.shared.data(for: r)
-        let el = Date().timeIntervalSince(t0)
-        let code = (res?.1 as? HTTPURLResponse)?.statusCode
-        let ok = CastSubtitles.warmOK(status: code, body: res?.0, elapsed: el)
-        DebugLog.write("cast: subtitle \(idx) warm-up \(code.map(String.init) ?? "no answer") in \(String(format: "%.1f", el)) s → \(ok ? "ok" : "not usable")")
-        return ok
+    /// Puts the prepared VTT on the local server (needs the connection to the TV for the right address);
+    /// false when it can't be served (the LOAD then goes without subtitles).
+    func publishSubtitle() async -> Bool {
+        guard let vtt = subVTT else { return false }
+        guard let u = await CastSubtitleServer.shared.serve(vtt, tv: channel?.remoteIP, local: channel?.localIP) else {
+            DebugLog.write("cast: subtitle server unavailable → LOAD without subtitles")
+            request?.sub = nil; sub = nil; subVTT = nil
+            show(notice: CastSubtitles.noSubsNotice)
+            return false
+        }
+        subURL = u
+        CastSubAwake.set(true)
+        return true
     }
 
-    /// IDLE(ERROR): retry once burned in, then once without subtitles; true when a retry was sent.
+    func stopSubtitleServer() {
+        subURL = nil; subVTT = nil
+        CastSubtitleServer.shared.stop()
+        CastSubAwake.set(false)
+    }
+
+    /// `work`'s result, or nil after `seconds` (the work isn't cancelled).
+    static func within<T: Sendable>(_ seconds: TimeInterval, _ work: @escaping @Sendable () async -> T?) async -> T? {
+        await withTaskGroup(of: T?.self) { g in
+            g.addTask { await work() }
+            g.addTask { try? await Task.sleep(for: .seconds(seconds)); return nil }
+            let first = await g.next() ?? nil
+            g.cancelAll()
+            return first
+        }
+    }
+
+    /// IDLE(ERROR) soon after a LOAD with a subtitle: retry once without subtitles; true when a retry was sent.
     func retrySubtitleAfterError() -> Bool {
         guard var r = request, transportId != nil else { return false }
         let mode: CastSubtitles.Mode = r.sub == nil ? .none : (r.subIsImage ? .burned : .side)
-        let step = CastSubtitles.retry(mode: mode, sinceLoad: Date().timeIntervalSince(loadAt), triedNoSubs: subRetryNoSubs)
-        switch step {
-        case .fail: return false
-        case .burnIn:
-            DebugLog.write("cast: retry with burned-in subtitle (remembered for this item/track)")
-            if let it = item, let s = r.sub { CastSubtitles.sideFailed.insert(CastSubtitles.key(item: it.id, index: s)) }
-            r.subIsImage = true
-        case .noSubs:
-            DebugLog.write("cast: retry without subtitles")
-            r.sub = nil; r.subIsImage = false
-            subRetryNoSubs = true
-            sub = nil
-            show(notice: CastSubtitles.noSubsNotice)
-        }
+        guard CastSubtitles.retry(mode: mode, sinceLoad: Date().timeIntervalSince(loadAt), triedNoSubs: subRetryNoSubs) == .noSubs else { return false }
+        DebugLog.write("cast: retry without subtitles")
+        r.sub = nil; r.subIsImage = false
+        subRetryNoSubs = true
+        sub = nil
+        stopSubtitleServer()
+        show(notice: CastSubtitles.noSubsNotice)
         request = r
         playerState = "BUFFERING"
         reportStop()

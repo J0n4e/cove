@@ -74,6 +74,9 @@ final class CastSession: ObservableObject {
     /// When the last LOAD went out, and whether the no-subtitles retry was used (CastSubtitles.swift)
     var loadAt = Date()
     var subRetryNoSubs = false
+    /// The subtitle as Cove serves it to the TV (CastSubtitleServer.swift), for the LOAD's side track
+    var subURL: URL?
+    var subVTT: String?
 
     /// The receiver's position now (its reports come only on changes, so it is moved on while playing).
     var time: Double {
@@ -179,6 +182,16 @@ final class CastSession: ObservableObject {
 
     func sendLoad() {
         guard let emby, let item, let req = request, let tid = transportId else { return }
+        if req.sub != nil, !req.subIsImage, subVTT != nil, subURL == nil {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                _ = await self.publishSubtitle()
+                guard self.item?.id == item.id, self.transportId == tid else { return }
+                if self.subURL == nil { self.request?.sub = nil }
+                self.sendLoad()
+            }
+            return
+        }
         let ps = UUID().uuidString.replacingOccurrences(of: "-", with: "")
         let profile = device?.profile ?? .basic
         let url: URL
@@ -205,9 +218,7 @@ final class CastSession: ObservableObject {
     private func sendLoad(url: URL, emby: Emby, item: Item, req: CastRequest, tid: String, profile: CastProfile) {
         var req = req
         var subtitle: (url: URL, name: String, lang: String?)?
-        if let s = req.sub, !req.subIsImage, let sid = req.sourceId,
-           let u = CastStream.subtitleURL(server: emby.server, token: emby.token, keyName: emby.keyName,
-                                          itemId: item.id, sourceId: sid, index: s) {
+        if let s = req.sub, !req.subIsImage, let u = subURL {
             let st = streams.first { $0.Index == s }
             subtitle = (u, st?.DisplayTitle ?? "Subtitles", st?.Language)
         }
@@ -225,11 +236,18 @@ final class CastSession: ObservableObject {
         loadAt = Date()
         req.start = statusTime
         let body = CastLoad.body(url: url, hls: true, meta: meta, start: req.start, subtitle: subtitle,
-                                 hevc: profile.hevc, requestId: nextId())
-        DebugLog.write("cast: LOAD at \(Int(req.start)) s (\(profile.videoCodecs)/\(profile.audioCodecs), sub: \(req.sub.map(String.init) ?? "off")\(req.subIsImage ? " burned in" : ""))\(req.subIsImage && req.sub != nil ? " [\(Emby.burnInLog(url.absoluteString))]" : "")")
+                                 hevc: profile.hevc, requestId: nextId(), textStyle: Self.textStyle())
+        DebugLog.write("cast: LOAD at \(Int(req.start)) s (\(profile.videoCodecs)/\(profile.audioCodecs), sub: \(req.sub.map(String.init) ?? "off")\(req.subIsImage ? " burned in" : (subtitle != nil ? " served by Cove" : "")))\(req.subIsImage && req.sub != nil ? " [\(Emby.burnInLog(url.absoluteString))]" : "")")
         channel?.send(.make(CastMessage.nsMedia, body, to: tid))
         startClock()
         saveActive()
+    }
+
+    /// Cast text style from Cove's subtitle appearance settings.
+    static func textStyle() -> [String: Any] {
+        let d = UserDefaults.standard
+        return CastSubtitles.style(size: d.string(forKey: "subTextSize"), color: d.string(forKey: "subColor"),
+                                   shadow: d.string(forKey: "subShadowStyle"), bg: d.string(forKey: "subBg"))
     }
 
     // MARK: Messages
@@ -344,7 +362,7 @@ final class CastSession: ObservableObject {
 
     // MARK: Remote
 
-    private func media(_ type: String, _ extra: [String: Any] = [:]) {
+    func media(_ type: String, _ extra: [String: Any] = [:]) {
         guard !reconnecting, let tid = transportId, let ms = mediaSessionId else { return }
         var b = extra
         b["type"] = type; b["mediaSessionId"] = ms
@@ -383,7 +401,16 @@ final class CastSession: ObservableObject {
         sub = idx
         subRetryNoSubs = false
         guard request != nil else { return }
+        // Off with a served side track: just hide it on the TV (no reload)
+        if idx == nil, request?.sub != nil, request?.subIsImage == false, mediaSessionId != nil {
+            request?.sub = nil
+            media("EDIT_TRACKS_INFO", ["activeTrackIds": [Int]()])
+            DebugLog.write("cast: subtitles off (EDIT_TRACKS_INFO)")
+            stopSubtitleServer()
+            return
+        }
         request?.sub = idx; request?.subIsImage = false
+        request?.start = time
         Task {
             await prepareSubtitle()
             guard sub == idx else { return }
@@ -427,6 +454,7 @@ final class CastSession: ObservableObject {
             if let s = receiverSession { send(CastMessage.nsReceiver, ["type": "STOP", "sessionId": s]) }
         }
         clock?.cancel(); clock = nil
+        stopSubtitleServer()
         stopReconnect()
         SavedCast.clear()
         let c = channel

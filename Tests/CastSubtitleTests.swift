@@ -1,7 +1,7 @@
 import XCTest
 @testable import Cove
 
-/// Cast subtitles: side track vs burn-in, the warm-up verdict, the retry chain after a receiver ERROR, and the
+/// Cast subtitles: served by Cove vs burn-in, the retry chain after a receiver ERROR, and the
 /// AirPlay menu's open window.
 final class CastSubtitleTests: XCTestCase {
 
@@ -12,51 +12,23 @@ final class CastSubtitleTests: XCTestCase {
         }
     }
 
-    func testStyledTextBurnsIn() {
-        XCTAssertEqual(CastSubtitles.delivery(codec: "ass", isExternal: true), .burnIn)
-        XCTAssertEqual(CastSubtitles.delivery(codec: "SSA", isExternal: false), .burnIn)
+    func testAllTextIsServedByCove() {
+        for (c, ext) in [("srt", true), ("subrip", true), ("vtt", true), ("subrip", false), ("mov_text", false), ("ass", true), ("SSA", false)] {
+            XCTAssertEqual(CastSubtitles.delivery(codec: c, isExternal: ext), .local, c)
+        }
     }
 
-    func testExternalTextIsSideTrack() {
-        XCTAssertEqual(CastSubtitles.delivery(codec: "srt", isExternal: true), .sideTrack)
-        XCTAssertEqual(CastSubtitles.delivery(codec: "subrip", isExternal: true), .sideTrack)
-        XCTAssertEqual(CastSubtitles.delivery(codec: "vtt", isExternal: true), .sideTrack)
-    }
-
-    func testEmbeddedTextIsWarmedFirst() {
-        XCTAssertEqual(CastSubtitles.delivery(codec: "subrip", isExternal: false), .warmThenSide)
-        XCTAssertEqual(CastSubtitles.delivery(codec: "mov_text", isExternal: false), .warmThenSide)
-    }
-
-    func testUnknownBurnsIn() {
-        XCTAssertEqual(CastSubtitles.delivery(codec: nil, isExternal: false), .burnIn)
-        XCTAssertEqual(CastSubtitles.delivery(codec: "weird", isExternal: true), .burnIn)
+    func testUnknownTrackBurnsIn() {
         XCTAssertEqual(CastSubtitles.delivery(nil), .burnIn)
     }
 
-    func testWarmVerdict() {
-        let vtt = Data("WEBVTT\n\n00:00.000 --> 00:01.000\nHi".utf8)
-        XCTAssertTrue(CastSubtitles.warmOK(status: 200, body: vtt, elapsed: 1))
-        XCTAssertTrue(CastSubtitles.warmOK(status: 200, body: Data("\u{FEFF}WEBVTT\n".utf8), elapsed: 1))
-        XCTAssertFalse(CastSubtitles.warmOK(status: 200, body: vtt, elapsed: 9), "too slow")
-        XCTAssertFalse(CastSubtitles.warmOK(status: 404, body: vtt, elapsed: 1))
-        XCTAssertFalse(CastSubtitles.warmOK(status: 500, body: nil, elapsed: 1))
-        XCTAssertFalse(CastSubtitles.warmOK(status: nil, body: nil, elapsed: 8))
-        XCTAssertFalse(CastSubtitles.warmOK(status: 200, body: Data("1\n00:00:00,000 --> ".utf8), elapsed: 1), "SRT, not WebVTT")
-    }
-
     func testRetryChain() {
-        // Side track failed soon after LOAD → burned in → without subtitles → the old error
-        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 7, triedNoSubs: false), .burnIn)
+        // A failed side track or burn-in soon after LOAD → once without subtitles → the old error
+        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 7, triedNoSubs: false), .noSubs)
         XCTAssertEqual(CastSubtitles.retry(mode: .burned, sinceLoad: 5, triedNoSubs: false), .noSubs)
-        XCTAssertEqual(CastSubtitles.retry(mode: .none, sinceLoad: 5, triedNoSubs: true), .fail)
-        XCTAssertEqual(CastSubtitles.retry(mode: .burned, sinceLoad: 5, triedNoSubs: true), .fail)
-    }
-
-    func testRetryOnlySoonAfterLoad() {
-        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 20, triedNoSubs: false), .burnIn)
+        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 5, triedNoSubs: true), .fail)
+        XCTAssertEqual(CastSubtitles.retry(mode: .none, sinceLoad: 5, triedNoSubs: false), .fail, "no subtitle: nothing to blame")
         XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 25, triedNoSubs: false), .fail)
-        XCTAssertEqual(CastSubtitles.retry(mode: .none, sinceLoad: 1, triedNoSubs: false), .fail, "no subtitle: nothing to blame")
     }
 
     func testErrorDetails() {
