@@ -42,6 +42,7 @@ private struct RoutePicker: NSViewRepresentable {
     final class Coordinator {
         var monitor: Any?
         weak var view: NSView?
+        weak var player: AVPlayer?
         var onClick: () -> Void = {}
     }
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -53,12 +54,20 @@ private struct RoutePicker: NSViewRepresentable {
         style(v)
         let c = context.coordinator
         c.view = v
+        c.player = player
         c.onClick = onClick
         openForDetailStart(v)
-        // A click opens the system menu: note it (the button's tooltip would show through the menu)
+        // A click opens the system menu: note it (the button's tooltip would show through the menu). The monitor only
+        // observes: it always hands the event on unchanged, and the SwiftUI state change waits until the click has
+        // been delivered, so the picker's button gets its mouse-down and nothing redraws under it meanwhile.
         c.monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak c] e in
-            if let c, let v = c.view, e.window === v.window, v.bounds.contains(v.convert(e.locationInWindow, from: nil)) {
-                c.onClick()
+            if let c, let v = c.view as? AVRoutePickerView, e.window === v.window,
+               v.bounds.contains(v.convert(e.locationInWindow, from: nil)) {
+                AirPlayMenu.opened(picker: v, expected: c.player)
+                let f = c.onClick
+                DispatchQueue.main.async { f() }
+            } else if let c, e.window === c.view?.window, AirPlayMenu.open {
+                AirPlayMenu.closed("menu closed (click in the player)")
             }
             return e
         }
@@ -67,9 +76,11 @@ private struct RoutePicker: NSViewRepresentable {
 
     func updateNSView(_ v: AVRoutePickerView, context: Context) {
         context.coordinator.onClick = onClick
-        openForDetailStart(v)
-        v.toolTip = help.isEmpty ? nil : help
+        context.coordinator.player = player
         style(v)
+        openForDetailStart(v)
+        let tip = help.isEmpty ? nil : help
+        if v.toolTip != tip { v.toolTip = tip }
     }
 
     static func dismantleNSView(_ v: AVRoutePickerView, coordinator: Coordinator) {
@@ -79,17 +90,67 @@ private struct RoutePicker: NSViewRepresentable {
     /// Started from the detail page's AirPlay pill: open the system menu once (Glass3DAirPlayDetail.swift).
     private func openForDetailStart(_ v: AVRoutePickerView) {
         let s = AirPlayDetailStart.shared
-        guard s.wantsMenu else { return }
+        // Not before the picker routes the player: a pick with no player moves only the Mac's sound
+        guard s.wantsMenu, let p = player, v.player === p else { return }
         s.claimMenu()
+        AirPlayMenu.opened(picker: v, expected: p)
         AirPlayDetailStart.openMenu(in: v) { AirPlayDetailPlayerHook.clicked($0) }
     }
 
     private func style(_ v: AVRoutePickerView) {
-        if v.player !== player { v.player = player }
+        // The picker must route the AVPlayer that plays: re-set whenever the player instance changes
+        if let p = player, !p.allowsExternalPlayback { p.allowsExternalPlayback = true }
+        if v.player !== player {
+            v.player = player
+            DebugLog.write("airplay: picker player \(player == nil ? "cleared" : "set")")
+        }
         v.setRoutePickerButtonColor(.white, for: .normal)
         v.setRoutePickerButtonColor(NSColor.white.withAlphaComponent(0.8), for: .normalHighlighted)
         v.setRoutePickerButtonColor(accent, for: .active)
         v.setRoutePickerButtonColor(accent.withAlphaComponent(0.8), for: .activeHighlighted)
+    }
+}
+
+/// The system AirPlay menu is open (opened from the bar's picker): the player keeps its controls (and so the picker,
+/// the menu's target) on screen until the menu closes, as for the Cast menu. Ends on the menu's end of tracking, a
+/// route change, or after 60 s at most.
+@MainActor
+enum AirPlayMenu {
+    private static var openedAt: Date?
+    private static var observers: [NSObjectProtocol] = []
+    nonisolated static let maxOpen: TimeInterval = 60
+
+    nonisolated static func isOpen(openedAt: Date?, now: Date) -> Bool {
+        openedAt.map { now.timeIntervalSince($0) < maxOpen } ?? false
+    }
+    static var open: Bool { isOpen(openedAt: openedAt, now: Date()) }
+
+    static func opened(picker: AVRoutePickerView, expected: AVPlayer?) {
+        openedAt = Date()
+        let p = picker.player
+        DebugLog.write("airplay: menu opened (picker player \(p == nil ? "none" : "set"), matches=\(p != nil && p === expected), allowsExternalPlayback=\(p?.allowsExternalPlayback ?? false))")
+        if observers.isEmpty {
+            observers.append(NotificationCenter.default.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { closed("menu closed") }
+            })
+        }
+        // What the pick did, once the route had time to come up (audio-only AirPlay: sound moves, the picture stays;
+        // macOS has no AVPlayer.externalPlaybackType, so the audio route tells it)
+        for delay in [3.0, 8.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak picker] in
+                MainActor.assumeIsolated {
+                    let ext = picker?.player?.isExternalPlaybackActive ?? false
+                    let audio = AirPlayRoute.deviceName()
+                    DebugLog.write("airplay: after menu \(Int(delay)) s: external playback active=\(ext), audio route=\(audio ?? "this Mac")\(audio != nil && !ext ? " (audio-only AirPlay)" : "")")
+                }
+            }
+        }
+    }
+
+    static func closed(_ why: String) {
+        guard openedAt != nil else { return }
+        openedAt = nil
+        DebugLog.write("airplay: \(why)")
     }
 }
 

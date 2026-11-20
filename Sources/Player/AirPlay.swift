@@ -65,7 +65,8 @@ extension PlayerModel {
         guard on != airPlayActive else { return }
         airPlayActive = on
         if on { airPlayDevice = AirPlayRoute.deviceName() ?? "AirPlay device" }
-        dlog("airplay: \(on ? "active on '\(airPlayDevice)'" : "ended, back on the Mac")")
+        dlog("airplay: \(on ? "route picked, external playback active=true on '\(airPlayDevice)'" : "ended, back on the Mac (external playback active=false)")")
+        if on { AirPlayMenu.closed("menu closed (route active)") }
         Task { await applyAirPlaySubs() }
     }
 
