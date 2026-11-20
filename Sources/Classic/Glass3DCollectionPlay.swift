@@ -20,9 +20,12 @@ struct CollectionPlayButtons: View {
             if let i = resume {
                 let pos = emby.resumeAt(films[i])
                 Button { start(at: i, from: pos) } label: {
-                    Label(CollectionPlay.resumeLabel(films[i], position: pos), systemImage: "arrow.uturn.forward")
+                    // Short like the film page's Resume (owner): the time only, the film in the tooltip
+                    Label(CollectionPlay.clock(pos), systemImage: "arrow.uturn.forward")
                         .lineLimit(1).classicGlassPill(size: 44, iconOnly: false)
                 }.buttonStyle(HoverButton())
+                .tip(CollectionPlay.resumeLabel(films[i], position: pos))
+                .accessibilityLabel(CollectionPlay.resumeLabel(films[i], position: pos))
             }
         }
     }

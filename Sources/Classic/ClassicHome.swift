@@ -245,10 +245,14 @@ struct ClassicHero: View {
             Text(item.Overview ?? "").cvFont(15).lineLimit(3).truncationMode(.tail)
                 .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
             HStack(spacing: 12) {
+                // In progress: the same short Resume as the film pages (↻ 4:01, full text in the tooltip)
+                let r = emby.resumeAt(item)
                 Button { Task { await emby.playFromHome(item) } } label: {
-                    Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
+                    Label(r > 0 ? timeString(r) : "Play", systemImage: r > 0 ? "arrow.uturn.forward" : "play.fill")
                         .classicGlassPill(size: 46, iconOnly: false)
                 }.buttonStyle(HoverButton())
+                .tip(r > 0 ? "Resume from \(timeString(r))" : "")
+                .accessibilityLabel(r > 0 ? "Resume from \(timeString(r))" : "Play")
                 let fav = emby.isFav(item)
                 Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                     Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "checkmark" : "plus")
