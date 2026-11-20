@@ -80,6 +80,11 @@ final class PlayerModel: ObservableObject {
     /// The subtitle is burned in only because of AirPlay (Cove draws it again when AirPlay ends)
     var airPlayBurned = false
     var airPlayBurnPending = false
+    /// Cove is restarting the stream for an AirPlay subtitle change: keep the AVPlayer (the route) and don't take
+    /// a brief isExternalPlaybackActive=false as "AirPlay ended" (Player/AirPlay.swift)
+    var airPlayRestartInProgress = false
+    var airPlayRestartToken = 0
+    var airPlayOffSince: Date?
     // ↑ AirPlay
     /// The file's video is HEVC (typically 4K / HDR): ask for fMP4 segments so it can be passed through.
     var sourceIsHEVC: Bool {
@@ -194,7 +199,7 @@ final class PlayerModel: ObservableObject {
         if let s = req.sub, !isImageSub(s), !req.burnIn, airPlayActive,
            Self.airPlaySubAction(path: Self.subPath(streams.first { $0.Index == s }, burnIn: false, directPlay: false),
                                  airPlay: true, playingInStream: false, burnedForAirPlay: false, hls: true,
-                                 inStreamUnsupported: inStreamUnsupported,
+                                 inStreamUnsupported: Self.airPlayNoHlsSubs(isJellyfin: emby.isJellyfin, known: inStreamUnsupported),
                                  textCodec: Self.isTextCodec(streams.first { $0.Index == s })) == .burnIn {
             dlog("airplay: subtitle track \(s) burned in by the server (not in the HLS stream here)")
             req.burnIn = true; self.req?.burnIn = true; airPlayBurned = true
@@ -460,7 +465,20 @@ final class PlayerModel: ObservableObject {
     /// Restart at the current position (AirPlay subtitle path changes).
     func restartKeepingPosition(_ change: (inout PlayRequest) -> Void) async {
         guard let emby = embyRef else { return }
+        guard airPlayActive else { await restart(emby, change); return }
+        airPlayRestartInProgress = true
+        airPlayRestartToken += 1
+        let tok = airPlayRestartToken
+        dlog("airplay: restart for the subtitle, keeping the same AVPlayer (route stays on the TV)")
         await restart(emby, change)
+        // The new item needs a moment before external playback reports active again
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(Self.airPlayEndDebounce))
+            guard let self, self.airPlayRestartToken == tok else { return }
+            self.airPlayRestartInProgress = false
+            self.dlog("airplay: restart settled (external playback active=\(self.player?.isExternalPlaybackActive ?? false))")
+            self.recheckAirPlayEnd()
+        }
     }
 
     private func restart(_ emby: Emby, _ change: (inout PlayRequest) -> Void) async {
@@ -930,7 +948,10 @@ final class PlayerModel: ObservableObject {
         if airPlayActive, let p = player { Self.stashAirPlay(p) }   // next episode / restart keeps the TV
         else if !Self.airPlayHandoffFresh { AirPlaySleep.set(false) }
         legible?.detach(); legible = nil; legibleGroup = nil; inStreamSub = nil; inStreamDecided = false
-        player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
+        // An AirPlay subtitle restart keeps the AVPlayer playing and set (the picker keeps routing it): pausing or
+        // clearing it dropped the route (owner: AirPlay started and stopped at once). start() takes it back.
+        if !(airPlayRestartInProgress && airPlayActive) { player?.pause(); player = nil }
+        obs = nil; caption = ""; resumeTarget = 0
         pendingSeek = 0                           // a start that was interrupted must not leak its position
     }
 }

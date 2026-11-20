@@ -105,6 +105,7 @@ enum CastStream {
         }
         q.append(.init(name: keyName, value: token))
         c.queryItems = q
+        if req.sub != nil, req.subIsImage, let s = c.string, let f = URLComponents(string: Emby.forBurnIn(s)) { c = f }
         c.percentEncodedQuery = c.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         guard let u = c.url else { return .failure(.badServer) }
         return .success(u)

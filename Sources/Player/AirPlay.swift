@@ -43,7 +43,21 @@ extension PlayerModel {
         return Self.airPlaySubAction(path: Self.subPath(st, burnIn: currentRequest?.burnIn ?? false, directPlay: directPlaySession),
                                      airPlay: airPlayActive, playingInStream: inStreamSub != nil,
                                      burnedForAirPlay: airPlayBurned, hls: !directPlaySession,
-                                     inStreamUnsupported: inStreamUnsupported, textCodec: Self.isTextCodec(st))
+                                     inStreamUnsupported: Self.airPlayNoHlsSubs(isJellyfin: embyRef?.isJellyfin ?? false,
+                                                                                 known: inStreamUnsupported),
+                                     textCodec: Self.isTextCodec(st))
+    }
+
+    /// Emby's HLS stream has no rendition for the chosen text track (only "CC"/"Transcribed"), so on AirPlay it goes
+    /// straight to burn-in instead of an in-stream try first (pure, tested).
+    nonisolated static func airPlayNoHlsSubs(isJellyfin: Bool, known: Bool) -> Bool { known || !isJellyfin }
+
+    /// Seconds isExternalPlaybackActive must stay false before AirPlay counts as ended.
+    nonisolated static let airPlayEndDebounce: TimeInterval = 4
+
+    /// AirPlay ended for real (pure, tested): off for the whole debounce and no Cove restart running.
+    nonisolated static func airPlayEnded(activeNow: Bool, offFor: TimeInterval, restartInProgress: Bool) -> Bool {
+        !activeNow && !restartInProgress && offFor >= airPlayEndDebounce
     }
 
     // MARK: Route
@@ -60,6 +74,32 @@ extension PlayerModel {
 
     private func airPlayChanged(_ on: Bool, gen: Int) {
         guard gen == startGen else { return }
+        if !on, airPlayActive {
+            // A brief false (new item on the same player, Cove's own restart) must not end AirPlay: check again later
+            airPlayOffSince = airPlayOffSince ?? Date()
+            dlog("airplay: external playback active=false\(airPlayRestartInProgress ? " during Cove's restart" : ""): waiting \(Int(Self.airPlayEndDebounce)) s before ending")
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(Self.airPlayEndDebounce + 0.1))
+                self?.recheckAirPlayEnd()
+            }
+            return
+        }
+        if on { airPlayOffSince = nil }
+        applyAirPlayRoute(on)
+    }
+
+    /// Ends AirPlay once the route has really stayed off (see airPlayEnded).
+    func recheckAirPlayEnd() {
+        guard airPlayActive, let since = airPlayOffSince else { return }
+        let activeNow = player?.isExternalPlaybackActive ?? false
+        if activeNow { airPlayOffSince = nil; dlog("airplay: route still active, not ended"); return }
+        guard Self.airPlayEnded(activeNow: activeNow, offFor: Date().timeIntervalSince(since),
+                                restartInProgress: airPlayRestartInProgress) else { return }
+        airPlayOffSince = nil
+        applyAirPlayRoute(false)
+    }
+
+    private func applyAirPlayRoute(_ on: Bool) {
         legible?.setNative(on)
         AirPlaySleep.set(on)
         guard on != airPlayActive else { return }
@@ -75,10 +115,14 @@ extension PlayerModel {
         guard let idx = sub, !isImageSub(idx) else { airPlayBurned = airPlayActive && airPlayBurned; return }
         let action = airPlaySubAction(for: idx)
         dlog("airplay: subtitle track \(idx) → \(action)")
+        if action == .coveDrawn, airPlayRestartInProgress {   // no flip back during Cove's own AirPlay restart
+            dlog("airplay: restart in progress, not switching back to Cove-drawn subtitles"); return
+        }
         switch action {
         case .keep: legible?.setNative(airPlayActive)
         case .inStream: await restartKeepingPosition { $0.sub = idx; $0.burnIn = false }
         case .burnIn:
+            if let e = embyRef, !e.isJellyfin { Self.hlsSubsMissing.insert(e.server) }
             airPlayBurnPending = true
             await restartKeepingPosition { $0.sub = idx; $0.burnIn = true }
         case .coveDrawn:
