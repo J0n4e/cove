@@ -167,3 +167,15 @@ struct AirPlayDetailPlayerHook: View {
 extension Notification.Name {
     static let airPlayDetailMenuClosed = Notification.Name("CoveAirPlayDetailMenuClosed")
 }
+
+/// The detail row's TV button: only the one chosen in Settings → Playback (Cast also while a cast runs).
+struct DetailTvButtons: View {
+    let model: DetailModel
+    @AppStorage(TvTarget.key) private var tvTarget = TvTarget.cast
+    @ObservedObject private var castSession = CastSession.shared
+
+    var body: some View {
+        if TvTarget.shows(TvTarget.cast, tvTarget: tvTarget, casting: castSession.isCasting) { CastButton(model: model) }
+        if TvTarget.shows(TvTarget.airplay, tvTarget: tvTarget) { AirPlayDetailButton(model: model) }
+    }
+}

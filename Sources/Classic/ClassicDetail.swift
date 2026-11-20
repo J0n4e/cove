@@ -470,7 +470,7 @@ struct ClassicDetailView: View {
                 }.buttonStyle(HoverButton()).tip("Resume from \(timeString(r))").accessibilityLabel("Resume from \(timeString(r))")
             }
             WatchTogetherButton(item: model.playTarget, start: r, classic: true)
-            if model.playTarget != nil || item.isBox { CastButton(model: model); AirPlayDetailButton(model: model) }
+            if model.playTarget != nil || item.isBox { DetailTvButtons(model: model) }
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44).glass3DRoundOutline()

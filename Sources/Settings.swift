@@ -903,6 +903,7 @@ struct PlaybackSettings: View {
     @AppStorage("debugLog") private var debugLog = false
     @AppStorage("playerControls") private var controls = "theme"
     @AppStorage(SyncPlayService.liveSocketKey) private var liveSocket = true
+    @AppStorage(TvTarget.key) private var tvTarget = TvTarget.cast
 
     var body: some View {
         PrefSection(title: "Player") {
@@ -912,6 +913,8 @@ struct PlaybackSettings: View {
             PrefRow(label: "Window") { Toggle("Open videos in a separate window", isOn: $separatePlayer) }
             PrefRow(label: "Clicking the video") { Toggle("Plays or pauses", isOn: $clickToPause) }
             PrefNote("With this off, clicking the video shows or hides the controls.")
+            PrefRow(label: "Play on a TV with") { menuPicker($tvTarget, TvTarget.options) }
+            PrefNote("Google Cast: Chromecast, Google TV and Cast TVs — the TV streams from the server. AirPlay: Apple TV and AirPlay TVs — the Mac plays and sends the picture.")
         }
         PrefSection(title: "Start with") {
             PrefRow(label: "Quality") {
