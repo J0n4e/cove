@@ -20,6 +20,8 @@ enum SearchKey {
             if mods.isEmpty && (ev.keyCode == 123 || ev.keyCode == 124) {         // ← →, only on Home
                 return banner(ev.keyCode == 123 ? -1 : 1) ? nil : ev
             }
+            // ⌃⌘F: macOS's own full-screen shortcut, handled here too (the app's menus don't carry it on every setup)
+            if mods == [.control, .command], ev.charactersIgnoringModifiers?.lowercased() == "f" { w.toggleFullScreen(nil); return nil }
             // F: the main window in/out of full screen, like F in the player (⌃⌘F, the Mac's own, works too)
             if mods.isEmpty, ev.charactersIgnoringModifiers?.lowercased() == "f" { w.toggleFullScreen(nil); return nil }
             // H: Home (S for search was dropped for ⌘F, owner)
