@@ -140,8 +140,8 @@ struct ClassicPlayerView: View {
     }
     /// Color of the strip under the title bar. The system draws the bar's own gray (about 93 % opaque) over it,
     /// and the result is the same gray on both sides only when this strip is (44, 45, 45).
-    /// Glass3D theme (key "classic"): glass pills instead of bare accent text.
-    var glass3DChrome: Bool { UserDefaults.standard.string(forKey: "theme") == "classic" }
+    /// Glass pills instead of bare accent text (always, since there is one look).
+    var glass3DChrome: Bool { true }
     static let titleBarGray = Color(red: 44 / 255, green: 45 / 255, blue: 45 / 255)
 
     /// The Back classicPill that used to be drawn inside the player (top left). Off now; see `titleBarBack`.

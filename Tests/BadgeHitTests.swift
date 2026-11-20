@@ -47,7 +47,7 @@ final class BadgeHitTests: XCTestCase {
     }
 
     func testDecorKeyHasNoHover() {
-        let k = PosterGridCell.decorKey(glass3D: true, played: false, unwatched: 0, fav: true, rating: 8, progress: 0, accent: "red")
+        let k = PosterGridCell.decorKey(played: false, unwatched: 0, fav: true, rating: 8, progress: 0, accent: "red")
         XCTAssertEqual(k, "gridDecor|true|false|0|true|8|0|red|true")   // badges always baked in
         XCTAssertFalse(k.contains("hover"))
     }

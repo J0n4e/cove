@@ -29,47 +29,18 @@ struct SettingsView: View {
         }
     }
     @State private var section: Section = .general
-    @AppStorage("theme") private var theme = "apple"
-    /// Glass3D (key "classic"): glass-pill tabs and glass dropdowns; the Glass theme keeps its look
-    var glass3D: Bool { theme == "classic" }
-
-    /// Glass theme tab: filled with the accent when selected (unchanged)
-    func plainTab(_ s: Section) -> some View {
-        let on = section == s
-        return Button { section = s } label: {
-            VStack(spacing: 3) {
-                Image(systemName: s.icon).coveFont(size: 20)
-                Text(s.rawValue).coveFont(size: 11)
-            }
-            // Selected: filled with the accent, light text on it (accent-colored text was hard to read)
-            .foregroundColor(on ? Theme.onAccent(accentName) : Color.white.opacity(0.85))
-            .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 7).fill(on ? accent : Color.clear))
-            .contentShape(Rectangle())
-        }.buttonStyle(.plainHand).focusEffectDisabled()
-    }
     @ObservedObject private var trakt = Trakt.shared
     /// The Trakt tab shows only while Trakt is connected.
     var sections: [Section] { Section.allCases.filter { $0 != .trakt || trakt.isConnected } }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Apple TV style: the section name on top, then a row of icon tabs
-            // Glass3D: the selected tab already names the page, so no title above the tabs
-            if !glass3D {
-                Text(section.rawValue).coveFont(size: 13, weight: .semibold).foregroundColor(.white).glassReadable()
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 12)
-            }
+            // A row of glass icon tabs; the selected tab names the page, so no title above them
             HStack(spacing: 4) {
                 ForEach(sections) { s in
-                    if glass3D {
-                        Glass3DSettingsTab(title: s.rawValue, icon: s.icon, on: section == s) { section = s }
-                    } else {
-                        plainTab(s)
-                    }
+                    Glass3DSettingsTab(title: s.rawValue, icon: s.icon, on: section == s) { section = s }
                 }
-            }.padding(.top, glass3D ? 14 : 8).padding(.bottom, 10)
+            }.padding(.top, 14).padding(.bottom, 10)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -110,7 +81,7 @@ struct SettingsWindowRoot: View {
     var body: some View {
         SettingsView().environmentObject(emby).environment(\.appBG, Theme.bg(bgName))
             .frame(width: 760, height: 640)
-            .dropdownLayer()   // Glass3D's glass dropdowns open over the whole window
+            .dropdownLayer()   // the glass dropdowns open over the whole window
             .preferredColorScheme(.dark).focusEffectDisabled()
     }
 }
@@ -168,23 +139,22 @@ struct PrefSection<C: View>: View {
     var title: String? = nil
     var last = false
     @ViewBuilder var content: C
-    @AppStorage("theme") private var theme = "apple"
     var body: some View {
-        let g3 = theme == "classic"   // Glass3D: tighter, the panel radius and outline from Glass3DTokens
-        let r: CGFloat = g3 ? max(12, Glass3DTokens.Radius.panel) : 13
+        // Tight, with the panel radius and outline from Glass3DTokens
+        let r: CGFloat = max(12, Glass3DTokens.Radius.panel)
         VStack(alignment: .leading, spacing: 6) {
             if let title {
                 Text(title.uppercased()).coveFont(size: 11, weight: .semibold).foregroundColor(Color.white.opacity(0.8))
                     .glassReadable().padding(.leading, 6)
             }
-            VStack(alignment: .leading, spacing: g3 ? 10 : 12) { content }
-                .padding(.vertical, g3 ? 12 : 16).padding(.trailing, 12)
+            VStack(alignment: .leading, spacing: 10) { content }
+                .padding(.vertical, 12).padding(.trailing, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 // A subtle glass card on the window's glass: light fill, thin light outline
                 .background(RoundedRectangle(cornerRadius: r, style: .continuous).fill(Color.white.opacity(0.08)))
                 .overlay(RoundedRectangle(cornerRadius: r, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
         }
-        .padding(.vertical, g3 ? 6 : 9)
+        .padding(.vertical, 6)
     }
 }
 
@@ -240,39 +210,16 @@ func menuPicker<T: Hashable>(_ sel: Binding<T>, _ opts: [(T, String)]) -> some V
     SettingsMenuPicker(sel: sel, opts: opts)
 }
 
-/// A Settings choice: Cove's glass dropdown in Glass3D, the system menu in the Glass theme (unchanged).
+/// A Settings choice: Cove's glass dropdown.
 struct SettingsMenuPicker<T: Hashable>: View {
     let sel: Binding<T>
     let opts: [(T, String)]
-    @AppStorage("theme") private var theme = "apple"
-    var body: some View {
-        if theme == "classic" {
-            GlassPicker(selection: sel, options: opts)
-        } else {
-            Picker("", selection: sel) {
-                ForEach(opts, id: \.0) { Text($0.1).tag($0.0) }
-            }.labelsHidden().fixedSize().settingsWhiteText()
-        }
-    }
-}
-
-extension View {
-    /// White text on menus and plain buttons in Settings. Built with Xcode 26 (the GitHub release), macOS draws
-    /// their text in the accent colour; built with Xcode 27 (Swift 6.4) it draws them grey with an accent arrow
-    /// badge, which white would wash out, so that build is left as it is.
-    @ViewBuilder func settingsWhiteText() -> some View {
-        #if compiler(>=6.4)
-        self
-        #else
-        self.tint(.white)
-        #endif
-    }
+    var body: some View { GlassPicker(selection: sel, options: opts) }
 }
 
 // MARK: - General
 
 struct GeneralSettings: View {
-    @AppStorage("theme") private var theme = "apple"
     @AppStorage("accent") private var accent = "red"
     @AppStorage("classicFont") private var classicFont = ClassicFont.defaultValue
     @AppStorage("textSize") private var textSize = "default"
@@ -324,34 +271,29 @@ struct GeneralSettings: View {
 
     var body: some View {
         PrefSection(title: "Appearance") {
-            PrefRow(label: "Theme") { menuPicker($theme, [("apple", "Glass"), ("classic", "Glass3D")]) }
-            PrefNote(theme == "classic" ? "Glass3D: glossy glass buttons, cards and lists. Applies to every window, this one included." : "Glass3D: the glossy look with glass buttons, cards and lists. Settings always use this window.")
-            if theme == "classic" {
-                PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
-                PrefRow { ClassicFontPreview(choice: classicFont) }
-                PrefRow(label: "Hover effect") { menuPicker($classicHover, HoverStyle.options) }
-                PrefRow(label: "Glass") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }
-                        HStack(spacing: 8) {
-                            Text("Clear").coveFont(size: 10).foregroundColor(.secondary)
-                            Slider(value: $glassFrost, in: 0...1).frame(width: 160)
-                            Text("Tinted").coveFont(size: 10).foregroundColor(.secondary)
-                        }
-                        .disabled(GlassFrost.hasLiquidGlass && glassFollow)
-                        .opacity(GlassFrost.hasLiquidGlass && glassFollow ? 0.5 : 1)
-                        GlassFrostPreview()
+            PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
+            PrefRow { ClassicFontPreview(choice: classicFont) }
+            PrefRow(label: "Hover effect") { menuPicker($classicHover, HoverStyle.options) }
+            PrefRow(label: "Glass") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }
+                    HStack(spacing: 8) {
+                        Text("Clear").coveFont(size: 10).foregroundColor(.secondary)
+                        Slider(value: $glassFrost, in: 0...1).frame(width: 160)
+                        Text("Tinted").coveFont(size: 10).foregroundColor(.secondary)
                     }
+                    .disabled(GlassFrost.hasLiquidGlass && glassFollow)
+                    .opacity(GlassFrost.hasLiquidGlass && glassFollow ? 0.5 : 1)
+                    GlassFrostPreview()
                 }
-                PrefNote(GlassFrost.hasLiquidGlass
-                         ? "The top bar, its buttons, the search pill and the player controls. Follow macOS uses the Liquid Glass setting in System Settings → Appearance; off, cove frosts the glass itself."
-                         : "The top bar, its buttons, the search pill and the player controls: from clear to tinted.")
             }
+            PrefNote(GlassFrost.hasLiquidGlass
+                     ? "The top bar, its buttons, the search pill and the player controls. Follow macOS uses the Liquid Glass setting in System Settings → Appearance; off, cove frosts the glass itself."
+                     : "The top bar, its buttons, the search pill and the player controls: from clear to tinted.")
             PrefRow(label: "Text size") { menuPicker($textSize, TextScale.choices) }
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }
-        .onChange(of: theme) { CoveApp.applyIcon() }
         PrefSection(title: "Navigation") {
             PrefRow(label: "Style") { menuPicker($navStyle, [("sidebar", "Sidebar"), ("topbar", "Top bar")]) }
             // One choice, not two switches: the bar can never end up with neither icons nor names
@@ -383,22 +325,18 @@ struct HomeSettings: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
     @AppStorage("homeResumeLayout") private var resumeLayout = "row"
     @AppStorage("showUpNextRow") private var showUpNextRow = true
-    @AppStorage("theme") private var theme = "apple"
     @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
     @AppStorage(Glass3DBannerNav.key) private var bannerNav = Glass3DBannerNav.defaultValue
     @AppStorage(BannerSource.key) private var bannerSource = BannerSource.defaultValue
     @AppStorage(BannerRefresh.key) private var bannerRefresh = BannerRefresh.defaultValue
 
     var body: some View {
-        // The Classic theme's banner choices
         PrefSection(title: "Banner") {
-            if theme == "classic" {
-                PrefRow(label: "Style") {
-                    menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
-                }
-                PrefRow(label: "Banner navigation") {
-                    menuPicker($bannerNav, Glass3DBannerNav.options)
-                }
+            PrefRow(label: "Style") {
+                menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
+            }
+            PrefRow(label: "Banner navigation") {
+                menuPicker($bannerNav, Glass3DBannerNav.options)
             }
             PrefRow(label: "Banner shows") { menuPicker($bannerSource, BannerSource.options) }
             PrefRow(label: "Refresh banner") { menuPicker($bannerRefresh, BannerRefresh.options) }
@@ -423,7 +361,7 @@ struct HomeSettings: View {
 
 /// Preferences that are app state rather than settings: saved servers and sign-ins, the device id, which
 /// servers are Jellyfin (they contain server addresses) and one-time migration flags. Reset keeps them, and
-/// settings files never contain them (both themes).
+/// settings files never contain them.
 enum InternalPrefs {
     static let keys: Set<String> = ["server", "token", "uid", "servers", "did", "importedEmbyFlix",
                                     "imageCacheTokenFree", "imageCacheNoHeaders", NewMediaStore.key]
@@ -585,7 +523,6 @@ struct LibrariesSettings: View {
     @AppStorage("showEpisodeDescription") private var showEpDesc = true
     @AppStorage("episodeLayoutTV") private var epLayout = "row"
     @AppStorage("seasonLayoutTV") private var seasonLayout = "row"
-    @AppStorage("theme") private var theme = "apple"
     @AppStorage("hoverZoomEnabled") private var hoverZoom = true
     @AppStorage("hoverZoomDuration") private var hoverZoomDur = 0.3
     @AppStorage("hoverZoomStyle") private var hoverZoomStyle = "spring"
@@ -616,10 +553,8 @@ struct LibrariesSettings: View {
             libraryOptions(i, emby.libs[i])
         }
         PrefSection(title: "Movie and show pages") {
-            if theme == "classic" {
-                PrefRow(label: "Movie pages") { menuPicker($moviePage, [("banner", "Big banner"), ("poster", "Poster and details")]) }
-                PrefNote("Big banner opens a movie or collection as a show opens with Season layout → Cards: the backdrop fills the page; a collection shows its movies as cards.")
-            }
+            PrefRow(label: "Movie pages") { menuPicker($moviePage, [("banner", "Big banner"), ("poster", "Poster and details")]) }
+            PrefNote("Big banner opens a movie or collection as a show opens with Season layout → Cards: the backdrop fills the page; a collection shows its movies as cards.")
             PrefRow(label: "More Like This") { menuPicker($similarLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
             PrefNote("At the bottom of a movie or show page. You can also switch it there.")
             PrefRow(label: "Cast & Crew") { menuPicker($castSize, [("normal", "Normal"), ("large", "Large")]) }
@@ -785,9 +720,7 @@ struct LibrariesSettings: View {
             // Episode options apply to every TV library, so they show with any of them
             if lib.kind == "tvshows" {
                 PrefRow(label: "Season layout") {
-                    // Cards exists only in the Classic theme
-                    menuPicker($seasonLayout, theme == "classic" ? [("row", "Row"), ("grid", "Grid"), ("deck", "Cards")]
-                                                                 : [("row", "Row"), ("grid", "Grid")])
+                    menuPicker($seasonLayout, [("row", "Row"), ("grid", "Grid"), ("deck", "Cards")])
                 }
                 PrefRow(label: "Episode layout") { menuPicker($epLayout, [("row", "Row"), ("grid", "Grid"), ("list", "List")]) }
                 PrefRow { Toggle("Show episode descriptions", isOn: $showEpDesc) }
@@ -905,9 +838,7 @@ struct PlaybackSettings: View {
     @AppStorage("autoSkipIntro") private var autoSkipIntro = true
     @AppStorage("skipSeconds") private var skip = 10
     @AppStorage("clickToPause") private var clickToPause = true
-    @AppStorage("separatePlayer") private var separatePlayer = false
     @AppStorage("debugLog") private var debugLog = false
-    @AppStorage("playerControls") private var controls = "theme"
     @AppStorage(SyncPlayService.liveSocketKey) private var liveSocket = true
     @AppStorage(TvTarget.key) private var tvTarget = TvTarget.cast
     @ObservedObject private var castSession = CastSession.shared
@@ -915,10 +846,6 @@ struct PlaybackSettings: View {
 
     var body: some View {
         PrefSection(title: "Player") {
-            PrefRow(label: "Controls look") {
-                menuPicker($controls, [("theme", "Match theme"), ("glass", "Glass"), ("classic", "Glass3D")])
-            }
-            PrefRow(label: "Window") { Toggle("Open videos in a separate window", isOn: $separatePlayer) }
             PrefRow(label: "Clicking the video") { Toggle("Plays or pauses", isOn: $clickToPause) }
             PrefNote("With this off, clicking the video shows or hides the controls.")
             TvTargetRow(tvTarget: $tvTarget, casting: castSession.isCasting, airPlayActive: tvRoute.airPlayActive)
@@ -956,7 +883,7 @@ struct PlaybackSettings: View {
 
 // MARK: - Shortcuts
 
-/// Read-only list of the app's keyboard shortcuts (the same in both themes).
+/// Read-only list of the app's keyboard shortcuts .
 struct ShortcutsSettings: View {
     func keys(_ list: [(String, String)]) -> some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -990,6 +917,7 @@ struct ShortcutsSettings: View {
             keys([("⌘ F", "Search"),
                   ("H", "Home (when not typing in a field)"),
                   ("F  or  ⌃ ⌘ F", "Full screen on / off (F when not typing in a field)"),
+                  ("Esc", "Esc leaves full screen"),
                   ("← →", "Home: previous / next banner"),
                   ("⌘ ,", "Open Settings"),
                   ("⌘ ←  or  ⌘ [", "Back")])

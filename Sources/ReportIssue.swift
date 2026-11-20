@@ -13,7 +13,6 @@ enum ReportIssue {
         var server: String?          // "Emby" / "Jellyfin" (exact dropdown option), nil when not signed in
         var serverVersion: String?
         var macOS: String
-        var theme: String            // "Glass3D" / "Glass"
         var environment: String
     }
 
@@ -26,9 +25,6 @@ enum ReportIssue {
         serverKind = server.isEmpty ? nil : (jellyfin ? "Jellyfin" : "Emby")
         serverVersion = version
     }
-
-    /// Settings' theme key → its name in Settings (and the template's dropdown).
-    static func themeName(_ key: String) -> String { key == "classic" ? "Glass3D" : "Glass" }
 
     /// "Version 27.3 (Build 26C5047e)" → "27.3 (26C5047e)".
     static func shortMacOS(_ s: String) -> String {
@@ -54,7 +50,7 @@ enum ReportIssue {
         var q: [(String, String)] = [("template", "bug_report.yml"), ("title", "[Bug] "), ("version", i.version)]
         if let s = i.server { q.append(("server", s)) }
         if let v = i.serverVersion, !v.isEmpty { q.append(("server-version", v)) }
-        q += [("macos", i.macOS), ("theme", i.theme), ("environment", i.environment)]
+        q += [("macos", i.macOS), ("environment", i.environment)]
         return URL(string: newIssue + "?" + q.map { "\($0.0)=\(encode($0.1))" }.joined(separator: "&"))!
     }
 
@@ -65,7 +61,6 @@ enum ReportIssue {
         if v.hasPrefix("v") { v.removeFirst() }
         return Info(version: v, server: serverKind, serverVersion: serverVersion,
                     macOS: shortMacOS(ProcessInfo.processInfo.operatingSystemVersionString),
-                    theme: themeName(d.string(forKey: "theme") ?? "apple"),
                     environment: environment(model: macModel(), textSize: d.string(forKey: "textSize") ?? "default",
                                              debugLog: DebugLog.enabled))
     }
@@ -146,7 +141,6 @@ struct ReportIssueView: View {
                 row("Cove", info.version)
                 row("Server", [info.server, info.serverVersion].compactMap { $0 }.joined(separator: " ").ifEmpty("—"))
                 row("macOS", info.macOS)
-                row("Theme", info.theme)
                 row("Mac", info.environment)
             }
             Toggle("Attach debug log (tokens, addresses and IDs removed)", isOn: $attach)

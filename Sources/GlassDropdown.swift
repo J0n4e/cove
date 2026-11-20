@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Glass dropdown lists for the Classic theme (audio, subtitles, quality…), drawn by the app so they match the glass
+// Glass dropdown lists (audio, subtitles, quality…), drawn by the app so they match the glass
 // pills: the standard macOS menu always uses the system's blue highlight. Like the tooltips, the list is drawn in a
 // layer over the whole window (`dropdownLayer()` on the root view), so nothing on the page covers or clips it.
 
@@ -18,7 +18,11 @@ final class DropdownCenter: ObservableObject {
         /// Closes as soon as the pointer leaves it (the player's subtitle and quality lists)
         var closeOnLeave = false
     }
-    @Published var list: List?
+    @Published var list: List? {
+        didSet { Self.openLists += (list != nil ? 1 : 0) - (oldValue != nil ? 1 : 0) }
+    }
+    /// How many lists are open in any window (the main window's Esc closes a list before leaving full screen)
+    static var openLists = 0
     func close() { list = nil }
 }
 

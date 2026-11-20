@@ -120,11 +120,10 @@ final class NotificationCenterTests: XCTestCase {
     // MARK: Toast or banner
 
     func testPresentationDecision() {
-        XCTAssertEqual(NotificationPresentation.decide(frontmost: true, playing: false, glass3D: true), .toast)
-        XCTAssertEqual(NotificationPresentation.decide(frontmost: false, playing: false, glass3D: true), .banner)
-        XCTAssertEqual(NotificationPresentation.decide(frontmost: false, playing: true, glass3D: true), .banner)
-        XCTAssertEqual(NotificationPresentation.decide(frontmost: true, playing: true, glass3D: true), .listOnly)
-        XCTAssertEqual(NotificationPresentation.decide(frontmost: true, playing: false, glass3D: false), .banner, "Glass theme keeps the banner")
+        XCTAssertEqual(NotificationPresentation.decide(frontmost: true, playing: false), .toast)
+        XCTAssertEqual(NotificationPresentation.decide(frontmost: false, playing: false), .banner)
+        XCTAssertEqual(NotificationPresentation.decide(frontmost: false, playing: true), .banner)
+        XCTAssertEqual(NotificationPresentation.decide(frontmost: true, playing: true), .listOnly)
     }
 
     // MARK: Activity tabs
