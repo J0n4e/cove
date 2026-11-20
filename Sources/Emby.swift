@@ -1500,7 +1500,10 @@ final class Emby: ObservableObject {
                        maxWidth: Int? = nil, convert: Bool = false, safeAudio: Bool = false) async -> URL? {
         let id = req.item.id
         let canDirect = direct && !req.transcode
-        let profile: [String: Any] = [
+        // A burned-in subtitle (`sub`): Encode-only subtitle profiles and no direct play/stream, or Emby copies
+        // the video and drops the subtitle (see BurnInPlaybackInfo.swift).
+        let burning = req.sub != nil
+        var profile: [String: Any] = [
             "Name": "Cove Mac",
             "MaxStreamingBitrate": req.maxBitrate ?? 120_000_000,
             "DirectPlayProfiles": canDirect
@@ -1517,8 +1520,13 @@ final class Emby: ObservableObject {
                   URLQueryItem(name: "AutoOpenLiveStream", value: "true")]
         if let v = req.sourceId { qi.append(URLQueryItem(name: "MediaSourceId", value: v)) }
         if let v = req.audio { qi.append(URLQueryItem(name: "AudioStreamIndex", value: String(v))) }
-        if let v = req.sub { qi.append(URLQueryItem(name: "SubtitleStreamIndex", value: String(v))) }
-        if let v = req.maxBitrate { qi.append(URLQueryItem(name: "MaxStreamingBitrate", value: String(v))) }
+        if let s = req.sub {
+            profile["DirectPlayProfiles"] = [[String: Any]]()
+            profile["SubtitleProfiles"] = Self.burnInSubtitleProfiles()
+            let b = Self.burnInQuery(userId: userId, sourceId: nil, sub: s, audio: nil, start: nil,
+                                     maxBitrate: req.maxBitrate ?? 120_000_000)
+            qi += b.filter { !["UserId", "IsPlayback", "AutoOpenLiveStream"].contains($0.name) }
+        } else if let v = req.maxBitrate { qi.append(URLQueryItem(name: "MaxStreamingBitrate", value: String(v))) }
         guard var c = URLComponents(string: "\(server)/Items/\(id)/PlaybackInfo") else { return nil }
         c.queryItems = qi
         guard let pu = c.url else { return nil }
@@ -1552,6 +1560,7 @@ final class Emby: ObservableObject {
                 return URL(string: "\(server)/Videos/\(id)/stream.mp4?Static=true&MediaSourceId=\(sid)&\(keyName)=\(token)")
             }
             if let t = src["TranscodingUrl"] as? String {
+                if burning { DebugLog.write(Self.burnInInfoLog(t)) }
                 // Caps only when converting is wanted (a lower quality, burn-in, forced conversion), never
                 // with "Original": they would stop the server from copying the video. No width cap when a 4K HEVC
                 // video may pass through unchanged.
