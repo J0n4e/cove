@@ -273,6 +273,7 @@ struct ClassicPlayerView: View {
                 if ui.showInfo { classicInfoOverlay }
                 classicCornerCards
                 panelLayer
+                if classic { CastPlayerPicker(player: model, req: req) { close() } }
                 SyncPlayToast(group: emby.syncPlay.group, classic: classic)
                 // Title bar strip, above every layer (the controls' dark gradient used to darken it)
                 VStack(spacing: 0) {
@@ -859,6 +860,9 @@ extension ClassicPlayerView {
             a.append(Glass3DBarItem(id: "pip", icon: model.pipActive ? "pip.exit" : "pip.enter", on: model.pipActive,
                                     help: "Picture in picture (P)") { model.togglePiP() })
         }
+        a.append(Glass3DBarItem(id: "cast", icon: "tv.and.mediabox", on: CastPickerState.shared.open, help: "Cast") {
+            withAnimation(.easeOut(duration: 0.2)) { CastPickerState.shared.open.toggle() }
+        })
         a.append(Glass3DBarItem(id: "fullscreen", icon: ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                 help: ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)") { toggleFullScreen() })
         return Glass3DBarItem.ordered(a)

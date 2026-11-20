@@ -425,8 +425,8 @@ struct Glass3DBarItem: Identifiable {
         var headers: Set<Int> = []
     }
     /// The bar's order (owner): Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed ·
-    /// (Watch together) · Info · PiP · Full screen.
-    static let order = ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "fullscreen"]
+    /// (Watch together) · Info · PiP · Cast · Full screen.
+    static let order = ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "cast", "fullscreen"]
     static func ordered(_ items: [Glass3DBarItem]) -> [Glass3DBarItem] {
         items.sorted { (order.firstIndex(of: $0.id) ?? order.count) < (order.firstIndex(of: $1.id) ?? order.count) }
     }
