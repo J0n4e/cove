@@ -465,8 +465,9 @@ struct ClassicDetailView: View {
             }
             if r > 0 {
                 Button { model.playNow() } label: {
-                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
-                }.buttonStyle(HoverButton())
+                    // Short (owner): the time alone says a resume is there; the full text is the tooltip
+                    Label(timeString(r), systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
+                }.buttonStyle(HoverButton()).tip("Resume from \(timeString(r))").accessibilityLabel("Resume from \(timeString(r))")
             }
             WatchTogetherButton(item: model.playTarget, start: r, classic: true)
             if model.playTarget != nil || item.isBox { CastButton(model: model) }
