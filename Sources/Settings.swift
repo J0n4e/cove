@@ -383,11 +383,12 @@ struct HomeSettings: View {
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
     @AppStorage(Glass3DBannerNav.key) private var bannerNav = Glass3DBannerNav.defaultValue
+    @AppStorage(BannerSource.key) private var bannerSource = BannerSource.defaultValue
 
     var body: some View {
         // The Classic theme's banner choices
-        if theme == "classic" {
-            PrefSection(title: "Banner") {
+        PrefSection(title: "Banner") {
+            if theme == "classic" {
                 PrefRow(label: "Style") {
                     menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
                 }
@@ -395,6 +396,8 @@ struct HomeSettings: View {
                     menuPicker($bannerNav, Glass3DBannerNav.options)
                 }
             }
+            PrefRow(label: "Banner shows") { menuPicker($bannerSource, BannerSource.options) }
+            PrefNote("Which titles the banner at the top of Home cycles through; Home rows is the original mix.")
         }
         PrefSection(title: "Layout") {
             PrefRow(label: "Continue Watching") { menuPicker($resumeLayout, [("row", "Row"), ("grid", "Grid")]) }
