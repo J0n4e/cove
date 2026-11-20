@@ -245,7 +245,7 @@ struct ClassicPlayerView: View {
                     AVPlayerViewRep(player: p, onLayer: model.attach).ignoresSafeArea().padding(.top, titleBarHeight)
                 }
                 else if model.error.isEmpty { Spinner(inPlayer: true).controlSize(.large) }
-                if model.pipActive { classicPipPlaceholder }
+                videoStateOverlay
 
                 subtitleLayer(geo.size).animation(.easeOut(duration: 0.2), value: ui.showUI)
 
@@ -378,7 +378,7 @@ struct ClassicPlayerView: View {
     }
 
     @ViewBuilder func subtitleLayer(_ size: CGSize) -> some View {
-        if model.loadingSubs {
+        if model.loadingSubs && !model.airPlayActive {
             VStack {
                 Spacer()
                 HStack(spacing: 8) {
@@ -390,7 +390,8 @@ struct ClassicPlayerView: View {
                 .padding(.bottom, subLift(size))
             }.frame(maxWidth: .infinity).allowsHitTesting(false)
         }
-        if !model.caption.isEmpty && !model.pipActive {   // not while the video is in picture in picture
+        if !model.caption.isEmpty && !model.pipActive && !model.airPlayActive {   // (on AirPlay the TV shows them)
+            // (not while the video is in picture in picture)
             let fs = max(14, size.height * (Self.sizes.first { $0.0 == subTextSize }?.2 ?? 0.045))
             let color = Self.colors.first { $0.0 == subColor }?.2 ?? .white
             let shade: Color = subColor == "black" ? .white : .black
@@ -863,6 +864,7 @@ extension ClassicPlayerView {
         a.append(Glass3DBarItem(id: "cast", icon: "tv.and.mediabox", on: CastPickerState.shared.open, help: "Cast") {
             withAnimation(.easeOut(duration: 0.2)) { CastPickerState.shared.open.toggle() }
         })
+        a.append(Glass3DBarItem(id: "airplay", icon: "airplayvideo", on: model.airPlayActive, help: "AirPlay", routePlayer: model.player))
         a.append(Glass3DBarItem(id: "fullscreen", icon: ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                 help: ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)") { toggleFullScreen() })
         return Glass3DBarItem.ordered(a)
@@ -904,6 +906,12 @@ extension ClassicPlayerView {
                     .helpLabel("Picture in picture (P)")
             }
         }
+    }
+
+    /// Over the video: picture in picture, or AirPlay ("Playing on <device>": the picture is on the TV).
+    @ViewBuilder var videoStateOverlay: some View {
+        if model.pipActive { classicPipPlaceholder }
+        else if model.airPlayActive { AirPlayPlayingCard(item: item, device: model.airPlayDevice) }
     }
 
     var classicPipPlaceholder: some View {

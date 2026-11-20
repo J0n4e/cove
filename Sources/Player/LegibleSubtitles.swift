@@ -149,6 +149,7 @@ extension PlayerModel {
             }
             if text != self.caption { self.caption = text }
         }
+        legible?.setNative(airPlayActive)   // on AirPlay AVPlayer draws it (on the TV)
     }
 
     /// Once the item is ready: select the track's rendition, or fall back to downloading it within ~4 s.
@@ -188,6 +189,12 @@ extension PlayerModel {
         inStreamUnsupported = true
         if let emby = embyRef { Self.hlsSubsMissing.insert(emby.server) }
         stopInStream()
+        if airPlayActive {   // the TV can't get Cove's cues: burn it in
+            dlog("airplay: subtitle track \(idx) not in the stream: restarting burned in")
+            airPlayBurnPending = true
+            Task { @MainActor [weak self] in await self?.restartKeepingPosition { $0.sub = idx; $0.burnIn = true } }
+            return
+        }
         if ResumeStrategy.coveDrawnSwitch(streamCopiedMidFile: streamCopiedMidFile && !directPlaySession) == .restartReencode {
             dlog("subs: extraction (track \(idx)): restarting re-encoded (video copy started mid-file)")
             Task { @MainActor [weak self] in await self?.restartForCoveDrawnSub(idx) }
@@ -233,6 +240,11 @@ final class LegibleSubtitles: NSObject, AVPlayerItemLegibleOutputPushDelegate {
         output.advanceIntervalForDelegateInvocation = 0
         output.setDelegate(self, queue: .main)
         item.add(output)
+    }
+
+    /// AVPlayer draws the captions itself (AirPlay: the TV shows them); off, Cove draws them.
+    func setNative(_ on: Bool) {
+        if output.suppressesPlayerRendering == on { output.suppressesPlayerRendering = !on }
     }
 
     func detach() {
