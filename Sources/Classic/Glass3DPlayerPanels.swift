@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import AppKit
 
@@ -425,8 +426,8 @@ struct Glass3DBarItem: Identifiable {
         var headers: Set<Int> = []
     }
     /// The bar's order (owner): Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed ·
-    /// (Watch together) · Info · PiP · Cast · Full screen.
-    static let order = ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "cast", "fullscreen"]
+    /// (Watch together) · Info · PiP · Cast · AirPlay · Full screen.
+    static let order = ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "cast", "airplay", "fullscreen"]
     static func ordered(_ items: [Glass3DBarItem]) -> [Glass3DBarItem] {
         items.sorted { (order.firstIndex(of: $0.id) ?? order.count) < (order.firstIndex(of: $1.id) ?? order.count) }
     }
@@ -436,6 +437,8 @@ struct Glass3DBarItem: Identifiable {
     let help: String
     var menu: Menu? = nil
     var syncPlayOnly = false
+    /// "airplay": the AVPlayer the system route picker routes (Glass3DAirPlay.swift)
+    var routePlayer: AVPlayer? = nil
     var action: () -> Void = {}
 }
 
@@ -452,7 +455,8 @@ struct Glass3DControlBar: View {
                 if k > 0 {
                     Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1, height: 20).allowsHitTesting(false)
                 }
-                Glass3DBarButton(item: it, poke: poke)
+                if it.id == "airplay" { Glass3DAirPlayButton(player: it.routePlayer, help: it.help) }
+                else { Glass3DBarButton(item: it, poke: poke) }
             }
         }
         .padding(.horizontal, 6).padding(.vertical, 3)

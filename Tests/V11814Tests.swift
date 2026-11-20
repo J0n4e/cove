@@ -14,8 +14,8 @@ final class V11814Tests: XCTestCase {
 
     func testBarOrder() {
         XCTAssertEqual(Glass3DBarItem.order,
-                       ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "cast", "fullscreen"])
-        let shuffled = ["fullscreen", "quality", "cast", "info", "subtitles", "episodes", "pip", "audio", "syncplay", "chapters"]
+                       ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "cast", "airplay", "fullscreen"])
+        let shuffled = ["fullscreen", "airplay", "quality", "cast", "info", "subtitles", "episodes", "pip", "audio", "syncplay", "chapters"]
         XCTAssertEqual(Glass3DBarItem.ordered(shuffled.map(item)).map(\.id), Glass3DBarItem.order)
         // Missing items keep the order of the rest
         XCTAssertEqual(Glass3DBarItem.ordered(["info", "subtitles", "quality"].map(item)).map(\.id),
