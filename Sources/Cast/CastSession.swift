@@ -178,7 +178,7 @@ final class CastSession: ObservableObject {
     }
 
     func sendLoad() {
-        guard let emby, let item, var req = request, let tid = transportId else { return }
+        guard let emby, let item, let req = request, let tid = transportId else { return }
         let ps = UUID().uuidString.replacingOccurrences(of: "-", with: "")
         let profile = device?.profile ?? .basic
         let url: URL
@@ -187,6 +187,23 @@ final class CastSession: ObservableObject {
         case .failure(let e): fail(e.message); return
         case .success(let u): url = u
         }
+        // Emby ignores hand-built burn-in params: ask PlaybackInfo for the server's own burn-in stream
+        if let s = req.sub, req.subIsImage, Emby.burnInRoute(isJellyfin: emby.isJellyfin) == .playbackInfo {
+            let itemId = item.id
+            Task { @MainActor [weak self] in
+                let got = await emby.burnInPlaybackInfo(itemId: itemId, sourceId: req.sourceId, sub: s, audio: req.audio,
+                                                        start: nil, maxBitrate: 40_000_000,
+                                                        audioCodecs: profile.audioCodecs, addKey: true)
+                guard let self, self.item?.id == itemId, self.transportId == tid else { return }
+                self.sendLoad(url: got?.url ?? url, emby: emby, item: item, req: req, tid: tid, profile: profile)
+            }
+            return
+        }
+        sendLoad(url: url, emby: emby, item: item, req: req, tid: tid, profile: profile)
+    }
+
+    private func sendLoad(url: URL, emby: Emby, item: Item, req: CastRequest, tid: String, profile: CastProfile) {
+        var req = req
         var subtitle: (url: URL, name: String, lang: String?)?
         if let s = req.sub, !req.subIsImage, let sid = req.sourceId,
            let u = CastStream.subtitleURL(server: emby.server, token: emby.token, keyName: emby.keyName,

@@ -373,6 +373,7 @@ final class PlayerModel: ObservableObject {
                       + "; video \((info?["IsVideoDirect"] as? Bool) == true ? "copied" : (info?["VideoCodec"] as? String ?? "?"))"
                       + ", audio \((info?["IsAudioDirect"] as? Bool) == true ? "copied" : (info?["AudioCodec"] as? String ?? "?"))"
                       + "; reasons: \(reasons.isEmpty ? "none" : reasons.joined(separator: ","))")
+            if self.req?.sub != nil, (info?["IsVideoDirect"] as? Bool) == true { self.dlog("WARNING: burn-in requested but the server copies the video: the subtitle won't show") }
             guard m != cur.method else { return }
             cur.method = m
             self.session = cur
