@@ -47,9 +47,28 @@ private struct RoutePicker: NSViewRepresentable {
     }
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeNSView(context: Context) -> AVRoutePickerView {
-        let v = AVRoutePickerView()
-        v.isRoutePickerButtonBordered = false
+    /// Hosts the one shared picker (AirPlayPicker): the bar comes and goes with the controls, the picker stays.
+    final class Host: NSView {
+        let picker: AVRoutePickerView
+        init(_ picker: AVRoutePickerView) {
+            self.picker = picker
+            super.init(frame: .zero)
+            attach()
+        }
+        required init?(coder: NSCoder) { nil }
+        func attach() {
+            guard picker.superview !== self else { return }
+            picker.removeFromSuperview()
+            picker.frame = bounds
+            picker.autoresizingMask = [.width, .height]
+            addSubview(picker)
+        }
+        override func layout() { super.layout(); picker.frame = bounds }
+    }
+
+    func makeNSView(context: Context) -> Host {
+        let host = Host(AirPlayPicker.shared)
+        let v = host.picker
         v.toolTip = help
         style(v)
         let c = context.coordinator
@@ -71,10 +90,12 @@ private struct RoutePicker: NSViewRepresentable {
             }
             return e
         }
-        return v
+        return host
     }
 
-    func updateNSView(_ v: AVRoutePickerView, context: Context) {
+    func updateNSView(_ host: Host, context: Context) {
+        host.attach()
+        let v = host.picker
         context.coordinator.onClick = onClick
         context.coordinator.player = player
         style(v)
@@ -83,7 +104,8 @@ private struct RoutePicker: NSViewRepresentable {
         if v.toolTip != tip { v.toolTip = tip }
     }
 
-    static func dismantleNSView(_ v: AVRoutePickerView, coordinator: Coordinator) {
+    static func dismantleNSView(_ host: Host, coordinator: Coordinator) {
+        // The shared picker (and so its player and the AirPlay route) is left untouched
         if let m = coordinator.monitor { NSEvent.removeMonitor(m); coordinator.monitor = nil }
     }
 
@@ -100,14 +122,48 @@ private struct RoutePicker: NSViewRepresentable {
     private func style(_ v: AVRoutePickerView) {
         // The picker must route the AVPlayer that plays: re-set whenever the player instance changes
         if let p = player, !p.allowsExternalPlayback { p.allowsExternalPlayback = true }
-        if v.player !== player {
-            v.player = player
-            DebugLog.write("airplay: picker player \(player == nil ? "cleared" : "set")")
-        }
+        AirPlayPicker.assign(player, to: v)
         v.setRoutePickerButtonColor(.white, for: .normal)
         v.setRoutePickerButtonColor(NSColor.white.withAlphaComponent(0.8), for: .normalHighlighted)
         v.setRoutePickerButtonColor(accent, for: .active)
         v.setRoutePickerButtonColor(accent.withAlphaComponent(0.8), for: .activeHighlighted)
+    }
+}
+
+/// The bar's AVRoutePickerView: one for the app's life. Creating a new picker or re-setting its player when the
+/// controls reappear (mouse move) ended the AirPlay route, so the bar only hosts this one, and its player is set
+/// only when the player instance really changes, never cleared while the picture is on the TV.
+@MainActor
+enum AirPlayPicker {
+    static let shared: AVRoutePickerView = {
+        let v = AVRoutePickerView()
+        v.isRoutePickerButtonBordered = false
+        DebugLog.write("airplay: picker view created")
+        return v
+    }()
+
+    enum Assign: Equatable { case unchanged, set, clear, keepWhileExternal }
+
+    /// What to do with the picker's player: nothing when it's the same instance, keep it while AirPlay plays
+    /// (a restart's brief nil must not end the route).
+    nonisolated static func decide(current: AnyObject?, new: AnyObject?, externalActive: Bool) -> Assign {
+        if current === new { return .unchanged }
+        if new == nil { return externalActive ? .keepWhileExternal : .clear }
+        return .set
+    }
+
+    private static var lastLogged: Assign?
+    static func assign(_ player: AVPlayer?, to v: AVRoutePickerView) {
+        let d = decide(current: v.player, new: player, externalActive: v.player?.isExternalPlaybackActive ?? false)
+        switch d {
+        case .set: v.player = player; DebugLog.write("airplay: picker player set")
+        case .clear: v.player = nil; DebugLog.write("airplay: picker player cleared")
+        case .keepWhileExternal:
+            if lastLogged != d { DebugLog.write("airplay: picker player kept (external playback active, clear skipped)") }
+        case .unchanged:
+            if lastLogged != d { DebugLog.write("airplay: picker player unchanged") }
+        }
+        lastLogged = d
     }
 }
 
