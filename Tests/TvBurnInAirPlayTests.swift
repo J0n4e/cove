@@ -49,21 +49,10 @@ final class TvBurnInAirPlayTests: XCTestCase {
         XCTAssertEqual(query(u.absoluteString)["AllowVideoStreamCopy"], "true")
     }
 
-    func testEmbyAlwaysBurnsInOnCast() {
-        XCTAssertEqual(CastSubtitles.decide(.sideTrack, isJellyfin: false, sideFailedBefore: false), .burnIn)
-        XCTAssertEqual(CastSubtitles.decide(.warmThenSide, isJellyfin: false, sideFailedBefore: false), .burnIn)
-    }
-
-    func testJellyfinKeepsSideTrackUntilItFailed() {
-        XCTAssertEqual(CastSubtitles.decide(.sideTrack, isJellyfin: true, sideFailedBefore: false), .sideTrack)
-        XCTAssertEqual(CastSubtitles.decide(.warmThenSide, isJellyfin: true, sideFailedBefore: false), .warmThenSide)
-        XCTAssertEqual(CastSubtitles.decide(.sideTrack, isJellyfin: true, sideFailedBefore: true), .burnIn)
-        XCTAssertEqual(CastSubtitles.decide(.burnIn, isJellyfin: true, sideFailedBefore: false), .burnIn)
-    }
-
-    func testSideFailedKey() {
-        XCTAssertEqual(CastSubtitles.key(item: "abc", index: 4), "abc#4")
-        XCTAssertNotEqual(CastSubtitles.key(item: "abc", index: 4), CastSubtitles.key(item: "abc", index: 5))
+    func testEmbyAndJellyfinShareOnePath() {
+        // No server switch any more: text is served by Cove on both, pictures burned in on both
+        XCTAssertEqual(CastSubtitles.delivery(codec: "subrip", isExternal: true), .local)
+        XCTAssertEqual(CastSubtitles.delivery(codec: "pgssub", isExternal: false), .burnIn)
     }
 
     func testAirPlayEndDebounce() {
