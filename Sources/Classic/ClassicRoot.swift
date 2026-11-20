@@ -460,7 +460,7 @@ struct ClassicTopNavTools: View {
     @ObservedObject private var nav = ClassicNavState.shared
     var body: some View {
         HStack(spacing: 8) {
-            // No search button (owner): the S key opens the search pill at the bottom of the window (SearchDock)
+            // No search button (owner): ⌘F opens the search pill at the bottom of the window (SearchDock)
             Glass3DProfileCircle()   // far right: the profile menu (Glass3DProfile*.swift)
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key

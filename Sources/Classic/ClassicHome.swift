@@ -180,15 +180,16 @@ struct ClassicHero: View {
             // The coming banners as a deck of cards, bottom right (above the changing picture and text)
             Group {
                 if items.count > 1 {
+                    // The hover is tracked on the bullets/cards themselves, BEFORE the full-size frame: on the frame
+                    // it covered the whole banner and a resting pointer stopped the cycle (owner)
                     if bannerNav == "bullets" {
-                        thumbs.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
+                        thumbs.scrollHover($hoverNav).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
                     } else {
-                        deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        deck.scrollHover($hoverNav).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                             .padding(.trailing, 44).padding(.bottom, 56)
                     }
                 }
             }
-            .scrollHover($hoverNav)
             .zIndex(Double(pos) + 1)
         }
         .animation(.easeOut(duration: 0.15), value: hover)
