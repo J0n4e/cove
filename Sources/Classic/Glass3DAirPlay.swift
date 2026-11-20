@@ -13,12 +13,17 @@ struct Glass3DAirPlayButton: View {
     @State private var hover = false
     /// Clicked: the system's AirPlay menu is open, so no tooltip until the pointer leaves the button.
     @State private var clicked = false
+    /// Detail page AirPlay start: glows when the menu couldn't be opened (Glass3DAirPlayDetail.swift)
+    @ObservedObject private var detailStart = AirPlayDetailStart.shared
 
     var body: some View {
         RoutePicker(player: player, accent: NSColor(Theme.accent(accentName)), help: clicked ? "" : help) { clicked = true }
             .frame(width: 24, height: 24)
             .frame(width: 42, height: 38)
             .background(Capsule().fill(Color.white.opacity(hover ? 0.14 : 0)).padding(.vertical, 2).allowsHitTesting(false))
+            .overlay(Capsule().strokeBorder(Theme.accent(accentName), lineWidth: 2).padding(.vertical, 2)
+                .shadow(color: Theme.accent(accentName), radius: 6)
+                .opacity(detailStart.pulse ? 1 : 0).allowsHitTesting(false))
             .contentShape(Rectangle())
             .onHover { h in
                 withAnimation(Glass3DTokens.Motion.fast) { hover = h }
@@ -49,6 +54,7 @@ private struct RoutePicker: NSViewRepresentable {
         let c = context.coordinator
         c.view = v
         c.onClick = onClick
+        openForDetailStart(v)
         // A click opens the system menu: note it (the button's tooltip would show through the menu)
         c.monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak c] e in
             if let c, let v = c.view, e.window === v.window, v.bounds.contains(v.convert(e.locationInWindow, from: nil)) {
@@ -61,12 +67,21 @@ private struct RoutePicker: NSViewRepresentable {
 
     func updateNSView(_ v: AVRoutePickerView, context: Context) {
         context.coordinator.onClick = onClick
+        openForDetailStart(v)
         v.toolTip = help.isEmpty ? nil : help
         style(v)
     }
 
     static func dismantleNSView(_ v: AVRoutePickerView, coordinator: Coordinator) {
         if let m = coordinator.monitor { NSEvent.removeMonitor(m); coordinator.monitor = nil }
+    }
+
+    /// Started from the detail page's AirPlay pill: open the system menu once (Glass3DAirPlayDetail.swift).
+    private func openForDetailStart(_ v: AVRoutePickerView) {
+        let s = AirPlayDetailStart.shared
+        guard s.wantsMenu else { return }
+        s.claimMenu()
+        AirPlayDetailStart.openMenu(in: v) { AirPlayDetailPlayerHook.clicked($0) }
     }
 
     private func style(_ v: AVRoutePickerView) {

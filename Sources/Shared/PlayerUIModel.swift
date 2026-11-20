@@ -79,6 +79,8 @@ final class PlayerUIModel: ObservableObject {
     /// Episodes panel, a group advancing): the new player opens without bringing up the controls (owner).
     /// Read and cleared once by the new player view.
     static var quietNextStart = false
+    /// Opened by the detail page's AirPlay pill: controls up, the AirPlay menu opens, paused until it's handled
+    @Published var openAirPlayMenu = false
     static func takeQuietStart() -> Bool { defer { quietNextStart = false }; return quietNextStart }
 
     /// The new player for the next episode: controls hidden (a fresh model starts with them shown), and the first

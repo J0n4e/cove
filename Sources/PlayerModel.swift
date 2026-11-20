@@ -335,7 +335,7 @@ final class PlayerModel: ObservableObject {
         syncPrerolled = false; syncSeeks = 0
         syncGroupMode = emby.syncPlay.group.isInGroup   // SyncPlay timing: exact starts while in a group
         if syncGroupMode { p.automaticallyWaitsToMinimizeStalling = false }
-        if !req.startPaused { p.play() }   // a SyncPlay group starts it once everyone is ready
+        if !req.startPaused, !AirPlayDetailStart.shared.holdsStart { p.play() }   // detail AirPlay: paused until a route   // a SyncPlay group starts it once everyone is ready
         // A conversion that never starts would otherwise leave a black screen with a spinner forever
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(60))

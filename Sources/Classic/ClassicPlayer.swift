@@ -273,7 +273,7 @@ struct ClassicPlayerView: View {
                 if ui.showInfo { classicInfoOverlay }
                 classicCornerCards
                 panelLayer
-                if classic { CastPlayerPicker(player: model, req: req) { close() } }
+                if classic { CastPlayerPicker(player: model, req: req) { close() }; AirPlayDetailPlayerHook(model: model, ui: ui) }
                 SyncPlayToast(group: emby.syncPlay.group, classic: classic)
                 // Title bar strip, above every layer (the controls' dark gradient used to darken it)
                 VStack(spacing: 0) {
