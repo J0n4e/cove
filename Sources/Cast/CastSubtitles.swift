@@ -38,6 +38,19 @@ enum CastSubtitles {
         return delivery(codec: st.Codec, isExternal: st.IsExternal ?? false)
     }
 
+    /// The final delivery (pure, tested). Emby's /Subtitles/{i}/Stream.vtt has no CORS headers for the Cast
+    /// receiver, so the Default Media Receiver fails even an external SRT side track there (owner log: error 100,
+    /// IDLE(ERROR)): on Emby every subtitle is burned in. Jellyfin sends CORS: side track, with the retry chain. A
+    /// track whose side track already failed this session goes straight to burn-in (a seek reload must not retry it).
+    nonisolated static func decide(_ base: CastSubDelivery, isJellyfin: Bool, sideFailedBefore: Bool) -> CastSubDelivery {
+        if base == .burnIn || !isJellyfin || sideFailedBefore { return .burnIn }
+        return base
+    }
+
+    /// Item + track whose side track failed on the TV in this app session.
+    @MainActor static var sideFailed: Set<String> = []
+    nonisolated static func key(item: String, index: Int) -> String { "\(item)#\(index)" }
+
     /// Warm-up verdict: the answer must be fast, 2xx and WebVTT.
     nonisolated static func warmOK(status: Int?, body: Data?, elapsed: TimeInterval) -> Bool {
         guard let status, (200..<300).contains(status), elapsed < warmTimeout, let body else { return false }
@@ -69,7 +82,12 @@ extension CastSession {
     func prepareSubtitle() async {
         guard let s = request?.sub else { return }
         let st = streams.first { $0.Index == s }
-        var d = CastSubtitles.delivery(st)
+        let jf = emby?.isJellyfin ?? false
+        let failed = item.map { CastSubtitles.sideFailed.contains(CastSubtitles.key(item: $0.id, index: s)) } ?? false
+        var d = CastSubtitles.decide(CastSubtitles.delivery(st), isJellyfin: jf, sideFailedBefore: failed)
+        if d == .burnIn, CastSubtitles.delivery(st) != .burnIn {
+            DebugLog.write("cast: subtitle \(s) burned in (\(failed ? "its side track failed earlier" : "Emby: no CORS on side tracks"))")
+        }
         if d == .warmThenSide {
             d = await warm(s) ? .sideTrack : .burnIn
         }
@@ -101,7 +119,8 @@ extension CastSession {
         switch step {
         case .fail: return false
         case .burnIn:
-            DebugLog.write("cast: retry with burned-in subtitle")
+            DebugLog.write("cast: retry with burned-in subtitle (remembered for this item/track)")
+            if let it = item, let s = r.sub { CastSubtitles.sideFailed.insert(CastSubtitles.key(item: it.id, index: s)) }
             r.subIsImage = true
         case .noSubs:
             DebugLog.write("cast: retry without subtitles")

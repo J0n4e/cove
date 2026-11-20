@@ -209,7 +209,7 @@ final class CastSession: ObservableObject {
         req.start = statusTime
         let body = CastLoad.body(url: url, hls: true, meta: meta, start: req.start, subtitle: subtitle,
                                  hevc: profile.hevc, requestId: nextId())
-        DebugLog.write("cast: LOAD at \(Int(req.start)) s (\(profile.videoCodecs)/\(profile.audioCodecs), sub: \(req.sub.map(String.init) ?? "off")\(req.subIsImage ? " burned in" : ""))")
+        DebugLog.write("cast: LOAD at \(Int(req.start)) s (\(profile.videoCodecs)/\(profile.audioCodecs), sub: \(req.sub.map(String.init) ?? "off")\(req.subIsImage ? " burned in" : ""))\(req.subIsImage && req.sub != nil ? " [\(Emby.burnInLog(url.absoluteString))]" : "")")
         channel?.send(.make(CastMessage.nsMedia, body, to: tid))
         startClock()
         saveActive()
