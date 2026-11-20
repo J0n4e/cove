@@ -469,6 +469,7 @@ struct ClassicDetailView: View {
                 }.buttonStyle(HoverButton())
             }
             WatchTogetherButton(item: model.playTarget, start: r, classic: true)
+            if model.playTarget != nil || item.isBox { CastButton(model: model) }
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44).glass3DRoundOutline()

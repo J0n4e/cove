@@ -315,6 +315,7 @@ struct ClassicHomeView: View {
         }
         .overlay { ToastOverlay(raised: navStyle == "topbar" && nav.searchOpen) }
         .overlay { NotificationToastLayer() }   // new movies / episodes while Cove is in front (Sources/Notifications)
+        .overlay { CastRemoteBar() }            // the Cast remote while casting (Glass3DCast.swift)
     }
 }
 

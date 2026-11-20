@@ -275,5 +275,5 @@ struct DetailRatingTail: View {
 
 /// The Glass3D detail page row, in order: the actions, then the rating (the order the owner chose).
 enum DetailRowOrder {
-    static let order = ["play", "resume", "watchTogether", "trailer", "watched", "favorite", "rating"]
+    static let order = ["play", "resume", "watchTogether", "cast", "trailer", "watched", "favorite", "rating"]
 }

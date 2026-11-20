@@ -47,6 +47,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <!-- Google Cast: finding Chromecasts / Google TVs on the local network (Bonjour) -->
+  <key>NSLocalNetworkUsageDescription</key><string>Cove looks for Cast devices on your network.</string>
+  <key>NSBonjourServices</key><array><string>_googlecast._tcp</string></array>
   <!-- Many home Emby servers use plain http (e.g. http://host:8096); allow it for the app (see SECURITY.md).
        Web views (YouTube trailers, https only) keep full ATS: with this key present, the one above is ignored for them. -->
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/><key>NSAllowsArbitraryLoadsInWebContent</key><false/></dict>
