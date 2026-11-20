@@ -36,6 +36,9 @@ final class V1184Tests: XCTestCase {
         XCTAssertEqual(Array(DetailRowOrder.order.prefix(2)), ["play", "resume"])
         let i = DetailRowOrder.order.firstIndex(of: "favorite")!
         XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "rating"), i + 1)
+        let c = DetailRowOrder.order.firstIndex(of: "cast")!
+        XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "airplay"), c + 1)   // AirPlay right after Cast
+        XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "trailer"), c + 2)
     }
 
     // MARK: Now Playing
