@@ -1,47 +1,76 @@
+import AppKit
 import Foundation
+import Network
 
 /// Casting one movie/episode to a Cast device with Google's Default Media Receiver: connect, LAUNCH the receiver,
 /// CONNECT to its transport, LOAD the server's HLS stream, then act as the remote (play/pause/seek/volume/stop,
 /// audio or subtitle switch = reload at the current position). The receiver's MEDIA_STATUS drives the remote and
 /// the server reports (/Sessions/Playing, …/Progress every 10 s, …/Stopped), so watched state and Continue Watching
-/// stay right.
+/// stay right. Phase 2: the next episode / next film of a collection continues on the TV (CastSessionNext.swift),
+/// and a lost connection (sleep, Wi-Fi change, heartbeat timeout) re-attaches to the running cast instead of
+/// ending it; a relaunch shows the remote again while the TV still plays it (CastSessionReconnect.swift).
 @MainActor
 final class CastSession: ObservableObject {
     static let shared = CastSession()
 
     enum Phase: Equatable { case idle, connecting, loading, active }
 
-    @Published private(set) var phase: Phase = .idle
-    @Published private(set) var device: CastDevice?
-    @Published private(set) var item: Item?
-    @Published private(set) var playerState = "IDLE"
-    @Published private(set) var duration: Double = 0
-    @Published private(set) var volume: Double = 1
+    @Published var phase: Phase = .idle
+    @Published var device: CastDevice?
+    @Published var item: Item?
+    @Published var playerState = "IDLE"
+    @Published var duration: Double = 0
+    @Published var volume: Double = 1
     @Published var error: String?
     /// The item's audio and subtitle tracks (for the remote's menus)
-    @Published private(set) var streams: [MStream] = []
-    @Published private(set) var audio: Int?
-    @Published private(set) var sub: Int?
+    @Published var streams: [MStream] = []
+    @Published var audio: Int?
+    @Published var sub: Int?
     /// Bumped every second while playing, so the remote's clock moves.
-    @Published private(set) var tick = 0
+    @Published var tick = 0
+    /// Collection mode (cast from Play collection / Resume collection, or from a player in collection mode)
+    @Published var collection: CollectionQueue?
+    /// The Up next card's item, while it shows (credits on, autoplay on, not cancelled)
+    @Published var upNext: Item?
+    @Published var upNextCancelled = false
+    /// Reconnecting after a lost connection: the remote says so and its buttons wait
+    @Published var reconnecting = false
+    /// A short line in the remote ("Reconnected to Living room TV"), cleared after a few seconds
+    @Published var notice: String?
 
     var isCasting: Bool { phase != .idle }
     var isPlaying: Bool { playerState == "PLAYING" || playerState == "BUFFERING" }
 
-    private var channel: CastChannel?
-    private weak var emby: Emby?
+    var channel: CastChannel?
+    weak var emby: Emby?
     private var requestId = 0
-    private var transportId: String?
-    private var receiverSession: String?
-    private var mediaSessionId: Int?
-    private var request: CastRequest?
-    private var playSession: Emby.PlaySession?
-    private var reportedStart = false
+    var transportId: String?
+    var receiverSession: String?
+    var mediaSessionId: Int?
+    var request: CastRequest?
+    var playSession: Emby.PlaySession?
+    var reportedStart = false
     private var lastReport: Double = -100
-    private var statusTime: Double = 0
-    private var statusDate = Date()
+    var statusTime: Double = 0
+    var statusDate = Date()
     private var clock: Task<Void, Never>?
-    private var loadSent = false
+    /// The series' episodes (next episode) and the credits marker (Emby chapter CreditsStart / Jellyfin Outro)
+    var episodes: [Item] = []
+    var creditsMarker: Double?
+    // Reconnect state (CastSessionReconnect.swift)
+    var awaitingReceiver = false
+    var awaitingMedia = false
+    var reconnectBegan = Date()
+    var attempt = 0
+    var reconnectTask: Task<Void, Never>?
+    var browsing = false
+    var restoreTried = false
+    /// Re-attaching to a cast saved before a relaunch: a failure ends silently
+    var restoring = false
+    var pathMonitor: NWPathMonitor?
+    var wakeObserver: NSObjectProtocol?
+    var lastPath: String?
+    var loadSent = false
 
     /// The receiver's position now (its reports come only on changes, so it is moved on while playing).
     var time: Double {
@@ -50,12 +79,18 @@ final class CastSession: ObservableObject {
         return duration > 0 ? min(t, duration) : t
     }
 
-    private func nextId() -> Int { requestId += 1; return requestId }
+    private init() { observeSystem() }
+
+    func nextId() -> Int { requestId += 1; return requestId }
 
     // MARK: Start
 
     /// Casts `item` from `start` seconds with the given tracks. A running cast to another item is replaced.
-    func cast(_ item: Item, to device: CastDevice, emby: Emby, sourceId: String?, audio: Int?, sub: Int?, start: Double) {
+    /// `collection`: collection mode (the queue continues on the TV). `pickTracks`: choose audio/subtitles as local
+    /// playback would (series/collection memory, preferred language, SRT first) instead of `audio`/`sub`;
+    /// `wantedSub` is the detail page's episode Subtitles menu ("off" or a language).
+    func cast(_ item: Item, to device: CastDevice, emby: Emby, sourceId: String?, audio: Int?, sub: Int?, start: Double,
+              collection: CollectionQueue? = nil, pickTracks: Bool = false, wantedSub: String? = nil) {
         if CastStream.isLocalOnly(emby.server) {
             error = CastError.localServer.message
             DebugLog.write("cast: server address is local only")
@@ -68,6 +103,9 @@ final class CastSession: ObservableObject {
         self.item = item
         self.audio = audio
         self.sub = sub
+        self.collection = collection
+        upNext = nil; upNextCancelled = false; creditsMarker = nil
+        if !(item.isEpisode && collection == nil && episodes.contains { $0.Id == item.Id }) { episodes = [] }
         error = nil
         CastDeviceStore.shared.lastUsedId = device.id
         request = CastRequest(itemId: item.id, sourceId: sourceId, audio: audio, sub: sub, start: start)
@@ -79,27 +117,39 @@ final class CastSession: ObservableObject {
             let src = f?.MediaSources?.first { $0.Id == sourceId } ?? f?.MediaSources?.first
             streams = src?.MediaStreams ?? []
             if request?.sourceId == nil { request?.sourceId = src?.Id }
-            if let s = sub { request?.subIsImage = isImageSub(s) }
+            if pickTracks {
+                let d = UserDefaults.standard
+                let t = CastTracks.pick(streams, memory: CastContinue.memoryKey(item, collection: collection).flatMap(SeriesLang.get),
+                                        wantedSub: wantedSub, subAlways: d.bool(forKey: "subAlways"), subLang: d.string(forKey: "subLang"))
+                self.audio = t.audio; self.sub = t.sub
+                request?.audio = t.audio; request?.sub = t.sub
+                DebugLog.write("cast: tracks from memory (audio \(t.audio.map(String.init) ?? "default"), sub \(t.sub.map(String.init) ?? "off"))")
+            }
+            if let s = self.sub { request?.subIsImage = isImageSub(s) }
+            loadContinuation(emby, item, chapters: f?.Chapters ?? [])
             if sameDevice { phase = .loading; sendLoad() } else { connect(device) }
         }
     }
 
-    private func connect(_ device: CastDevice) {
-        phase = .connecting
+    func connect(_ device: CastDevice, reattach: Bool = false) {
+        if !reattach { phase = .connecting }
+        awaitingReceiver = reattach
         let c = CastChannel()
         channel = c
         c.onState = { [weak self, weak c] st in
             guard let self, let c, self.channel === c else { return }
             switch st {
             case .ready:
+                if self.awaitingReceiver { self.send(CastMessage.nsReceiver, ["type": "GET_STATUS"]); return }
                 self.phase = .loading
                 self.send(CastMessage.nsReceiver, ["type": "LAUNCH", "appId": CastStream.receiverAppId])
-            case .failed:
-                self.fail(self.phase == .connecting
-                          ? "\(device.name) isn't reachable. Check that it's on and on the same network as this Mac."
-                          : "The connection to \(device.name) was lost.")
-            case .closed:
-                if self.phase != .idle { self.fail("The connection to \(device.name) was closed.") }
+            case .failed, .closed:
+                if self.reconnecting { self.scheduleAttempt(); return }
+                if self.phase == .connecting {
+                    self.fail("\(device.name) isn't reachable. Check that it's on and on the same network as this Mac.")
+                } else if self.phase != .idle {
+                    self.startReconnect("connection lost")   // heartbeat timeout, Wi-Fi drop, TV off: retry first
+                }
             case .connecting: break
             }
         }
@@ -107,21 +157,22 @@ final class CastSession: ObservableObject {
             guard let self, let c, self.channel === c else { return }
             self.handle(m)
         }
-        transportId = nil; mediaSessionId = nil; receiverSession = nil; loadSent = false
+        transportId = nil; mediaSessionId = nil; loadSent = reattach
+        if !reattach { receiverSession = nil }
         c.connect(device)
     }
 
-    private func send(_ ns: String, _ body: [String: Any], to dst: String = "receiver-0") {
+    func send(_ ns: String, _ body: [String: Any], to dst: String = "receiver-0") {
         var b = body
         if b["requestId"] == nil && ns != CastMessage.nsConnection { b["requestId"] = nextId() }
         channel?.send(.make(ns, b, to: dst))
     }
 
-    private func isImageSub(_ idx: Int) -> Bool {
+    func isImageSub(_ idx: Int) -> Bool {
         streams.first { $0.Index == idx }.map { imageSubCodecs.contains(($0.Codec ?? "").lowercased()) } ?? false
     }
 
-    private func sendLoad() {
+    func sendLoad() {
         guard let emby, let item, var req = request, let tid = transportId else { return }
         let ps = UUID().uuidString.replacingOccurrences(of: "-", with: "")
         let profile = device?.profile ?? .basic
@@ -155,6 +206,7 @@ final class CastSession: ObservableObject {
         DebugLog.write("cast: LOAD at \(Int(req.start)) s (\(profile.videoCodecs)/\(profile.audioCodecs), sub: \(req.sub.map(String.init) ?? "off")\(req.subIsImage ? " burned in" : ""))")
         channel?.send(.make(CastMessage.nsMedia, body, to: tid))
         startClock()
+        saveActive()
     }
 
     // MARK: Messages
@@ -164,6 +216,7 @@ final class CastSession: ObservableObject {
         switch (m.namespace, type) {
         case (CastMessage.nsReceiver, "RECEIVER_STATUS"):
             guard let st = CastReceiverStatus.parse(j) else { return }
+            if awaitingReceiver { reattach(st); return }
             if let v = st.volume { volume = v }
             if let tid = st.transportId {
                 receiverSession = st.sessionId
@@ -175,14 +228,16 @@ final class CastSession: ObservableObject {
                     if !loadSent { sendLoad() }
                 }
             } else if transportId != nil {
-                fail(st.otherApp.map { "\($0) took over the TV." } ?? "The TV closed the player.")
+                endCleanly(st.otherApp != nil ? CastReconnect.takenOverMessage : CastReconnect.endedMessage)
             }
         case (CastMessage.nsReceiver, "LAUNCH_ERROR"):
             fail("The TV couldn't start the Cast player (\(j["reason"] as? String ?? "unknown reason")).")
         case (CastMessage.nsConnection, "CLOSE"):
             if m.source == transportId { fail("The TV closed the player.") }
         case (CastMessage.nsMedia, "MEDIA_STATUS"):
-            guard let st = CastMediaStatus.parse(j) else { return }
+            let st = CastMediaStatus.parse(j)
+            if awaitingMedia { reattached(st); return }
+            guard let st else { return }
             apply(st)
         case (CastMessage.nsMedia, "LOAD_FAILED"):
             fail("The TV couldn't load this video. The server may not be reachable from the TV at \(URL(string: emby?.server ?? "")?.host ?? "its address").")
@@ -192,7 +247,7 @@ final class CastSession: ObservableObject {
         }
     }
 
-    private func apply(_ st: CastMediaStatus) {
+    func apply(_ st: CastMediaStatus) {
         // An old session's status after a reload: ignore
         if let cur = mediaSessionId, st.mediaSessionId < cur { return }
         mediaSessionId = st.mediaSessionId
@@ -200,7 +255,9 @@ final class CastSession: ObservableObject {
         if let d = st.duration, d > 0 { duration = d }
         if st.playerState == "IDLE" {
             switch st.idleReason {
-            case "FINISHED": statusTime = duration; finish(nil)
+            case "FINISHED":
+                statusTime = duration
+                if !playNextAtEnd() { finish(nil) }   // the next episode / film continues on the TV
             case "ERROR": fail("The TV couldn't play this video.")
             case "CANCELLED": finish(nil)
             default: break   // INTERRUPTED: a new LOAD replaced it
@@ -219,7 +276,7 @@ final class CastSession: ObservableObject {
         }
     }
 
-    private func startClock() {
+    func startClock() {
         clock?.cancel()
         clock = Task { [weak self] in
             var n = 0
@@ -229,21 +286,23 @@ final class CastSession: ObservableObject {
                 self.tick &+= 1
                 n += 1
                 self.report(force: false)
+                self.updateUpNext()
                 if n % 15 == 0, let tid = self.transportId { self.send(CastMessage.nsMedia, ["type": "GET_STATUS"], to: tid) }
             }
         }
     }
 
     private func report(force: Bool) {
-        guard reportedStart, let ps = playSession, let e = emby else { return }
+        guard !reconnecting, reportedStart, let ps = playSession, let e = emby else { return }
         let t = time
         guard force || abs(t - lastReport) >= 10 else { return }
         lastReport = t
         let paused = playerState == "PAUSED"
         Task { await e.reportProgress(ps, t, paused: paused) }
+        saveActive()
     }
 
-    private func reportStop() {
+    func reportStop() {
         guard let ps = playSession, let e = emby else { return }
         let t = time, d = duration
         playSession = nil
@@ -254,7 +313,7 @@ final class CastSession: ObservableObject {
     // MARK: Remote
 
     private func media(_ type: String, _ extra: [String: Any] = [:]) {
-        guard let tid = transportId, let ms = mediaSessionId else { return }
+        guard !reconnecting, let tid = transportId, let ms = mediaSessionId else { return }
         var b = extra
         b["type"] = type; b["mediaSessionId"] = ms
         send(CastMessage.nsMedia, b, to: tid)
@@ -278,8 +337,16 @@ final class CastSession: ObservableObject {
     }
 
     /// Audio or subtitle change: the server must make a new stream, so reload at the current position.
-    func setAudio(_ idx: Int) { reload { $0.audio = idx }; audio = idx }
+    /// Both also update the series / collection memory, as the local player does.
+    func setAudio(_ idx: Int) {
+        if let item, let k = CastContinue.memoryKey(item, collection: collection),
+           let l = CastTracks.audioMemory(idx, streams: streams) { SeriesLang.set(k, "audio", l) }
+        reload { $0.audio = idx }; audio = idx
+    }
     func setSub(_ idx: Int?) {
+        if let item, let k = CastContinue.memoryKey(item, collection: collection) {
+            SeriesLang.set(k, "sub", CastTracks.subMemory(idx, streams: streams))
+        }
         sub = idx
         reload { r in r.sub = idx; r.subIsImage = idx.map(isImageSub) ?? false }
     }
@@ -301,7 +368,7 @@ final class CastSession: ObservableObject {
 
     // MARK: End
 
-    private func fail(_ message: String) {
+    func fail(_ message: String) {
         guard phase != .idle else { return }
         DebugLog.write("cast: \(message)")
         error = message
@@ -313,13 +380,15 @@ final class CastSession: ObservableObject {
         end(report: true, quitReceiver: false)
     }
 
-    private func end(report: Bool, quitReceiver: Bool) {
+    func end(report: Bool, quitReceiver: Bool) {
         if report { reportStop() }
         if quitReceiver {
             if mediaSessionId != nil { media("STOP") }
             if let s = receiverSession { send(CastMessage.nsReceiver, ["type": "STOP", "sessionId": s]) }
         }
         clock?.cancel(); clock = nil
+        stopReconnect()
+        SavedCast.clear()
         let c = channel
         channel = nil
         // Let the STOP messages go out before closing
@@ -329,5 +398,6 @@ final class CastSession: ObservableObject {
         playerState = "IDLE"
         item = nil
         request = nil
+        collection = nil; upNext = nil; episodes = []; creditsMarker = nil
     }
 }

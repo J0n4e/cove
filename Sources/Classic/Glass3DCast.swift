@@ -33,7 +33,7 @@ struct CastDeviceList: View {
                     }
                 }
             }
-            ForEach(store.devices) { d in
+            CastDeviceRows(devices: store.devices) { d in
                 let current = cast.isCasting && cast.device?.id == d.id
                 Button { pick(d) } label: {
                     HStack(spacing: 10) {
@@ -67,6 +67,21 @@ struct CastDeviceList: View {
     }
 }
 
+/// The device rows: up to 5 shown, more scroll (the list never runs over the page).
+private struct CastDeviceRows<Row: View>: View {
+    let devices: [CastDevice]
+    @ViewBuilder let row: (CastDevice) -> Row
+    static var maxVisible: Int { 5 }
+    var body: some View {
+        if devices.count > Self.maxVisible {
+            ScrollView { VStack(spacing: 6) { ForEach(devices) { row($0) } } }
+                .frame(height: CGFloat(Self.maxVisible) * 46).classicScrollBars()
+        } else {
+            ForEach(devices) { row($0) }
+        }
+    }
+}
+
 private struct CastRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { Row(c: configuration) }
 
@@ -96,7 +111,7 @@ struct CastButton: View {
             Label("Cast", systemImage: "tv.and.mediabox").classicGlassPill(size: 44).glass3DRoundOutline()
         }
         .buttonStyle(HoverButton()).helpLabel("Cast")
-        .popover(isPresented: $open, arrowEdge: .bottom) {
+        .popover(isPresented: $open, arrowEdge: .top) {   // above the pill (owner)
             CastDeviceList { d in open = false; model.cast(to: d, emby: emby) }
                 .background(Color.black.opacity(0.35))
                 .environment(\.colorScheme, .dark)
@@ -105,12 +120,23 @@ struct CastButton: View {
 }
 
 extension DetailModel {
-    /// Casts what the Play/Resume buttons would play, with the page's track choices.
+    /// Casts what the Play/Resume buttons would play. A movie keeps the page's track choices; a series' next-up
+    /// episode and a collection (collection mode, from the film in progress) choose them as local playback does.
     func cast(to device: CastDevice, emby: Emby) {
+        if item.isBox {
+            let films = kids
+            let i = CollectionPlay.resumeIndex(films: films, position: { emby.resumeAt($0) }, played: { emby.isPlayed($0) }) ?? 0
+            guard let q = CollectionPlay.queue(collection: item, films: films, start: i), let film = q.current else { return }
+            let start = emby.resumeAt(film)
+            CastSession.shared.cast(film, to: device, emby: emby, sourceId: nil, audio: nil, sub: nil, start: start,
+                                    collection: q, pickTracks: true)
+            return
+        }
         guard let target = playTarget else { return }
         let start = resumePoint
-        if item.isSeries {   // the next episode: its own tracks are unknown here, the server picks the defaults
-            CastSession.shared.cast(target, to: device, emby: emby, sourceId: nil, audio: nil, sub: nil, start: start)
+        if item.isSeries {
+            CastSession.shared.cast(target, to: device, emby: emby, sourceId: nil, audio: nil, sub: nil, start: start,
+                                    pickTracks: true, wantedSub: UserDefaults.standard.string(forKey: "episodeSubLang"))
         } else {
             CastSession.shared.cast(target, to: device, emby: emby, sourceId: src?.Id,
                                     audio: audioIdx >= 0 ? audioIdx : nil, sub: subIdx >= 0 ? subIdx : nil, start: start)
@@ -149,7 +175,7 @@ struct CastPlayerPicker: View {
                         DebugLog.write("cast: from the player at \(Int(at)) s")
                         close()
                         CastSession.shared.cast(req.item, to: d, emby: emby, sourceId: req.sourceId,
-                                                audio: audio, sub: sub, start: at)
+                                                audio: audio, sub: sub, start: at, collection: req.collection)
                     }
                     .modifier(PanelSurface(classic: true))
                     .environment(\.colorScheme, .dark)
@@ -174,6 +200,7 @@ struct CastRemoteBar: View {
         VStack {
             Spacer()
             if cast.isCasting, let item = cast.item {
+                CastUpNextCard(cast: cast)   // Glass3DCastUpNext.swift
                 CastRemoteContent(cast: cast, item: item)
                     .padding(.horizontal, 24).padding(.bottom, 20)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -197,7 +224,9 @@ struct CastRemoteBar: View {
         }
         .frame(maxWidth: .infinity)
         .coveGlassPopIn(value: cast.isCasting)
+        .coveGlassPopIn(value: cast.upNext?.Id)
         .animation(.spring(duration: 0.35), value: cast.error)
+        .task { cast.restoreIfNeeded(emby) }   // a cast still running after a relaunch
     }
 }
 
@@ -249,6 +278,13 @@ private struct CastRemoteContent: View {
 
     var status: String {
         let name = cast.device?.name ?? "TV"
+        if cast.reconnecting { return "Reconnecting to \(name)…" }
+        if let n = cast.notice { return n }
+        let s = phaseStatus(name)
+        return cast.collection != nil ? cast.position.map { "\(s) · \($0)" } ?? s : s
+    }
+
+    func phaseStatus(_ name: String) -> String {
         switch cast.phase {
         case .connecting: return "Connecting to \(name)…"
         case .loading: return "Starting on \(name)…"

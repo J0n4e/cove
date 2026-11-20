@@ -180,6 +180,8 @@ struct CastMediaStatus: Equatable {
     var idleReason: String?      // FINISHED | CANCELLED | INTERRUPTED | ERROR
     var duration: Double?
     var volume: Double?
+    /// The loaded stream's URL (carries our PlaySessionId): tells our media from another sender's after a reconnect
+    var contentId: String? = nil
 
     /// From a MEDIA_STATUS payload; nil when it carries no session (nothing loaded).
     static func parse(_ j: [String: Any]) -> CastMediaStatus? {
@@ -190,7 +192,8 @@ struct CastMediaStatus: Equatable {
                                currentTime: (s["currentTime"] as? NSNumber)?.doubleValue ?? 0,
                                idleReason: s["idleReason"] as? String,
                                duration: (media?["duration"] as? NSNumber)?.doubleValue,
-                               volume: ((s["volume"] as? [String: Any])?["level"] as? NSNumber)?.doubleValue)
+                               volume: ((s["volume"] as? [String: Any])?["level"] as? NSNumber)?.doubleValue,
+                               contentId: media?["contentId"] as? String)
     }
 }
 
