@@ -669,7 +669,7 @@ struct ClassicDetailView: View {
                     } placeholder: { Color(white: 0.15) }
                     .frame(minWidth: 0, maxWidth: .infinity).aspectRatio(16 / 9, contentMode: .fit)
                     .clipped()
-                    .opacity(played ? 0.6 : 1)
+                    .watchedDim(played)
                     ThumbnailScrim()   // soft dark gradient behind the code and the title
                 }
                 // Episode name in the bottom-left corner of the thumbnail

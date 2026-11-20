@@ -207,7 +207,7 @@ struct PosterGrid: NSViewRepresentable {
 
         private static var currentLooks: String {
             let d = UserDefaults.standard
-            return ["posterShowTitle", "posterShowYear", "posterLabelAlign", "classicFont", "accent"]
+            return ["posterShowTitle", "posterShowYear", "posterLabelAlign", "classicFont", "accent", WatchedDim.key]
                 .map { "\(d.object(forKey: $0) ?? "")" }.joined(separator: "|")
         }
 
@@ -581,7 +581,7 @@ final class PosterGridCell: NSCollectionViewItem {
         let accent = UserDefaults.standard.string(forKey: "accent") ?? "red"
         let unwatched = item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        poster.opacity = played ? 0.6 : 1
+        poster.opacity = Float(WatchedDim.opacity(played: played))
         poster.cornerRadius = look.radius
         // The badges are always in this picture, at rest and on hover (no swap: the same pixels, zoomed)
         let key = PosterGridCell.decorKey(glass3D: look.glass3D, played: played, unwatched: unwatched, fav: fav,
