@@ -21,15 +21,15 @@ struct CastDeviceList: View {
             }
             .padding(.bottom, 4)
             if let e = store.browseError {
-                Text(e).cvFont(12).foregroundColor(Glass3DTokens.Text.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(e).cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
             } else if store.devices.isEmpty {
                 if store.searching {
-                    Text("Looking for Cast devices…").cvFont(12).foregroundColor(Glass3DTokens.Text.secondary)
+                    Text("Looking for Cast devices…").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
                 } else {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("No Cast devices found").cvFont(13, weight: .semibold)
                         Text("Make sure the TV or Chromecast is on and on the same network as this Mac.")
-                            .cvFont(11).foregroundColor(Glass3DTokens.Text.secondary).fixedSize(horizontal: false, vertical: true)
+                            .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -40,7 +40,7 @@ struct CastDeviceList: View {
                         Image(systemName: "tv").cvFont(15).frame(width: 22).foregroundColor(current ? accent : .white)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(d.name).cvFont(13, weight: .medium).lineLimit(1).foregroundColor(current ? accent : .white)
-                            Text(d.model).cvFont(11).lineLimit(1).foregroundColor(Glass3DTokens.Text.secondary)
+                            Text(d.model).cvFont(11).lineLimit(1).foregroundColor(Glass3DTokens.Grey.secondary)
                         }
                         Spacer(minLength: 8)
                         if current { Image(systemName: "checkmark").cvFont(12, weight: .semibold).foregroundColor(accent) }
@@ -217,7 +217,7 @@ private struct CastRemoteContent: View {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(title).cvFont(14, weight: .semibold).lineLimit(1)
-                        Text(status).cvFont(11).foregroundColor(Glass3DTokens.Text.secondary).lineLimit(1)
+                        Text(status).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
                     }
                     Spacer(minLength: 12)
                     controls
@@ -271,7 +271,7 @@ private struct CastRemoteContent: View {
             icon(cast.isPlaying ? "pause.fill" : "play.fill", cast.isPlaying ? "Pause" : "Play", size: 18) { cast.togglePlay() }
             icon("goforward.10", "Forward 10 seconds") { cast.skip(10) }
             Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").cvFont(12)
-                .foregroundColor(Glass3DTokens.Text.secondary).padding(.leading, 6)
+                .foregroundColor(Glass3DTokens.Grey.secondary).padding(.leading, 6)
             GlassSlider(value: $volume, range: 0...1) { editing in if !editing { cast.setVolume(volume) } }
                 .frame(width: 80)
                 .helpLabel("TV volume")
