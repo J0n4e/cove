@@ -12,10 +12,41 @@ final class HomeModel: ObservableObject {
 
     private weak var emby: Emby?
     private let loader: (() async -> [Row])?
+    /// Settings → Home → Banner shows: the banner's own titles (nil = use the rows). Tests stub both closures.
+    private let heroLoader: ((BannerSource) async -> [Item]?)?
+    private let sourceProvider: () -> BannerSource
+    @Published private(set) var heroSource: BannerSource
+    @Published private(set) var heroFetched: [Item]?
+    private let defaultsObserver = ObserverToken()
 
-    init(prefetchRows: Bool, load: (() async -> [Row])? = nil) {
+    init(prefetchRows: Bool, load: (() async -> [Row])? = nil,
+         heroLoad: ((BannerSource) async -> [Item]?)? = nil, source: (() -> BannerSource)? = nil) {
         self.prefetchRows = prefetchRows
         self.loader = load
+        self.heroLoader = heroLoad
+        let provider = source ?? { BannerSource.current }
+        self.sourceProvider = provider
+        self.heroSource = provider()
+        // Changing the setting reloads the banner at once (Settings is another window)
+        defaultsObserver.token = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil,
+                                                                  queue: .main) { [weak self] _ in
+            Task { @MainActor in await self?.sourceChanged() }
+        }
+    }
+
+    /// Re-reads the setting; a new value fetches that source's titles (the rows stay as they are).
+    func sourceChanged() async {
+        let s = sourceProvider()
+        guard s != heroSource else { return }
+        heroSource = s; heroFetched = nil
+        let fetched = await fetchHero(s)
+        if heroSource == s { heroFetched = fetched }
+    }
+
+    private func fetchHero(_ s: BannerSource) async -> [Item]? {
+        guard s != .rows else { return nil }
+        if let heroLoader { return await heroLoader(s) }
+        return await emby?.bannerItems(s)
     }
 
     func bind(_ emby: Emby) { self.emby = emby }
@@ -38,11 +69,17 @@ final class HomeModel: ObservableObject {
     func load(session: String? = nil) async {
         // Another server or user: drop the old server's rows at once (spinner) instead of showing them meanwhile
         if let session, loadedSession != nil, session != loadedSession { rows = []; loading = true }
+        if let session, loadedSession != nil, session != loadedSession { heroFetched = nil }
+        let src = sourceProvider()
+        // The banner's own titles load alongside the rows (a new random pick on every Home load)
+        async let hero = fetchHero(src)
         let new: [Row]
         if let loader { new = await loader() } else if let emby { new = await emby.loadHome() } else { new = [] }
+        let fetched = await hero
         // A load overtaken by a newer one (key changed: server switch, reload) must not overwrite its rows
         guard !Task.isCancelled else { return }
         rows = new
+        heroSource = src; heroFetched = fetched
         if let session { loadedSession = session }
         loading = false
         guard prefetchRows, let emby else { return }
@@ -61,7 +98,7 @@ final class HomeModel: ObservableObject {
         ImageCache.shared.prefetch(urls)
     }
 
-    var heroItems: [Item] { Self.heroItems(rows.map(\.items)) }
+    var heroItems: [Item] { BannerSource.resolve(heroSource, rows: rows.map(\.items), fetched: heroFetched) }
 
     /// The banner: up to two items with a backdrop from each row, one per title, eight at most.
     static func heroItems(_ rows: [[Item]]) -> [Item] {
@@ -74,4 +111,10 @@ final class HomeModel: ObservableObject {
         }
         return Array(out.prefix(8))
     }
+}
+
+/// Removes a NotificationCenter observer when its owner goes away.
+final class ObserverToken {
+    var token: NSObjectProtocol?
+    deinit { if let token { NotificationCenter.default.removeObserver(token) } }
 }
