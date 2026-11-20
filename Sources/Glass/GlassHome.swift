@@ -41,6 +41,9 @@ struct HomeContent: View {
             VStack(alignment: .leading, spacing: 30) {
                 if !hero.isEmpty {
                     Hero(items: hero, pageH: pageH)
+                        // A banner refresh swaps in the new set with a crossfade, starting at slide 1
+                        .id(model.heroGeneration).transition(.opacity)
+                        .animation(.easeInOut(duration: 0.8), value: model.heroGeneration)
                         // The server pill over the banner's top left, below the title bar and the traffic lights
                         .overlay(alignment: .topLeading) {
                             ServerPillMenu(classic: false).padding(.top, topInset + 12).padding(.leading, 52)
@@ -198,7 +201,8 @@ struct Hero: View {
         .onChange(of: nav.bannerNudge) { _, n in if let n { step(n.dir) } }   // ← → keys
         .clipped()
         .background(GeometryReader { g in
-            Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
+            Color.clear.onAppear { width = g.size.width; HomeModel.bannerImageWidth = min(Int(g.size.width * 2), 2560) }
+                .onChange(of: g.size.width) { _, w in width = w; HomeModel.bannerImageWidth = min(Int(w * 2), 2560) }
         })
         .foregroundColor(.white)
         // Turns to the next banner every 9 s, but not while the pointer is on it (you may be reading or about
