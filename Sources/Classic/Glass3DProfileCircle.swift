@@ -36,10 +36,10 @@ struct Glass3DProfileCircle: View {
     var body: some View {
         if emby.loggedIn {
             Button { profile.menuOpen.toggle() } label: {
-                ProfileAvatar(size: 30)
+                ProfileAvatar(size: 44)   // as big as the 44-pt glass pills of the top bar (owner)
                     .frame(width: 44, height: 44).contentShape(Circle())
             }
-            .buttonStyle(HoverButton())   // as the search button next to it
+            .buttonStyle(HoverButton())
             .focusEffectDisabled()
             .tip(ProfileInitials.tooltip(user: profile.name.isEmpty ? (emby.currentServer?.user ?? "") : profile.name,
                                          server: emby.currentServerName))

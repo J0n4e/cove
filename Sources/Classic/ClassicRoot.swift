@@ -460,12 +460,7 @@ struct ClassicTopNavTools: View {
     @ObservedObject private var nav = ClassicNavState.shared
     var body: some View {
         HStack(spacing: 8) {
-            // The search box itself floats at the bottom of the window (SearchDock)
-            // Same 44-pt glass as Back, the sections and the Play button; Settings is in the Cove menu (⌘,)
-            Button { nav.searchOpen.toggle(); if !nav.searchOpen { nav.query = "" } } label: {
-                Image(systemName: "magnifyingglass").cvFont(14, weight: .semibold)
-                    .frame(width: 44, height: 44).classicGlassPill().contentShape(Capsule())
-            }.buttonStyle(HoverButton()).accessibilityLabel("Search")
+            // No search button (owner): the S key opens the search pill at the bottom of the window (SearchDock)
             Glass3DProfileCircle()   // far right: the profile menu (Glass3DProfile*.swift)
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
