@@ -98,7 +98,7 @@ final class PlayerUIModel: ObservableObject {
             try? await Task.sleep(for: .seconds(Self.hideDelay))
             guard let self, !Task.isCancelled else { return }
             switch Self.hideDecision(playing: self.player.playing, panelOpen: self.panel != nil,
-                                     listOpen: self.style == .classic && self.listOpen()) {
+                                     listOpen: self.style == .classic && (self.listOpen() || CastPickerState.shared.open)) {
             case .waitAgain: self.poke()
             case .keep: break
             case .hide:

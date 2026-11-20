@@ -11,15 +11,20 @@ struct Glass3DAirPlayButton: View {
     let help: String
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
+    /// Clicked: the system's AirPlay menu is open, so no tooltip until the pointer leaves the button.
+    @State private var clicked = false
 
     var body: some View {
-        RoutePicker(player: player, accent: NSColor(Theme.accent(accentName)), help: help)
+        RoutePicker(player: player, accent: NSColor(Theme.accent(accentName)), help: clicked ? "" : help) { clicked = true }
             .frame(width: 24, height: 24)
             .frame(width: 42, height: 38)
             .background(Capsule().fill(Color.white.opacity(hover ? 0.14 : 0)).padding(.vertical, 2).allowsHitTesting(false))
             .contentShape(Rectangle())
-            .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
-            .helpLabel(help)
+            .onHover { h in
+                withAnimation(Glass3DTokens.Motion.fast) { hover = h }
+                if !h { clicked = false }
+            }
+            .helpLabel(clicked ? "" : help)
     }
 }
 
@@ -27,17 +32,41 @@ private struct RoutePicker: NSViewRepresentable {
     let player: AVPlayer?
     let accent: NSColor
     let help: String
+    let onClick: () -> Void
+
+    final class Coordinator {
+        var monitor: Any?
+        weak var view: NSView?
+        var onClick: () -> Void = {}
+    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> AVRoutePickerView {
         let v = AVRoutePickerView()
         v.isRoutePickerButtonBordered = false
         v.toolTip = help
         style(v)
+        let c = context.coordinator
+        c.view = v
+        c.onClick = onClick
+        // A click opens the system menu: note it (the button's tooltip would show through the menu)
+        c.monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak c] e in
+            if let c, let v = c.view, e.window === v.window, v.bounds.contains(v.convert(e.locationInWindow, from: nil)) {
+                c.onClick()
+            }
+            return e
+        }
         return v
     }
 
     func updateNSView(_ v: AVRoutePickerView, context: Context) {
+        context.coordinator.onClick = onClick
+        v.toolTip = help.isEmpty ? nil : help
         style(v)
+    }
+
+    static func dismantleNSView(_ v: AVRoutePickerView, coordinator: Coordinator) {
+        if let m = coordinator.monitor { NSEvent.removeMonitor(m); coordinator.monitor = nil }
     }
 
     private func style(_ v: AVRoutePickerView) {
