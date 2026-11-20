@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// Settings → Playback "Play on a TV with" (owner): only the chosen TV button shows on the Glass3D
 /// detail page and in the player bar. Cast is the default.
@@ -35,5 +36,30 @@ enum PlayerBarItems {
     }
     static func items(tvTarget: String, casting: Bool = false, airPlayActive: Bool = false) -> [String] {
         ids(Glass3DBarItem.order, tvTarget: tvTarget, casting: casting, airPlayActive: airPlayActive)
+    }
+}
+
+/// Live "is a TV session running" state Settings reads to lock the TV choice.
+final class TvRouteState: ObservableObject {
+    static let shared = TvRouteState()
+    /// The player's isExternalPlaybackActive (set from AirPlaySleep.set, which follows it).
+    @Published private(set) var airPlayActive = false
+
+    static func setAirPlay(_ on: Bool) {
+        if Thread.isMainThread { if shared.airPlayActive != on { shared.airPlayActive = on } }
+        else { DispatchQueue.main.async { setAirPlay(on) } }
+    }
+}
+
+extension TvTarget {
+    /// Why the choice is locked (nil = free to change). A running session must be stopped first.
+    static func lockReason(casting: Bool, airPlayActive: Bool) -> String? {
+        if casting { return "Stop casting to change this" }
+        if airPlayActive { return "Stop AirPlay to change this" }
+        return nil
+    }
+    /// The value to store for a change request: ignored (old value kept) while a session is active.
+    static func apply(_ new: String, current: String, casting: Bool, airPlayActive: Bool) -> String {
+        lockReason(casting: casting, airPlayActive: airPlayActive) == nil ? normalized(new) : normalized(current)
     }
 }

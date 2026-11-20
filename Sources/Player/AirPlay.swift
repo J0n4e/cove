@@ -124,6 +124,7 @@ enum AirPlaySleep {
     private(set) static var held = false
 
     static func set(_ on: Bool) {
+        TvRouteState.setAirPlay(on)   // Settings locks the TV choice while AirPlay runs (TvTarget.swift)
         if on == held { return }
         if on {
             var a: IOPMAssertionID = 0

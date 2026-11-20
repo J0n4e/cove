@@ -44,4 +44,13 @@ final class TvTargetTests: XCTestCase {
                        ["play", "resume", "watchTogether", "airplay", "trailer", "watched", "favorite", "rating"])
         XCTAssertTrue(DetailRowOrder.order(tvTarget: "airplay", casting: true).contains("cast"))
     }
+
+    func testLockDecision() {
+        XCTAssertNil(TvTarget.lockReason(casting: false, airPlayActive: false))
+        XCTAssertEqual(TvTarget.lockReason(casting: true, airPlayActive: false), "Stop casting to change this")
+        XCTAssertEqual(TvTarget.lockReason(casting: false, airPlayActive: true), "Stop AirPlay to change this")
+        XCTAssertEqual(TvTarget.apply("airplay", current: "cast", casting: false, airPlayActive: false), "airplay")
+        XCTAssertEqual(TvTarget.apply("airplay", current: "cast", casting: true, airPlayActive: false), "cast")
+        XCTAssertEqual(TvTarget.apply("cast", current: "airplay", casting: false, airPlayActive: true), "airplay")
+    }
 }
