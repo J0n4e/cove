@@ -27,6 +27,7 @@ struct ClassicLoginView: View {
             .frame(width: showForm ? 340 : 520).padding(36)
             .modifier(PanelSurface(classic: true))   // dark glass, as the player panels
         }
+        .onAppear { if let p = ProfileJump.shared.takePrefill() { server = p.url; serverLabel = p.name; user = ""; pw = ""; error = ""; adding = true } }
     }
 
     var serverList: some View {

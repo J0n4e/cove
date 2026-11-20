@@ -19,19 +19,10 @@ struct ClassicHomeContent: View {
 
     var body: some View {
         let hero = model.heroItems
-        let underBar = !hero.isEmpty && bannerStyle != "card"
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 if !hero.isEmpty {
-                    ClassicHero(items: hero, pageH: pageH)
-                        // The server pill over the banner's top left, below the top bar and the traffic lights
-                        .overlay(alignment: .topLeading) {
-                            ServerPillMenu(classic: true)
-                                .padding(.top, (underBar ? topInset : 0) + 12)
-                                .padding(.leading, bannerStyle == "card" ? 44 : 32)
-                        }
-                } else {
-                    ServerPillMenu(classic: true).padding(.leading, 32).padding(.top, 12)
+                    ClassicHero(items: hero, pageH: pageH)   // the server is in the top bar's profile menu now
                 }
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
