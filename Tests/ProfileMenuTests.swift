@@ -48,7 +48,7 @@ final class ProfileMenuTests: XCTestCase {
 
     func testUsersAndShortcutsAndUnread() {
         XCTAssertEqual(ProfileMenuSpec.rows(.users, input(admin: true)), [.switchUser, .otherUser(key: "http://a:8096|u2", name: "Kid")])
-        XCTAssertEqual(ProfileMenuSpec.rows(.shortcuts, input(admin: false, unread: 3)), [.myActivity, .favorites, .notifications(unread: 3)])
+        XCTAssertEqual(ProfileMenuSpec.rows(.shortcuts, input(admin: false, unread: 3)), [.search, .myActivity, .favorites, .notifications(unread: 3)])
         XCTAssertEqual(ProfileMenuSpec.title(.notifications(unread: 3)), "Notifications (3)")
         XCTAssertEqual(ProfileMenuSpec.title(.notifications(unread: 0)), "Notifications")
         XCTAssertEqual(ProfileMenuSpec.rows(.app, input(admin: nil)), [.settings, .checkUpdates, .about])

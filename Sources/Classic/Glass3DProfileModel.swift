@@ -34,7 +34,7 @@ enum ProfileRow: Equatable, Identifiable {
     case addServer
     case switchUser
     case otherUser(key: String, name: String)
-    case myActivity, favorites
+    case search, myActivity, favorites
     case notifications(unread: Int)
     case settings, checkUpdates, about
     case signOut
@@ -82,7 +82,7 @@ enum ProfileMenuSpec {
             return i.servers.map { .server(id: $0.id, name: $0.name, current: $0.id == i.currentServer.lowercased(), online: i.online[$0.id]) }
                 + [.addServer]
         case .users: return [.switchUser] + i.otherUsers.map { .otherUser(key: $0.key, name: $0.name) }
-        case .shortcuts: return [.myActivity, .favorites, .notifications(unread: i.unread)]
+        case .shortcuts: return [.search, .myActivity, .favorites, .notifications(unread: i.unread)]
         case .app: return [.settings, .checkUpdates, .about]
         case .signOut: return [.signOut]
         }
@@ -101,6 +101,7 @@ enum ProfileMenuSpec {
         case .addServer: return "Add server…"
         case .switchUser: return "Switch user…"
         case .otherUser(_, let name): return name
+        case .search: return "Search"
         case .myActivity: return "My activity"
         case .favorites: return "Favorites"
         case .notifications(let n): return n > 0 ? "Notifications (\(n))" : "Notifications"
