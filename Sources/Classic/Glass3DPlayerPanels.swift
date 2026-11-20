@@ -456,6 +456,7 @@ struct Glass3DControlBar: View {
                     Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1, height: 20).allowsHitTesting(false)
                 }
                 if it.id == "airplay" { Glass3DAirPlayButton(player: it.routePlayer, help: it.help) }
+                else if it.id == "cast" { Glass3DCastBarButton { open in Glass3DBarButton(item: it, poke: poke, hideTip: open) } }
                 else { Glass3DBarButton(item: it, poke: poke) }
             }
         }
@@ -488,6 +489,8 @@ private struct Glass3DBarSurface: ViewModifier {
 private struct Glass3DBarButton: View {
     let item: Glass3DBarItem
     let poke: () -> Void
+    /// The Cast menu is open above it: its tooltip would show through the menu
+    var hideTip = false
     @AppStorage("accent") private var accentName = "red"
     @Environment(\.dropdownCenter) private var center
     @State private var hover = false
@@ -514,7 +517,7 @@ private struct Glass3DBarButton: View {
         }
         .buttonStyle(.plainHand)
         .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
-        .helpLabel(item.help)
+        .helpLabel(hideTip ? "" : item.help)
         .background(GeometryReader { g in
             Color.clear
                 .onAppear { frame = g.frame(in: .named("dropdownLayer")) }
