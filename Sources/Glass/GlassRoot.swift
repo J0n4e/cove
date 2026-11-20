@@ -15,6 +15,8 @@ enum SearchKey {
                   !(w.firstResponder is NSText), !isPlaying() else { return ev }
             let mods = ev.modifierFlags.intersection([.command, .control, .option, .shift])
             if ev.keyCode == 123 && mods == .command { back(); return nil }   // ⌘←
+            // ⌘F: the Mac's usual Find shortcut opens search (S still works too)
+            if mods == .command, ev.charactersIgnoringModifiers?.lowercased() == "f" { focus(); return nil }
             if mods.isEmpty && (ev.keyCode == 123 || ev.keyCode == 124) {         // ← →, only on Home
                 return banner(ev.keyCode == 123 ? -1 : 1) ? nil : ev
             }
