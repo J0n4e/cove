@@ -181,14 +181,11 @@ extension View {
     func classicScrollBars() -> some View { modifier(ClassicScrollBars()) }
 }
 
-/// Only inside Glass3D (the player views are shared with the Glass theme, which keeps its look).
+/// Thin overlay scroll bars on pages that scroll vertically.
 struct ClassicScrollBars: ViewModifier {
-    @Environment(\.classicGlass) private var classic
-    @ViewBuilder func body(content: Content) -> some View {
-        if classic {
-            content.scrollIndicators(.automatic, axes: .vertical)
-                .background(ClassicOverlayScrollers().allowsHitTesting(false))
-        } else { content }
+    func body(content: Content) -> some View {
+        content.scrollIndicators(.automatic, axes: .vertical)
+            .background(ClassicOverlayScrollers().allowsHitTesting(false))
     }
 }
 

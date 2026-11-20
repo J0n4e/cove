@@ -4,7 +4,7 @@ import XCTest
 final class ReportIssueTests: XCTestCase {
     private func info(server: String? = "Jellyfin") -> ReportIssue.Info {
         .init(version: "1.18.12 (412)", server: server, serverVersion: "10.10.3", macOS: "27.3 (26C5047e)",
-              theme: "Glass3D", environment: "Mac14,2 · Text size: Default · Debug log: on")
+              environment: "Mac14,2 · Text size: Default · Debug log: on")
     }
 
     func testURLFieldsAndEncoding() {
@@ -14,7 +14,7 @@ final class ReportIssueTests: XCTestCase {
         XCTAssertTrue(u.contains("&server=Jellyfin&"))
         XCTAssertTrue(u.contains("&server-version=10.10.3&"))
         XCTAssertTrue(u.contains("&macos=27.3%20%2826C5047e%29&"))
-        XCTAssertTrue(u.contains("&theme=Glass3D&"))
+        XCTAssertFalse(u.contains("theme="), "one look: no theme field any more")
         XCTAssertTrue(u.contains("&environment=Mac14%2C2%20%C2%B7%20Text%20size%3A%20Default%20%C2%B7%20Debug%20log%3A%20on"))
         let c = URLComponents(string: u)!
         let q = Dictionary(uniqueKeysWithValues: c.queryItems!.map { ($0.name, $0.value ?? "") })
@@ -33,11 +33,6 @@ final class ReportIssueTests: XCTestCase {
         let u = ReportIssue.url(i).absoluteString
         XCTAssertFalse(u.contains("server="))
         XCTAssertFalse(u.contains("server-version="))
-    }
-
-    func testThemeNamesMatchTemplate() {
-        XCTAssertEqual(ReportIssue.themeName("classic"), "Glass3D")
-        XCTAssertEqual(ReportIssue.themeName("apple"), "Glass")
     }
 
     func testShortMacOS() {

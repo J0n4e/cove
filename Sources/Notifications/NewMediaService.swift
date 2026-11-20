@@ -303,11 +303,10 @@ final class NewMediaService: ObservableObject {
 
     // MARK: In-app list
 
-    /// Cove in front (active, a main window key), a video playing, the Glass3D theme.
+    /// Cove in front (active, a main window key), a video playing.
     static func currentPresentation() -> NotificationPresentation {
         let front = NSApp.isActive && (NSApp.keyWindow?.isMainWindow ?? false) && !NSApp.isHidden
-        return NotificationPresentation.decide(frontmost: front, playing: PlaybackFlag.shared.active,
-                                               glass3D: UserDefaults.standard.string(forKey: "theme") == "classic")
+        return NotificationPresentation.decide(frontmost: front, playing: PlaybackFlag.shared.active)
     }
 
     /// A card's Open (or a click on it): the same as a banner click; marks it read.
@@ -348,11 +347,7 @@ final class NewMediaService: ObservableObject {
                 emby.openRequest = show
             } else if let it = await emby.itemRecord(id) { emby.openPage(it) }
         case .library(let id):
-            if UserDefaults.standard.string(forKey: "theme") ?? "apple" == "apple" {
-                NavState.shared.popToRoot(); NavState.shared.sel = id
-            } else {
-                ClassicNavState.shared.popToRoot(); ClassicNavState.shared.sel = id
-            }
+            ClassicNavState.shared.popToRoot(); ClassicNavState.shared.sel = id
         case .test: break
         }
     }

@@ -25,13 +25,13 @@ After that, Cove keeps itself up to date. It checks for new releases at launch a
 ## Logs and bug reports
 
 - Something wrong with playback? Turn on **Settings → Playback → Debug log**, reproduce it, and find the log at `~/Library/Logs/Cove.log` (kept under about 1 MB). Leave it off otherwise.
-- **Help → Report an Issue…** opens a prefilled GitHub bug report (Cove and macOS versions, server type, theme). You can attach a cleaned copy of the debug log: tokens, user and device ids, IP addresses and server hosts are removed before you see it.
+- **Help → Report an Issue…** opens a prefilled GitHub bug report (Cove and macOS versions, server type). You can attach a cleaned copy of the debug log: tokens, user and device ids, IP addresses and server hosts are removed before you see it.
 - Or report a bug with the [bug report form](https://github.com/J0n4e/cove/issues/new/choose): it asks for your Cove and macOS versions, server type and steps. Security problems go privately, see [SECURITY.md](SECURITY.md).
 
 ## Features
 
 ### What's new in 1.17 and 1.18
-- **Themes:** Settings → General → **Theme** has **Glass** (default) and **Glass3D** (the original Cove layout with a 3D glass look). On macOS 26+ both use Liquid Glass.
+- **One look:** Cove has a single look, the original Cove layout with 3D glass buttons, cards and lists (Liquid Glass on macOS 26+). The Glass theme was retired; anyone who used it lands on this look with a one-time note.
 - **Glass:** **Follow macOS**, or a slider from **Clear** to **Tinted**.
 - **Hover effects** for posters and cards: **Fogged mirror**, **Soft glow** or **Liquid lens**.
 - **Fonts:** SF Pro (default), SF Rounded, SF Pro Expanded, Avenir Next, Futura, New York or Seravek, with a live preview, plus **Text size**.
@@ -41,7 +41,7 @@ After that, Cove keeps itself up to date. It checks for new releases at launch a
 - **Activity** (was Now Playing): tabs **Now Playing · Overview · History · Users**, see [Activity](#activity) below.
 - **Play collection** on collection pages, with Up next at the credits, see [Play collection](#play-collection).
 - **Better playback (1.18.12–1.18.13):** MKV files stream with picture and sound copied (Direct stream), surround sound passes through, **Original** quality has no caps, and resume keeps the picture copied when no Cove-drawn subtitle is on.
-- **Player (Glass3D):** one control bar: Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed · Watch together · Info · Picture in Picture · Full screen.
+- **Player:** one control bar: Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed · Watch together · Info · Picture in Picture · Full screen.
 - **Glass windows:** Settings and About are see-through glass windows with the desktop blurred behind (dark translucent with Reduce Transparency on).
 - **Banner navigation** (Settings → Home): **Cards** or **Bullets** (clickable dots).
 - **Report an Issue** (Help menu): a prefilled GitHub report with an optional cleaned debug log.
@@ -62,20 +62,6 @@ After that, Cove keeps itself up to date. It checks for new releases at launch a
 - **Add Server** has an optional **Name** field, and saved servers can be renamed in Settings → Servers (click the name). Each server shows whether it is Emby or Jellyfin.
 - **Settings → Libraries → Home → Up Next row** turns the Up Next row on or off.
 - On Jellyfin, automatic intro skipping and progress-bar thumbnails are not available yet.
-
-### Themes (v1.12)
-Settings → General → **Theme**:
-- **Glass** (default): full-width banners, frosted glass buttons and bars, Up Next and Recently Added, the new Settings window, media keys and an optional separate player window (details below).
-- **Glass3D**: the original Cove layout (called Classic before 1.17) with a 3D glass look.
-
-Switching is instant and swaps the whole app, including the Dock icon.
-
-### Glass theme
-- **Home:** a full-width banner with the title's logo, "TV Show · Comedy · 2011", a short summary, a white **Play** pill and round glass **+** (favorite) and **i** (more info) buttons. Page dots sit at the bottom and arrows appear on hover.
-- **Continue Watching:** wide rounded cards with the title, episode and a "▶ ━ 42m" line.
-- **Show and movie pages:** a full-width backdrop with the logo, genres, rating, a two-line summary with **MORE**, year, length and 4K/HD/CC badges, the Play pill and glass buttons, and "Starring … / Director …" on the right.
-- **Episodes:** a **Season ⌃⌄** menu and a row of large episode cards ("EPISODE 1", title, summary, "▶ 59m"). Row, grid or list can be chosen next to the heading or in Settings.
-- **Player:** big glass back / play-pause / forward circles in the middle; glass groups for picture in picture, full screen and info (top left), volume (top right), and episodes, subtitles, quality, chapters and options (bottom right). The episode and show names sit bottom-left, above a glass scrubber.
 
 ### Browsing
 - **Fast pictures:** posters and banners are saved on your Mac (up to 500 MB, Settings → About shows the size and can clear it), so pictures seen before appear instantly. Cove asks for lighter pictures, loads the next banners and the first posters of each row ahead, shows blurred previews while loading on Jellyfin, and downloads what is on screen first.
@@ -129,15 +115,15 @@ Overview, History and Users need the **Playback Reporting** plugin on the Emby o
   - audio and subtitle choices are remembered per series
 - **Skip intros automatically** using Emby's intro markers. You can turn this off to get a Skip Intro button instead.
 - **Up next card** in the last 30 seconds of an episode, showing when the next one starts. Space or Return plays it now; the next episode starts without bringing up the controls.
-- **Glass3D control bar**, in this order: Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed · Watch together · Info · Picture in Picture · Full screen.
+- **Control bar**, in this order: Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed · Watch together · Info · Picture in Picture · Full screen.
 - **Thumbnail previews** when hovering or dragging the progress bar (uses Emby's generated thumbnails).
 - **Episode picker** (E) in the player: browse seasons and jump to another episode.
 - **Chapters** panel (C), **picture in picture** (P) and a **playback info** overlay (I) that shows the playback method from the first second, codecs, bitrate and, only when something is converted, why.
-- Video-only full screen (F). Esc leaves full screen without stopping the video. In full screen the pointer hides. The screen saver and display sleep are blocked while a video plays.
+- Video-only full screen (F). Outside the player, F (or ⌃⌘F) puts the main window in full screen and Esc leaves it. In the player, Esc leaves full screen without stopping the video. In full screen the pointer hides. The screen saver and display sleep are blocked while a video plays.
 - Keyboard: Space play/pause (or play the next episode when the Up next card shows), ← → skip, F full screen, E episodes, C chapters, I info, P picture in picture, Esc back.
 
 ### Settings (⌘,)
-Settings and About are glass windows. General (theme, Glass, hover effect, font and text size, accent color, background, navigation style), Home (rows, **Banner navigation** Cards or Bullets, and **Notifications** per library), Libraries (**Poster labels**, hover preview, episode layout and description, library list), Subtitles, Playback (live connection to the server, Watch together, and an optional player debug log, off by default), Servers (saved servers and **Sign Out**, which also ends the session on the server), and About (version, update controls, Storage for the picture and subtitle caches, **Save and load settings** to a file, and **Reset all settings to default**).
+Settings and About are glass windows. General (Glass, hover effect, font and text size, accent color, background, navigation style), Home (rows, **Banner navigation** Cards or Bullets, and **Notifications** per library), Libraries (**Poster labels**, hover preview, episode layout and description, library list), Subtitles, Playback (live connection to the server, Watch together, and an optional player debug log, off by default), Servers (saved servers and **Sign Out**, which also ends the session on the server), and About (version, update controls, Storage for the picture and subtitle caches, **Save and load settings** to a file, and **Reset all settings to default**).
 
 ### Performance
 - Smoother scrolling in large libraries (posters don't redraw when the next page loads), blurred previews stay, memory use levels off, and Cove does less work while hidden.

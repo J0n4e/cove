@@ -7,8 +7,11 @@ import AVKit
 // MARK: - Theme
 
 private struct BGKey: EnvironmentKey { static let defaultValue = Color.black }
+
 private struct InFavoritesKey: EnvironmentKey { static let defaultValue = false }
+
 private struct NoBackKey: EnvironmentKey { static let defaultValue = false }
+
 extension EnvironmentValues {
     /// True on the Favorites pages, where posters leave out their heart badge
     /// A page opened from search results: it stands on its own, with no Back button
@@ -56,6 +59,7 @@ struct GlassCapsule: ViewModifier {
             .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1))
     }
 }
+
 extension View { func glassCapsule() -> some View { modifier(GlassCapsule()) } }
 
 /// Toolbar button in Apple TV glass; `active` (a filter in use) gets a lighter fill.
@@ -90,8 +94,6 @@ func runtimeText(_ t: Int64) -> String {
     return m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m"
 }
 
-/// Top of an actor's page (both themes): a dimmed backdrop from one of their titles, a large portrait,
-/// and the name, birth facts, title counts and biography beside it, sized to fill the width.
 /// A photo's edge (person page, Now Playing): the glass card frame in Glass3D, a faint outline otherwise.
 struct PersonPhotoFrame: ViewModifier {
     let classic: Bool
@@ -100,15 +102,6 @@ struct PersonPhotoFrame: ViewModifier {
         if classic { content.modifier(ClassicLightCard(radius: radius)) }   // the posters' light glass edge
         else if radius == 14 { content.overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.15))) }
         else { content }
-    }
-}
-
-extension View {
-    /// Black outline around text (four hairline shadows plus a soft one) so it reads on any picture.
-    func blackOutline(_ w: CGFloat = 1) -> some View {
-        self.shadow(color: .black, radius: 0, x: w, y: 0).shadow(color: .black, radius: 0, x: -w, y: 0)
-            .shadow(color: .black, radius: 0, x: 0, y: w).shadow(color: .black, radius: 0, x: 0, y: -w)
-            .shadow(color: .black.opacity(0.7), radius: 4)
     }
 }
 
@@ -146,88 +139,6 @@ struct Backdrop: View {
     }
 }
 
-struct PosterCard: View {
-    @EnvironmentObject var emby: Emby
-    @Environment(\.inFavorites) private var inFavorites
-    let item: Item
-    @State private var hover = false
-    // Settings → Libraries → Poster labels
-    @AppStorage("posterShowTitle") private var showTitle = true
-    @AppStorage("posterShowYear") private var showYear = true
-    @AppStorage("posterLabelAlign") private var labelAlign = "center"
-    var centered: Bool { labelAlign == "center" }
-    var body: some View {
-        let played = emby.isPlayed(item)
-        NavigationLink(value: item) {
-            VStack(alignment: .leading, spacing: 6) {
-                ZStack(alignment: .topTrailing) {
-                    CachedImage(url: emby.image(item.posterId, width: 360)) { p in
-                        p.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        ZStack { Color(white: 0.15); Text(item.Name).coveFont(size: 10).padding(6) }
-                    }
-                    .frame(width: 170, height: 255).clipped()
-                    .watchedDim(played)
-                    WatchBadge(item: item, played: played).padding(8)
-                }
-                .overlay(alignment: .topLeading) {
-                    // Favorite heart, then your Trakt rating
-                    HStack(spacing: 6) {
-                        if emby.isFav(item) && !inFavorites {
-                            FavHeart(size: 22)   // as big as the rating star beside it
-                        }
-                        MyRatingBadge(item: item)
-                    }.padding(8)
-                }
-                .overlay(alignment: .bottom) {
-                    if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {
-                        ProgressView(value: pct / 100).padding(.horizontal, 8).padding(.bottom, 8)
-                    }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if hover { ItemActionsButton(item: item).padding(8) }   // shows while the pointer is on the poster
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .thinBorder(12)
-                .modifier(HoverLift(hover: hover))
-                if showTitle || showYear {
-                    VStack(alignment: centered ? .center : .leading, spacing: 2) {
-                        if showTitle { Text(item.Name).coveFont(size: 12, weight: .semibold).lineLimit(1) }
-                        if showYear { Text(item.yearText).coveFont(size: 10).foregroundColor(.secondary) }
-                    }
-                    .multilineTextAlignment(centered ? .center : .leading)
-                    .frame(width: 170, alignment: centered ? .center : .leading)
-                }
-            }
-            .frame(width: 170, alignment: .leading)
-            .contentShape(Rectangle())
-            .scrollHover($hover)   // not while scrolling past
-            .zIndex(hover ? 1 : 0)
-        }.buttonStyle(.plainHand)
-    }
-}
-
-/// Shows the Watched / Favorite buttons in a corner while the pointer is on the view (episode cards and rows).
-struct HoverItemActions: ViewModifier {
-    let item: Item?     // nil: no buttons (a season the server didn't list)
-    var children: [Item] = []
-    let alignment: Alignment
-    var padding = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
-    @State private var hover = false
-    func body(content: Content) -> some View {
-        content
-            .overlay(alignment: alignment) { if hover, let item { ItemActionsButton(item: item, children: children).padding(padding) } }
-            .scrollHover($hover)   // after the overlay, so moving onto the buttons keeps them shown
-    }
-}
-extension View {
-    func hoverItemActions(_ item: Item?, _ alignment: Alignment = .topTrailing,
-                          _ padding: EdgeInsets = EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8),
-                          children: [Item] = []) -> some View {
-        modifier(HoverItemActions(item: item, children: children, alignment: alignment, padding: padding))
-    }
-}
-
 /// The search box's glass look (dark tint over blur, thin light edge, soft shadow), shared by the
 /// confirmation pill and the player's Skip Intro / Up next cards.
 struct GlassBackground<S: InsettableShape>: ViewModifier {
@@ -246,6 +157,7 @@ struct GlassBackground<S: InsettableShape>: ViewModifier {
             .shadow(color: .black.opacity(0.45), radius: 14, y: 5)
     }
 }
+
 extension View {
     func searchGlass() -> some View { modifier(GlassBackground(shape: Capsule())) }
     func glassPanel(_ radius: CGFloat = 16) -> some View {
@@ -403,37 +315,6 @@ extension View {
     }
 }
 
-/// One row in the library list view: poster, title, year, overview and watched badge.
-struct ListRow: View {
-    @EnvironmentObject var emby: Emby
-    let item: Item
-    @State private var hover = false
-    var body: some View {
-        let played = emby.isPlayed(item)
-        NavigationLink(value: item) {
-            HStack(alignment: .top, spacing: 16) {
-                CachedImage(url: emby.image(item.posterId, width: 160)) { p in
-                    p.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: { Color(white: 0.15) }
-                .frame(width: 60, height: 90).clipped().cornerRadius(4)
-                .watchedDim(played)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.Name).coveFont(size: 13, weight: .bold).lineLimit(1)
-                    if let y = item.ProductionYear { Text(String(y)).coveFont(size: 11).foregroundColor(.secondary) }
-                    Text(item.Overview ?? "").coveFont(size: 10).foregroundColor(.secondary).lineLimit(2)
-                }
-                Spacer(minLength: 12)
-                ItemActionsButton(item: item).opacity(hover ? 1 : 0)
-                WatchBadge(item: item, played: played)
-            }
-            .padding(8)
-            .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(6)
-            .contentShape(Rectangle())
-            .scrollHover($hover)
-        }.buttonStyle(.plainHand)
-    }
-}
-
 /// Page, player and banner buttons: grow a little and brighten under the mouse, and dip
 /// when clicked.
 struct HoverButton: ButtonStyle {
@@ -480,6 +361,7 @@ struct HandCursor: ViewModifier {
         }
     }
 }
+
 extension View {
     func handCursor() -> some View { modifier(HandCursor()) }
 }
@@ -490,6 +372,7 @@ struct PlainHand: ButtonStyle {
         configuration.label.opacity(configuration.isPressed ? 0.75 : 1).handCursor()
     }
 }
+
 extension ButtonStyle where Self == PlainHand {
     static var plainHand: PlainHand { PlainHand() }
 }
@@ -529,19 +412,6 @@ extension View {
                                                  startPoint: .top, endPoint: .bottom)))
         .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .white.opacity(0.3)],
                                                       startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
-    }
-}
-
-/// Thin progress line along the bottom edge of a thumbnail (accent color, dim track).
-struct EdgeProgressBar: View {
-    let progress: Double      // 0...1
-    var body: some View {
-        GeometryReader { g in
-            ZStack(alignment: .leading) {
-                Rectangle().fill(Color.black.opacity(0.5))
-                Rectangle().fill(.tint).frame(width: g.size.width * CGFloat(min(1, max(0, progress))))
-            }
-        }.frame(height: 3)
     }
 }
 

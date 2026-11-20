@@ -318,7 +318,8 @@ struct SoftAccentGlow<S: Shape>: View {
     }
 }
 
-/// True inside the Classic theme: the shared search box and info pill use the Classic glass.
+/// True inside the main window (set by ClassicRootView): tooltips there use the glass bubble; the separate
+/// windows (Settings, About…) keep the plain one.
 private struct ClassicGlassKey: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {
     var classicGlass: Bool {

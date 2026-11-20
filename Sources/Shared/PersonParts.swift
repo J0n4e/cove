@@ -8,58 +8,10 @@ import AVKit
 
 struct PersonRef: Hashable { let id: String; let name: String }
 
-/// Everything in the user's libraries featuring one actor / director.
-struct PersonView: View {
-    @Environment(\.noBack) private var noBack
-    @EnvironmentObject var emby: Emby
-    @Environment(\.appBG) var bg
-    let person: PersonRef
-    @Environment(\.dismiss) var dismiss
-    @StateObject private var model = PersonModel()
-
-    var body: some View {
-        let items = model.items, record = model.record, loading = model.loading
-        let movies = model.movies, shows = model.shows
-        ScrollView {
-            VStack(alignment: .leading, spacing: 34) {
-                PersonHeader(id: person.id, name: person.name, record: record, items: items, loading: loading)
-                Group {
-                    if !movies.isEmpty { section("Movies", movies) }
-                    if !shows.isEmpty { section("Shows", shows) }
-                    if loading { Spinner().frame(maxWidth: .infinity).padding(60) }
-                    else if items.isEmpty {
-                        Text("Nothing in your libraries with \(person.name).").foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity).padding(.top, 40)
-                    }
-                }.padding(.horizontal, 52)
-            }
-            .padding(.bottom, 40)
-        }
-        .ignoresSafeArea(edges: .top)          // the backdrop runs up under the title bar
-        .background(bg)
-        .navigationTitle(person.name)
-        .navigationBarBackButtonHidden(true)
-        .toolbar { TitleBarItems(back: noBack ? nil : { dismiss() }) }
-        .hideToolbarTitle()
-        .toolbarBackground(.hidden, for: .windowToolbar)
-        .task { await model.load(person.id, source: emby) }
-    }
-
-    func section(_ title: String, _ list: [Item]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title).coveFont(size: 22, weight: .bold)
-                Text("\(list.count)").coveFont(size: 17).foregroundColor(.secondary)
-            }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 18)], alignment: .leading, spacing: 24) {
-                ForEach(list) { PosterCard(item: $0) }
-            }
-        }
-    }
-}
-
+/// Top of an actor's page: a dimmed backdrop from one of their titles, a large portrait,
+/// and the name, birth facts, title counts and biography beside it, sized to fill the width.
 struct PersonHeader: View {
-    @Environment(\.classicGlass) private var classic   // Glass3D theme
+    @Environment(\.classicGlass) private var classic   // the main window: glass frame
     @EnvironmentObject var emby: Emby
     @Environment(\.appBG) var bg
     let id: String

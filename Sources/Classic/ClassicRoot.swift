@@ -14,13 +14,18 @@ struct ClassicRootView: View {
                 .opacity(emby.playing == nil ? 1 : 0)
                 .allowsHitTesting(emby.playing == nil)
             if let req = emby.playing {
-                ChosenPlayerView(req: req, theme: "classic").id(req.id).zIndex(10)
+                ChosenPlayerView(req: req).id(req.id).zIndex(10)
             }
         }
         // A server or user change (switch, sign-in, sign-out) always starts on Home
         .onChange(of: emby.server + "|" + emby.userId) { ClassicNavState.shared.reset() }
         .onChange(of: emby.playing?.id) { _, id in
             PlaybackFlag.shared.active = id != nil
+        }
+        // Someone who was on the retired Glass theme: one note, once, after the window is up
+        .task {
+            try? await Task.sleep(for: .seconds(1.5))
+            if ThemeMigration.takeNote() { GlassMessage.show(ThemeMigration.noteTitle, ThemeMigration.noteText) }
         }
         .dropdownLayer()   // glass lists for audio, subtitles, quality
         .tipLayer()   // inside the settings below, so the tooltips get the Classic look and font too
@@ -257,7 +262,8 @@ struct ClassicHomeView: View {
                                               banner: { d in
                                                   guard sel == "home" && path.isEmpty && query.isEmpty else { return false }
                                                   nav.bannerNudge = .init(dir: d); return true
-                                              })
+                                              },
+                                              escBusy: { ProfileModel.shared.menuOpen || ClassicNavState.shared.searchOpen })
             }
         }
         // Switching theme replaces this view: its S key must not stay behind

@@ -3,7 +3,7 @@ import SwiftUI
 // Glass3D Now Playing (v1.18.4): a bigger glass card per session over the item's blurred backdrop, the client
 // icon, time left and ▶/⏸, the play method as a tinted glass pill, the IP only on hover, live progress and a
 // click that opens the item. The progress line is the existing ClassicSessionLine, unchanged (owner: it matches
-// the player's timeline). The Glass theme keeps NowPlayingView (Sources/Glass/GlassNowPlaying.swift).
+// the player's timeline).
 
 /// Pure text / symbol rules for the page (tested).
 enum NowPlayingStyle {
