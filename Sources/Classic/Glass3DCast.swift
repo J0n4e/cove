@@ -4,81 +4,171 @@ import SwiftUI
 // the mini remote shown at the bottom of the window while casting. Kept out of the big player/detail bodies
 // (type-check limit): they include these views with one line each.
 
-/// The list of Cast devices: searching spinner, "No Cast devices found" after 5 s, the current device ticked.
+/// What the Cast menu lists (pure, unit-tested in Tests/CastMenuTests.swift): this Mac first, then the devices;
+/// the tick on the device being cast to, or on this Mac when nothing is.
+enum CastMenu {
+    enum Target: Equatable { case mac, device(CastDevice) }
+    struct Row: Identifiable, Equatable {
+        let target: Target
+        let name: String
+        let icon: String
+        let checked: Bool
+        /// The model, shown as a tooltip only (the AirPlay menu has no subtitle line)
+        let tip: String
+        var id: String { if case .device(let d) = target { return d.id }; return "this-mac" }
+    }
+    /// Rows shown before the list scrolls.
+    static let maxVisible = 6
+    static let rowHeight: CGFloat = 28
+    static let width: CGFloat = 240
+
+    static func macName(_ localized: String?) -> String {
+        guard let n = localized?.trimmingCharacters(in: .whitespaces), !n.isEmpty else { return "This Mac" }
+        return n
+    }
+
+    /// Audio-only Cast models (speakers, Nest Audio, Chromecast Audio) get a speaker, the rest a TV.
+    static func icon(model: String) -> String {
+        let m = model.lowercased()
+        let audio = ["audio", "speaker", "nest mini", "home mini", "google home", "nest wifi point", "soundbar", "group"]
+        return audio.contains { m.contains($0) } && !m.contains("hub") ? "hifispeaker" : "tv"
+    }
+
+    static func rows(devices: [CastDevice], castingTo: String?, macName: String) -> [Row] {
+        let active = castingTo.flatMap { id in devices.contains { $0.id == id } ? id : nil }
+        var out = [Row(target: .mac, name: macName, icon: "laptopcomputer", checked: castingTo == nil, tip: macName)]
+        out += devices.map { d in
+            Row(target: .device(d), name: d.name, icon: icon(model: d.model), checked: d.id == active, tip: d.model)
+        }
+        return out
+    }
+
+    enum Status: Equatable { case none, searching, notFound, error(String) }
+    static func status(searching: Bool, devices: Int, error: String?) -> Status {
+        if let error { return .error(error) }
+        if devices > 0 { return .none }
+        return searching ? .searching : .notFound
+    }
+    static let notFoundHint = "Make sure the TV or Chromecast is on and on the same network as this Mac."
+}
+
+/// The Cast menu: a compact dark menu like macOS's AirPlay menu (icon + name rows, tick on the active target, this
+/// Mac first). Shown in a popover above the button that opens it.
 struct CastDeviceList: View {
     @ObservedObject private var store = CastDeviceStore.shared
     @ObservedObject private var cast = CastSession.shared
     let pick: (CastDevice) -> Void
-    @AppStorage("accent") private var accentName = "red"
+    /// "This Mac": stop casting and play here (nothing to do when not casting).
+    let pickMac: () -> Void
 
     var body: some View {
-        let accent = Theme.accent(accentName)
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text("Cast to").cvFont(15, weight: .semibold)
-                Spacer()
-                if store.searching { ProgressView().controlSize(.small) }
-            }
-            .padding(.bottom, 4)
-            if let e = store.browseError {
-                Text(e).cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
-            } else if store.devices.isEmpty {
-                if store.searching {
-                    Text("Looking for Cast devices…").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
-                } else {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("No Cast devices found").cvFont(13, weight: .semibold)
-                        Text("Make sure the TV or Chromecast is on and on the same network as this Mac.")
-                            .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            CastDeviceRows(devices: store.devices) { d in
-                let current = cast.isCasting && cast.device?.id == d.id
-                Button { pick(d) } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "tv").cvFont(15).frame(width: 22).foregroundColor(current ? accent : .white)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(d.name).cvFont(13, weight: .medium).lineLimit(1).foregroundColor(current ? accent : .white)
-                            Text(d.model).cvFont(11).lineLimit(1).foregroundColor(Glass3DTokens.Grey.secondary)
-                        }
-                        Spacer(minLength: 8)
-                        if current { Image(systemName: "checkmark").cvFont(12, weight: .semibold).foregroundColor(accent) }
-                    }
-                    .padding(.horizontal, 8).padding(.vertical, 6)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(CastRowStyle())
-            }
-            if cast.isCasting {
-                Divider().opacity(0.4)
-                Button { cast.stop() } label: {
-                    Label("Stop casting", systemImage: "stop.circle").cvFont(12, weight: .medium)
-                        .padding(.horizontal, 8).padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }.buttonStyle(CastRowStyle())
+        let rows = CastMenu.rows(devices: store.devices, castingTo: cast.isCasting ? cast.device?.id : nil,
+                                 macName: CastMenu.macName(Host.current().localizedName))
+        let status = CastMenu.status(searching: store.searching, devices: store.devices.count, error: store.browseError)
+        let count = rows.count + (status == .none ? 0 : 1)
+        Group {
+            if count > CastMenu.maxVisible {
+                ScrollView { content(rows, status) }
+                    .frame(height: CGFloat(CastMenu.maxVisible) * CastMenu.rowHeight + 10)
+                    .classicScrollBars()
+            } else {
+                content(rows, status)
             }
         }
-        .foregroundColor(.white)
-        .padding(14)
-        .frame(width: 290)
+        .frame(width: CastMenu.width)
+        .background(CastMenuMaterial())
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .environment(\.colorScheme, .dark)
         .onAppear { store.begin() }
         .onDisappear { store.end() }
     }
+
+    func content(_ rows: [CastMenu.Row], _ status: CastMenu.Status) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(rows) { r in
+                Button {
+                    switch r.target {
+                    case .mac: pickMac()
+                    case .device(let d): pick(d)
+                    }
+                } label: { CastMenuRowLabel(row: r) }
+                .buttonStyle(CastRowStyle())
+                .help(r.tip)
+            }
+            switch status {
+            case .none: EmptyView()
+            case .searching:
+                greyRow { HStack(spacing: 8) { ProgressView().controlSize(.mini); Text("Looking for devices…").cvFont(13) } }
+            case .notFound:
+                greyRow { Text("No Cast devices found").cvFont(13) }.help(CastMenu.notFoundHint)
+            case .error(let e):
+                greyRow { Text(e).cvFont(12).lineLimit(2) }.help(e)
+            }
+        }
+        .foregroundColor(.white)
+        .padding(5)
+    }
+
+    func greyRow<C: View>(@ViewBuilder _ c: () -> C) -> some View {
+        c().foregroundColor(Glass3DTokens.Grey.secondary)
+            .padding(.horizontal, 8).frame(minHeight: CastMenu.rowHeight).frame(maxWidth: .infinity, alignment: .leading)
+    }
 }
 
-/// The device rows: up to 5 shown, more scroll (the list never runs over the page).
-private struct CastDeviceRows<Row: View>: View {
-    let devices: [CastDevice]
-    @ViewBuilder let row: (CastDevice) -> Row
-    static var maxVisible: Int { 5 }
+private struct CastMenuRowLabel: View {
+    let row: CastMenu.Row
     var body: some View {
-        if devices.count > Self.maxVisible {
-            ScrollView { VStack(spacing: 6) { ForEach(devices) { row($0) } } }
-                .frame(height: CGFloat(Self.maxVisible) * 46).classicScrollBars()
-        } else {
-            ForEach(devices) { row($0) }
+        HStack(spacing: 8) {
+            Image(systemName: row.icon).cvFont(14).frame(width: 22)
+            Text(row.name).cvFont(13).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 8)
+            if row.checked {
+                Image(systemName: "checkmark").cvFont(9, weight: .bold)
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(Color.white.opacity(0.22)))
+            }
         }
+        .padding(.horizontal, 8)
+        .frame(height: CastMenu.rowHeight)
+        .contentShape(Rectangle())
+    }
+}
+
+/// The menu's dark see-through background (the system menu material).
+private struct CastMenuMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .menu
+        v.blendingMode = .behindWindow
+        v.state = .active
+        v.appearance = NSAppearance(named: .darkAqua)
+        return v
+    }
+    func updateNSView(_ v: NSVisualEffectView, context: Context) {}
+}
+
+/// Opens the Cast menu above `content` (the popover closes on an outside click, Esc, or after a pick).
+struct CastMenuPopover: ViewModifier {
+    @Binding var open: Bool
+    let pick: (CastDevice) -> Void
+    let pickMac: () -> Void
+    func body(content: Content) -> some View {
+        content.popover(isPresented: $open, arrowEdge: .top) {
+            CastDeviceList(pick: { d in open = false; pick(d) }, pickMac: { open = false; pickMac() })
+                .environment(\.colorScheme, .dark)
+        }
+    }
+}
+
+extension CastSession {
+    /// "This Mac" in the Cast menu: stop on the TV and carry on playing here from the TV's position.
+    func handBackToMac(_ emby: Emby) {
+        guard isCasting, let it = item else { return }
+        let t = time, r = request, q = collection
+        DebugLog.write("cast: back to this Mac at \(Int(t)) s")
+        stop()
+        emby.playing = PlayRequest(item: it, sourceId: r?.sourceId, audio: r?.audio, sub: r?.sub,
+                                   start: t > 0 ? t : nil, collection: q)
     }
 }
 
@@ -90,8 +180,8 @@ private struct CastRowStyle: ButtonStyle {
         @State private var hover = false
         var body: some View {
             c.label
-                .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous)
-                    .fill(Color.white.opacity(c.isPressed ? 0.16 : hover ? 0.09 : 0)))
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Color.white.opacity(c.isPressed ? 0.16 : hover ? 0.1 : 0)))
                 .onHover { hover = $0 }
         }
     }
@@ -110,12 +200,9 @@ struct CastButton: View {
         Button { open.toggle() } label: {
             Label("Cast", systemImage: "tv.and.mediabox").classicGlassPill(size: 44).glass3DRoundOutline()
         }
-        .buttonStyle(HoverButton()).helpLabel("Cast")
-        .popover(isPresented: $open, arrowEdge: .top) {   // above the pill (owner)
-            CastDeviceList { d in open = false; model.cast(to: d, emby: emby) }
-                .background(Color.black.opacity(0.35))
-                .environment(\.colorScheme, .dark)
-        }
+        .buttonStyle(HoverButton()).helpLabel(open ? "" : "Cast")
+        .modifier(CastMenuPopover(open: $open, pick: { d in model.cast(to: d, emby: emby) },
+                                  pickMac: { CastSession.shared.handBackToMac(emby) }))   // above the pill
     }
 }
 
@@ -146,46 +233,47 @@ extension DetailModel {
 
 // MARK: - Player
 
-/// Opened by the Cast button in the player's bar.
+/// Opened by the Cast button in the player's bar; `pick` is set by the open player (CastPlayerPicker).
 @MainActor
 final class CastPickerState: ObservableObject {
     static let shared = CastPickerState()
     @Published var open = false
+    var pick: ((CastDevice) -> Void)?
 }
 
-/// The player's Cast panel (bottom right, above the bar). Picking a device stops the local playback and casts
-/// from the current position with the same audio and subtitle.
+/// Gives the bar's Cast menu its action: picking a device stops the local playback and casts from the current
+/// position with the same audio and subtitle. Draws nothing (the menu is a popover on the bar button).
 struct CastPlayerPicker: View {
     let player: PlayerModel
     let req: PlayRequest
     let close: () -> Void
     @EnvironmentObject var emby: Emby
-    @ObservedObject private var state = CastPickerState.shared
 
     var body: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                if state.open {
-                    CastDeviceList { d in
-                        let at = player.now
-                        let audio = player.audio, sub = player.sub
-                        state.open = false
-                        DebugLog.write("cast: from the player at \(Int(at)) s")
-                        close()
-                        CastSession.shared.cast(req.item, to: d, emby: emby, sourceId: req.sourceId,
-                                                audio: audio, sub: sub, start: at, collection: req.collection)
-                    }
-                    .modifier(PanelSurface(classic: true))
-                    .environment(\.colorScheme, .dark)
-                    .padding(.trailing, 24).padding(.bottom, 96)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        Color.clear.frame(width: 0, height: 0).allowsHitTesting(false)
+            .onAppear {
+                CastPickerState.shared.pick = { d in
+                    let at = player.now
+                    let audio = player.audio, sub = player.sub
+                    DebugLog.write("cast: from the player at \(Int(at)) s")
+                    close()
+                    CastSession.shared.cast(req.item, to: d, emby: emby, sourceId: req.sourceId,
+                                            audio: audio, sub: sub, start: at, collection: req.collection)
                 }
             }
-        }
-        .coveGlassPopIn(value: state.open)
-        .onDisappear { state.open = false }
+            .onDisappear { CastPickerState.shared.open = false; CastPickerState.shared.pick = nil }
+    }
+}
+
+/// The bar's Cast button with its menu above it (no tooltip while the menu is open).
+struct Glass3DCastBarButton<L: View>: View {
+    @ObservedObject private var state = CastPickerState.shared
+    @EnvironmentObject var emby: Emby
+    @ViewBuilder let label: (_ menuOpen: Bool) -> L
+    var body: some View {
+        label(state.open)
+            .modifier(CastMenuPopover(open: $state.open, pick: { d in state.pick?(d) },
+                                      pickMac: { CastSession.shared.handBackToMac(emby) }))
     }
 }
 

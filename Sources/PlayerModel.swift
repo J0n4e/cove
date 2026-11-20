@@ -73,6 +73,14 @@ final class PlayerModel: ObservableObject {
     var embyRef: Emby? { emby }
     var currentRequest: PlayRequest? { req }
     // ↑ in-stream subtitles
+    // AirPlay video (Player/AirPlay.swift) ↓
+    @Published var airPlayActive = false
+    @Published var airPlayDevice = "AirPlay device"
+    var airPlayObs: NSKeyValueObservation?
+    /// The subtitle is burned in only because of AirPlay (Cove draws it again when AirPlay ends)
+    var airPlayBurned = false
+    var airPlayBurnPending = false
+    // ↑ AirPlay
     /// The file's video is HEVC (typically 4K / HDR): ask for fMP4 segments so it can be passed through.
     var sourceIsHEVC: Bool {
         let c = (streams.first { $0.`Type` == "Video" }?.Codec ?? "").lowercased()
@@ -133,6 +141,9 @@ final class PlayerModel: ObservableObject {
         let gen = startGen
         func current() -> Bool { gen == startGen && !Task.isCancelled }
         error = ""; cues = []; cuesUpTo = 0; isReady = false
+        // The next episode takes over an AirPlaying player: decide its subtitle for the TV from the start
+        if !airPlayActive, Self.airPlayHandoffFresh { airPlayActive = true }
+        airPlayBurned = airPlayBurnPending && req.burnIn; airPlayBurnPending = false
         self.emby = emby
         Self.active = self
         self.req = req
@@ -180,10 +191,19 @@ final class PlayerModel: ObservableObject {
         // the fallback are downloaded.
         var wantInStream: Int?
         var coveDrawn = false
+        if let s = req.sub, !isImageSub(s), !req.burnIn, airPlayActive,
+           Self.airPlaySubAction(path: Self.subPath(streams.first { $0.Index == s }, burnIn: false, directPlay: false),
+                                 airPlay: true, playingInStream: false, burnedForAirPlay: false, hls: true,
+                                 inStreamUnsupported: inStreamUnsupported,
+                                 textCodec: Self.isTextCodec(streams.first { $0.Index == s })) == .burnIn {
+            dlog("airplay: subtitle track \(s) burned in by the server (not in the HLS stream here)")
+            req.burnIn = true; self.req?.burnIn = true; airPlayBurned = true
+        }
         if let s = req.sub, !isImageSub(s), !req.burnIn {
             req.sub = nil
             if !inStreamUnsupported,
-               Self.subPath(streams.first { $0.Index == s }, burnIn: false, directPlay: false) == .inStream {
+               airPlayActive || Self.subPath(streams.first { $0.Index == s }, burnIn: false, directPlay: false) == .inStream {
+                if airPlayActive { dlog("airplay: subtitle track \(s) inside the HLS stream, rendered by AVPlayer") }
                 req.hlsSub = s; wantInStream = s
             } else {
                 dlog("subs: extraction (track \(s))")
@@ -234,7 +254,11 @@ final class PlayerModel: ObservableObject {
         session = ps
         let it = AVPlayerItem(url: u)
         if let s = wantInStream {
-            if method == "DirectPlay" {   // no HLS, so no renditions: download the track (the file itself: exact)
+            if method == "DirectPlay", airPlayActive {   // the TV can't get Cove's cues: burn it in
+                dlog("airplay: Direct Play has no subtitle stream: restarting with track \(s) burned in")
+                airPlayBurnPending = true
+                Task { @MainActor [weak self] in await self?.restartKeepingPosition { $0.sub = s; $0.burnIn = true } }
+            } else if method == "DirectPlay" {   // no HLS, so no renditions: download the track (the file itself: exact)
                 dlog("subs: extraction (track \(s), Direct Play)")
                 loadCues(emby, req.item.id, req.sourceId, s, from: pendingSeek)
             } else {
@@ -293,7 +317,12 @@ final class PlayerModel: ObservableObject {
                 .map { "\($0.domain) \($0.code)" } ?? "unknown error"
             MainActor.assumeIsolated { self?.playbackFailed(code, gen: gen) }
         }
-        let p = AVPlayer(playerItem: it)
+        // An AirPlaying player is reused (the route belongs to it): the next episode stays on the TV
+        let handed = Self.takeAirPlayHandoff()
+        if handed != nil { dlog("airplay: reusing the AirPlay player for this item") }
+        let p = handed ?? AVPlayer()
+        p.replaceCurrentItem(with: it)
+        observeAirPlay(p, gen: gen)
         p.volume = volume
         timeObs = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { [weak self] t in
             MainActor.assumeIsolated {
@@ -306,7 +335,7 @@ final class PlayerModel: ObservableObject {
         syncPrerolled = false; syncSeeks = 0
         syncGroupMode = emby.syncPlay.group.isInGroup   // SyncPlay timing: exact starts while in a group
         if syncGroupMode { p.automaticallyWaitsToMinimizeStalling = false }
-        if !req.startPaused { p.play() }   // a SyncPlay group starts it once everyone is ready
+        if !req.startPaused, !AirPlayDetailStart.shared.holdsStart { p.play() }   // detail AirPlay: paused until a route   // a SyncPlay group starts it once everyone is ready
         // A conversion that never starts would otherwise leave a black screen with a spinner forever
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(60))
@@ -428,6 +457,12 @@ final class PlayerModel: ObservableObject {
         await restart(emby) { $0.sub = idx; $0.burnIn = false }
     }
 
+    /// Restart at the current position (AirPlay subtitle path changes).
+    func restartKeepingPosition(_ change: (inout PlayRequest) -> Void) async {
+        guard let emby = embyRef else { return }
+        await restart(emby, change)
+    }
+
     private func restart(_ emby: Emby, _ change: (inout PlayRequest) -> Void) async {
         guard var r = req else { return }
         change(&r)
@@ -513,6 +548,16 @@ final class PlayerModel: ObservableObject {
         // Burned in by the server: an image subtitle, or a text one that couldn't be read (burnIn). Either way
         // only a new stream can change or remove it, and the next track must not be burned in again.
         let wasBurned = (sub.map(isImageSub) ?? false) || (req?.burnIn ?? false)
+        // On AirPlay a text track goes to the TV: in the stream, else burned in (start() decides)
+        if airPlayActive, let idx, !isImageSub(idx) {
+            sub = idx; req?.sub = idx
+            if inStreamSub != nil, legibleGroup != nil, !wasBurned, cancelCues(), switchInStream(idx) {
+                legible?.setNative(true); dlog("airplay: subtitle track \(idx) switched in the stream"); return
+            }
+            dlog("airplay: subtitle track \(idx) chosen: restarting for the TV")
+            await restart(emby) { $0.sub = idx; $0.burnIn = false }
+            return
+        }
         if let idx {
             if isImageSub(idx) {
                 await restart(emby) { $0.sub = idx; $0.burnIn = false }
@@ -881,6 +926,9 @@ final class PlayerModel: ObservableObject {
         debugTimer?.invalidate(); debugTimer = nil; pausedAt = nil
         keepAlive?.invalidate(); keepAlive = nil
         if pip?.isPictureInPictureActive == true { pip?.stopPictureInPicture() }
+        airPlayObs = nil
+        if airPlayActive, let p = player { Self.stashAirPlay(p) }   // next episode / restart keeps the TV
+        else if !Self.airPlayHandoffFresh { AirPlaySleep.set(false) }
         legible?.detach(); legible = nil; legibleGroup = nil; inStreamSub = nil; inStreamDecided = false
         player?.pause(); player = nil; obs = nil; caption = ""; resumeTarget = 0
         pendingSeek = 0                           // a start that was interrupted must not leak its position

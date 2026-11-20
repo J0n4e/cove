@@ -134,7 +134,7 @@ struct ClassicPosterCard: View {
                         ZStack { Color(white: 0.15); Text(item.Name).cvFont(10, weight: .regular).padding(6) }
                     }
                     .frame(width: 150, height: 225).clipped()
-                    .opacity(played ? 0.6 : 1)
+                    .watchedDim(played)
                 }
                 .overlay(alignment: .bottom) {
                     if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {

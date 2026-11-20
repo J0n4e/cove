@@ -19,19 +19,13 @@ struct ClassicHomeContent: View {
 
     var body: some View {
         let hero = model.heroItems
-        let underBar = !hero.isEmpty && bannerStyle != "card"
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 if !hero.isEmpty {
-                    ClassicHero(items: hero, pageH: pageH)
-                        // The server pill over the banner's top left, below the top bar and the traffic lights
-                        .overlay(alignment: .topLeading) {
-                            ServerPillMenu(classic: true)
-                                .padding(.top, (underBar ? topInset : 0) + 12)
-                                .padding(.leading, bannerStyle == "card" ? 44 : 32)
-                        }
-                } else {
-                    ServerPillMenu(classic: true).padding(.leading, 32).padding(.top, 12)
+                    ClassicHero(items: hero, pageH: pageH)   // the server is in the top bar's profile menu now
+                        // A banner refresh swaps in the new set with a crossfade, starting at slide 1
+                        .id(model.heroGeneration).transition(.opacity)
+                        .animation(.easeInOut(duration: 0.8), value: model.heroGeneration)
                 }
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
@@ -110,7 +104,11 @@ struct ClassicHero: View {
     @State private var leaving: Item?       // the deck's front card while it fades away
     @State private var busy = false
     @State private var leavingGone = false
-    @State private var hover = false
+    /// Pointer on the text + buttons or on the cards/bullets: the banner waits (not the whole picture, which fills
+    /// the page, so a resting pointer anywhere on Home stopped it, owner)
+    @State private var hoverInfo = false
+    @State private var hoverNav = false
+    var hover: Bool { hoverInfo || hoverNav }
     @State private var width: CGFloat = 1200
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
@@ -173,6 +171,7 @@ struct ClassicHero: View {
                 } else { info(item) }
             }
             .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, 56)
+            .scrollHover($hoverInfo)
             // Old text fades out quickly, then the new text fades in (they overlapped mid-change)
             .id("t" + item.id)
             .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.4).delay(0.3)),
@@ -181,28 +180,35 @@ struct ClassicHero: View {
             // The coming banners as a deck of cards, bottom right (above the changing picture and text)
             Group {
                 if items.count > 1 {
+                    // The hover is tracked on the bullets/cards themselves, BEFORE the full-size frame: on the frame
+                    // it covered the whole banner and a resting pointer stopped the cycle (owner)
                     if bannerNav == "bullets" {
-                        thumbs.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
+                        thumbs.scrollHover($hoverNav).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
                     } else {
-                        deck.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        deck.scrollHover($hoverNav).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                             .padding(.trailing, 44).padding(.bottom, 56)
                     }
                 }
-            }.zIndex(Double(pos) + 1)
+            }
+            .zIndex(Double(pos) + 1)
         }
         .animation(.easeOut(duration: 0.15), value: hover)
         .frame(height: style == "card" ? max(bannerH - 24, 340) : bannerH)
         .modifier(BannerShape(card: style == "card"))
         .foregroundColor(.white)
         .background(GeometryReader { g in
-            Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
+            Color.clear.onAppear { width = g.size.width; HomeModel.bannerImageWidth = min(Int(g.size.width * 2), 2560) }
+                .onChange(of: g.size.width) { _, w in width = w; HomeModel.bannerImageWidth = min(Int(w * 2), 2560) }
         })
-        .scrollHover($hover)
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys
-        // Next banner every 9 s, but not under the pointer, not during playback and not with Reduce Motion
-        .task(id: "\(pos)-\(hover)-\(playback.active)") {
+        // Next banner every 9 s, but not under the pointer (text/buttons/cards), not during playback and not with
+        // Reduce Motion. Restarts when the items change (loaded later, banner refresh); a click or ← → changes `pos`,
+        // so the full 9 s start again. A move skipped while one is still animating waits for it (it used to be lost
+        // and the banner stopped for good).
+        .task(id: "\(pos)-\(hover)-\(playback.active)-\(items.map(\.id).joined(separator: ","))") {
             guard !hover, !playback.active, !reduceMotion, items.count > 1 else { return }
             try? await Task.sleep(nanoseconds: 9_000_000_000)
+            while busy && !Task.isCancelled { try? await Task.sleep(nanoseconds: 200_000_000) }
             if !Task.isCancelled { go(index + 1) }
         }
     }
@@ -239,10 +245,14 @@ struct ClassicHero: View {
             Text(item.Overview ?? "").cvFont(15).lineLimit(3).truncationMode(.tail)
                 .foregroundColor(.white.opacity(0.8)).frame(maxWidth: 460, alignment: .leading)
             HStack(spacing: 12) {
+                // In progress: the same short Resume as the film pages (↻ 4:01, full text in the tooltip)
+                let r = emby.resumeAt(item)
                 Button { Task { await emby.playFromHome(item) } } label: {
-                    Label(emby.resumeAt(item) > 0 ? "Resume" : "Play", systemImage: "play.fill")
+                    Label(r > 0 ? timeString(r) : "Play", systemImage: r > 0 ? "arrow.uturn.forward" : "play.fill")
                         .classicGlassPill(size: 46, iconOnly: false)
                 }.buttonStyle(HoverButton())
+                .tip(r > 0 ? "Resume from \(timeString(r))" : "")
+                .accessibilityLabel(r > 0 ? "Resume from \(timeString(r))" : "Play")
                 let fav = emby.isFav(item)
                 Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                     Label(fav ? "Remove from Favorites" : "Add to Favorites", systemImage: fav ? "checkmark" : "plus")

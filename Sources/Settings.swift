@@ -320,6 +320,7 @@ struct GeneralSettings: View {
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
     @AppStorage("posterLabelAlign") private var labelAlign = "center"
+    @AppStorage(WatchedDim.key) private var dimWatched = true
 
     var body: some View {
         PrefSection(title: "Appearance") {
@@ -370,6 +371,8 @@ struct GeneralSettings: View {
             }
             PrefRow(label: "Alignment") { menuPicker($labelAlign, [("center", "Centered"), ("left", "Left")]) }
                 .disabled(!showTitle && !showYear)
+            PrefRow(label: "Watched") { Toggle("Dim watched posters", isOn: $dimWatched) }
+            PrefNote("Watched movies, shows and episodes are shown a little darker, so unwatched ones stand out. The ✓ shows it either way.")
         }
     }
 }
@@ -383,11 +386,13 @@ struct HomeSettings: View {
     @AppStorage("theme") private var theme = "apple"
     @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
     @AppStorage(Glass3DBannerNav.key) private var bannerNav = Glass3DBannerNav.defaultValue
+    @AppStorage(BannerSource.key) private var bannerSource = BannerSource.defaultValue
+    @AppStorage(BannerRefresh.key) private var bannerRefresh = BannerRefresh.defaultValue
 
     var body: some View {
         // The Classic theme's banner choices
-        if theme == "classic" {
-            PrefSection(title: "Banner") {
+        PrefSection(title: "Banner") {
+            if theme == "classic" {
                 PrefRow(label: "Style") {
                     menuPicker($bannerStyle, [("cinematic", "Cinematic"), ("panel", "Glass panel"), ("card", "Framed card")])
                 }
@@ -395,6 +400,10 @@ struct HomeSettings: View {
                     menuPicker($bannerNav, Glass3DBannerNav.options)
                 }
             }
+            PrefRow(label: "Banner shows") { menuPicker($bannerSource, BannerSource.options) }
+            PrefRow(label: "Refresh banner") { menuPicker($bannerRefresh, BannerRefresh.options) }
+            PrefNote("Which titles the banner at the top of Home cycles through; Home rows is the original mix. "
+                     + "Refresh picks a fresh set while Cove stays open (not while it's hidden or a video plays).")
         }
         PrefSection(title: "Layout") {
             PrefRow(label: "Continue Watching") { menuPicker($resumeLayout, [("row", "Row"), ("grid", "Grid")]) }
@@ -900,6 +909,9 @@ struct PlaybackSettings: View {
     @AppStorage("debugLog") private var debugLog = false
     @AppStorage("playerControls") private var controls = "theme"
     @AppStorage(SyncPlayService.liveSocketKey) private var liveSocket = true
+    @AppStorage(TvTarget.key) private var tvTarget = TvTarget.cast
+    @ObservedObject private var castSession = CastSession.shared
+    @ObservedObject private var tvRoute = TvRouteState.shared
 
     var body: some View {
         PrefSection(title: "Player") {
@@ -909,6 +921,8 @@ struct PlaybackSettings: View {
             PrefRow(label: "Window") { Toggle("Open videos in a separate window", isOn: $separatePlayer) }
             PrefRow(label: "Clicking the video") { Toggle("Plays or pauses", isOn: $clickToPause) }
             PrefNote("With this off, clicking the video shows or hides the controls.")
+            TvTargetRow(tvTarget: $tvTarget, casting: castSession.isCasting, airPlayActive: tvRoute.airPlayActive)
+            PrefNote("Google Cast: Chromecast, Google TV and Cast TVs — the TV streams from the server. AirPlay: Apple TV and AirPlay TVs — the Mac plays and sends the picture.")
         }
         PrefSection(title: "Start with") {
             PrefRow(label: "Quality") {
@@ -973,8 +987,9 @@ struct ShortcutsSettings: View {
                   ("C", "Chapters panel (when the video has chapters)")])
         }
         PrefSection(title: "Everywhere") {
-            keys([("S", "Search (when not typing in a field)"),
+            keys([("⌘ F", "Search"),
                   ("H", "Home (when not typing in a field)"),
+                  ("F  or  ⌃ ⌘ F", "Full screen on / off (F when not typing in a field)"),
                   ("← →", "Home: previous / next banner"),
                   ("⌘ ,", "Open Settings"),
                   ("⌘ ←  or  ⌘ [", "Back")])
@@ -986,7 +1001,7 @@ struct ShortcutsSettings: View {
         PrefSection(title: "Other", last: true) {
             keys([("Return", "Open the selected Continue Watching card"),
                   ("Return", "Try Again when the server can't be reached")])
-            PrefNote("The usual Mac shortcuts work too, such as ⌘Q, ⌘W, ⌘H and ⌃⌘F.")
+            PrefNote("The usual Mac shortcuts work too, such as ⌘Q, ⌘W and ⌘H.")
         }
     }
 }
@@ -1349,5 +1364,23 @@ struct TraktStatsSettings: View {
     func monthName(_ key: String) -> String {
         guard let d = monthDate(key) else { return key }
         let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f.string(from: d)
+    }
+}
+
+/// Settings → Playback "Play on a TV with": greyed out (and changes ignored) while a cast or AirPlay runs.
+private struct TvTargetRow: View {
+    @Binding var tvTarget: String
+    let casting: Bool
+    let airPlayActive: Bool
+
+    var body: some View {
+        let reason = TvTarget.lockReason(casting: casting, airPlayActive: airPlayActive)
+        let guarded = Binding<String>(get: { TvTarget.normalized(tvTarget) }, set: { new in
+            tvTarget = TvTarget.apply(new, current: tvTarget, casting: casting, airPlayActive: airPlayActive)
+        })
+        PrefRow(label: "Play on a TV with") {
+            menuPicker(guarded, TvTarget.options).disabled(reason != nil).help(reason ?? "")
+        }
+        if let reason { PrefNote(reason + ".") }
     }
 }

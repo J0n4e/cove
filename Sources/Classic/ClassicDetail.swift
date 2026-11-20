@@ -465,11 +465,12 @@ struct ClassicDetailView: View {
             }
             if r > 0 {
                 Button { model.playNow() } label: {
-                    Label("Resume from \(timeString(r))", systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
-                }.buttonStyle(HoverButton())
+                    // Short (owner): the time alone says a resume is there; the full text is the tooltip
+                    Label(timeString(r), systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
+                }.buttonStyle(HoverButton()).tip("Resume from \(timeString(r))").accessibilityLabel("Resume from \(timeString(r))")
             }
             WatchTogetherButton(item: model.playTarget, start: r, classic: true)
-            if model.playTarget != nil || item.isBox { CastButton(model: model) }
+            if model.playTarget != nil || item.isBox { DetailTvButtons(model: model) }
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
                     Label("Trailer", systemImage: "film").classicGlassPill(size: 44).glass3DRoundOutline()
@@ -668,7 +669,7 @@ struct ClassicDetailView: View {
                     } placeholder: { Color(white: 0.15) }
                     .frame(minWidth: 0, maxWidth: .infinity).aspectRatio(16 / 9, contentMode: .fit)
                     .clipped()
-                    .opacity(played ? 0.6 : 1)
+                    .watchedDim(played)
                     ThumbnailScrim()   // soft dark gradient behind the code and the title
                 }
                 // Episode name in the bottom-left corner of the thumbnail

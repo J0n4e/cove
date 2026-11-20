@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import AppKit
 
@@ -425,8 +426,8 @@ struct Glass3DBarItem: Identifiable {
         var headers: Set<Int> = []
     }
     /// The bar's order (owner): Episodes/Collection · Chapters · Subtitles · Audio · Quality & speed ·
-    /// (Watch together) · Info · PiP · Cast · Full screen.
-    static let order = ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "cast", "fullscreen"]
+    /// (Watch together) · Info · PiP · Cast · AirPlay · Full screen.
+    static let order = ["episodes", "chapters", "subtitles", "audio", "quality", "syncplay", "info", "pip", "cast", "airplay", "fullscreen"]
     static func ordered(_ items: [Glass3DBarItem]) -> [Glass3DBarItem] {
         items.sorted { (order.firstIndex(of: $0.id) ?? order.count) < (order.firstIndex(of: $1.id) ?? order.count) }
     }
@@ -436,6 +437,8 @@ struct Glass3DBarItem: Identifiable {
     let help: String
     var menu: Menu? = nil
     var syncPlayOnly = false
+    /// "airplay": the AVPlayer the system route picker routes (Glass3DAirPlay.swift)
+    var routePlayer: AVPlayer? = nil
     var action: () -> Void = {}
 }
 
@@ -444,15 +447,20 @@ struct Glass3DControlBar: View {
     @ObservedObject var group: SyncPlayGroup
     let items: [Glass3DBarItem]
     let poke: () -> Void
+    @AppStorage(TvTarget.key) private var tvTarget = TvTarget.cast
+    @ObservedObject private var castSession = CastSession.shared
 
     var body: some View {
-        let shown = items.filter { !$0.syncPlayOnly || group.isActive }
+        let shown = PlayerBarItems.items(items, tvTarget: tvTarget, casting: castSession.isCasting)
+            .filter { !$0.syncPlayOnly || group.isActive }
         HStack(spacing: 0) {
             ForEach(Array(shown.enumerated()), id: \.element.id) { k, it in
                 if k > 0 {
                     Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1, height: 20).allowsHitTesting(false)
                 }
-                Glass3DBarButton(item: it, poke: poke)
+                if it.id == "airplay" { Glass3DAirPlayButton(player: it.routePlayer, help: it.help) }
+                else if it.id == "cast" { Glass3DCastBarButton { open in Glass3DBarButton(item: it, poke: poke, hideTip: open) } }
+                else { Glass3DBarButton(item: it, poke: poke) }
             }
         }
         .padding(.horizontal, 6).padding(.vertical, 3)
@@ -484,6 +492,8 @@ private struct Glass3DBarSurface: ViewModifier {
 private struct Glass3DBarButton: View {
     let item: Glass3DBarItem
     let poke: () -> Void
+    /// The Cast menu is open above it: its tooltip would show through the menu
+    var hideTip = false
     @AppStorage("accent") private var accentName = "red"
     @Environment(\.dropdownCenter) private var center
     @State private var hover = false
@@ -510,7 +520,7 @@ private struct Glass3DBarButton: View {
         }
         .buttonStyle(.plainHand)
         .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
-        .helpLabel(item.help)
+        .helpLabel(hideTip ? "" : item.help)
         .background(GeometryReader { g in
             Color.clear
                 .onAppear { frame = g.frame(in: .named("dropdownLayer")) }

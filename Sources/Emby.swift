@@ -28,6 +28,9 @@ struct Item: Identifiable, Decodable, Hashable {
     /// Folders (collections): how many items they hold. With UserData.UnplayedItemCount it tells whether a
     /// collection is fully watched (CollectionWatched.swift).
     var ChildCount: Int? = nil
+    /// Banner "Newest" only (asked for in Fields there): when a film was added / a show last got new content.
+    var DateCreated: String? = nil
+    var DateLastContentAdded: String? = nil
     let UserData: UD?
     let RunTimeTicks: Int64?
     let CommunityRating: Double?

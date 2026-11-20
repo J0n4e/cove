@@ -275,5 +275,9 @@ struct DetailRatingTail: View {
 
 /// The Glass3D detail page row, in order: the actions, then the rating (the order the owner chose).
 enum DetailRowOrder {
-    static let order = ["play", "resume", "watchTogether", "cast", "trailer", "watched", "favorite", "rating"]
+    static let order = ["play", "resume", "watchTogether", "cast", "airplay", "trailer", "watched", "favorite", "rating"]
+    /// The row as shown for the Settings → Playback TV choice (only the chosen TV button; Cast also while casting).
+    static func order(tvTarget: String, casting: Bool = false) -> [String] {
+        order.filter { TvTarget.shows($0, tvTarget: tvTarget, casting: casting) }
+    }
 }

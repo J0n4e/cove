@@ -79,6 +79,8 @@ final class PlayerUIModel: ObservableObject {
     /// Episodes panel, a group advancing): the new player opens without bringing up the controls (owner).
     /// Read and cleared once by the new player view.
     static var quietNextStart = false
+    /// Opened by the detail page's AirPlay pill: controls up, the AirPlay menu opens, paused until it's handled
+    @Published var openAirPlayMenu = false
     static func takeQuietStart() -> Bool { defer { quietNextStart = false }; return quietNextStart }
 
     /// The new player for the next episode: controls hidden (a fresh model starts with them shown), and the first
@@ -98,7 +100,7 @@ final class PlayerUIModel: ObservableObject {
             try? await Task.sleep(for: .seconds(Self.hideDelay))
             guard let self, !Task.isCancelled else { return }
             switch Self.hideDecision(playing: self.player.playing, panelOpen: self.panel != nil,
-                                     listOpen: self.style == .classic && self.listOpen()) {
+                                     listOpen: self.style == .classic && (self.listOpen() || CastPickerState.shared.open)) {
             case .waitAgain: self.poke()
             case .keep: break
             case .hide:

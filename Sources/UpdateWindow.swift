@@ -85,19 +85,19 @@ enum CoveWindows {
 
     static func isOpen(_ id: String) -> Bool { windows[id]?.isVisible == true }
 
-    static func show<V: View>(_ id: String, title: String, _ view: V) {
+    static func show<V: View>(_ id: String, title: String, size: NSSize = NSSize(width: 520, height: 420), _ view: V) {
         windows[id]?.close()
         let accent = UserDefaults.standard.string(forKey: "accent") ?? "red"
-        let host = NSHostingController(rootView: view.tint(Theme.accent(accent)).preferredColorScheme(.dark)
-            .coveWindowBackground())
-        let w = PanelWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
-                         styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        // The same glass + fixed 75% background fill as Settings and About (owner); fixed size, no auto-sizing
+        let host = NSHostingView(rootView: view.tint(Theme.accent(accent)).preferredColorScheme(.dark)
+            .padding(.top, 18))   // room under the transparent title bar's buttons
+        host.sizingOptions = []
+        let w = PanelWindow(contentRect: NSRect(origin: .zero, size: size),
+                            styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
         w.title = title
-        CoveWindowLook.apply(w)   // same Background as Settings/About, transparent title bar
         w.isReleasedWhenClosed = false
-        w.contentViewController = host
-        w.setContentSize(NSSize(width: 520, height: 420))
-        w.contentMinSize = NSSize(width: 420, height: 320)
+        CoveWindowLook.applyGlass(w, content: host, size: size)
+        w.standardWindowButton(.zoomButton)?.isEnabled = false
         windows[id] = w
         NSApp.activate(ignoringOtherApps: true)
         w.center()

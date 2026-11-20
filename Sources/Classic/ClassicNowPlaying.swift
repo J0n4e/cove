@@ -119,6 +119,7 @@ struct ClassicNowPlayingView: View {
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
         .background(bg)
+        .modifier(ProfileActivityJump(tab: $tab, stats: stats))   // profile menu → My activity
         .task(id: emby.server + "|" + emby.userId) { await stats.start(emby) }   // the Users tab shows only for admins with the plugin
         .task {
             // Fallback: every 5 s while the page is shown (the task ends with the page); skipped while the

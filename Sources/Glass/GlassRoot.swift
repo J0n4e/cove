@@ -15,12 +15,18 @@ enum SearchKey {
                   !(w.firstResponder is NSText), !isPlaying() else { return ev }
             let mods = ev.modifierFlags.intersection([.command, .control, .option, .shift])
             if ev.keyCode == 123 && mods == .command { back(); return nil }   // ⌘←
+            // ⌘F: the Mac's usual Find shortcut opens search (the only one)
+            if mods == .command, ev.charactersIgnoringModifiers?.lowercased() == "f" { focus(); return nil }
             if mods.isEmpty && (ev.keyCode == 123 || ev.keyCode == 124) {         // ← →, only on Home
                 return banner(ev.keyCode == 123 ? -1 : 1) ? nil : ev
             }
-            guard mods.subtracting(.shift).isEmpty, let key = ev.charactersIgnoringModifiers?.lowercased(),
-                  key == "s" || key == "h" else { return ev }
-            if key == "s" { focus() } else { home() }
+            // ⌃⌘F: macOS's own full-screen shortcut, handled here too (the app's menus don't carry it on every setup)
+            if mods == [.control, .command], ev.charactersIgnoringModifiers?.lowercased() == "f" { w.toggleFullScreen(nil); return nil }
+            // F: the main window in/out of full screen, like F in the player (⌃⌘F, the Mac's own, works too)
+            if mods.isEmpty, ev.charactersIgnoringModifiers?.lowercased() == "f" { w.toggleFullScreen(nil); return nil }
+            // H: Home (S for search was dropped for ⌘F, owner)
+            guard mods.subtracting(.shift).isEmpty, ev.charactersIgnoringModifiers?.lowercased() == "h" else { return ev }
+            home()
             return nil
         }
     }

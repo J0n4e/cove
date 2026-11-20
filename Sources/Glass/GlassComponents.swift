@@ -167,7 +167,7 @@ struct PosterCard: View {
                         ZStack { Color(white: 0.15); Text(item.Name).coveFont(size: 10).padding(6) }
                     }
                     .frame(width: 170, height: 255).clipped()
-                    .opacity(played ? 0.6 : 1)
+                    .watchedDim(played)
                     WatchBadge(item: item, played: played).padding(8)
                 }
                 .overlay(alignment: .topLeading) {
@@ -416,7 +416,7 @@ struct ListRow: View {
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 60, height: 90).clipped().cornerRadius(4)
-                .opacity(played ? 0.6 : 1)
+                .watchedDim(played)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.Name).coveFont(size: 13, weight: .bold).lineLimit(1)
                     if let y = item.ProductionYear { Text(String(y)).coveFont(size: 11).foregroundColor(.secondary) }
