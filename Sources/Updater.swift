@@ -173,11 +173,9 @@ final class Updater: ObservableObject {
 
     // MARK: UI
 
+    /// A glass message window like Settings/About (owner), not the system alert.
     private func alert(_ title: String, _ text: String) {
-        let a = NSAlert()
-        a.messageText = title
-        a.informativeText = text
-        a.runModal()
+        GlassMessage.show(title, text)
     }
 
     /// Opens (or brings to the front) the Software Update window for the pending release.
