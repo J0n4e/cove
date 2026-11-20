@@ -101,7 +101,7 @@ final class HomeModel: ObservableObject {
     var heroItems: [Item] { BannerSource.resolve(heroSource, rows: rows.map(\.items), fetched: heroFetched) }
 
     /// The banner: up to two items with a backdrop from each row, one per title, eight at most.
-    static func heroItems(_ rows: [[Item]]) -> [Item] {
+    nonisolated static func heroItems(_ rows: [[Item]]) -> [Item] {
         var seen = Set<String>()
         var out: [Item] = []
         for items in rows {
