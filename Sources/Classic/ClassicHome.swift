@@ -23,6 +23,9 @@ struct ClassicHomeContent: View {
             VStack(alignment: .leading, spacing: 28) {
                 if !hero.isEmpty {
                     ClassicHero(items: hero, pageH: pageH)   // the server is in the top bar's profile menu now
+                        // A banner refresh swaps in the new set with a crossfade, starting at slide 1
+                        .id(model.heroGeneration).transition(.opacity)
+                        .animation(.easeInOut(duration: 0.8), value: model.heroGeneration)
                 }
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
@@ -186,7 +189,8 @@ struct ClassicHero: View {
         .modifier(BannerShape(card: style == "card"))
         .foregroundColor(.white)
         .background(GeometryReader { g in
-            Color.clear.onAppear { width = g.size.width }.onChange(of: g.size.width) { _, w in width = w }
+            Color.clear.onAppear { width = g.size.width; HomeModel.bannerImageWidth = min(Int(g.size.width * 2), 2560) }
+                .onChange(of: g.size.width) { _, w in width = w; HomeModel.bannerImageWidth = min(Int(w * 2), 2560) }
         })
         .scrollHover($hover)
         .onChange(of: nav.bannerNudge) { _, n in if let n, !items.isEmpty { go(index + n.dir) } }   // ← → keys

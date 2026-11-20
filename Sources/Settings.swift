@@ -384,6 +384,7 @@ struct HomeSettings: View {
     @AppStorage("classicBannerStyle") private var bannerStyle = "cinematic"
     @AppStorage(Glass3DBannerNav.key) private var bannerNav = Glass3DBannerNav.defaultValue
     @AppStorage(BannerSource.key) private var bannerSource = BannerSource.defaultValue
+    @AppStorage(BannerRefresh.key) private var bannerRefresh = BannerRefresh.defaultValue
 
     var body: some View {
         // The Classic theme's banner choices
@@ -397,7 +398,9 @@ struct HomeSettings: View {
                 }
             }
             PrefRow(label: "Banner shows") { menuPicker($bannerSource, BannerSource.options) }
-            PrefNote("Which titles the banner at the top of Home cycles through; Home rows is the original mix.")
+            PrefRow(label: "Refresh banner") { menuPicker($bannerRefresh, BannerRefresh.options) }
+            PrefNote("Which titles the banner at the top of Home cycles through; Home rows is the original mix. "
+                     + "Refresh picks a fresh set while Cove stays open (not while it's hidden or a video plays).")
         }
         PrefSection(title: "Layout") {
             PrefRow(label: "Continue Watching") { menuPicker($resumeLayout, [("row", "Row"), ("grid", "Grid")]) }
