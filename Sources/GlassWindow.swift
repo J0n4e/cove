@@ -15,6 +15,8 @@ enum GlassWindowBackdrop: Equatable {
     static let cornerRadius: CGFloat = 26
     /// Opacity of the dark fill used when Reduce Transparency is on.
     static let reducedFillAlpha: CGFloat = 0.85
+    /// The fixed dark fill over the glass (Settings, About…), as the profile menu's panel
+    static let panelFillAlpha: CGFloat = 0.75
 
     static func choose(liquidGlass: Bool, reduceTransparency: Bool) -> GlassWindowBackdrop {
         if reduceTransparency { return .reducedFill }
@@ -101,13 +103,27 @@ final class GlassWindowContainer: NSView {
         }
     }
 
+    private var panelFill: NSView?
+
     func rebuildBackdrop() {
         backdrop?.removeFromSuperview()
         let b = makeBackdrop(GlassWindowBackdrop.current)
         b.frame = bounds
         b.autoresizingMask = [.width, .height]
+        // A fixed fill of the app's background colour at 75% over the glass, like the profile menu (PanelSurface):
+        // the same look on any desktop, independent of the Glass slider (owner)
+        let fill = NSView(frame: bounds)
+        fill.wantsLayer = true
+        fill.autoresizingMask = [.width, .height]
+        fill.layer?.backgroundColor = NSColor(Theme.bg(UserDefaults.standard.string(forKey: "bg") ?? "black"))
+            .withAlphaComponent(GlassWindowBackdrop.panelFillAlpha).cgColor
+        fill.layer?.cornerRadius = GlassWindowBackdrop.cornerRadius
+        fill.layer?.masksToBounds = true
+        panelFill?.removeFromSuperview()
         addSubview(b, positioned: .below, relativeTo: content.superview === self ? content : nil)
+        addSubview(fill, positioned: .above, relativeTo: b)   // a sibling: NSGlassEffectView only shows its contentView
         backdrop = b
+        panelFill = fill
     }
 
     private func updateTint() {
