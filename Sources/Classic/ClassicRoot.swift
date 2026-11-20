@@ -316,6 +316,7 @@ struct ClassicHomeView: View {
         .overlay { ToastOverlay(raised: navStyle == "topbar" && nav.searchOpen) }
         .overlay { NotificationToastLayer() }   // new movies / episodes while Cove is in front (Sources/Notifications)
         .overlay { CastRemoteBar() }            // the Cast remote while casting (Glass3DCast.swift)
+        .modifier(Glass3DProfileMenuLayer())    // the profile menu under the top bar's circle
     }
 }
 
@@ -465,6 +466,7 @@ struct ClassicTopNavTools: View {
                 Image(systemName: "magnifyingglass").cvFont(14, weight: .semibold)
                     .frame(width: 44, height: 44).classicGlassPill().contentShape(Capsule())
             }.buttonStyle(HoverButton()).accessibilityLabel("Search")
+            Glass3DProfileCircle()   // far right: the profile menu (Glass3DProfile*.swift)
         }
         .onChange(of: nav.focusSearch) { nav.searchOpen = true }   // S key
     }
