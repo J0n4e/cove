@@ -320,6 +320,7 @@ struct GeneralSettings: View {
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
     @AppStorage("posterLabelAlign") private var labelAlign = "center"
+    @AppStorage(WatchedDim.key) private var dimWatched = true
 
     var body: some View {
         PrefSection(title: "Appearance") {
@@ -370,6 +371,8 @@ struct GeneralSettings: View {
             }
             PrefRow(label: "Alignment") { menuPicker($labelAlign, [("center", "Centered"), ("left", "Left")]) }
                 .disabled(!showTitle && !showYear)
+            PrefRow(label: "Watched") { Toggle("Dim watched posters", isOn: $dimWatched) }
+            PrefNote("Watched movies, shows and episodes are shown a little darker, so unwatched ones stand out. The ✓ shows it either way.")
         }
     }
 }
