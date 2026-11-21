@@ -51,6 +51,9 @@ enum ProfileActions {
         case .settings: ClassicNavState.shared.showSettings = true
         case .checkUpdates: Task { await Updater.shared.check(interactive: true) }
         case .about: AboutWindow.show()
+        case .manageServer:
+            guard ProfileModel.shared.admin == true else { return }
+            ServerAdminWindow.show(emby: emby)
         case .signOut:
             ProfileUserStore.forget(server: emby.server, userId: emby.userId)
             emby.logout()
@@ -164,6 +167,7 @@ struct Glass3DProfileMenu: View {
         case .settings: return "gearshape"
         case .checkUpdates: return "arrow.down.circle"
         case .about: return "info.circle"
+        case .manageServer: return "server.rack"
         case .signOut: return "rectangle.portrait.and.arrow.right"
         }
     }
