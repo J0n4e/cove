@@ -227,9 +227,74 @@ final class CastSubtitleServer: @unchecked Sendable {
         }
     }
 
+    // MARK: AirPlay local HLS (Player/AirPlayLocalHLS.swift): /hls/<token>/master.m3u8, subs.m3u8, sub_<i>.vtt
+
+    private var hlsToken = ""
+    private var hlsMaster = ""
+    private var hlsSubs = ""
+    private var hlsCues: [Cue] = []
+    private var hlsMpegts = 0
+    private var hlsOffsetMs = 0
+
+    /// Serves an AirPlay master playlist (built by `master(subsURI)`) and its WebVTT rendition cut from `cues`.
+    /// Returns the master's URL on this Mac's LAN address (nil: no server / no address).
+    func serveHLS(master: (String) -> String?, cues: [Cue], duration: Double, offsetMs: Int, mpegts: Int) async -> URL? {
+        guard let port = await start() else { return nil }
+        guard let host = CastLAN.pick(tv: nil, CastLAN.interfaces()) else {
+            DebugLog.write("airplay: no LAN address for the local HLS"); return nil
+        }
+        let t = CastHTTP.newToken()
+        let base = "http://\(host):\(port)/hls/\(t)/"
+        guard let m = master(base + "subs.m3u8") else { return nil }
+        let subs = AirPlayHLS.subsPlaylist(duration: duration) { base + "sub_\($0).vtt" }
+        queue.sync {
+            hlsToken = t; hlsMaster = m; hlsSubs = subs; hlsCues = cues; hlsMpegts = mpegts; hlsOffsetMs = offsetMs
+            fetchesLogged = []
+        }
+        return URL(string: base + "master.m3u8")
+    }
+
+    /// New cues for the served rendition (another text track, or the offset changed): same URLs.
+    func updateHLSCues(_ cues: [Cue], offsetMs: Int) {
+        queue.async { self.hlsCues = cues; self.hlsOffsetMs = offsetMs; self.fetchesLogged = [] }
+    }
+
+    /// Stops serving the AirPlay HLS (the listener stays while a Cast subtitle uses it).
+    func stopHLS() {
+        queue.async {
+            guard !self.hlsToken.isEmpty else { return }
+            self.hlsToken = ""; self.hlsMaster = ""; self.hlsSubs = ""; self.hlsCues = []
+            DebugLog.write("airplay: local HLS stopped")
+            if self.token.isEmpty, self.listener != nil {
+                self.listener?.cancel(); self.listener = nil; self.port = nil
+            }
+        }
+    }
+
+    /// The /hls/ answer, or nil when the path isn't one of ours.
+    private func hlsResponse(_ req: CastHTTP.Request) -> CastHTTP.Response? {
+        let cues = hlsCues, ts = hlsMpegts, off = hlsOffsetMs
+        guard let (type, body) = AirPlayHLS.route(req.path, token: hlsToken, master: hlsMaster, subs: hlsSubs,
+                                                  segment: { i in i >= 0 ? AirPlayHLS.segment(cues, index: i, mpegts: ts, offsetMs: off) : nil })
+        else { return nil }
+        var h = CastHTTP.corsHeaders
+        h.insert(("Content-Type", type), at: 0)
+        let data = Data(body.utf8)
+        h.append(("Content-Length", String(data.count)))
+        switch req.method {
+        case "OPTIONS": return CastHTTP.Response(status: 204, headers: CastHTTP.corsHeaders, body: Data())
+        case "HEAD": return CastHTTP.Response(status: 200, headers: h, body: Data())
+        case "GET": return CastHTTP.Response(status: 200, headers: h, body: data)
+        default: return CastHTTP.Response(status: 405, headers: CastHTTP.corsHeaders, body: Data())
+        }
+    }
+
     func stop() {
         queue.async {
             guard self.listener != nil else { return }
+            guard self.hlsToken.isEmpty else {   // AirPlay still uses the server: only the Cast subtitle goes
+                self.token = ""; self.vtt = Data(); return
+            }
             self.listener?.cancel(); self.listener = nil; self.port = nil
             self.token = ""; self.vtt = Data()
             DebugLog.write("cast: subtitle server stopped")
@@ -256,6 +321,12 @@ final class CastSubtitleServer: @unchecked Sendable {
     }
 
     private func answer(_ c: NWConnection, _ req: CastHTTP.Request?) {
+        if let req, req.path.hasPrefix("/hls/"), let r = hlsResponse(req) {
+            let what = AirPlayHLS.fetchName(req.path)
+            if fetchesLogged.insert("hls \(what)").inserted { DebugLog.write("airplay: TV/player fetched \(what)") }
+            c.send(content: r.data, completion: .contentProcessed { _ in c.cancel() })
+            return
+        }
         let r = CastHTTP.respond(req, token: token, vtt: vtt)
         if r.status != 404, let req {
             var from = "?"

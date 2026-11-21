@@ -113,6 +113,20 @@ extension PlayerModel {
     /// Brings the current subtitle onto the right path for AirPlay on/off (one restart at the position at most).
     func applyAirPlaySubs() async {
         guard let idx = sub, !isImageSub(idx) else { airPlayBurned = airPlayActive && airPlayBurned; return }
+        // Text subtitle: Cove's local HLS with a WebVTT rendition while AirPlay runs (AirPlayLocalHLS.swift)
+        if !airPlayActive, airPlayLocalSub != nil {
+            if airPlayRestartInProgress { dlog("airplay: restart in progress, local HLS kept"); return }
+            dlog("airplay: ended: local HLS stopped, Cove draws subtitle track \(idx) again")
+            endAirPlayLocal()
+            await restartKeepingPosition { $0.sub = idx; $0.burnIn = false }
+            return
+        }
+        if airPlayActive, !directPlaySession, let r = currentRequest, airPlayLocalChoice(r) != nil {
+            if airPlayLocalSub == idx { legible?.setNative(true); return }
+            dlog("airplay: subtitle track \(idx) → local HLS")
+            await restartKeepingPosition { $0.sub = idx; $0.burnIn = false }
+            return
+        }
         let action = airPlaySubAction(for: idx)
         dlog("airplay: subtitle track \(idx) → \(action)")
         if action == .coveDrawn, airPlayRestartInProgress {   // no flip back during Cove's own AirPlay restart
