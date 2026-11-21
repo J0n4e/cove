@@ -79,6 +79,7 @@ enum ItemAdminWindows {
 
     static func run(_ a: ItemAdminAPI.Action, item: Item, emby: Emby, onChange: @escaping () -> Void) {
         switch a {
+        case .editMetadata: MetadataEditorWindow.open(item.id, name: item.Name, emby: emby, onChange: onChange)
         case .refresh: refresh(item, emby: emby, onChange: onChange)
         case .identify: identify(item, emby: emby, onChange: onChange)
         case .images: images(item, emby: emby, onChange: onChange)

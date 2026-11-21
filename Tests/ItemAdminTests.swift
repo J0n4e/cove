@@ -196,11 +196,11 @@ final class ItemAdminTests: XCTestCase {
     func testDetailMenuAdminOnly() {
         XCTAssertEqual(API.detailMenu(type: "Movie", admin: false), [])
         XCTAssertEqual(API.detailMenu(type: "Movie", admin: nil), [])   // role not known yet: nothing
-        XCTAssertEqual(API.detailMenu(type: "Movie", admin: true), [.refresh, .identify, .images, .web])
-        XCTAssertEqual(API.detailMenu(type: "Series", admin: true), [.refresh, .identify, .images, .web])
-        XCTAssertEqual(API.detailMenu(type: "Season", admin: true), [.refresh, .images, .web])
-        XCTAssertEqual(API.detailMenu(type: "Episode", admin: true), [.refresh, .images, .web])
-        XCTAssertEqual(API.detailMenu(type: "BoxSet", admin: true), [.refresh, .images, .web])
+        XCTAssertEqual(API.detailMenu(type: "Movie", admin: true), [.editMetadata, .refresh, .identify, .images, .web])
+        XCTAssertEqual(API.detailMenu(type: "Series", admin: true), [.editMetadata, .refresh, .identify, .images, .web])
+        XCTAssertEqual(API.detailMenu(type: "Season", admin: true), [.editMetadata, .refresh, .images, .web])
+        XCTAssertEqual(API.detailMenu(type: "Episode", admin: true), [.editMetadata, .refresh, .images, .web])
+        XCTAssertEqual(API.detailMenu(type: "BoxSet", admin: true), [.editMetadata, .refresh, .images, .web])
         XCTAssertEqual(API.detailMenu(type: "Person", admin: true), [])
     }
 

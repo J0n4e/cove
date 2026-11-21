@@ -79,6 +79,8 @@ struct ItemMissingView: View {
             }
             Spacer(minLength: 8)
             if let it = item(r) {
+                Button("Edit metadata") { MetadataEditorWindow.open(r.id, name: r.name, emby: emby) }
+                    .buttonStyle(AboutButton(accentName: accentName))
                 Button("Edit images") { ItemAdminWindows.images(it, emby: emby) }.buttonStyle(AboutButton(accentName: accentName))
                 Button("Refresh") { ItemAdminWindows.refresh(it, emby: emby) }.buttonStyle(AboutButton(accentName: accentName))
                 if ItemAdminAPI.searchKind(r.type) != nil {

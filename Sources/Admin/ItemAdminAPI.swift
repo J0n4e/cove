@@ -324,9 +324,10 @@ enum ItemAdminAPI {
 
     // MARK: Menu + messages
 
-    enum Action: String, CaseIterable { case refresh, identify, images, web, missingPosters, missingBackdrops
+    enum Action: String, CaseIterable { case editMetadata, refresh, identify, images, web, missingPosters, missingBackdrops
         var title: String {
             switch self {
+            case .editMetadata: return "Edit metadata…"
             case .refresh: return "Refresh metadata…"
             case .identify: return "Identify…"
             case .images: return "Edit images…"
@@ -342,7 +343,7 @@ enum ItemAdminAPI {
     /// The ⋯ menu on a detail page: nothing for non-admins (or unknown role) and other item kinds.
     nonisolated static func detailMenu(type: String?, admin: Bool?) -> [Action] {
         guard admin == true, let type, detailTypes.contains(type) else { return [] }
-        return searchKind(type) != nil ? [.refresh, .identify, .images, .web] : [.refresh, .images, .web]
+        return searchKind(type) != nil ? [.editMetadata, .refresh, .identify, .images, .web] : [.editMetadata, .refresh, .images, .web]
     }
 
     /// The ⋯ menu on a library page: only admins, only movie / TV / mixed libraries.
