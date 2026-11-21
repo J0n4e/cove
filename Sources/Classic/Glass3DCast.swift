@@ -408,26 +408,21 @@ private struct CastRemoteContent: View {
         let audio = cast.streams.filter { $0.`Type` == "Audio" }
         let subs = cast.streams.filter { $0.`Type` == "Subtitle" }
         if audio.count > 1 {
+            // Toggles: macOS menus show a real ✓ for the current track (a Label's icon wasn't shown, owner)
             Menu {
                 ForEach(audio) { a in
-                    Button { cast.setAudio(a.Index) } label: {
-                        let name = a.DisplayTitle ?? "Track \(a.Index)"
-                        if cast.audio == a.Index { Label(name, systemImage: "checkmark") } else { Text(name) }
-                    }
+                    Toggle(a.DisplayTitle ?? "Track \(a.Index)", isOn: Binding(get: { cast.audio == a.Index },
+                                                                            set: { if $0 { cast.setAudio(a.Index) } }))
                 }
             } label: { menuIcon("speaker.wave.2") }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().helpLabel("Audio")
         }
         if !subs.isEmpty {
             Menu {
-                Button { cast.setSub(nil) } label: {
-                    if cast.sub == nil { Label("Off", systemImage: "checkmark") } else { Text("Off") }
-                }
+                Toggle("Off", isOn: Binding(get: { cast.sub == nil }, set: { if $0 { cast.setSub(nil) } }))
                 ForEach(subs) { s in
-                    Button { cast.setSub(s.Index) } label: {
-                        let name = s.DisplayTitle ?? "Track \(s.Index)"
-                        if cast.sub == s.Index { Label(name, systemImage: "checkmark") } else { Text(name) }
-                    }
+                    Toggle(s.DisplayTitle ?? "Track \(s.Index)", isOn: Binding(get: { cast.sub == s.Index },
+                                                                             set: { if $0 { cast.setSub(s.Index) } }))
                 }
             } label: { menuIcon("captions.bubble") }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().helpLabel("Subtitles")

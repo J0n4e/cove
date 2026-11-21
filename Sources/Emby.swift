@@ -97,6 +97,11 @@ struct MStream: Decodable, Identifiable {
     var ChannelLayout: String? = nil
     /// A separate subtitle file next to the video (decoded when present)
     var IsExternal: Bool? = nil
+    /// Video facts for Cast's copy/transcode choice (decoded when present): "High", 40/4.0, 8/10, interlaced
+    var Profile: String? = nil
+    var Level: Double? = nil
+    var BitDepth: Int? = nil
+    var IsInterlaced: Bool? = nil
     var id: Int { Index }
 }
 
@@ -1343,6 +1348,28 @@ final class Emby: ObservableObject {
         return encodePlus(c) ?? url
     }
 
+    /// A burned-in subtitle needs the video re-encoded: with stream copy allowed, Emby copies an h264 source and
+    /// silently drops SubtitleMethod=Encode (owner: Cast/AirPlay burn-in played with no subtitles). Emby and
+    /// Jellyfin (DynamicHls) both read AllowVideoStreamCopy / EnableAutoStreamCopy on master.m3u8.
+    nonisolated static func forBurnIn(_ url: String) -> String {
+        guard var c = URLComponents(string: url) else { return url }
+        let drop: Set<String> = ["allowvideostreamcopy", "enableautostreamcopy"]
+        var q = (c.queryItems ?? []).filter { !drop.contains($0.name.lowercased()) }
+        q.append(URLQueryItem(name: "AllowVideoStreamCopy", value: "false"))
+        q.append(URLQueryItem(name: "EnableAutoStreamCopy", value: "false"))
+        if !q.contains(where: { $0.name.lowercased() == "videocodec" }) { q.append(URLQueryItem(name: "VideoCodec", value: "h264")) }
+        c.queryItems = q
+        c.percentEncodedQuery = c.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        return c.string ?? url
+    }
+
+    /// The subtitle/copy parameters of a stream URL, for the log (never the token).
+    nonisolated static func burnInLog(_ url: String) -> String {
+        let keep: Set<String> = ["subtitlestreamindex", "subtitlemethod", "allowvideostreamcopy", "enableautostreamcopy", "videocodec"]
+        let q = URLComponents(string: url)?.queryItems ?? []
+        return q.filter { keep.contains($0.name.lowercased()) }.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
+    }
+
     /// The server ignores the requested subtitle and burns in the user's default track,
     /// so force the chosen track into the transcode URL (or strip subtitles when "Off").
     /// `method`: "Encode" burns the track in; "Hls" adds it to the master playlist as WebVTT segments.
@@ -1367,6 +1394,14 @@ final class Emby: ObservableObject {
         if let s = req.sub { return (s, "Encode") }
         if let s = req.hlsSub { return (s, "Hls") }
         return (nil, "Encode")
+    }
+
+    /// A request whose subtitle is burned in (`sub`) gets the forced video conversion; logged without the token.
+    static func burnInIfNeeded(_ url: String, _ req: PlayRequest) -> String {
+        guard req.sub != nil else { return url }
+        let u = forBurnIn(url)
+        DebugLog.write("subs: burn-in params \(burnInLog(u))")
+        return u
     }
 
     /// Applies `streamSubtitle` to a stream URL the server gave.
@@ -1470,7 +1505,10 @@ final class Emby: ObservableObject {
                        maxWidth: Int? = nil, convert: Bool = false, safeAudio: Bool = false) async -> URL? {
         let id = req.item.id
         let canDirect = direct && !req.transcode
-        let profile: [String: Any] = [
+        // A burned-in subtitle (`sub`): Encode-only subtitle profiles and no direct play/stream, or Emby copies
+        // the video and drops the subtitle (see BurnInPlaybackInfo.swift).
+        let burning = req.sub != nil
+        var profile: [String: Any] = [
             "Name": "Cove Mac",
             "MaxStreamingBitrate": req.maxBitrate ?? 120_000_000,
             "DirectPlayProfiles": canDirect
@@ -1487,8 +1525,13 @@ final class Emby: ObservableObject {
                   URLQueryItem(name: "AutoOpenLiveStream", value: "true")]
         if let v = req.sourceId { qi.append(URLQueryItem(name: "MediaSourceId", value: v)) }
         if let v = req.audio { qi.append(URLQueryItem(name: "AudioStreamIndex", value: String(v))) }
-        if let v = req.sub { qi.append(URLQueryItem(name: "SubtitleStreamIndex", value: String(v))) }
-        if let v = req.maxBitrate { qi.append(URLQueryItem(name: "MaxStreamingBitrate", value: String(v))) }
+        if let s = req.sub {
+            profile["DirectPlayProfiles"] = [[String: Any]]()
+            profile["SubtitleProfiles"] = Self.burnInSubtitleProfiles()
+            let b = Self.burnInQuery(userId: userId, sourceId: nil, sub: s, audio: nil, start: nil,
+                                     maxBitrate: req.maxBitrate ?? 120_000_000)
+            qi += b.filter { !["UserId", "IsPlayback", "AutoOpenLiveStream"].contains($0.name) }
+        } else if let v = req.maxBitrate { qi.append(URLQueryItem(name: "MaxStreamingBitrate", value: String(v))) }
         guard var c = URLComponents(string: "\(server)/Items/\(id)/PlaybackInfo") else { return nil }
         c.queryItems = qi
         guard let pu = c.url else { return nil }
@@ -1522,20 +1565,22 @@ final class Emby: ObservableObject {
                 return URL(string: "\(server)/Videos/\(id)/stream.mp4?Static=true&MediaSourceId=\(sid)&\(keyName)=\(token)")
             }
             if let t = src["TranscodingUrl"] as? String {
+                if burning { DebugLog.write(Self.burnInInfoLog(t)) }
                 // Caps only when converting is wanted (a lower quality, burn-in, forced conversion), never
                 // with "Original": they would stop the server from copying the video. No width cap when a 4K HEVC
                 // video may pass through unchanged.
                 let forced = convert || reencode || req.sub != nil || req.burnIn
                 let capped = Self.capIfWanted(Self.subtitleURL(t, req), maxWidth: hevc ? nil : maxWidth,
                                               maxBitrate: req.maxBitrate, forcedConversion: forced)
-                return absolute(capped, noCopy: reencode)
+                return absolute(Self.burnInIfNeeded(capped, req), noCopy: reencode)
             }
             if let t = src["DirectStreamUrl"] as? String {
-                return absolute(req.hlsSub != nil ? Self.subtitleURL(t, req) : t, noCopy: reencode)
+                let withSub = req.hlsSub != nil || req.sub != nil ? Self.subtitleURL(t, req) : t
+                return absolute(Self.burnInIfNeeded(withSub, req), noCopy: reencode)
             }
         }
         let fallback0 = "\(server)/Videos/\(id)/master.m3u8?MediaSourceId=\(req.sourceId ?? id)&DeviceId=\(deviceId)&PlaySessionId=\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))&VideoCodec=h264&AudioCodec=aac&\(keyName)=\(token)"
-        let fallback = req.hlsSub != nil ? Self.subtitleURL(fallback0, req) : fallback0
+        let fallback = Self.burnInIfNeeded(req.hlsSub != nil || req.sub != nil ? Self.subtitleURL(fallback0, req) : fallback0, req)
         return URL(string: reencode ? Self.withoutVideoCopy(fallback) : fallback)
     }
 }

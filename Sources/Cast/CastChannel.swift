@@ -17,6 +17,10 @@ final class CastChannel: @unchecked Sendable {
     private var finished = false
     private var isReady = false
 
+    /// The TV's and this Mac's IPv4 on this connection (for the subtitle server's address); set when ready.
+    private(set) var remoteIP: String?
+    private(set) var localIP: String?
+
     var onState: (State) -> Void = { _ in }
     var onMessage: (CastMessage) -> Void = { _ in }
 
@@ -44,6 +48,8 @@ final class CastChannel: @unchecked Sendable {
         switch st {
         case .ready:
             isReady = true
+            remoteIP = Self.ipv4(conn?.currentPath?.remoteEndpoint)
+            localIP = Self.ipv4(conn?.currentPath?.localEndpoint)
             DebugLog.write("cast: connected")
             send(.make(CastMessage.nsConnection, ["type": "CONNECT"]))
             startHeartbeat()
@@ -54,6 +60,11 @@ final class CastChannel: @unchecked Sendable {
         case .cancelled: if !finished { finished = true; emit(.closed) }
         default: break
         }
+    }
+
+    static func ipv4(_ e: NWEndpoint?) -> String? {
+        guard case .hostPort(let h, _)? = e, case .ipv4(let a) = h else { return nil }
+        return "\(a)".components(separatedBy: "%").first
     }
 
     static func describe(_ e: NWError) -> String {

@@ -63,10 +63,12 @@ struct CastRequest: Equatable {
     let itemId: String
     var sourceId: String?
     var audio: Int?
-    /// The chosen subtitle track; with `subIsImage` it is burned in, else sent as a WebVTT side track.
+    /// The chosen subtitle track; with `subIsImage` it is burned in, else Cove serves it as a WebVTT side track.
     var sub: Int?
     var subIsImage = false
     var start: Double = 0
+    /// Force a video transcode (no stream copy): the TV failed the copied video, or the source is risky (CastTranscode.swift)
+    var transcode = false
 }
 
 enum CastStream {
@@ -99,12 +101,14 @@ enum CastStream {
             .init(name: "MaxStreamingBitrate", value: "40000000"),
         ]
         if let a = req.audio { q.append(.init(name: "AudioStreamIndex", value: String(a))) }
+        if req.transcode { q = CastTranscode.forceTranscode(q) }
         if let s = req.sub, req.subIsImage {
             q.append(.init(name: "SubtitleStreamIndex", value: String(s)))
             q.append(.init(name: "SubtitleMethod", value: "Encode"))
         }
         q.append(.init(name: keyName, value: token))
         c.queryItems = q
+        if req.sub != nil, req.subIsImage, let s = c.string, let f = URLComponents(string: Emby.forBurnIn(s)) { c = f }
         c.percentEncodedQuery = c.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         guard let u = c.url else { return .failure(.badServer) }
         return .success(u)
@@ -137,7 +141,7 @@ enum CastLoad {
 
     /// The media namespace LOAD request body.
     static func body(url: URL, hls: Bool, meta: CastMeta, start: Double, subtitle: (url: URL, name: String, lang: String?)?,
-                     hevc: Bool, requestId: Int) -> [String: Any] {
+                     hevc: Bool, requestId: Int, textStyle: [String: Any]? = nil) -> [String: Any] {
         var md: [String: Any] = ["title": meta.title,
                                  "images": meta.images.map { ["url": $0.absoluteString] }]
         if let s = meta.seriesTitle {
@@ -163,8 +167,8 @@ enum CastLoad {
                                     "trackContentId": s.url.absoluteString, "trackContentType": "text/vtt", "name": s.name]
             if let l = s.lang { t["language"] = l }
             media["tracks"] = [t]
-            media["textTrackStyle"] = ["backgroundColor": "#00000000", "edgeType": "DROP_SHADOW", "edgeColor": "#000000FF",
-                                       "foregroundColor": "#FFFFFFFF", "fontScale": 1.0]
+            media["textTrackStyle"] = textStyle ?? ["backgroundColor": "#00000000", "edgeType": "DROP_SHADOW", "edgeColor": "#000000FF",
+                                                    "foregroundColor": "#FFFFFFFF", "fontScale": 1.0]
             b["media"] = media
             b["activeTrackIds"] = [subtitleTrackId]
         }

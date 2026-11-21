@@ -249,7 +249,7 @@ struct ClassicPlayerView: View {
 
                 subtitleLayer(geo.size).animation(.easeOut(duration: 0.2), value: ui.showUI)
 
-                if ui.showUI || ui.panel != nil {
+                if ui.showUI || ui.panel != nil || AirPlayMenu.open {   // the AirPlay menu's picker stays
                     LinearGradient(colors: [.black.opacity(0.7), .clear, .clear, .black.opacity(0.85)],
                                    startPoint: .top, endPoint: .bottom)
                         .ignoresSafeArea().allowsHitTesting(false)
