@@ -61,6 +61,7 @@ struct CoveApp: App {
                 .sessionExpiredAlert(emby)
                 // New movies / episodes as macOS notifications (Sources/Notifications)
                 .task { NewMediaService.shared.attach(to: emby) }
+                .task { ServerAlertService.shared.attach(to: emby) }   // server alerts (admins)
                 .task {
                     await WhatsNew.onLaunch()
                     await Updater.shared.checkOnLaunch()

@@ -99,6 +99,8 @@ struct ClassicLibraryView: View {
                             .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
                     }
                     Spacer()
+                    LibraryFindField(lib: lib)   // admins: Find to edit… (Edit metadata)
+                    ItemAdminLibraryButton(lib: lib)   // admins: ⋯ Items without poster / backdrop
                 }
                 // Shared with the Now Playing page (Glass3DSegmentTabs), so both stay identical
                 Glass3DSegmentTabs(titles: [lib.title, "Collections", "Genres", "Favorites"], selection: $model.tab)

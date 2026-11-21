@@ -488,6 +488,7 @@ struct ClassicDetailView: View {
             }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
             // v1.18.4: information after the actions: your ★ rating at the END, set apart by a thin divider
             if RatingButton.isShown(item: item, full: model.full) { DetailRatingTail(item: item, full: model.full) }
+            ItemAdminButton(item: item) { Task { await model.load() } }   // admins: ⋯ Refresh / Identify / Images
         }
     }
 

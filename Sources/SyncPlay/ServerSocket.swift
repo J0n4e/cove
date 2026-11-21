@@ -311,7 +311,8 @@ final class ServerSocket {
         case .forceKeepAlive(let timeout):
             startKeepAlive(timeout, on: t)
             Task { try? await t.send(Self.keepAliveText) }
-        case .keepAlive, .other: break
+        case .keepAlive: break
+        case .other(let type): if ServerAlertDetector.socketTypes.contains(type) { onMessage(env.message) }   // server alerts
         case .syncPlayCommand, .syncPlayGroupUpdate: onMessage(env.message)
         case .sessions(let live): onSessions(live.list)   // v1.19.0 Now Playing live
         case .playstate, .generalCommand, .play: onMessage(env.message)   // SyncPlay phase 4: remote control

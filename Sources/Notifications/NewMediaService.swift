@@ -295,6 +295,14 @@ final class NewMediaService: ObservableObject {
         await notifier.post(n, poster: nil)
     }
 
+    /// A server alert (ServerAlertService): the list in every case; the toast in front, else the macOS banner.
+    func postServerAlert(_ n: NewMediaNotification) async {
+        let how = presentation()
+        inbox.add(n, presentation: how)
+        guard how == .banner, await notifier.permission() == .allowed else { return }
+        await notifier.post(n, poster: nil)
+    }
+
     static func openSystemSettings() {
         if let u = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
             NSWorkspace.shared.open(u)
@@ -349,6 +357,7 @@ final class NewMediaService: ObservableObject {
         case .library(let id):
             ClassicNavState.shared.popToRoot(); ClassicNavState.shared.sel = id
         case .test: break
+        case .server(let tab, _): ServerAdminWindow.show(emby: emby, tab: tab)
         }
     }
 
@@ -385,6 +394,7 @@ final class NewMediaService: ObservableObject {
         case .series(let id): d["kind"] = "series"; d["id"] = id; d["type"] = "Series"
         case .library(let id): d["kind"] = "library"; d["id"] = id
         case .test: d["kind"] = "test"
+        case .server(let tab, let symbol): d["kind"] = "server"; d["tab"] = String(tab); d["symbol"] = symbol
         }
         return d
     }
@@ -394,6 +404,7 @@ final class NewMediaService: ObservableObject {
         let id = d["id"] ?? ""
         switch d["kind"] {
         case "test": return .test
+        case "server": return .server(tab: d["tab"].flatMap { Int($0) } ?? 0, symbol: d["symbol"] ?? "server.rack")
         case "item" where !id.isEmpty: return .item(id)
         case "episode" where !id.isEmpty: return .episode(id, series: d["seriesId"], season: d["season"].flatMap { Int($0) })
         case "series" where !id.isEmpty: return .series(id)

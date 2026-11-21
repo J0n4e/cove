@@ -57,6 +57,7 @@ final class ImageCache: @unchecked Sendable {
         cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
         cfg.httpMaximumConnectionsPerHost = 6
         cfg.timeoutIntervalForRequest = 60
+        cfg.httpAdditionalHeaders = Net.englishHeaders   // same language as every other server request
         // Same redirect rule as the rest of the app: image links carry the token, so never follow them to another host
         session = URLSession(configuration: cfg, delegate: SameHostRedirects(), delegateQueue: nil)
         // Pictures saved by older versions are keyed by links that contain the sign-in token: drop them once
