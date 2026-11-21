@@ -55,6 +55,7 @@ enum NewMediaTarget: Equatable {
     case series(String)        // the show (several episodes of it)
     case library(String)       // the library (several movies, or episodes of many shows)
     case test                  // Settings' test notification: just brings Cove to the front
+    case server(tab: Int, symbol: String)   // a server alert (admins): Manage server on that tab, an SF symbol, no picture
 }
 
 /// One notification, ready to post.

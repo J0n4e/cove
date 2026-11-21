@@ -233,6 +233,7 @@ struct Glass3DSessionCard: View {
             .contentShape(shape)
         }
         .buttonStyle(.plainHand)
+        .overlay(alignment: .topTrailing) { SessionAdminControls(s: s).padding(10) }   // admins: details, message, stop, sign out
         .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
         .accessibilityLabel("Open \(it.SeriesName ?? it.Name)")
     }

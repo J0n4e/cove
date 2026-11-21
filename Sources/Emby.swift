@@ -126,6 +126,8 @@ struct ActiveSession: Decodable, Identifiable {
     let NowPlayingItem: NowItem?
     let PlayState: State?
     let TranscodingInfo: Transcode?
+    /// The session's device (admin actions: never on Cove's own; Sign out device).
+    var DeviceId: String? = nil
     var id: String { Id }
     struct NowItem: Decodable {
         let Id: String
@@ -136,7 +138,10 @@ struct ActiveSession: Decodable, Identifiable {
         let IndexNumber: Int?
         let RunTimeTicks: Int64?
         let `Type`: String?
+        /// The source's streams (stream details popover: the codecs going in).
+        var MediaStreams: [Stream]? = nil
     }
+    struct Stream: Decodable { let `Type`: String?; let Codec: String?; var IsDefault: Bool? = nil }
     struct State: Decodable { let PositionTicks: Int64?; let IsPaused: Bool?; let PlayMethod: String? }
     struct Transcode: Decodable {
         let IsVideoDirect: Bool?
