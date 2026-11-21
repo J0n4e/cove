@@ -22,7 +22,7 @@ struct NotificationThumb: View {
                 }
                 .id(index)
             } else {
-                Image(systemName: n.playId == nil ? "rectangle.stack" : "film").cvFont(width * 0.18, weight: .light)
+                Image(systemName: n.target["kind"] == "server" ? (n.target["symbol"] ?? "server.rack") : (n.playId == nil ? "rectangle.stack" : "film")).cvFont(width * 0.18, weight: .light)
                     .foregroundColor(Glass3DTokens.Grey.tertiary)
             }
         }

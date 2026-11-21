@@ -10,7 +10,10 @@ final class ServerAdminWindow: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var server = ""
 
-    static func show(emby: Emby) { shared.show(emby: emby) }
+    static func show(emby: Emby, tab: Int? = nil) {
+        if let tab { ServerAdminNav.shared.tab = tab }
+        shared.show(emby: emby)
+    }
     static func close() { shared.window?.close() }
 
     private func show(emby: Emby) {
@@ -38,9 +41,17 @@ final class ServerAdminWindow: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        ServerAdminNav.shared.tab = 0
         // Drop the model so its polling stops and the next open starts fresh
         window = nil
     }
+}
+
+/// The selected tab (a server alert's click opens the window on its tab).
+@MainActor
+final class ServerAdminNav: ObservableObject {
+    static let shared = ServerAdminNav()
+    @Published var tab = 0
 }
 
 struct ServerAdminRoot: View {
@@ -48,7 +59,7 @@ struct ServerAdminRoot: View {
     let title: String
     @AppStorage("bg") private var bgName = "black"
     @AppStorage("accent") private var accentName = "red"
-    @State private var tab = 0
+    @ObservedObject private var nav = ServerAdminNav.shared
 
     init(model: ServerAdmin, title: String) {
         _model = StateObject(wrappedValue: model)
@@ -65,17 +76,20 @@ struct ServerAdminRoot: View {
                     }
                     Spacer()
                     if !model.forbidden {
-                        Glass3DSegmentTabs(titles: ServerAdmin.Tab.allCases.map(\.title), selection: $tab)
+                        Glass3DSegmentTabs(titles: ServerAdmin.Tab.allCases.map(\.title), selection: $nav.tab)
                     }
                 }
                 if model.forbidden {
                     ServerAdminNotice(icon: "lock", text: "You need to be an administrator to manage this server.")
                 } else {
-                    switch ServerAdmin.Tab(rawValue: tab) ?? .overview {
+                    switch ServerAdmin.Tab(rawValue: nav.tab) ?? .overview {
                     case .overview: ServerOverviewTab(model: model)
                     case .tasks: ServerTasksTab(model: model)
                     case .users: ServerUsersTab(admin: model)
                     case .libraries: ServerLibrariesTab(admin: model)
+                    case .devices: ServerDevicesTabHost(admin: model)
+                    case .plugins: ServerPluginsTab(admin: model)
+                    case .logs: ServerLogsTab(admin: model)
                     }
                 }
             }

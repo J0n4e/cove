@@ -200,6 +200,6 @@ final class ServerAdminTests: XCTestCase {
         XCTAssertEqual(ProfileMenuSpec.rows(.app, input(false)), [.settings, .checkUpdates, .about])
         XCTAssertEqual(ProfileMenuSpec.rows(.app, input(nil)), [.settings, .checkUpdates, .about])
         XCTAssertEqual(ProfileMenuSpec.title(.manageServer), "Manage server…")
-        XCTAssertEqual(ServerAdmin.Tab.allCases.map(\.title), ["Overview", "Tasks", "Users", "Libraries"])
+        XCTAssertEqual(ServerAdmin.Tab.allCases.map(\.title), ["Overview", "Users", "Libraries", "Tasks", "Devices", "Plugins", "Logs"])
     }
 }

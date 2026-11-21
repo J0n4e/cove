@@ -12,6 +12,7 @@ struct NotificationsSettings: View {
     @AppStorage(NewMediaPrefs.libsOffKey) private var libsOff = ""
     @AppStorage(NewMediaPrefs.tvModesKey) private var tvModes = ""
     @State private var testing = false
+    @ObservedObject private var profile = ProfileModel.shared
 
     private var libraries: [LibPref] { emby.libs.filter { NewMediaLibrary.eligible(kind: $0.kind) } }
     private var prefs: NewMediaPrefs {
@@ -64,6 +65,14 @@ struct NotificationsSettings: View {
                 }.disabled(!movies && !episodes)
                 PrefNote("Per library, for this server. \u{201C}Series I\u{2019}m watching\u{201D}: in your Favorites, or with an episode watched or started. Things you\u{2019}ve already started or watched are never announced.")
             }
+            if profile.admin == true {
+                PrefRow(label: "Server alerts (admins)") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(ServerAlertKind.allCases, id: \.self) { k in ServerAlertToggle(kind: k) }
+                    }
+                }
+                PrefNote("For the server you're signed in to, checked every 5 minutes while Cove is open. A click opens Manage server.")
+            }
             PrefRow(label: "Test") {
                 Button("Send test notification") {
                     testing = true
@@ -114,4 +123,15 @@ private struct NotifLibraryRow: View {
             }
         }
     }
+}
+
+/// One server-alert switch (its own default: everything on except "Library scan finished").
+private struct ServerAlertToggle: View {
+    let kind: ServerAlertKind
+    @AppStorage private var on: Bool
+    init(kind: ServerAlertKind) {
+        self.kind = kind
+        _on = AppStorage(wrappedValue: kind.defaultOn, kind.prefKey)
+    }
+    var body: some View { Toggle(kind.title, isOn: $on) }
 }
