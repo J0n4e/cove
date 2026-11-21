@@ -51,6 +51,17 @@ enum ItemAdminService {
         return out
     }
 
+    /// The metadata language/country of the item's library (nil when it can't be read or isn't set).
+    static func libraryLanguage(_ id: String, emby: Emby) async -> (language: String?, country: String?)? {
+        var folders: Data?, ancestors: Data?
+        _ = await send(.init(method: "GET", path: "/Library/VirtualFolders"), emby: emby, action: "read the libraries", timeout: 15) { folders = $0 }
+        guard folders != nil else { return nil }
+        _ = await send(.init(method: "GET", path: "/Items/\(ItemAdminAPI.p(id))/Ancestors?UserId=\(ItemAdminAPI.p(emby.userId))"),
+                       emby: emby, action: "read the item", timeout: 15) { ancestors = $0 }
+        guard let folders, let ancestors else { return nil }
+        return ItemAdminAPI.libraryLanguage(folders: folders, ancestors: ancestors)
+    }
+
     /// After a change: read the item again (new tags go into Emby's tag table through `get`, so every poster link
     /// changes), then tell the pages.
     static func reloadItem(_ id: String, emby: Emby) async {

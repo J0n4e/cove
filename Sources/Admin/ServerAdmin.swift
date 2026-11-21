@@ -252,15 +252,23 @@ struct ServerAdminAPI {
     /// (method, path) → (body, HTTP status; 0 = no answer). Paths start with "/".
     var call: (_ method: String, _ path: String) async -> (Data?, Int)
     var userId: String
+    /// With a JSON body (phase 2). nil: falls back to `call` without a body (tests of phase 1).
+    var send: ((_ method: String, _ path: String, _ body: Data?) async -> (Data?, Int))? = nil
+
+    func request(_ r: AdminRequest) async -> (Data?, Int) {
+        if let send { return await send(r.method, r.path, r.body) }
+        return await call(r.method, r.path)
+    }
 }
 
 extension Emby {
     /// One authorised request for the admin panel. Never logs the token or the full URL.
-    func adminCall(_ method: String, _ path: String) async -> (Data?, Int) {
+    func adminCall(_ method: String, _ path: String, body: Data? = nil) async -> (Data?, Int) {
         guard let u = URL(string: server + path) else { return (nil, 0) }
-        var r = URLRequest(url: u, timeoutInterval: 15)
+        var r = URLRequest(url: u, timeoutInterval: 30)
         r.httpMethod = method
         authorize(&r)
+        if let body { r.httpBody = body; r.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         guard let (d, resp) = try? await Net.session.data(for: r) else { return (nil, 0) }
         return (d, (resp as? HTTPURLResponse)?.statusCode ?? 0)
     }
@@ -271,9 +279,16 @@ extension Emby {
 @MainActor
 final class ServerAdmin: ObservableObject {
     enum Tab: Int, CaseIterable, Identifiable {
-        case overview, tasks
+        case overview, tasks, users, libraries
         var id: Int { rawValue }
-        var title: String { self == .overview ? "Overview" : "Tasks" }
+        var title: String {
+            switch self {
+            case .overview: return "Overview"
+            case .tasks: return "Tasks"
+            case .users: return "Users"
+            case .libraries: return "Libraries"
+            }
+        }
     }
     enum Power: Equatable { case none, restarting, shuttingDown, back, timedOut, shutDown, failed(String) }
 
@@ -288,7 +303,7 @@ final class ServerAdmin: ObservableObject {
     @Published var message: String?
 
     let kind: ServerAdminKind
-    private let api: ServerAdminAPI
+    let api: ServerAdminAPI
     var sleep: (Double) async -> Void = { try? await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
 
     init(kind: ServerAdminKind, api: ServerAdminAPI) {
@@ -298,7 +313,8 @@ final class ServerAdmin: ObservableObject {
 
     static func live(_ emby: Emby) -> ServerAdmin {
         ServerAdmin(kind: emby.isJellyfin ? .jellyfin : .emby,
-                    api: ServerAdminAPI(call: { [weak emby] m, p in await emby?.adminCall(m, p) ?? (nil, 0) }, userId: emby.userId))
+                    api: ServerAdminAPI(call: { [weak emby] m, p in await emby?.adminCall(m, p) ?? (nil, 0) }, userId: emby.userId,
+                                        send: { [weak emby] m, p, b in await emby?.adminCall(m, p, body: b) ?? (nil, 0) }))
     }
 
     private func denied(_ status: Int) -> Bool {

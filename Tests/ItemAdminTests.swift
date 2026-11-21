@@ -110,9 +110,9 @@ final class ItemAdminTests: XCTestCase {
     // MARK: Images
 
     func testRemoteImagesRequest() {
-        XCTAssertEqual(API.remoteImages(itemId: "m1", type: "Primary").path, "/Items/m1/RemoteImages?Type=Primary&IncludeAllLanguages=false")
+        XCTAssertEqual(API.remoteImages(itemId: "m1", type: "Primary").path, "/Items/m1/RemoteImages?Type=Primary&IncludeAllLanguages=false&Language=en")
         XCTAssertEqual(API.remoteImages(itemId: "m1", type: "Backdrop", allLanguages: true, provider: "The Movie Db").path,
-                       "/Items/m1/RemoteImages?Type=Backdrop&IncludeAllLanguages=true&ProviderName=The%20Movie%20Db")
+                       "/Items/m1/RemoteImages?Type=Backdrop&IncludeAllLanguages=true&Language=en&ProviderName=The%20Movie%20Db")
     }
 
     func testDecodeRemoteImages() {

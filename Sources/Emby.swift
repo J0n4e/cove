@@ -469,6 +469,7 @@ final class Emby: ObservableObject {
         let t = t ?? token
         r.setValue(t, forHTTPHeaderField: "X-Emby-Token")
         r.setValue(authHeader + ", Token=\"\(t)\"", forHTTPHeaderField: "Authorization")
+        Net.setLanguage(&r)
     }
 
     /// Asks the server what it is ("Jellyfin Server" in ProductName) and remembers the answer per server.

@@ -74,6 +74,8 @@ struct ServerAdminRoot: View {
                     switch ServerAdmin.Tab(rawValue: tab) ?? .overview {
                     case .overview: ServerOverviewTab(model: model)
                     case .tasks: ServerTasksTab(model: model)
+                    case .users: ServerUsersTab(admin: model)
+                    case .libraries: ServerLibrariesTab(admin: model)
                     }
                 }
             }
