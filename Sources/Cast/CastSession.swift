@@ -132,6 +132,7 @@ final class CastSession: ObservableObject {
                 request?.audio = t.audio; request?.sub = t.sub
                 DebugLog.write("cast: tracks from memory (audio \(t.audio.map(String.init) ?? "default"), sub \(t.sub.map(String.init) ?? "off"))")
             }
+            chooseVideoMode(device: device.id)
             await prepareSubtitle()
             guard self.item?.id == item.id else { return }
             loadContinuation(emby, item, chapters: f?.Chapters ?? [])
@@ -193,7 +194,7 @@ final class CastSession: ObservableObject {
             return
         }
         let ps = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let profile = device?.profile ?? .basic
+        let profile = req.transcode ? CastTranscode.profile : (device?.profile ?? .basic)
         let url: URL
         switch CastStream.url(server: emby.server, token: emby.token, keyName: emby.keyName, deviceId: emby.deviceId,
                               playSessionId: ps, req: req, profile: profile) {
@@ -209,6 +210,16 @@ final class CastSession: ObservableObject {
                                                         audioCodecs: profile.audioCodecs, addKey: true)
                 guard let self, self.item?.id == itemId, self.transportId == tid else { return }
                 self.sendLoad(url: got?.url ?? url, emby: emby, item: item, req: req, tid: tid, profile: profile)
+            }
+            return
+        }
+        // Forced video transcode on Emby: PlaybackInfo with a no-copy device profile (its TranscodingUrl)
+        if req.transcode, CastTranscode.route(isJellyfin: emby.isJellyfin) == .playbackInfo {
+            let itemId = item.id
+            Task { @MainActor [weak self] in
+                let got = await emby.castTranscodePlaybackInfo(itemId: itemId, sourceId: req.sourceId, audio: req.audio)
+                guard let self, self.item?.id == itemId, self.transportId == tid else { return }
+                self.sendLoad(url: got ?? url, emby: emby, item: item, req: req, tid: tid, profile: profile)
             }
             return
         }
@@ -237,7 +248,7 @@ final class CastSession: ObservableObject {
         req.start = statusTime
         let body = CastLoad.body(url: url, hls: true, meta: meta, start: req.start, subtitle: subtitle,
                                  hevc: profile.hevc, requestId: nextId(), textStyle: Self.textStyle())
-        DebugLog.write("cast: LOAD at \(Int(req.start)) s (\(profile.videoCodecs)/\(profile.audioCodecs), sub: \(req.sub.map(String.init) ?? "off")\(req.subIsImage ? " burned in" : (subtitle != nil ? " served by Cove" : "")))\(req.subIsImage && req.sub != nil ? " [\(Emby.burnInLog(url.absoluteString))]" : "")")
+        DebugLog.write("cast: LOAD at \(Int(req.start)) s (\(profile.videoCodecs)/\(profile.audioCodecs)\(req.transcode ? ", video transcoded" : ""), sub: \(req.sub.map(String.init) ?? "off")\(req.subIsImage ? " burned in" : (subtitle != nil ? " served by Cove" : "")))\(req.subIsImage && req.sub != nil ? " [\(Emby.burnInLog(url.absoluteString))]" : "")")
         channel?.send(.make(CastMessage.nsMedia, body, to: tid))
         startClock()
         saveActive()
@@ -289,7 +300,7 @@ final class CastSession: ObservableObject {
             DebugLog.write("cast: receiver error event (\(Self.errorDetails(j)))")
         case (CastMessage.nsMedia, "LOAD_FAILED"):
             DebugLog.write("cast: LOAD_FAILED (\(Self.errorDetails(j)))")
-            if retrySubtitleAfterError() { return }
+            if retryAfterError() { return }
             fail("The TV couldn't load this video. The server may not be reachable from the TV at \(URL(string: emby?.server ?? "")?.host ?? "its address").")
         case (CastMessage.nsMedia, "INVALID_REQUEST"):
             DebugLog.write("cast: invalid request (\(j["reason"] as? String ?? "?"))")
@@ -308,7 +319,7 @@ final class CastSession: ObservableObject {
             case "FINISHED":
                 statusTime = duration
                 if !playNextAtEnd() { finish(nil) }   // the next episode / film continues on the TV
-            case "ERROR": if !retrySubtitleAfterError() { fail("The TV couldn't play this video.") }
+            case "ERROR": if !retryAfterError() { fail("The TV couldn't play this video.") }
             case "CANCELLED": finish(nil)
             default: break   // INTERRUPTED: a new LOAD replaced it
             }

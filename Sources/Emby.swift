@@ -97,6 +97,11 @@ struct MStream: Decodable, Identifiable {
     var ChannelLayout: String? = nil
     /// A separate subtitle file next to the video (decoded when present)
     var IsExternal: Bool? = nil
+    /// Video facts for Cast's copy/transcode choice (decoded when present): "High", 40/4.0, 8/10, interlaced
+    var Profile: String? = nil
+    var Level: Double? = nil
+    var BitDepth: Int? = nil
+    var IsInterlaced: Bool? = nil
     var id: Int { Index }
 }
 

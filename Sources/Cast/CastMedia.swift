@@ -67,6 +67,8 @@ struct CastRequest: Equatable {
     var sub: Int?
     var subIsImage = false
     var start: Double = 0
+    /// Force a video transcode (no stream copy): the TV failed the copied video, or the source is risky (CastTranscode.swift)
+    var transcode = false
 }
 
 enum CastStream {
@@ -99,6 +101,7 @@ enum CastStream {
             .init(name: "MaxStreamingBitrate", value: "40000000"),
         ]
         if let a = req.audio { q.append(.init(name: "AudioStreamIndex", value: String(a))) }
+        if req.transcode { q = CastTranscode.forceTranscode(q) }
         if let s = req.sub, req.subIsImage {
             q.append(.init(name: "SubtitleStreamIndex", value: String(s)))
             q.append(.init(name: "SubtitleMethod", value: "Encode"))

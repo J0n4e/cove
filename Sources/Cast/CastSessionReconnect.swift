@@ -180,6 +180,7 @@ extension CastSession {
         emby = e; device = dev; item = it; collection = q
         audio = s.audio; sub = s.sub
         request = CastRequest(itemId: it.Id, sourceId: s.sourceId, audio: s.audio, sub: s.sub, start: s.position)
+        request?.transcode = CastCopyMemory.shared.failed(device: dev.id, item: it.Id)
         if case .success(let u) = CastStream.url(server: e.server, token: e.token, keyName: e.keyName, deviceId: e.deviceId,
                                                   playSessionId: s.playSessionId, req: request!, profile: dev.profile) {
             playSession = Emby.PlaySession(itemId: it.Id, sourceId: s.sourceId, method: "Transcode", url: u,
