@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Combine
 
 /// Bumped after an admin change to an item (refresh, identify, image edits), so the detail page and any view
 /// that observes it reload that item's pictures. The new image tags themselves reach every poster through
@@ -9,7 +10,12 @@ final class ItemAdminChanges: ObservableObject {
     static let shared = ItemAdminChanges()
     @Published private(set) var revision = 0
     @Published private(set) var changed: [String: Int] = [:]
-    func bump(_ id: String) { revision += 1; changed[id] = revision }
+    /// The item as read again after the change (pages swap their copy for it: new name, tags, picture links)
+    let updates = PassthroughSubject<[String: Item], Never>()
+    func bump(_ id: String, item: Item? = nil) {
+        revision += 1; changed[id] = revision
+        if let item { updates.send([id: item]) }
+    }
 }
 
 /// Server calls of the item admin tools. Errors come back as plain sentences; tokens are never logged.
@@ -65,8 +71,10 @@ enum ItemAdminService {
     /// After a change: read the item again (new tags go into Emby's tag table through `get`, so every poster link
     /// changes), then tell the pages.
     static func reloadItem(_ id: String, emby: Emby) async {
-        let _: Item? = try? await emby.get("/Users/\(emby.userId)/Items/\(id)")
-        ItemAdminChanges.shared.bump(id)
+        let fresh: Item? = try? await emby.get("/Users/\(emby.userId)/Items/\(id)")
+        ItemAdminChanges.shared.bump(id, item: fresh)
+        // SwiftUI posters work out their picture links from the tag table: redraw them with the new tags
+        emby.objectWillChange.send()
     }
 
     /// Asks for a refresh, then watches the item (refresh date / image tags) for up to ~60 s.

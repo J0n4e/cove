@@ -34,6 +34,45 @@ final class DetailModel: ObservableObject {
         self.item = item
         self.defaults = defaults
         self.quality = defaults.integer(forKey: "defaultQuality")
+        // An admin edit (pictures, metadata) of this item or one in its lists: swap in the new copies
+        liveWatch = ItemChangeWatch { [weak self] fresh in self?.itemsChanged(fresh) }
+        // A playback stopped: a series asks again for its next episode and the episodes' progress
+        stopWatch = PlaybackStopWatch { [weak self] id, _ in self?.playbackStopped(id) }
+    }
+    private var liveWatch: ItemChangeWatch?
+    private var stopWatch: PlaybackStopWatch?
+    private let liveTask = TaskHolder()
+
+    /// Lists on the page that hold a changed item get its new copy; the page's own item reloads its details.
+    func itemsChanged(_ fresh: [String: Item]) {
+        if let n = LiveRefresh.replacing(kids, with: fresh) { kids = n }
+        if let n = LiveRefresh.replacing(seasonItems, with: fresh) { seasonItems = n }
+        if let n = LiveRefresh.replacing(similar, with: fresh) { similar = n }
+        if let n = LiveRefresh.replacing(includedIn, with: fresh) { includedIn = n }
+        if let ep = nextEp, let n = fresh[ep.id] { nextEp = n }
+        if fresh[item.id] != nil, let source {
+            let id = item.id
+            liveTask.task = Task { [weak self] in
+                let f = await source.full(id)
+                guard !Task.isCancelled, let self, let f else { return }
+                self.full = f
+            }
+        }
+    }
+
+    /// After a stop the server needs a moment to save; then a series' episodes and Next Up are read again.
+    func playbackStopped(_ id: String) {
+        guard item.isSeries, let source else { return }
+        let sid = item.id
+        liveTask.task = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(LiveRefresh.afterStopDelay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            let eps = await source.episodes(sid)
+            let next = await source.nextUp(sid)
+            guard !Task.isCancelled, let self else { return }
+            if !eps.isEmpty { self.kids = eps }
+            self.nextEp = next ?? self.kids.first { !source.isPlayed($0) } ?? self.kids.first
+        }
     }
 
     func bind(_ source: DetailSource) { self.source = source }

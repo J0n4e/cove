@@ -82,6 +82,14 @@ enum NotificationInbox {
         list.map { var n = $0; if n.id == id { n.read = true }; return n }
     }
 
+    /// The stored entry a clicked macOS banner belongs to: same target (the banner's userInfo is the entry's target)
+    /// and title, the newest unread one first. nil when nothing matches (e.g. the entry was cleared).
+    static func matching(_ info: [String: String], title: String?, in list: [StoredNotification]) -> String? {
+        let same = list.filter { $0.target == info }.sorted { $0.date > $1.date }
+        let titled = same.filter { title == nil || $0.title == title }
+        return (titled.first { !$0.read } ?? same.first { !$0.read } ?? titled.first ?? same.first)?.id
+    }
+
     static func markAllRead(_ list: [StoredNotification]) -> [StoredNotification] {
         list.map { var n = $0; n.read = true; return n }
     }

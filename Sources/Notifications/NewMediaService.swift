@@ -335,6 +335,16 @@ final class NewMediaService: ObservableObject {
 
     // MARK: Clicks
 
+    /// A click on a macOS banner (new media or a server alert): its card in Activity → Notifications is marked
+    /// read, then it opens as before.
+    func bannerClicked(_ info: [String: String], title: String?) async {
+        if let id = NotificationInbox.matching(info, title: title, in: inbox.items) {
+            inbox.markRead(id)
+            if inbox.toast?.id == id { inbox.toast = nil }
+        }
+        await open(info as [AnyHashable: Any])
+    }
+
     /// A clicked notification: Cove to the front and the movie, show (on the episode's season) or library opened.
     /// One from another saved server is opened after switching to it with its saved sign-in (as the server pill
     /// does); when that isn't possible, Cove only shows "From <server>".
@@ -475,6 +485,7 @@ final class SystemNotifier: NSObject, NewMediaNotifier, UNUserNotificationCenter
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
+        let title = response.notification.request.content.title
         let strings = info.reduce(into: [String: String]()) { d, kv in
             if let k = kv.key as? String, let v = kv.value as? String { d[k] = v }
         }
@@ -482,7 +493,7 @@ final class SystemNotifier: NSObject, NewMediaNotifier, UNUserNotificationCenter
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { completionHandler(); return }
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
-                Task { await NewMediaService.shared.open(strings) }
+                Task { await NewMediaService.shared.bannerClicked(strings, title: title) }
             }
             completionHandler()
         }

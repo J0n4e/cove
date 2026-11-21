@@ -219,7 +219,7 @@ struct Row: Identifiable {
     /// Stable between reloads (library, feed or title), so SwiftUI updates a row in place instead of
     /// rebuilding it, which reset its scroll position every time Home refreshed.
     var id: String { libId ?? feed?.rawValue ?? title }
-    let title: String; let items: [Item]
+    let title: String; var items: [Item]
     /// What the row's "›" title opens: a feed page or a library.
     var feed: Feed? = nil
     var libId: String? = nil
@@ -996,6 +996,27 @@ final class Emby: ObservableObject {
         return t > 30 ? t : 0
     }
 
+    /// How far into an item you got (0...1) for the progress line and Resume ring: a position saved in this
+    /// session (a playback just stopped) wins over the item's own UserData, which is only as new as its last load.
+    func progressFraction(_ it: Item) -> Double {
+        Self.progressFraction(position: positions[it.id], runtimeTicks: it.RunTimeTicks,
+                              playedPercentage: it.UserData?.PlayedPercentage)
+    }
+
+    /// Where you stopped, in ticks (for “42m left”), with the same session-first rule.
+    func positionTicks(_ it: Item) -> Int64 {
+        if let p = positions[it.id] { return Int64(max(0, p) * 10_000_000) }
+        return it.UserData?.PlaybackPositionTicks ?? 0
+    }
+
+    nonisolated static func progressFraction(position: Double?, runtimeTicks: Int64?, playedPercentage: Double?) -> Double {
+        if let position {
+            guard position > 0, let rt = runtimeTicks, rt > 0 else { return 0 }
+            return min(1, max(0, position * 10_000_000 / Double(rt)))
+        }
+        return min(1, max(0, (playedPercentage ?? 0) / 100))
+    }
+
     /// Next episode to watch for a series (in progress or first unwatched), as the server sees it.
     func nextUp(_ seriesId: String) async -> Item? {
         let r: ItemList? = try? await get("/Shows/NextUp", ["SeriesId": seriesId, "UserId": userId, "Fields": "Overview", "Limit": "1"])
@@ -1085,6 +1106,9 @@ final class Emby: ObservableObject {
         if s.server == server {                     // not after a switch: item ids belong to that server
             positions[s.itemId] = finished ? 0 : sec
             if finished { played[s.itemId] = true }
+            // Detail pages, Home's Continue Watching / Next Up and series pages refresh what they show
+            NotificationCenter.default.post(name: .covePlaybackStopped, object: nil,
+                                            userInfo: ["id": s.itemId, "finished": finished])
         }
         recentStopped.append(s)
         if recentStopped.count > 6 { recentStopped.removeFirst() }
