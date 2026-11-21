@@ -85,6 +85,10 @@ final class PlayerModel: ObservableObject {
     var airPlayRestartInProgress = false
     var airPlayRestartToken = 0
     var airPlayOffSince: Date?
+    /// Text track served on AirPlay through Cove's local HLS (Player/AirPlayLocalHLSPlayer.swift)
+    var airPlayLocalSub: Int?
+    var airPlayLocalName = ""
+    var airPlayLocalAt = Date.distantPast
     // ↑ AirPlay
     /// The file's video is HEVC (typically 4K / HDR): ask for fMP4 segments so it can be passed through.
     var sourceIsHEVC: Bool {
@@ -196,7 +200,10 @@ final class PlayerModel: ObservableObject {
         // the fallback are downloaded.
         var wantInStream: Int?
         var coveDrawn = false
-        if let s = req.sub, !isImageSub(s), !req.burnIn, airPlayActive,
+        // AirPlay + text subtitle: the server streams without it, Cove adds it as a WebVTT rendition (local HLS)
+        let localSub = airPlayLocalChoice(req)
+        if let s = localSub { dlog("airplay: subtitle track \(s) via Cove's local HLS (WebVTT rendition)"); req.sub = nil }
+        if localSub == nil, let s = req.sub, !isImageSub(s), !req.burnIn, airPlayActive,
            Self.airPlaySubAction(path: Self.subPath(streams.first { $0.Index == s }, burnIn: false, directPlay: false),
                                  airPlay: true, playingInStream: false, burnedForAirPlay: false, hls: true,
                                  inStreamUnsupported: Self.airPlayNoHlsSubs(isJellyfin: emby.isJellyfin, known: inStreamUnsupported),
@@ -249,6 +256,17 @@ final class PlayerModel: ObservableObject {
                         ?? audioStreams.first)?.Codec
         let method = PlayMethod.guess(url: u.absoluteString, sourceAudio: srcAudio)
         streamContainer = emby.lastStreamContainer
+        var playURL = u
+        if let s = localSub {
+            if method != "DirectPlay", let lu = await airPlayLocalURL(emby, server: u, track: s, req: req, gen: gen) {
+                playURL = lu
+            } else if current() {
+                dlog("airplay: local HLS not possible\(method == "DirectPlay" ? " (Direct Play)" : ""): restarting with track \(s) burned in")
+                if let lsub = self.req?.item.id, method != "DirectPlay" { Self.airPlayLocalFailedItems.insert(lsub) }
+                airPlayBurnPending = true
+                Task { @MainActor [weak self] in await self?.restartKeepingPosition { $0.sub = s; $0.burnIn = true } }
+            }
+        }
         let ps = Emby.PlaySession(itemId: req.item.id, sourceId: req.sourceId, method: method, url: u,
                                   server: emby.server, token: emby.token)
         guard current() else {
@@ -257,7 +275,7 @@ final class PlayerModel: ObservableObject {
             return
         }
         session = ps
-        let it = AVPlayerItem(url: u)
+        let it = AVPlayerItem(url: playURL)
         if let s = wantInStream {
             if method == "DirectPlay", airPlayActive {   // the TV can't get Cove's cues: burn it in
                 dlog("airplay: Direct Play has no subtitle stream: restarting with track \(s) burned in")
@@ -289,7 +307,7 @@ final class PlayerModel: ObservableObject {
                     // A stale event from a stream that was restarted meanwhile must not mark the new one ready
                     guard let self, gen == self.startGen, self.player?.currentItem === i else { return }
                     self.isReady = true
-                    self.selectInStream(i, gen: gen)
+                    self.selectInStream(i, gen: gen); self.selectAirPlayLocal(i, gen: gen)
                     if self.resumeTarget <= 0 { self.syncPreroll() }   // SyncPlay timing
                     if self.resumeTarget > 0 {
                         let t = self.resumeTarget; self.resumeTarget = 0
@@ -373,7 +391,7 @@ final class PlayerModel: ObservableObject {
                       + "; video \((info?["IsVideoDirect"] as? Bool) == true ? "copied" : (info?["VideoCodec"] as? String ?? "?"))"
                       + ", audio \((info?["IsAudioDirect"] as? Bool) == true ? "copied" : (info?["AudioCodec"] as? String ?? "?"))"
                       + "; reasons: \(reasons.isEmpty ? "none" : reasons.joined(separator: ","))")
-            if self.req?.sub != nil, (info?["IsVideoDirect"] as? Bool) == true { self.dlog("WARNING: burn-in requested but the server copies the video: the subtitle won't show") }
+            if self.req?.sub != nil, self.airPlayLocalSub == nil, (info?["IsVideoDirect"] as? Bool) == true { self.dlog("WARNING: burn-in requested but the server copies the video: the subtitle won't show") }
             guard m != cur.method else { return }
             cur.method = m
             self.session = cur
@@ -404,6 +422,7 @@ final class PlayerModel: ObservableObject {
     private func playbackFailed(_ code: String, gen: Int) {
         // Both the item status and the "failed to play to end" notice can report the same failure: act once
         guard gen == startGen, player != nil, let emby, error.isEmpty, !retrying else { return }
+        if airPlayLocalFailed(gen: gen) { return }   // local AirPlay HLS: server burn-in once instead
         var info = code
         if let ev = player?.currentItem?.errorLog()?.events.last {   // (its URI holds the token: not logged)
             info += "; log: \(ev.errorDomain) \(ev.errorStatusCode) \(ev.errorComment ?? "")"
@@ -949,6 +968,7 @@ final class PlayerModel: ObservableObject {
         if airPlayActive, let p = player { Self.stashAirPlay(p) }   // next episode / restart keeps the TV
         else if !Self.airPlayHandoffFresh { AirPlaySleep.set(false) }
         legible?.detach(); legible = nil; legibleGroup = nil; inStreamSub = nil; inStreamDecided = false
+        endAirPlayLocal()
         // An AirPlay subtitle restart keeps the AVPlayer playing and set (the picker keeps routing it): pausing or
         // clearing it dropped the route (owner: AirPlay started and stopped at once). start() takes it back.
         if !(airPlayRestartInProgress && airPlayActive) { player?.pause(); player = nil }
