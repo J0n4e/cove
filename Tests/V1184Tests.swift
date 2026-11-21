@@ -32,7 +32,8 @@ final class V1184Tests: XCTestCase {
     // MARK: Detail row
 
     func testRatingIsLastInDetailRow() {
-        XCTAssertEqual(DetailRowOrder.order.last, "rating")
+        XCTAssertEqual(DetailRowOrder.order.last, "admin")   // the admin ⋯ after the rating
+        XCTAssertEqual(DetailRowOrder.order.dropLast().last, "rating")
         XCTAssertEqual(Array(DetailRowOrder.order.prefix(2)), ["play", "resume"])
         let i = DetailRowOrder.order.firstIndex(of: "favorite")!
         XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "rating"), i + 1)

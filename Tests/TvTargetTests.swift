@@ -39,9 +39,9 @@ final class TvTargetTests: XCTestCase {
 
     func testDetailOrderBothSettings() {
         XCTAssertEqual(DetailRowOrder.order(tvTarget: "cast"),
-                       ["play", "resume", "watchTogether", "cast", "trailer", "watched", "favorite", "rating"])
+                       ["play", "resume", "watchTogether", "cast", "trailer", "watched", "favorite", "rating", "admin"])
         XCTAssertEqual(DetailRowOrder.order(tvTarget: "airplay"),
-                       ["play", "resume", "watchTogether", "airplay", "trailer", "watched", "favorite", "rating"])
+                       ["play", "resume", "watchTogether", "airplay", "trailer", "watched", "favorite", "rating", "admin"])
         XCTAssertTrue(DetailRowOrder.order(tvTarget: "airplay", casting: true).contains("cast"))
     }
 
