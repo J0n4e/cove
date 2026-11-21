@@ -23,12 +23,13 @@ final class CastSubtitleTests: XCTestCase {
     }
 
     func testRetryChain() {
-        // A failed side track or burn-in soon after LOAD → once without subtitles → the old error
-        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 7, triedNoSubs: false), .noSubs)
-        XCTAssertEqual(CastSubtitles.retry(mode: .burned, sinceLoad: 5, triedNoSubs: false), .noSubs)
-        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 5, triedNoSubs: true), .fail)
-        XCTAssertEqual(CastSubtitles.retry(mode: .none, sinceLoad: 5, triedNoSubs: false), .fail, "no subtitle: nothing to blame")
-        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 25, triedNoSubs: false), .fail)
+        // Copied video → transcode first (side track kept); transcoded/burned → once without subtitles → the error
+        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 7, transcoded: false, triedNoSubs: false), .transcode)
+        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 7, transcoded: true, triedNoSubs: false), .noSubs)
+        XCTAssertEqual(CastSubtitles.retry(mode: .burned, sinceLoad: 5, transcoded: false, triedNoSubs: false), .noSubs)
+        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 5, transcoded: true, triedNoSubs: true), .fail)
+        XCTAssertEqual(CastSubtitles.retry(mode: .none, sinceLoad: 5, transcoded: true, triedNoSubs: false), .fail)
+        XCTAssertEqual(CastSubtitles.retry(mode: .side, sinceLoad: 35, transcoded: false, triedNoSubs: false), .fail)
     }
 
     func testErrorDetails() {

@@ -6,7 +6,9 @@ import Foundation
 // and Emby's burn-in shows nothing on the TV, so Cove serves every TEXT subtitle itself (CastSubtitleServer.swift):
 // the track is read exactly as the local player reads it (Emby.subtitleCues, cached whole tracks), converted to
 // WebVTT and served from this Mac with CORS headers. Same path for Emby and Jellyfin. Only PICTURE subtitles
-// (PGS/VOBSUB/DVB) are still burned in by the server. A side track that still fails → retried without subtitles.
+// (PGS/VOBSUB/DVB) are still burned in by the server. A receiver ERROR soon after a LOAD whose video the server
+// COPIED → reload with a forced video transcode, keeping the side track (CastTranscode.swift); still failing →
+// transcode without subtitles; then the error.
 
 enum CastSubDelivery: Equatable {
     case local     // text: Cove serves it as a WebVTT side track
@@ -16,8 +18,8 @@ enum CastSubDelivery: Equatable {
 enum CastSubtitles {
     /// Seconds to wait for a whole track (an embedded one is extracted first) before the LOAD.
     nonisolated static let fullWait: TimeInterval = 20
-    /// An ERROR this soon after a LOAD is blamed on the subtitle.
-    nonisolated static let retryWindow: TimeInterval = 20
+    /// An ERROR this soon after a LOAD is blamed on the stream (copied video / subtitle) and retried.
+    nonisolated static let retryWindow: TimeInterval = 30
     static let noSubsNotice = "The TV couldn't load the subtitles — playing without them."
     static let preparingNotice = "Preparing subtitles…"
     static let notReadyNotice = "The subtitles aren't ready yet — playing without them. Choose them again in a moment."
@@ -33,13 +35,16 @@ enum CastSubtitles {
         return delivery(codec: st.Codec, isExternal: st.IsExternal ?? false)
     }
 
-    /// The step after an IDLE(ERROR). `mode`: how the subtitle went in the failed LOAD.
-    enum Retry: Equatable { case noSubs, fail }
+    /// The step after an IDLE(ERROR). `mode`: how the subtitle went in the failed LOAD; `transcoded`: the failed
+    /// LOAD's video was already transcoded (forced transcode or a burn-in).
+    enum Retry: Equatable { case transcode, noSubs, fail }
     enum Mode: Equatable { case none, side, burned }
 
-    nonisolated static func retry(mode: Mode, sinceLoad: TimeInterval, triedNoSubs: Bool) -> Retry {
-        guard sinceLoad <= retryWindow, !triedNoSubs, mode != .none else { return .fail }
-        return .noSubs
+    nonisolated static func retry(mode: Mode, sinceLoad: TimeInterval, transcoded: Bool, triedNoSubs: Bool) -> Retry {
+        guard sinceLoad <= retryWindow else { return .fail }
+        if !transcoded && mode != .burned { return .transcode }   // step 1: the copied video is the usual culprit
+        if mode != .none && !triedNoSubs { return .noSubs }       // step 2: transcode without subtitles
+        return .fail
     }
 
     /// Cast text style from Cove's subtitle settings (size, colour, edge).
@@ -131,13 +136,27 @@ extension CastSession {
         }
     }
 
-    /// IDLE(ERROR) soon after a LOAD with a subtitle: retry once without subtitles; true when a retry was sent.
-    func retrySubtitleAfterError() -> Bool {
+    /// IDLE(ERROR) soon after a LOAD: 1) reload with a forced video transcode (side track kept, remembered per
+    /// device + item), 2) transcode without subtitles; true when a retry was sent.
+    func retryAfterError() -> Bool {
         guard var r = request, transportId != nil else { return false }
         let mode: CastSubtitles.Mode = r.sub == nil ? .none : (r.subIsImage ? .burned : .side)
-        guard CastSubtitles.retry(mode: mode, sinceLoad: Date().timeIntervalSince(loadAt), triedNoSubs: subRetryNoSubs) == .noSubs else { return false }
-        DebugLog.write("cast: retry without subtitles")
-        r.sub = nil; r.subIsImage = false
+        let step = CastSubtitles.retry(mode: mode, sinceLoad: Date().timeIntervalSince(loadAt), transcoded: r.transcode,
+                                       triedNoSubs: subRetryNoSubs)
+        if step == .fail { return false }
+        if step == .transcode {
+            DebugLog.write("cast: retry with video transcode")
+            if let d = device { CastCopyMemory.shared.markFailed(device: d.id, item: r.itemId) }
+            r.transcode = true
+            request = r
+            statusTime = time; statusDate = Date()
+            playerState = "BUFFERING"
+            reportStop()
+            sendLoad()
+            return true
+        }
+        DebugLog.write("cast: retry without subtitles (video transcoded)")
+        r.sub = nil; r.subIsImage = false; r.transcode = true
         subRetryNoSubs = true
         sub = nil
         stopSubtitleServer()
