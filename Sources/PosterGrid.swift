@@ -263,7 +263,12 @@ struct PosterGrid: NSViewRepresentable {
             playedWatch = emby.$played.dropFirst().removeDuplicates()
                 .debounce(for: .milliseconds(30), scheduler: DispatchQueue.main)
                 .sink { [weak self] _ in self?.refreshVisible() }
+            // A playback just stopped: its progress line / Resume ring is drawn again from the new position
+            positionsWatch = emby.$positions.dropFirst()
+                .debounce(for: .milliseconds(30), scheduler: DispatchQueue.main)
+                .sink { [weak self] _ in self?.refreshVisible() }
         }
+        private var positionsWatch: AnyCancellable?
 
         func refreshVisible() {
             guard let cv, let emby else { return }
@@ -571,7 +576,7 @@ final class PosterGridCell: NSCollectionViewItem {
         // The ♡ is a button, so it shows on Favorites too (click to remove)
         let fav = emby.isFav(item)
         let rating = Trakt.shared.rating(item)
-        let pct = item.UserData?.PlayedPercentage.map { Int($0) } ?? 0
+        let pct = Int(emby.progressFraction(item) * 100)
         let progress = (pct > 0 && pct < 100 && !played) ? pct : 0
         let accent = UserDefaults.standard.string(forKey: "accent") ?? "red"
         let unwatched = item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0

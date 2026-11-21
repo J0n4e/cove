@@ -337,7 +337,7 @@ struct ClassicResumeCard: View {
     @State private var onPlay = false
     @AppStorage("accent") private var accentName = "red"
 
-    var progress: Double { min(1, max(0, (item.UserData?.PlayedPercentage ?? 0) / 100)) }
+    var progress: Double { emby.progressFraction(item) }
     var hasProgress: Bool { progress > 0 && progress < 1 }
     /// The ring: resume from the saved position
     func resume() { Task { await emby.playFromHome(item, from: ProgressStyle.ringStart(resumeAt: emby.resumeAt(item))) } }
@@ -345,7 +345,7 @@ struct ClassicResumeCard: View {
     func playCentre() { Task { await emby.playFromHome(item, from: ProgressStyle.centreStart(hasProgress: hasProgress)) } }
     var timeLeft: String? {
         guard let total = item.RunTimeTicks, total > 0 else { return nil }
-        let left = max(0, total - (item.UserData?.PlaybackPositionTicks ?? 0))
+        let left = max(0, total - emby.positionTicks(item))
         return runtimeText(left) + " left"
     }
     var subtitle: String? {

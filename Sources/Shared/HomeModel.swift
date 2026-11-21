@@ -58,6 +58,38 @@ final class HomeModel: ObservableObject {
                 await self.sourceChanged()
             }
         }
+        liveWatch = ItemChangeWatch { [weak self] fresh in self?.itemsChanged(fresh) }
+        stopWatch = PlaybackStopWatch { [weak self] id, _ in self?.playbackStopped(id) }
+    }
+
+    // MARK: Live updates
+
+    private var liveWatch: ItemChangeWatch?
+    private var stopWatch: PlaybackStopWatch?
+    private let stopReload = TaskHolder()
+    /// How many quiet reloads after a stop have landed (tests)
+    private(set) var stopReloads = 0
+
+    /// An admin edit: the rows and the banner show the item as read again (new name, pictures).
+    func itemsChanged(_ fresh: [String: Item]) {
+        if let n = LiveRefresh.replacing(rows: rows, with: fresh) { rows = n }
+        if let h = heroFetched, let n = LiveRefresh.replacing(h, with: fresh) { heroFetched = n }
+    }
+
+    /// A playback stopped: Continue Watching puts it first at once, then (once the server has saved the
+    /// position) the rows are read again in the background, so a new title appears there and Next Up moves on.
+    func playbackStopped(_ id: String) {
+        guard !loading else { return }
+        if let n = LiveRefresh.movingToFront(id, in: rows) { rows = n }
+        stopReload.task = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(LiveRefresh.afterStopDelay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            let new: [Row]
+            if let loader = self.loader { new = await loader() } else if let emby = self.emby { new = await emby.loadHome() } else { return }
+            guard !Task.isCancelled, !new.isEmpty, !self.loading else { return }
+            self.rows = new
+            self.stopReloads += 1
+        }
     }
 
     /// (Re)starts the refresh loop with the current setting; the next refresh is a full interval from now.
