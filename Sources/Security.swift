@@ -27,8 +27,31 @@ enum Net {
         // to ~/Library/Caches and stay there after signing out
         cfg.urlCache = nil
         cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
+        // Server UI strings (task names, activity, errors) in English, whatever the Mac's or server's language
+        cfg.httpAdditionalHeaders = englishHeaders
         return URLSession(configuration: cfg, delegate: SameHostRedirects(), delegateQueue: nil)
     }()
+
+    /// The language Cove asks the server to answer in. Emby and Jellyfin localize scheduled task names,
+    /// descriptions and categories, activity entries, plugin names and error messages by the request's culture
+    /// (Accept-Language; Emby also reads X-Emby-Language). Titles and overviews of films are NOT affected: they
+    /// follow each library's metadata language. `serverLanguage` in UserDefaults overrides (e.g. "de-DE").
+    static var language: String {
+        let o = UserDefaults.standard.string(forKey: "serverLanguage")?.trimmingCharacters(in: .whitespaces) ?? ""
+        return o.isEmpty ? "en-US" : o
+    }
+    static var acceptLanguage: String {
+        let l = language
+        let base = l.split(separator: "-").first.map(String.init) ?? l
+        return l == base ? l : "\(l),\(base);q=0.9"
+    }
+    static var englishHeaders: [String: String] {
+        ["Accept-Language": acceptLanguage, "X-Emby-Language": language.lowercased()]
+    }
+    /// Sets the language headers on one request (URLSession would otherwise add the Mac's own languages).
+    static func setLanguage(_ r: inout URLRequest) {
+        for (k, v) in englishHeaders { r.setValue(v, forHTTPHeaderField: k) }
+    }
 
     /// Same scheme, host and port (default ports filled in: http 80, https 443). The scheme must match so a
     /// reply from an https server can't point us (and our token) at http://same-host:443/. Order of the

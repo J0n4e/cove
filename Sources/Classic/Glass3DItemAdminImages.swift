@@ -203,6 +203,7 @@ struct ItemRemoteImagesView: View {
         let err = await ItemAdminService.send(ItemAdminAPI.remoteImages(itemId: item.id, type: type, allLanguages: allLanguages,
                                                                         provider: provider.isEmpty ? nil : provider),
                                               emby: emby, action: "load the online pictures", timeout: 60) { out = ItemAdminAPI.decodeRemoteImages($0) }
+        out.images = ItemAdminAPI.sortImages(out.images)
         guard !Task.isCancelled else { return }
         images = out.images
         if provider.isEmpty, !out.providers.isEmpty { providers = out.providers }

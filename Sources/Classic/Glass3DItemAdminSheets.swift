@@ -165,10 +165,14 @@ struct ItemIdentifyView: View {
     }
 
     func search() {
-        guard let req = ItemAdminAPI.remoteSearch(itemId: item.id, type: item.`Type`, name: name,
-                                                  year: Int(year.trimmingCharacters(in: .whitespaces)), providerIds: ids) else { return }
+        guard ItemAdminAPI.searchKind(item.`Type`) != nil else { return }
         busy = true; error = ""; picked = nil
+        let (n, y, pids) = (name, Int(year.trimmingCharacters(in: .whitespaces)), ids)
         Task { @MainActor in
+            // The library's metadata language (if set) for the results; otherwise English, not the server's UI language
+            let lang = await ItemAdminService.libraryLanguage(item.id, emby: emby)
+            guard let req = ItemAdminAPI.remoteSearch(itemId: item.id, type: item.`Type`, name: n, year: y, providerIds: pids,
+                                                      metadataLanguage: lang?.language, countryCode: lang?.country) else { busy = false; return }
             var found: [ItemAdminAPI.SearchResult] = []
             let err = await ItemAdminService.send(req, emby: emby, action: "search the providers", timeout: 60) { found = ItemAdminAPI.decodeSearch($0) }
             results = found; searched = true; busy = false

@@ -19,6 +19,10 @@ enum ItemAdminAPI {
         ok.insert(charactersIn: "-._~")
         return s.addingPercentEncoding(withAllowedCharacters: ok) ?? s
     }
+    nonisolated static func nonEmpty(_ s: String?) -> String? {
+        guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return nil }
+        return t
+    }
     nonisolated static func p(_ s: String) -> String { s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? s }
 
     // MARK: Refresh metadata
@@ -74,8 +78,11 @@ enum ItemAdminAPI {
     }
 
     /// POST /Items/RemoteSearch/Movie|Series {SearchInfo:{Name,Year,ProviderIds}, ItemId, IncludeDisabledProviders}.
+    /// MetadataLanguage / MetadataCountryCode: the library's own metadata language when it has one (passed in),
+    /// else English / US, so results don't come back in the server's UI language.
     nonisolated static func remoteSearch(itemId: String, type: String?, name: String, year: Int?,
-                                         providerIds: [String: String]) -> Request? {
+                                         providerIds: [String: String],
+                                         metadataLanguage: String? = nil, countryCode: String? = nil) -> Request? {
         guard let kind = searchKind(type) else { return nil }
         var info: [String: Any] = [:]
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -83,6 +90,8 @@ enum ItemAdminAPI {
         if let year { info["Year"] = year }
         let ids = providerIds.mapValues { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.value.isEmpty }
         if !ids.isEmpty { info["ProviderIds"] = ids }
+        info["MetadataLanguage"] = nonEmpty(metadataLanguage) ?? "en"
+        info["MetadataCountryCode"] = nonEmpty(countryCode) ?? "US"
         let body: [String: Any] = ["SearchInfo": info, "ItemId": itemId, "IncludeDisabledProviders": true]
         let data = try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         return Request(method: "POST", path: "/Items/RemoteSearch/\(kind)", contentType: "application/json", body: data)
@@ -169,9 +178,11 @@ enum ItemAdminAPI {
         Request(method: "DELETE", path: "/Items/\(p(itemId))/Images/\(type)/\(index)")
     }
 
-    /// GET /Items/{id}/RemoteImages?Type=…&IncludeAllLanguages=…(&ProviderName=…).
-    nonisolated static func remoteImages(itemId: String, type: String, allLanguages: Bool = false, provider: String? = nil) -> Request {
-        var path = "/Items/\(p(itemId))/RemoteImages?Type=\(type)&IncludeAllLanguages=\(allLanguages)"
+    /// GET /Items/{id}/RemoteImages?Type=…&IncludeAllLanguages=…&Language=en(&ProviderName=…). `Language` is read by
+    /// Emby and ignored by Jellyfin (harmless); either way the answer is sorted English + no-language first.
+    nonisolated static func remoteImages(itemId: String, type: String, allLanguages: Bool = false, provider: String? = nil,
+                                         language: String = "en") -> Request {
+        var path = "/Items/\(p(itemId))/RemoteImages?Type=\(type)&IncludeAllLanguages=\(allLanguages)&Language=\(q(language))"
         if let provider, !provider.isEmpty { path += "&ProviderName=\(q(provider))" }
         return Request(method: "GET", path: path)
     }
@@ -204,6 +215,33 @@ enum ItemAdminAPI {
                                rating: dbl(m["CommunityRating"]), votes: int(m["VoteCount"]))
         }
         return (imgs, d["Providers"] as? [String] ?? [])
+    }
+
+    /// Preferred language first, then pictures without text (no language), then the rest; the server's order
+    /// (rating) is kept inside each group.
+    nonisolated static func sortImages(_ images: [RemoteImage], preferred: String = "en") -> [RemoteImage] {
+        let pref = preferred.lowercased().split(separator: "-").first.map(String.init) ?? preferred.lowercased()
+        func rank(_ i: RemoteImage) -> Int {
+            guard let l = i.language?.lowercased(), !l.isEmpty else { return 1 }
+            let base = l.split(separator: "-").first.map(String.init) ?? l
+            return base == pref ? 0 : 2
+        }
+        return images.enumerated().sorted { a, b in
+            let ra = rank(a.element), rb = rank(b.element)
+            return ra != rb ? ra < rb : a.offset < b.offset
+        }.map(\.element)
+    }
+
+    /// The metadata language of the library an item lives in: GET /Library/VirtualFolders entries are matched to
+    /// the item's ancestors (GET /Items/{id}/Ancestors) by ItemId. nil = not set (the server default applies).
+    nonisolated static func libraryLanguage(folders: Data, ancestors: Data) -> (language: String?, country: String?)? {
+        guard let f = (try? JSONSerialization.jsonObject(with: folders)) as? [[String: Any]],
+              let a = (try? JSONSerialization.jsonObject(with: ancestors)) as? [[String: Any]] else { return nil }
+        func norm(_ s: String) -> String { s.lowercased().replacingOccurrences(of: "-", with: "") }
+        let ids = Set(a.compactMap { ($0["Id"] as? String).map(norm) })
+        guard let lib = f.first(where: { ($0["ItemId"] as? String).map { ids.contains(norm($0)) } ?? false }) else { return nil }
+        let o = lib["LibraryOptions"] as? [String: Any] ?? [:]
+        return (nonEmpty(o["PreferredMetadataLanguage"] as? String), nonEmpty(o["MetadataCountryCode"] as? String))
     }
 
     /// POST /Items/{id}/RemoteImages/Download?Type=…&ImageUrl=…&ProviderName=….
