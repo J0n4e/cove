@@ -10,6 +10,7 @@ struct CleanupView: View {
     @AppStorage("cleanupFilter") private var filterRaw = CleanupFilter.all.rawValue
     @AppStorage("cleanupKind") private var kindRaw = CleanupKind.both.rawValue
     @State private var library: String?
+    @State private var query = ""
     @State private var selecting = false
     @State private var selected: Set<String> = []
 
@@ -18,7 +19,7 @@ struct CleanupView: View {
     private var kind: CleanupKind { CleanupKind(rawValue: kindRaw) ?? .both }
 
     var body: some View {
-        let shown = Cleanup.sorted(Cleanup.filtered(store.items, library: library, kind: kind, filter: filter), by: sort)
+        let shown = Cleanup.sorted(Cleanup.searched(Cleanup.filtered(store.items, library: library, kind: kind, filter: filter), query), by: sort)
         VStack(alignment: .leading, spacing: 16) {
             header(shown)
             if store.items.isEmpty {
@@ -64,6 +65,8 @@ struct CleanupView: View {
             CleanupMenu(symbol: "arrow.up.arrow.down", value: sort.title,
                         options: Cleanup.sorts(hasSize: store.items.contains { $0.sizeBytes != nil }).map { ($0.rawValue, $0.title) },
                         selected: sortRaw, help: "Sort") { sortRaw = $0 }
+            // Find a title by name instead of scrolling (owner)
+            ServerSearchField(placeholder: "Search titles", text: $query).frame(width: 220)
             Spacer(minLength: 0)
             if selecting {
                 Button("Delete \(selected.count)\u{2026}") {
@@ -151,8 +154,7 @@ struct CleanupRow: View {
             column(entry.communityRating.map { "\u{2605} " + String(format: "%.1f", $0) } ?? "\u{2605} \u{2014}", width: 60,
                    tip: entry.criticRating.map { "Critics \(Int($0))%" } ?? "Community rating")
             column(entry.dateAdded.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "\u{2014}", width: 96, tip: "Date added")
-            column(entry.lastPlayed.map { LastActive.ago($0) } ?? "Never", width: 90,
-                   tip: entry.lastPlayed.map { "Last played " + LastActive.exact($0) } ?? "Never played")
+            column(CleanupItem.lastPlayedText(entry), width: 90, tip: CleanupItem.lastPlayedTip(entry))
             column(entry.sizeBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "", width: 70, tip: "Size")
             if !selecting, let item = entry.item {
                 Button { DeleteEverywhereWindow.open(item, emby: emby) } label: {

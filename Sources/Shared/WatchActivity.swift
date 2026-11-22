@@ -218,7 +218,7 @@ final class WatchActivityStore: ObservableObject {
             return r
         }
         guard let ur = request("/Users") else { return }
-        let fields = "DateCreated,RecursiveItemCount,ChildCount"
+        let fields = "DateCreated,RecursiveItemCount,ChildCount,UserDataPlayCount,UserDataLastPlayedDate"   // Emby 4.8 leaves these out of list answers unless asked
         let t = Task { [weak self] in
             guard let (ud, resp) = try? await Net.session.data(for: ur), (resp as? HTTPURLResponse)?.statusCode == 200 else {
                 DebugLog.write("watch activity: /Users failed"); return

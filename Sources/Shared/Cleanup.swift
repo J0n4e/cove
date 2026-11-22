@@ -36,6 +36,20 @@ struct CleanupItem: Identifiable, Equatable {
     var playCount: Int { counted.reduce(0) { $0 + $1.playCount } }
     var lastPlayed: Date? { entries.compactMap(\.lastPlayed).max() }
     var favourites: Int { counted.filter(\.favorite).count }
+    /// Last played column: a title marked as watched (or played in another app that kept no date) has no play date,
+    /// so it reads "Watched", not "Never" (owner: 1/13 watched but "Never").
+    static func lastPlayedText(_ e: CleanupItem) -> String {
+        if let d = e.lastPlayed { return LastActive.ago(d) }
+        if !e.watchedBy.isEmpty || !e.inProgressBy.isEmpty || e.playCount > 0 { return "Watched" }
+        return "Never"
+    }
+    static func lastPlayedTip(_ e: CleanupItem) -> String {
+        if let d = e.lastPlayed { return "Last played " + LastActive.exact(d) }
+        if !e.watchedBy.isEmpty || !e.inProgressBy.isEmpty || e.playCount > 0 {
+            return "Watched by " + (e.watchedBy + e.inProgressBy).joined(separator: ", ") + " (marked as watched, no play date on the server)"
+        }
+        return "Never played"
+    }
     /// 0…1: how many of the users who can see it watched it all
     var watchedFraction: Double { userCount == 0 ? 0 : Double(watchedBy.count) / Double(userCount) }
     /// Nobody watched any of it (no play, no progress)
@@ -103,7 +117,7 @@ enum Cleanup {
 
     /// One user's watch state over all libraries (one page).
     nonisolated static func userPath(userId: String, start: Int) -> String {
-        "/Users/\(userId)/Items?Recursive=true&IncludeItemTypes=Movie,Series&Fields=RecursiveItemCount"
+        "/Users/\(userId)/Items?Recursive=true&IncludeItemTypes=Movie,Series&Fields=RecursiveItemCount,UserDataPlayCount,UserDataLastPlayedDate"
             + "&EnableUserData=true&EnableImages=false&SortBy=SortName&StartIndex=\(start)&Limit=\(pageSize)"
     }
 
@@ -163,6 +177,16 @@ enum Cleanup {
     nonisolated static func filtered(_ items: [CleanupItem], library: String?, kind: CleanupKind, filter: CleanupFilter,
                                      now: Date = Date()) -> [CleanupItem] {
         items.filter { (library == nil || $0.libraryId == library) && matches($0, kind: kind) && matches($0, filter: filter, now: now) }
+    }
+
+    /// Title search (any word order, ignores case and accents; also matches the year).
+    nonisolated static func searched(_ items: [CleanupItem], _ query: String) -> [CleanupItem] {
+        let words = query.split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        guard !words.isEmpty else { return items }
+        return items.filter { i in
+            let hay = i.name + " " + (i.year.map(String.init) ?? "")
+            return words.allSatisfy { hay.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        }
     }
 
     nonisolated static func sorted(_ items: [CleanupItem], by sort: CleanupSort) -> [CleanupItem] {
