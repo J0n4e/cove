@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Detail page → Watch activity (admins only): a compact glass pill ("👁 3/10 watched" + stacked avatars) in the
+// Detail page → Watch activity (admins only): a compact glass pill ("👁 3/10 watched" only; no avatars, owner: it must stay small with many users) in the
 // info line; hovering it (or a click) opens a glass list of every user with their state, last played date, play
 // count and ♥. Model and rules: Shared/WatchActivity.swift.
 
@@ -28,20 +28,10 @@ struct WatchActivityPill: View {
 
     private func pill(_ d: WatchActivityData) -> some View {
         let s = WatchActivity.summary(d.entries, folder: folder)
-        let av = WatchActivity.avatars(d.entries, folder: folder)
         return Button { open.toggle() } label: {
             HStack(spacing: 6) {
                 Image(systemName: "eye").cvFont(11, weight: .semibold)
                 Text(s.text).cvFont(11, weight: .semibold) { $0.monospacedDigit() }
-                if !av.shown.isEmpty {
-                    HStack(spacing: -6) {
-                        ForEach(av.shown) { u in WatchActivityAvatar(user: u, size: 18) }
-                        if av.more > 0 {
-                            Text("+\(av.more)").cvFont(9, weight: .bold).foregroundColor(.white)
-                                .frame(width: 18, height: 18).background(Circle().fill(Color.white.opacity(0.22)))
-                        }
-                    }
-                }
             }
             .foregroundColor(.white)
             .padding(.horizontal, 10).frame(height: 26)
