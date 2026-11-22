@@ -8,7 +8,7 @@ import SwiftUI
 enum DeleteEverywhereWindow {
     static func open(_ item: Item, emby: Emby) {
         let id = "admin-delete-" + item.id
-        ItemAdminWindows.show(id, title: "Delete", size: NSSize(width: 520, height: 560), emby: emby,
+        ItemAdminWindows.show(id, title: "Delete", size: NSSize(width: 500, height: 470), emby: emby,
                               DeleteConfirmView(item: item, close: { ItemAdminWindows.close(id) }))
     }
 }
@@ -23,42 +23,62 @@ struct DeleteConfirmView: View {
     @State private var error: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ItemAdminHeader(title: "Delete\u{2026}", subtitle: item.SeriesName ?? item.Name)
+        VStack(alignment: .leading, spacing: 16) {
             if let plan { content(plan) } else {
                 HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Checking nexcrate and the server\u{2026}").cvFont(13).foregroundColor(.white.opacity(0.8)) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding(.horizontal, 22).padding(.bottom, 18)
+        .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { plan = await DeleteEverywhereService.prepare(item, emby: emby) }
     }
 
+    /// The kind in words for the header ("Delete movie?")
+    private var kindWord: String {
+        switch item.Type { case "Movie": return "movie"; case "Series": return "series"; case "Season": return "season"
+        case "Episode": return "episode"; default: return "title" }
+    }
+
     @ViewBuilder func content(_ p: DeleteEverywhereService.Plan) -> some View {
-        HStack(alignment: .top, spacing: 14) {
+        // Poster + title block (one title, no repeated subtitle)
+        HStack(alignment: .center, spacing: 16) {
             ItemAdminThumb(url: URL(string: emby.server + "/Items/\(ItemAdminAPI.p(item.posterId))/Images/Primary?maxWidth=240&quality=85"),
-                           placeholder: "film").frame(width: 96, height: 144)
-            VStack(alignment: .leading, spacing: 6) {
-                Text(p.text.scopeLine).cvFont(15, weight: .bold).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
-                if let s = p.sizeBytes, s > 0 {
-                    Text(ByteCountFormatter.string(fromByteCount: s, countStyle: .file)).cvFont(12).foregroundColor(.white.opacity(0.7))
+                           placeholder: "film").frame(width: 80, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Delete \(kindWord)?").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.6))
+                Text(p.text.scopeLine).cvFont(18, weight: .bold).foregroundColor(.white)
+                    .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    if let s = p.sizeBytes, s > 0 {
+                        Text(ByteCountFormatter.string(fromByteCount: s, countStyle: .file)).cvFont(12, weight: .medium)
+                            .foregroundColor(.white.opacity(0.75)) { $0.monospacedDigit() }
+                    }
+                    DeleteStatusBadge(inNexcrate: p.inNexcrate, configured: p.configured)
                 }
-                Text(p.inNexcrate ? "In nexcrate" : (p.configured ? "Not in nexcrate" : "nexcrate not connected"))
-                    .cvFont(12, weight: .semibold).foregroundColor(p.inNexcrate ? .green : .white.opacity(0.7))
             }
+            Spacer(minLength: 0)
         }
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(p.text.bullets, id: \.self) { Text($0).cvFont(13).foregroundColor(.white).fixedSize(horizontal: false, vertical: true) }
-        }.frame(maxWidth: .infinity, alignment: .leading).itemAdminCard()
+        // What happens: icon rows, main line + quieter detail
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(p.text.bullets, id: \.self) { DeleteEffectRow(text: $0) }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.10), lineWidth: 0.5))
         if let w = p.text.warning {
-            Text(w).cvFont(13, weight: .semibold).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
-                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.red.opacity(0.35)))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.red.opacity(0.9), lineWidth: 1))
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill").cvFont(15).foregroundColor(.white)
+                Text(w.replacingOccurrences(of: "\u{26A0} ", with: "")).cvFont(13, weight: .semibold).foregroundColor(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.red.opacity(0.32)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.red.opacity(0.85), lineWidth: 1))
         }
         if let m = p.lookupProblem { Text(m).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
-        if let h = p.text.hint { Text(h).cvFont(12).foregroundColor(.white.opacity(0.7)) }
+        if let h = p.text.hint { Text(h).cvFont(12).foregroundColor(.white.opacity(0.65)).fixedSize(horizontal: false, vertical: true) }
         if let error { Text(error).cvFont(12, weight: .semibold).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
         Spacer(minLength: 0)
         HStack {
@@ -233,5 +253,57 @@ struct NexcrateSettingsSection: View {
             }
             PrefNote("Admins: Delete\u{2026} on a movie, series, season or episode goes through nexcrate when it has the title \u{2014} its torrents leave qBittorrent and the files sit in nexcrate's recycle bin for 7 days, so you can Undo. Connect asks nexcrate for a key (read + request); confirm the code there. The key is kept sealed on this Mac.")
         }
+    }
+}
+
+
+/// "In nexcrate" (green) / "Not in nexcrate" / "nexcrate not connected" as a small capsule.
+struct DeleteStatusBadge: View {
+    let inNexcrate: Bool
+    let configured: Bool
+    var body: some View {
+        let (t, c, i): (String, Color, String) = inNexcrate ? ("In nexcrate", .green, "checkmark.circle.fill")
+            : configured ? ("Not in nexcrate", .orange, "xmark.circle.fill") : ("nexcrate not connected", .gray, "link")
+        HStack(spacing: 4) { Image(systemName: i).cvFont(10, weight: .bold); Text(t).cvFont(11, weight: .semibold) }
+            .foregroundColor(c).padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Capsule().fill(c.opacity(0.16)))
+    }
+}
+
+/// One effect of the delete: icon + main line + (detail in brackets or after a dash) in a quieter second line.
+struct DeleteEffectRow: View {
+    let text: String
+    var body: some View {
+        let p = DeleteEffectRow.split(text)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: p.icon).cvFont(13, weight: .semibold).foregroundColor(p.tint).frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(p.main).cvFont(13, weight: .medium).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
+                if let d = p.detail {
+                    Text(d).cvFont(11).foregroundColor(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    static func split(_ raw: String) -> (main: String, detail: String?, icon: String, tint: Color) {
+        var t = raw.hasPrefix("\u{2022} ") ? String(raw.dropFirst(2)) : raw
+        var detail: String?
+        if let r = t.range(of: " ("), t.hasSuffix(")") {
+            detail = String(t[r.upperBound..<t.index(before: t.endIndex)]); t = String(t[..<r.lowerBound])
+        } else if let r = t.range(of: " \u{2014} ") {
+            detail = String(t[r.upperBound...]); t = String(t[..<r.lowerBound])
+        }
+        if let d = detail { detail = d.prefix(1).uppercased() + d.dropFirst() }
+        let l = t.lowercased()
+        let (icon, tint): (String, Color) =
+            l.contains("recycle") ? ("arrow.uturn.backward.circle.fill", .green)
+            : l.contains("qbittorrent") ? ("arrow.down.circle.fill", .orange)
+            : l.contains("frozen") ? ("snowflake", .cyan)
+            : l.contains("several episodes") ? ("doc.on.doc.fill", .orange)
+            : l.contains("disk") ? ("trash.fill", .red)
+            : l.contains("library") ? ("rectangle.stack.badge.minus", .white.opacity(0.8))
+            : ("shippingbox.fill", .white.opacity(0.8))
+        return (t, detail, icon, tint)
     }
 }
