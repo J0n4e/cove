@@ -920,6 +920,7 @@ struct ShortcutsSettings: View {
                   ("Esc", "Esc leaves full screen"),
                   ("← →", "Home: previous / next banner"),
                   ("⌘ ,", "Open Settings"),
+                  ("⌘ ?", "Cove Help"),
                   ("⌘ ←  or  ⌘ [", "Back")])
         }
         PrefSection(title: "In Settings") {

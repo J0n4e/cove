@@ -51,7 +51,7 @@ final class ProfileMenuTests: XCTestCase {
         XCTAssertEqual(ProfileMenuSpec.rows(.shortcuts, input(admin: false, unread: 3)), [.search, .myActivity, .favorites, .notifications(unread: 3)])
         XCTAssertEqual(ProfileMenuSpec.title(.notifications(unread: 3)), "Notifications (3)")
         XCTAssertEqual(ProfileMenuSpec.title(.notifications(unread: 0)), "Notifications")
-        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(admin: nil)), [.settings, .checkUpdates, .about])
+        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(admin: nil)), [.settings, .checkUpdates, .about, .help])
     }
 
     func testEmbyUploadShape() {
