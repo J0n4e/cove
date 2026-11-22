@@ -52,8 +52,8 @@ struct DeleteConfirmView: View {
                     .lineLimit(3).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     if let s = p.sizeBytes, s > 0 {
-                        Text(ByteCountFormatter.string(fromByteCount: s, countStyle: .file)).cvFont(12, weight: .medium)
-                            .foregroundColor(.white.opacity(0.75)) { $0.monospacedDigit() }
+                        Text(ByteCountFormatter.string(fromByteCount: s, countStyle: .file)).cvFont(12, weight: .medium) { $0.monospacedDigit() }
+                            .foregroundColor(.white.opacity(0.75))
                     }
                     DeleteStatusBadge(inNexcrate: p.inNexcrate, configured: p.configured)
                 }
