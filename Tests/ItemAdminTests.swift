@@ -225,6 +225,6 @@ final class ItemAdminTests: XCTestCase {
     }
 
     func testAdminIsLastInDetailRow() {
-        XCTAssertEqual(DetailRowOrder.order.suffix(2), ["rating", "admin"])
+        XCTAssertEqual(DetailRowOrder.order.suffix(3), ["favorite", "admin", "rating"])
     }
 }

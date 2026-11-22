@@ -4,6 +4,14 @@ import Combine
 /// A person's page data (their titles and their own record), shared by the Glass and Classic themes.
 @MainActor
 final class PersonModel: ObservableObject {
+    /// An admin edit (pictures, metadata): the item as read again replaces the copy shown here
+    private var liveWatch: ItemChangeWatch?
+    init() {
+        liveWatch = ItemChangeWatch { [weak self] fresh in
+            guard let self else { return }
+            if let n = LiveRefresh.replacing(self.items, with: fresh) { self.items = n }
+        }
+    }
     @Published private(set) var items: [Item] = []
     @Published private(set) var record: Item?
     @Published private(set) var loading = true

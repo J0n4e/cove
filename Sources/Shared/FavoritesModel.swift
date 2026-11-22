@@ -6,6 +6,14 @@ import Combine
 /// when something is added or removed elsewhere, or when the page goes away.
 @MainActor
 final class FavoritesModel: ObservableObject {
+    /// An admin edit (pictures, metadata): the item as read again replaces the copy shown here
+    private var liveWatch: ItemChangeWatch?
+    init() {
+        liveWatch = ItemChangeWatch { [weak self] fresh in
+            guard let self else { return }
+            if let n = LiveRefresh.replacing(self.items, with: fresh) { self.items = n }
+        }
+    }
     @Published private(set) var items: [Item] = []
     @Published private(set) var people: [Item] = []
     @Published private(set) var loading = true
@@ -35,6 +43,14 @@ final class FavoritesModel: ObservableObject {
 /// One Favorites section opened as a page ("Favorite Movies ›"): the favorites with the given ids.
 @MainActor
 final class FavoriteGridModel: ObservableObject {
+    /// An admin edit (pictures, metadata): the item as read again replaces the copy shown here
+    private var liveWatch: ItemChangeWatch?
+    init() {
+        liveWatch = ItemChangeWatch { [weak self] fresh in
+            guard let self else { return }
+            if let n = LiveRefresh.replacing(self.items, with: fresh) { self.items = n }
+        }
+    }
     @Published private(set) var items: [Item] = []
 
     func load(_ source: ScreenSource, ids: [String]) async {

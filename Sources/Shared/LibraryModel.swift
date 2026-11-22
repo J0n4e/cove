@@ -50,7 +50,13 @@ final class LibraryModel: ObservableObject {
         genre = d["genre"] as? String ?? ""
         groupCol = d["groupCollections"] as? Bool ?? false
         layout = d["layout"] as? String ?? defaults.string(forKey: "defaultLibraryLayout") ?? "grid"
+        // An admin edit (pictures, metadata): swap in the item as read again
+        liveWatch = ItemChangeWatch { [weak self] fresh in
+            guard let self, let n = LiveRefresh.replacing(self.items, with: fresh) else { return }
+            self.items = n
+        }
     }
+    private var liveWatch: ItemChangeWatch?
 
     /// The view hands over its Emby (an environment object, so not there at init).
     func bind(_ emby: Emby) {

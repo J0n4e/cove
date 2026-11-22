@@ -5,6 +5,14 @@ import Combine
 /// typing a new letter cancels the running task, and the debounce sleep below is where it stops.
 @MainActor
 final class SearchModel: ObservableObject {
+    /// An admin edit (pictures, metadata): the item as read again replaces the copy shown here
+    private var liveWatch: ItemChangeWatch?
+    init() {
+        liveWatch = ItemChangeWatch { [weak self] fresh in
+            guard let self else { return }
+            if let n = LiveRefresh.replacing(self.results, with: fresh) { self.results = n }
+        }
+    }
     /// How long typing has to pause before the server is asked (0.35 s).
     static let debounce: UInt64 = 350_000_000
 

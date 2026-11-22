@@ -137,8 +137,9 @@ struct ClassicPosterCard: View {
                     .watchedDim(played)
                 }
                 .overlay(alignment: .bottom) {
-                    if let pct = item.UserData?.PlayedPercentage, pct > 0, pct < 100, !played {
-                        ProgressView(value: pct / 100).padding(.horizontal, 8).padding(.bottom, 8)
+                    let f = emby.progressFraction(item)
+                    if f > 0, f < 1, !played {
+                        ProgressView(value: f).padding(.horizontal, 8).padding(.bottom, 8)
                     }
                 }
                 .cornerRadius(8)

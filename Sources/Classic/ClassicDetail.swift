@@ -486,9 +486,10 @@ struct ClassicDetailView: View {
                 }
                 .classicGlassPill(size: 44).glass3DRoundOutline()
             }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
+            // Admins: the ⋯ tools right after ♡, with the other actions (owner), before the divider and ★
+            ItemAdminButton(item: item) { Task { await model.load() } }
             // v1.18.4: information after the actions: your ★ rating at the END, set apart by a thin divider
             if RatingButton.isShown(item: item, full: model.full) { DetailRatingTail(item: item, full: model.full) }
-            ItemAdminButton(item: item) { Task { await model.load() } }   // admins: ⋯ Refresh / Identify / Images
         }
     }
 
@@ -564,7 +565,7 @@ struct ClassicDetailView: View {
     /// Netflix-style episode row: big number, clean 16:9 still with progress, title + length, summary.
     func episodeRow(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
-        let pct: Double = ep.UserData?.PlayedPercentage ?? 0
+        let pct: Double = emby.progressFraction(ep) * 100
         let hasProgress: Bool = pct > 0 && pct < 100 && !played
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
@@ -645,7 +646,7 @@ struct ClassicDetailView: View {
     func episodeInfo(_ ep: Item, hasProgress: Bool) -> String {
         var t = "S\(ep.ParentIndexNumber ?? 0)·E\(ep.IndexNumber ?? 0)"
         if hasProgress, let total = ep.RunTimeTicks, total > 0 {
-            let left = max(0, total - (ep.UserData?.PlaybackPositionTicks ?? 0))
+            let left = max(0, total - emby.positionTicks(ep))
             t += " · " + runtimeText(left) + " left"
         }
         return t
@@ -660,7 +661,7 @@ struct ClassicDetailView: View {
 
     func episodeTile(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
-        let pct: Double = ep.UserData?.PlayedPercentage ?? 0
+        let pct: Double = emby.progressFraction(ep) * 100
         let hasProgress: Bool = pct > 0 && pct < 100 && !played
         return NavigationLink(value: ep) {
             VStack(alignment: .leading, spacing: 8) {
