@@ -34,12 +34,23 @@ enum CastVTT {
         return lines.joined(separator: "\n").replacingOccurrences(of: "-->", with: "--&gt;")
     }
 
+    /// Every cue moved by `offsetMs` (positive = later); a cue pushed before 0 starts at 0, one that ends
+    /// before 0 is dropped.
+    nonisolated static func shift(_ cues: [Cue], offsetMs: Int) -> [Cue] {
+        let off = Double(offsetMs) / 1000
+        guard off != 0 else { return cues }
+        return cues.compactMap { c in
+            let a = max(0, c.start + off), e = c.end + off
+            guard e > 0, e > a else { return nil }
+            return Cue(start: a, end: e, text: c.text)
+        }
+    }
+
     /// A WebVTT file. `offsetMs`: positive shows the subtitles later (as the player's offset).
     nonisolated static func make(_ cues: [Cue], offsetMs: Int = 0) -> String {
-        let off = Double(offsetMs) / 1000
         var out = "WEBVTT\n\n"
-        for c in cues {
-            let a = c.start + off, e = c.end + off
+        for c in shift(cues, offsetMs: offsetMs) {
+            let a = c.start, e = c.end
             guard e > 0, e > a else { continue }
             let text = clean(c.text)
             guard !text.isEmpty else { continue }
@@ -257,6 +268,11 @@ final class CastSubtitleServer: @unchecked Sendable {
     /// New cues for the served rendition (another text track, or the offset changed): same URLs.
     func updateHLSCues(_ cues: [Cue], offsetMs: Int) {
         queue.async { self.hlsCues = cues; self.hlsOffsetMs = offsetMs; self.fetchesLogged = [] }
+    }
+
+    /// Only the offset changed (the player's ± buttons during AirPlay): segments fetched from now on are shifted.
+    func updateHLSOffset(_ offsetMs: Int) {
+        queue.async { self.hlsOffsetMs = offsetMs }
     }
 
     /// Stops serving the AirPlay HLS (the listener stays while a Cast subtitle uses it).
