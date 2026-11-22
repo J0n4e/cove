@@ -133,6 +133,7 @@ struct DeleteConfirmView: View {
             }
             .buttonStyle(ServerDangerButton()).disabled(busy)
         }
+        .focusEffectDisabled()   // no blue focus ring on Cancel (owner); Esc still cancels
     }
 }
 

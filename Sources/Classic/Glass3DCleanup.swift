@@ -282,6 +282,7 @@ struct CleanupBatchView: View {
             }
             .buttonStyle(ServerDangerButton()).disabled(busy || plans.isEmpty)
         }
+        .focusEffectDisabled()   // no blue focus ring on Cancel
     }
 
     private func run() async {
