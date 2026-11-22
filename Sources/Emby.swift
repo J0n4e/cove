@@ -372,7 +372,7 @@ enum LoginError: LocalizedError {
 @MainActor
 final class Emby: ObservableObject {
     private let d = UserDefaults.standard
-    @Published var server = "" { didSet { updateImageAuth() } }
+    @Published var server = "" { didSet { updateImageAuth(); NotificationCenterStore.shared.setActiveServer(server) } }
     @Published var token = "" { didSet { updateImageAuth() } }
     @Published var userId = ""
     @Published var libs: [LibPref] = []

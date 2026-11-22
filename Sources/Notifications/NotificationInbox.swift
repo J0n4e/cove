@@ -76,6 +76,18 @@ enum NotificationInbox {
         pruned([n] + list.filter { $0.id != n.id }, now: now)
     }
 
+    /// Whether an entry belongs to the active server (old entries without a server: yes; no active server yet: yes).
+    static func isServer(_ entry: String, _ active: String) -> Bool {
+        entry.isEmpty || active.isEmpty || norm(entry) == norm(active)
+    }
+    static func norm(_ s: String) -> String {
+        var t = s.lowercased(); while t.hasSuffix("/") { t.removeLast() }; return t
+    }
+    /// The active server's entries only (owner: notifications just from the server Cove is on).
+    static func forServer(_ list: [StoredNotification], _ active: String) -> [StoredNotification] {
+        list.filter { isServer($0.server, active) }
+    }
+
     static func unreadCount(_ list: [StoredNotification]) -> Int { list.filter { !$0.read }.count }
 
     static func markRead(_ id: String, in list: [StoredNotification]) -> [StoredNotification] {
