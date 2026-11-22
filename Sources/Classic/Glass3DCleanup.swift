@@ -6,6 +6,7 @@ import SwiftUI
 struct CleanupView: View {
     @EnvironmentObject var emby: Emby
     @ObservedObject private var store = CleanupStore.shared
+    @ObservedObject private var trakt = Trakt.shared
     @AppStorage("cleanupSort") private var sortRaw = CleanupSort.leastWatched.rawValue
     @AppStorage("cleanupFilter") private var filterRaw = CleanupFilter.all.rawValue
     @AppStorage("cleanupRated") private var ratedRaw = CleanupRated.any.rawValue
@@ -20,8 +21,16 @@ struct CleanupView: View {
     private var rated: CleanupRated { CleanupRated(rawValue: ratedRaw) ?? .any }
     private var kind: CleanupKind { CleanupKind(rawValue: kindRaw) ?? .both }
 
+    /// Your ★ ratings (Trakt) on the items, by their IMDb/TMDB/TVDB ids
+    private func withMyRatings(_ items: [CleanupItem]) -> [CleanupItem] {
+        items.map { e in
+            guard let it = e.item, let k = Trakt.kind(it) else { return e }
+            var c = e; c.myRating = trakt.rating(kind: k, ids: Trakt.ids(it.ProviderIds)); return c
+        }
+    }
+
     var body: some View {
-        let shown = Cleanup.sorted(Cleanup.searched(Cleanup.filtered(store.items, library: library, kind: kind, filter: filter).filter { rated.matches($0) }, query), by: sort)
+        let shown = Cleanup.sorted(Cleanup.searched(Cleanup.filtered(withMyRatings(store.items), library: library, kind: kind, filter: filter).filter { rated.matches($0) }, query), by: sort)
         VStack(alignment: .leading, spacing: 16) {
             header(shown)
             if store.items.isEmpty {
@@ -49,6 +58,7 @@ struct CleanupView: View {
             }
         }
         .task(id: emby.server + "|" + emby.userId) { await store.load(emby) }
+        .task { await trakt.refresh() }   // your ★ ratings
         .onReceive(DeletedItems.shared.deleted) { ids in store.remove(ids); selected.subtract(ids) }
     }
 
@@ -155,8 +165,14 @@ struct CleanupRow: View {
             }
             Spacer(minLength: 12)
             watchedPill
-            column(entry.communityRating.map { "\u{2605} " + String(format: "%.1f", $0) } ?? "\u{2605} \u{2014}", width: 60,
+            if let mine = entry.myRating {
+                Text("\u{2605} \(mine)/10").cvFont(12, weight: .semibold) { $0.monospacedDigit() }.foregroundColor(.yellow)
+                    .lineLimit(1).frame(width: 60, alignment: .trailing)
+                    .tip("Your rating" + (entry.communityRating.map { " \u{00B7} server \(String(format: "%.1f", $0))" } ?? ""))
+            } else {
+                column(entry.communityRating.map { "\u{2605} " + String(format: "%.1f", $0) } ?? "\u{2605} \u{2014}", width: 60,
                    tip: entry.criticRating.map { "Critics \(Int($0))%" } ?? "Community rating")
+            }
             column(entry.dateAdded.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "\u{2014}", width: 96, tip: "Date added")
             column(CleanupItem.lastPlayedText(entry), width: 90, tip: CleanupItem.lastPlayedTip(entry))
             column(entry.sizeBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "", width: 70, tip: "Size")
