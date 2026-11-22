@@ -205,9 +205,13 @@ extension NotificationTabLabel {
 /// (admins with the Playback Reporting plugin).
 enum ActivityTabs {
     static let notifications = 1
+    static let insights = 7
     static func titles(unread: Int, stats: Bool) -> [String] {
-        ["Now Playing", NotificationTabLabel.text(unread: unread), "Overview", "History"] + (stats ? ["Users", "Graphs", "Libraries"] : [])
+        ["Now Playing", NotificationTabLabel.text(unread: unread), "Overview", "History"]
+            + (stats ? ["Users", "Graphs", "Libraries", "Insights"] : []) + ["Year in review"]
     }
+    /// Year in review is the last tab for everyone (after the admin tabs when they show).
+    static func yearInReview(stats: Bool) -> Int { stats ? 8 : 4 }
 }
 
 /// The toast's "Show all": Activity switches to its Notifications tab (also when the page is only now opening).

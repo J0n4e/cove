@@ -57,7 +57,14 @@ private struct StatsUserOverview: View {
             }
             StatsRangePills(range: $model.range)
             if model.userOverviewLoading && model.userOverview.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
-            else { StatsOverviewContent(plays: model.userOverview, range: model.range) }
+            else {
+                StatsOverviewContent(plays: model.userOverview, range: model.range)
+                if !StatsAggregate.isFewData(model.userOverview) {   // the Insights cards for this user's plays
+                    StatsHeading(text: "Insights")
+                    InsightsGrid(data: Insights.data(current: model.userOverview, previous: [], hasPrevious: false, genres: [:]),
+                                 range: model.range, perUser: true)
+                }
+            }
         }
         .task(id: "\(user.id)|\(model.range.rawValue)") { await model.loadUserOverview() }
     }
