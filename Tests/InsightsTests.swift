@@ -261,9 +261,11 @@ final class InsightsTests: XCTestCase {
 
     @MainActor
     func testTabs() {
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: true)[ActivityTabs.insights], "Insights")
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: true)[ActivityTabs.yearInReview(stats: true)], "Year in review")
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: false)[ActivityTabs.yearInReview(stats: false)], "Year in review")
+        XCTAssertTrue(ActivityPage.statsPages(stats: true).contains(.insights))
+        XCTAssertFalse(ActivityPage.statsPages(stats: false).contains(.insights))
+        XCTAssertEqual(ActivityPage.statsPages(stats: true).last, .yearInReview)
+        XCTAssertEqual(ActivityPage.statsPages(stats: false).last, .yearInReview)
+        XCTAssertEqual(ActivityPage.yearInReview.title, "Year in review")
         XCTAssertEqual(InsightsModel.ranges, [.month, .year, .all])
     }
 

@@ -28,6 +28,8 @@ struct StoredNotification: Codable, Equatable, Identifiable {
     /// What Play starts (a movie, the episode, a batch's first new episode); nil = no Play button
     let playId: String?
     var read: Bool
+    /// When the server added the item(s); nil for old entries (then the alert time is shown)
+    var added: Date? = nil
 
     init(_ n: NewMediaNotification, date: Date, target: [String: String], read: Bool = false) {
         self.id = n.id + "|" + String(Int(date.timeIntervalSince1970))
@@ -42,6 +44,7 @@ struct StoredNotification: Codable, Equatable, Identifiable {
         self.userId = n.userId
         self.playId = n.playId
         self.read = read
+        self.added = n.added
     }
 }
 
@@ -74,6 +77,18 @@ enum NotificationInbox {
     /// Adds one at the top (an older copy with the same id is replaced), then prunes.
     static func adding(_ n: StoredNotification, to list: [StoredNotification], now: Date) -> [StoredNotification] {
         pruned([n] + list.filter { $0.id != n.id }, now: now)
+    }
+
+    /// Whether an entry belongs to the active server (old entries without a server: yes; no active server yet: yes).
+    static func isServer(_ entry: String, _ active: String) -> Bool {
+        entry.isEmpty || active.isEmpty || norm(entry) == norm(active)
+    }
+    static func norm(_ s: String) -> String {
+        var t = s.lowercased(); while t.hasSuffix("/") { t.removeLast() }; return t
+    }
+    /// The active server's entries only (owner: notifications just from the server Cove is on).
+    static func forServer(_ list: [StoredNotification], _ active: String) -> [StoredNotification] {
+        list.filter { isServer($0.server, active) }
     }
 
     static func unreadCount(_ list: [StoredNotification]) -> Int { list.filter { !$0.read }.count }
@@ -109,11 +124,22 @@ enum NotificationInbox {
     /// Today / Yesterday / Earlier, in that order, empty sections left out; items newest first.
     static func grouped(_ list: [StoredNotification], now: Date, calendar: Calendar = .current)
         -> [(section: Section, items: [StoredNotification])] {
-        let sorted = list.sorted { $0.date > $1.date }
+        // By when the server added it (owner), old entries by the alert time
+        let sorted = list.sorted { ($0.added ?? $0.date) > ($1.added ?? $1.date) }
         return [Section.today, .yesterday, .earlier].compactMap { s in
-            let items = sorted.filter { section(of: $0.date, now: now, calendar: calendar) == s }
+            let items = sorted.filter { section(of: $0.added ?? $0.date, now: now, calendar: calendar) == s }
             return items.isEmpty ? nil : (s, items)
         }
+    }
+
+    /// The card's time line: when the server ADDED it (owner: the alert time isn't interesting), e.g.
+    /// "Added yesterday, 21:14" / "Added today, 09:02" / "Added 18 Nov, 21:14"; old entries keep the alert time.
+    static func addedText(_ n: StoredNotification, now: Date, calendar: Calendar = .current) -> String {
+        guard let a = n.added else { return relativeTime(n.date, now: now) }
+        let t = a.formatted(date: .omitted, time: .shortened)
+        if calendar.isDate(a, inSameDayAs: now) { return "Added today, \(t)" }
+        if let y = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(a, inSameDayAs: y) { return "Added yesterday, \(t)" }
+        return "Added " + a.formatted(.dateTime.day().month(.abbreviated)) + ", " + t
     }
 
     /// "Just now", "5 min ago", "2 h ago", "3 d ago".
@@ -126,6 +152,20 @@ enum NotificationInbox {
     }
 
     /// The picture link for a card: the server's own image, without the art plugin's enhancers (as the banner).
+    /// The server a card's picture comes from: the entry's own server; old entries without one → the current server.
+    static func imageServer(stored: String, current: String) -> String {
+        let s = stored.trimmingCharacters(in: .whitespaces)
+        return (s.isEmpty ? current : s).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    /// Headers for pictures of a server that isn't the current one: its saved token (tokens keyed by the
+    /// lowercased address, as ServerStore), or none (Emby/Jellyfin pictures usually need no sign-in).
+    static func otherServerHeaders(server: String, current: String, tokens: [String: String]) -> [String: String] {
+        guard !server.isEmpty, server.lowercased() != current.lowercased(),
+              let t = tokens[server.lowercased()], !t.isEmpty else { return [:] }
+        return ["X-Emby-Token": t]
+    }
+
     static func imageURL(server: String, _ img: StoredNotificationImage, width: Int = 480) -> URL? {
         URL(string: "\(server)/Items/\(img.id)/Images/\(img.kind)?maxWidth=\(width)&quality=80&EnableImageEnhancers=false")
     }

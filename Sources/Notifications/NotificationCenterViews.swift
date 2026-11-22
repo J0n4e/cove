@@ -10,12 +10,28 @@ struct NotificationThumb: View {
     let n: StoredNotification
     let width: CGFloat
     @State private var index = 0
+    init(n: StoredNotification, width: CGFloat) {
+        self.n = n; self.width = width
+        Self.prepareAuth(NotificationInbox.imageServer(stored: n.server, current: ImageCache.shared.currentServer))
+    }
+    /// The entry's own server (it may not be the current one); old entries → the current server
+    var server: String { NotificationInbox.imageServer(stored: n.server, current: ImageCache.shared.currentServer) }
+
+    /// A picture from another saved server gets that server's saved token (its own origin only).
+    static func prepareAuth(_ server: String) {
+        let cur = ImageCache.shared.currentServer
+        guard !server.isEmpty, server.lowercased() != cur.lowercased() else { return }
+        let h = NotificationInbox.otherServerHeaders(server: server, current: cur,
+                                                     tokens: ServerStore.sealedTokens(.standard) ?? [:])
+        if !h.isEmpty { ImageCache.shared.setOtherServerAuth(server: server, headers: h) }
+    }
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb, style: .continuous)
         ZStack {
             shape.fill(Color.white.opacity(0.06))
             if index < n.images.count {
-                CachedImage(url: NotificationInbox.imageURL(server: n.server, n.images[index])) { phase in
+                CachedImage(url: NotificationInbox.imageURL(server: server, n.images[index])) { phase in
                     if let img = phase.image { img.resizable().aspectRatio(contentMode: .fill) }
                     else if case .failure = phase { Color.clear.onAppear { index += 1 } }
                     else { Color.clear }
@@ -79,7 +95,7 @@ struct NotificationCard: View {
                 Text(n.cardDetail).cvFont(Glass3DTokens.Text.meta + 1).foregroundColor(Color.white.opacity(0.88))
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 TimelineView(.periodic(from: .now, by: 60)) { ctx in
-                    Text(NotificationInbox.relativeTime(n.date, now: ctx.date)).cvFont(Glass3DTokens.Text.meta - 1)
+                    Text(NotificationInbox.addedText(n, now: ctx.date)).cvFont(Glass3DTokens.Text.meta - 1)
                         .foregroundColor(Glass3DTokens.Grey.secondary)
                 }
                 HStack(spacing: 8) {
@@ -177,6 +193,8 @@ struct NotificationToastLayer: View {
 
 /// The Activity tab's label: "Notifications 3" while some are unread.
 enum NotificationTabLabel {
+    /// The red badge on the Notifications tab, like the Dock's: nil when nothing is unread, "99+" above 99.
+    static func badgeText(unread: Int) -> String? { unread <= 0 ? nil : unread > 99 ? "99+" : "\(unread)" }
     static func text(unread: Int) -> String { unread > 0 ? "Notifications \(unread)" : "Notifications" }
 }
 
@@ -201,22 +219,106 @@ extension NotificationTabLabel {
     static func unreadHelp(_ n: Int) -> String { n == 1 ? "1 unread notification" : "\(n) unread notifications" }
 }
 
-/// Activity's tabs: Now Playing · Notifications (every user) · Overview · History, then Users · Graphs · Libraries
-/// (admins with the Playback Reporting plugin).
-enum ActivityTabs {
-    static let notifications = 1
-    static let insights = 7
-    static func titles(unread: Int, stats: Bool) -> [String] {
-        ["Now Playing", NotificationTabLabel.text(unread: unread), "Overview", "History"]
-            + (stats ? ["Users", "Graphs", "Libraries", "Insights"] : []) + ["Year in review"]
+/// Activity's pages. The tab row shows the segments (Now Playing · Notifications · Cleanup for admins) and ONE
+/// Statistics dropdown pill next to them holding the stats pages. Selection is stored by page id (rawValue), never by
+/// index, so it doesn't jump when the admin check or the plugin check finishes.
+enum ActivityPage: String, CaseIterable, Identifiable {
+    case nowPlaying, notifications, cleanup, overview, history, users, graphs, libraries, insights, yearInReview
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .nowPlaying: return "Now Playing"
+        case .notifications: return "Notifications"
+        case .cleanup: return "Cleanup"
+        case .overview: return "Overview"
+        case .history: return "History"
+        case .users: return "Users"
+        case .graphs: return "Graphs"
+        case .libraries: return "Libraries"
+        case .insights: return "Insights"
+        case .yearInReview: return "Year in review"
+        }
     }
-    /// Year in review is the last tab for everyone (after the admin tabs when they show).
-    static func yearInReview(stats: Bool) -> Int { stats ? 8 : 4 }
+
+    /// The segment tabs: Now Playing · Notifications (everyone) · Cleanup (admins, no plugin needed).
+    static func segments(admin: Bool) -> [ActivityPage] {
+        [.nowPlaying, .notifications] + (admin ? [.cleanup] : [])
+    }
+    /// The Statistics dropdown: Overview · History, Users · Graphs · Libraries · Insights when the Playback Reporting
+    /// stats are available, and Year in review for everyone.
+    static func statsPages(stats: Bool) -> [ActivityPage] {
+        [.overview, .history] + (stats ? [.users, .graphs, .libraries, .insights] : []) + [.yearInReview]
+    }
+    var isStats: Bool { !Self.segments(admin: true).contains(self) }
+
+    /// The page to show for a stored selection; an unavailable page (not admin, no plugin) shows Now Playing.
+    static func resolve(_ raw: String, stats: Bool, admin: Bool) -> ActivityPage {
+        guard let p = ActivityPage(rawValue: raw),
+              segments(admin: admin).contains(p) || statsPages(stats: stats).contains(p) else { return .nowPlaying }
+        return p
+    }
+    /// The dropdown pill's page: the current one when it's a stats page, else the last used one (Overview by default).
+    static func pillPage(current: ActivityPage, last raw: String, stats: Bool) -> ActivityPage {
+        if current.isStats { return current }
+        if let p = ActivityPage(rawValue: raw), statsPages(stats: stats).contains(p) { return p }
+        return .overview
+    }
+}
+
+/// Activity's tab row: the segment tabs plus the Statistics dropdown pill right next to them.
+struct ActivityTabRow: View {
+    @Binding var page: ActivityPage
+    @Binding var lastStats: String
+    let stats: Bool
+    let admin: Bool
+    let unread: Int
+
+    var body: some View {
+        let segs = ActivityPage.segments(admin: admin)
+        HStack(spacing: 10) {
+            Glass3DSegmentTabs(titles: segs.map(\.title),
+                               selection: Binding(get: { segs.firstIndex(of: page) ?? -1 },
+                                                  set: { if segs.indices.contains($0) { page = segs[$0] } }),
+                               badges: NotificationTabLabel.badgeText(unread: unread)
+                                   .flatMap { b in segs.firstIndex(of: .notifications).map { [$0: b] } } ?? [:])
+            ActivityStatsMenu(page: $page, lastStats: $lastStats, stats: stats)
+        }
+    }
+}
+
+/// The glass dropdown pill (chart icon + page name + ⌄) listing the stats pages, ✓ on the current one. It looks
+/// selected while a stats page is shown, like the selected segment.
+struct ActivityStatsMenu: View {
+    @Binding var page: ActivityPage
+    @Binding var lastStats: String
+    let stats: Bool
+
+    var body: some View {
+        let shown = ActivityPage.pillPage(current: page, last: lastStats, stats: stats)
+        let on = page.isStats
+        Menu {
+            ForEach(ActivityPage.statsPages(stats: stats)) { p in
+                Toggle(p.title, isOn: Binding(get: { page == p }, set: { if $0 { page = p; lastStats = p.rawValue } }))
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "chart.bar").cvFont(12, weight: .semibold)
+                Text3D(text: shown.title, size: 12, weight: on ? .bold : .semibold)
+                Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
+            }
+            .padding(.horizontal, 14).frame(height: 32)
+            .classicSelectedGlass(on)
+            .padding(3).frame(height: 38).classicClearGlass().opacity(0.92)
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .helpLabel("Statistics")
+    }
 }
 
 /// The toast's "Show all": Activity switches to its Notifications tab (also when the page is only now opening).
 struct ActivityShowNotifications: ViewModifier {
-    @Binding var tab: Int
+    @Binding var tab: ActivityPage
     @ObservedObject private var store = NotificationCenterStore.shared
     func body(content: Content) -> some View {
         content
@@ -226,6 +328,6 @@ struct ActivityShowNotifications: ViewModifier {
     private func take() {
         guard store.showListPending else { return }
         store.showListPending = false
-        tab = ActivityTabs.notifications
+        tab = .notifications
     }
 }

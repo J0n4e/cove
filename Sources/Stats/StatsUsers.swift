@@ -4,13 +4,23 @@ import SwiftUI
 /// most watch time first. Same glass cards, readable text and range pill as Overview.
 struct StatsUsersView: View {
     @ObservedObject var model: StatsModel
+    @AppStorage("statsUsersSort") private var sort = 0   // 0 watch time, 1 last active
+
+    private var cards: [StatsUserSummary] {
+        let l = StatsUsersAggregate.withPlays(model.users)
+        return sort == 1 ? LastActive.byLastActive(l, date: { $0.lastActive ?? $0.lastSeen }, name: { $0.name }) : l
+    }
 
     var body: some View {
         StatsGate(model: model) {
             if let user = model.selectedUser { StatsUserOverview(model: model, user: user) }
             else {
             VStack(alignment: .leading, spacing: 20) {
-                StatsRangePills(range: $model.range)
+                HStack {
+                    StatsRangePills(range: $model.range)
+                    Spacer()
+                    Glass3DSegmentTabs(titles: ["Watch time", "Last active"], selection: $sort)
+                }
                 if model.usersLoading && model.usersRange != model.range { Spinner().frame(maxWidth: .infinity).padding(60) }
                 else if model.users.isEmpty {
                     StatsStateCard(symbol: "person.2", title: "No users found",
@@ -24,7 +34,7 @@ struct StatsUsersView: View {
                         .frame(maxWidth: 860).frame(maxWidth: .infinity)   // as wide as the cards, centred (owner)
                     // One user per line, full width, most active first (owner)
                     LazyVStack(alignment: .center, spacing: 14) {   // centred in the page (owner)
-                        ForEach(StatsUsersAggregate.withPlays(model.users)) { u in
+                        ForEach(cards) { u in
                             StatsUserCard(user: u) { model.userOverview = []; model.selectedUser = u }
                                 .frame(maxWidth: 860)   // fits the contents, not stretched (owner)
                         }
@@ -129,6 +139,8 @@ private struct StatsUserCard: View {
                 StatsUserAvatar(user: user)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(user.name).cvFont(Glass3DTokens.Text.cardTitle + 1, weight: .bold).lineLimit(1).modifier(Glass3DReadableText())
+                    Text(LastActive.text(user.lastActive)).cvFont(Glass3DTokens.Text.meta - 1).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
+                        .tip(LastActive.tooltip(activity: user.lastActive, login: user.lastLogin))
                     Text(seenLine).cvFont(Glass3DTokens.Text.meta - 1).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)

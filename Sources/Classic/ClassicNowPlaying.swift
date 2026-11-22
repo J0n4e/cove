@@ -86,10 +86,18 @@ struct ClassicNowPlayingView: View {
     @State private var loaded = false
     @State private var lastPush: Date?
     @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
-    @State private var tab = 0                                // 0 Now Playing (default), 1 Notifications, 2 Overview, 3 History, 4 Users, 5 Graphs, 6 Libraries, 7 Insights, last Year in review
+    @AppStorage("activityPage") private var tabRaw = ActivityPage.nowPlaying.rawValue   // by page id, not index
+    @AppStorage("activityLastStatsPage") private var lastStats = ActivityPage.overview.rawValue
     @ObservedObject private var inbox = NotificationCenterStore.shared
     @StateObject private var stats = StatsModel()
     @StateObject private var insights = InsightsModel()
+    @ObservedObject private var profile = ProfileModel.shared
+    private var isAdmin: Bool { profile.admin == true }
+    private var hasStats: Bool { stats.availability == .available }
+    private var page: ActivityPage { ActivityPage.resolve(tabRaw, stats: hasStats, admin: isAdmin) }
+    private var tab: Binding<ActivityPage> {
+        Binding(get: { page }, set: { tabRaw = $0.rawValue; if $0.isStats { lastStats = $0.rawValue } })
+    }
 
     var body: some View {
         ScrollView {
@@ -99,32 +107,32 @@ struct ClassicNowPlayingView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             ClassicPageTitle(text: ActivitySection.title, icon: ActivitySection.icon)
-                            if tab == 0 && !sessions.isEmpty {
+                            if page == .nowPlaying && !sessions.isEmpty {
                                 Text(NowPlayingStyle.activeText(sessions.count))
                                     .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
                             }
                         }
                         Spacer()
                     }
-                    Glass3DSegmentTabs(titles: ActivityTabs.titles(unread: inbox.unread, stats: stats.availability == .available),
-                                       selection: $tab)
+                    ActivityTabRow(page: tab, lastStats: $lastStats, stats: hasStats, admin: isAdmin, unread: inbox.unread)
                 }
-                if tab == ActivityTabs.notifications { NotificationsTabView() }
-                else if tab == 2 { StatsOverviewView(model: stats) }
-                else if tab == 3 { StatsHistoryView(model: stats) }
-                else if tab == 4 && stats.availability == .available { StatsUsersView(model: stats) }
-                else if tab == 5 && stats.availability == .available { StatsGraphsView(model: stats) }
-                else if tab == 6 && stats.availability == .available { StatsLibrariesView(model: stats) }
-                else if tab == ActivityTabs.insights && stats.availability == .available { StatsInsightsView(model: stats, insights: insights) }
-                else if tab == ActivityTabs.yearInReview(stats: stats.availability == .available) {
-                    StatsYearReviewView(model: stats, insights: insights)
+                switch page {
+                case .nowPlaying: sessionsContent
+                case .notifications: NotificationsTabView()
+                case .cleanup: CleanupView()
+                case .overview: StatsOverviewView(model: stats)
+                case .history: StatsHistoryView(model: stats)
+                case .users: StatsUsersView(model: stats)
+                case .graphs: StatsGraphsView(model: stats)
+                case .libraries: StatsLibrariesView(model: stats)
+                case .insights: StatsInsightsView(model: stats, insights: insights)
+                case .yearInReview: StatsYearReviewView(model: stats, insights: insights)
                 }
-                else { sessionsContent }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)
         }
         .background(bg)
-        .modifier(ProfileActivityJump(tab: $tab, stats: stats))   // profile menu → My activity
+        .modifier(ProfileActivityJump(tab: tab, stats: stats))   // profile menu → My activity
         .task(id: emby.server + "|" + emby.userId) { await stats.start(emby) }   // the Users tab shows only for admins with the plugin
         .task {
             // Fallback: every 5 s while the page is shown (the task ends with the page); skipped while the
@@ -140,7 +148,7 @@ struct ClassicNowPlayingView: View {
         }
         .modifier(NowPlayingSocketFeed(sessions: $sessions, fetchedAt: $fetchedAt, loaded: $loaded, lastPush: $lastPush))
         .nowPlayingGroups($syncGroups)
-        .modifier(ActivityShowNotifications(tab: $tab))   // the toast's "Show all"
+        .modifier(ActivityShowNotifications(tab: tab))   // the toast's "Show all"
     }
 
     @ViewBuilder private var sessionsContent: some View {

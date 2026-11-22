@@ -15,7 +15,8 @@ enum LiveRefresh {
     /// `items` with every item found in `fresh` replaced by its new copy; nil when none of them is there.
     static func replacing(_ items: [Item], with fresh: [String: Item]) -> [Item]? {
         guard !fresh.isEmpty, items.contains(where: { fresh[$0.id] != nil }) else { return nil }
-        return items.map { fresh[$0.id] ?? $0 }
+        // A deleted item comes as a tombstone (DeletedItems.announce): it leaves the list
+        return items.compactMap { i in fresh[i.id].map { $0.isTombstone ? nil : $0 } ?? i }
     }
 
     /// Home rows after an admin change (nil = nothing changed).

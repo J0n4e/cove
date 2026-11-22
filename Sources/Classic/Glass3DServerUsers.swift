@@ -9,6 +9,7 @@ struct ServerUsersTab: View {
     @State private var query = ""
     @State private var selected: AdminUser?
     @State private var adding = false
+    @AppStorage("serverUsersSort") private var sort = 0   // LastActive.Sort: name / last active
 
     init(admin: ServerAdmin) { _model = StateObject(wrappedValue: ServerUsersModel(kind: admin.kind, api: admin.api)) }
 
@@ -17,6 +18,8 @@ struct ServerUsersTab: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     ServerSearchField(placeholder: "Search users", text: $query)
+                    GlassPicker(selection: $sort, options: [(LastActive.Sort.name.rawValue, "Sort: Name"),
+                                                            (LastActive.Sort.lastActive.rawValue, "Sort: Last active")])
                     Spacer()
                     Button { adding = true } label: { Label("Add user…", systemImage: "person.badge.plus") }
                         .buttonStyle(AboutButton(primary: true, accentName: accentName))
@@ -26,7 +29,9 @@ struct ServerUsersTab: View {
                 } else if !model.loaded {
                     ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    let list = model.users.filter { AdminUser.matches($0, query) }
+                    let found = model.users.filter { AdminUser.matches($0, query) }
+                    let list = sort == LastActive.Sort.lastActive.rawValue
+                        ? LastActive.byLastActive(found, date: { $0.lastActivity }, name: { $0.name }) : found
                     ScrollView {
                         ServerAdminCard(title: list.count == 1 ? "1 user" : "\(list.count) users") {
                             ForEach(Array(list.enumerated()), id: \.element.id) { i, u in
@@ -55,8 +60,9 @@ struct ServerUsersTab: View {
                     if u.isDisabled { ServerBadge(text: "Disabled", color: .red) }
                     if u.isHidden { ServerBadge(text: "Hidden", color: .gray) }
                 }
-                Text(u.activityLine() + " · " + (u.hasPassword ? "Has password" : "No password"))
+                Text(LastActive.text(u.lastActivity) + " · " + (u.hasPassword ? "Has password" : "No password"))
                     .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
+                    .tip(LastActive.tooltip(activity: u.lastActivity, login: u.lastLogin))
             }
             Spacer()
             Image(systemName: "chevron.right").cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary)

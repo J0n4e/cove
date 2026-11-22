@@ -77,6 +77,11 @@ final class CastSession: ObservableObject {
     /// The subtitle as Cove serves it to the TV (CastSubtitleServer.swift), for the LOAD's side track
     var subURL: URL?
     var subVTT: String?
+    /// The subtitle offset on the TV (ms, positive = later, as the player's), taken over from the player
+    @Published var subOffset = 0
+    /// The served track's cues (unshifted), so an offset change can re-serve it (CastSubOffset.swift)
+    var subCues: [Cue]?
+    var offsetTask: Task<Void, Never>?
 
     /// The receiver's position now (its reports come only on changes, so it is moved on while playing).
     var time: Double {
@@ -96,7 +101,8 @@ final class CastSession: ObservableObject {
     /// playback would (series/collection memory, preferred language, SRT first) instead of `audio`/`sub`;
     /// `wantedSub` is the detail page's episode Subtitles menu ("off" or a language).
     func cast(_ item: Item, to device: CastDevice, emby: Emby, sourceId: String?, audio: Int?, sub: Int?, start: Double,
-              collection: CollectionQueue? = nil, pickTracks: Bool = false, wantedSub: String? = nil) {
+              collection: CollectionQueue? = nil, pickTracks: Bool = false, wantedSub: String? = nil,
+              subOffset: Int = 0) {
         if CastStream.isLocalOnly(emby.server) {
             error = CastError.localServer.message
             DebugLog.write("cast: server address is local only")
@@ -109,6 +115,7 @@ final class CastSession: ObservableObject {
         self.item = item
         self.audio = audio
         self.sub = sub
+        self.subOffset = subOffset
         self.collection = collection
         upNext = nil; upNextCancelled = false; creditsMarker = nil
         if !(item.isEpisode && collection == nil && episodes.contains { $0.Id == item.Id }) { episodes = [] }
@@ -429,7 +436,7 @@ final class CastSession: ObservableObject {
         }
     }
 
-    private func reload(_ change: (inout CastRequest) -> Void) {
+    func reload(_ change: (inout CastRequest) -> Void) {
         guard var r = request, transportId != nil else { return }
         change(&r)
         request = r

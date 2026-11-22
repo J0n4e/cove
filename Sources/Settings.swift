@@ -1036,6 +1036,8 @@ struct ServerSettings: View {
             PrefRow { Button("Add Server…") { emby.switchServer(); dismiss() } }
             PrefNote("Click a server's name to rename it. Connect switches Cove to that server. Add Server opens the sign-in screen.")
         }
+        NexcrateSettingsSection()   // Delete… through nexcrate (Glass3DDeleteEverywhere.swift)
+        NexviewSettingsSection()    // Cleanup's "Requested by" (Glass3DNexviewSettings.swift)
         PrefSection(title: "Trakt", last: true) {
             PrefRow(label: "Ratings") {
                 VStack(alignment: .leading, spacing: 8) {
