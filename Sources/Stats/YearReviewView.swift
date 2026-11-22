@@ -28,10 +28,9 @@ struct StatsYearReviewView: View {
     @ViewBuilder private var content: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 12) {
+                // The year as a dropdown pill too (owner), same look as the user picker
                 if insights.years.count > 1 {
-                    let sel = Binding<Int>(get: { insights.years.firstIndex(of: insights.year) ?? 0 },
-                                           set: { insights.year = insights.years[min(max($0, 0), insights.years.count - 1)] })
-                    Glass3DSegmentTabs(titles: insights.years.map { String($0) }, selection: sel)
+                    YearPickerMenu(years: insights.years, selected: Binding(get: { insights.year }, set: { insights.year = $0 }))
                 }
                 // Admins: one compact dropdown for the user instead of a pill with every name (owner)
                 if model.availability == .available && insights.users.count > 1 {
@@ -385,5 +384,29 @@ struct YearUserMenu: View {
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel("Whose year")
+    }
+}
+
+
+/// Year in review: the year as one glass pill (calendar + year + chevron) opening a menu with ✓ on the current year.
+struct YearPickerMenu: View {
+    let years: [Int]
+    @Binding var selected: Int
+    var body: some View {
+        Menu {
+            ForEach(years, id: \.self) { y in
+                Toggle(String(y), isOn: Binding(get: { selected == y }, set: { if $0 { selected = y } }))
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "calendar").cvFont(12, weight: .semibold)
+                Text(String(selected)).cvFont(13, weight: .semibold)
+                Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
+            }
+            .padding(.horizontal, 12).frame(height: 36)
+            .modifier(ClassicClearGlass(shape: Capsule()))
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .helpLabel("Year")
     }
 }
