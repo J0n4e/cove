@@ -8,6 +8,7 @@ struct CleanupView: View {
     @ObservedObject private var store = CleanupStore.shared
     @AppStorage("cleanupSort") private var sortRaw = CleanupSort.leastWatched.rawValue
     @AppStorage("cleanupFilter") private var filterRaw = CleanupFilter.all.rawValue
+    @AppStorage("cleanupRated") private var ratedRaw = CleanupRated.any.rawValue
     @AppStorage("cleanupKind") private var kindRaw = CleanupKind.both.rawValue
     @State private var library: String?
     @State private var query = ""
@@ -16,10 +17,11 @@ struct CleanupView: View {
 
     private var sort: CleanupSort { CleanupSort(rawValue: sortRaw) ?? .leastWatched }
     private var filter: CleanupFilter { CleanupFilter(rawValue: filterRaw) ?? .all }
+    private var rated: CleanupRated { CleanupRated(rawValue: ratedRaw) ?? .any }
     private var kind: CleanupKind { CleanupKind(rawValue: kindRaw) ?? .both }
 
     var body: some View {
-        let shown = Cleanup.sorted(Cleanup.searched(Cleanup.filtered(store.items, library: library, kind: kind, filter: filter), query), by: sort)
+        let shown = Cleanup.sorted(Cleanup.searched(Cleanup.filtered(store.items, library: library, kind: kind, filter: filter).filter { rated.matches($0) }, query), by: sort)
         VStack(alignment: .leading, spacing: 16) {
             header(shown)
             if store.items.isEmpty {
@@ -62,6 +64,8 @@ struct CleanupView: View {
             CleanupMenu(symbol: "line.3.horizontal.decrease", value: filter.title,
                         options: CleanupFilter.allCases.map { ($0.rawValue, $0.title) },
                         selected: filterRaw, help: "Filter") { filterRaw = $0 }
+            CleanupMenu(symbol: "star", value: rated.title, options: CleanupRated.allCases.map { ($0.rawValue, $0.title) },
+                        selected: ratedRaw, help: "Rated or not") { ratedRaw = $0 }
             CleanupMenu(symbol: "arrow.up.arrow.down", value: sort.title,
                         options: Cleanup.sorts(hasSize: store.items.contains { $0.sizeBytes != nil }).map { ($0.rawValue, $0.title) },
                         selected: sortRaw, help: "Sort") { sortRaw = $0 }
