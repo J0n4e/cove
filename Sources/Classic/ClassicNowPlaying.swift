@@ -109,7 +109,8 @@ struct ClassicNowPlayingView: View {
                         Spacer()
                     }
                     Glass3DSegmentTabs(titles: ActivityTabs.titles(unread: inbox.unread, stats: stats.availability == .available, admin: isAdmin),
-                                       selection: $tab)
+                                       selection: $tab,
+                                       badges: NotificationTabLabel.badgeText(unread: inbox.unread).map { [ActivityTabs.notifications: $0] } ?? [:])
                 }
                 if tab == ActivityTabs.notifications { NotificationsTabView() }
                 else if tab == 2 { StatsOverviewView(model: stats) }
