@@ -95,7 +95,7 @@ struct NotificationCard: View {
                 Text(n.cardDetail).cvFont(Glass3DTokens.Text.meta + 1).foregroundColor(Color.white.opacity(0.88))
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 TimelineView(.periodic(from: .now, by: 60)) { ctx in
-                    Text(NotificationInbox.relativeTime(n.date, now: ctx.date)).cvFont(Glass3DTokens.Text.meta - 1)
+                    Text(NotificationInbox.addedText(n, now: ctx.date)).cvFont(Glass3DTokens.Text.meta - 1)
                         .foregroundColor(Glass3DTokens.Grey.secondary)
                 }
                 HStack(spacing: 8) {

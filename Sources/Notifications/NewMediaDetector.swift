@@ -78,6 +78,8 @@ struct NewMediaNotification: Equatable {
     var cardTitle: String = ""
     var cardDetail: String = ""
     var playId: String? = nil
+    /// When the server added it (newest DateCreated of its items) — shown on the card instead of the alert time
+    var added: Date? = nil
 }
 
 /// One picture the notification can show: an item's image of one kind.
@@ -355,8 +357,11 @@ enum NewMediaDetector {
                   card: (title: String, detail: String, play: String?)) -> NewMediaNotification {
             NewMediaNotification(id: "\(server)|\(userId)|\(library.id)|\(key)", title: title, body: body, thread: thread,
                                  target: target, images: images, server: server, userId: userId, libraryId: library.id,
-                                 cardTitle: card.title, cardDetail: card.detail, playId: card.play)
+                                 cardTitle: card.title, cardDetail: card.detail, playId: card.play,
+                                 added: key.split(separator: ",").compactMap { createdById[String($0)] }.max())
         }
+        var createdById: [String: Date] = [:]
+        for it in items { if let c = it.created { createdById[it.Id] = c } }
         func firstNew(_ eps: [NewMediaItem]) -> NewMediaItem? {
             eps.min { ($0.ParentIndexNumber ?? Int.max, $0.IndexNumber ?? Int.max) < ($1.ParentIndexNumber ?? Int.max, $1.IndexNumber ?? Int.max) }
         }
