@@ -86,9 +86,10 @@ struct ClassicNowPlayingView: View {
     @State private var loaded = false
     @State private var lastPush: Date?
     @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
-    @State private var tab = 0                                // 0 Now Playing (default), 1 Notifications, 2 Overview, 3 History, 4 Users, 5 Graphs, 6 Libraries
+    @State private var tab = 0                                // 0 Now Playing (default), 1 Notifications, 2 Overview, 3 History, 4 Users, 5 Graphs, 6 Libraries, 7 Insights, last Year in review
     @ObservedObject private var inbox = NotificationCenterStore.shared
     @StateObject private var stats = StatsModel()
+    @StateObject private var insights = InsightsModel()
 
     var body: some View {
         ScrollView {
@@ -114,6 +115,10 @@ struct ClassicNowPlayingView: View {
                 else if tab == 4 && stats.availability == .available { StatsUsersView(model: stats) }
                 else if tab == 5 && stats.availability == .available { StatsGraphsView(model: stats) }
                 else if tab == 6 && stats.availability == .available { StatsLibrariesView(model: stats) }
+                else if tab == ActivityTabs.insights && stats.availability == .available { StatsInsightsView(model: stats, insights: insights) }
+                else if tab == ActivityTabs.yearInReview(stats: stats.availability == .available) {
+                    StatsYearReviewView(model: stats, insights: insights)
+                }
                 else { sessionsContent }
             }
             .padding(.horizontal, 32).padding(.vertical, 24)

@@ -120,6 +120,28 @@ final class StatsModel: ObservableObject {
         historyShown += next.count
     }
 
+    // MARK: Insights / Year in review (InsightsModel)
+
+    var statsService: (any StatsService)? { service }
+    var signedInUserId: String { userId }
+    var currentSessionKey: String { sessionKey }
+
+    /// A user's plays on these days from the Users tab's per-user day cache (today is always fetched again),
+    /// tagged with the user.
+    func cachedUserPlays(_ uid: String, name: String, days: [String]) async -> [StatsPlay] {
+        guard let service else { return [] }
+        let today = StatsDecode.dayFormat.string(from: Date())
+        let missing = days.filter { $0 == today || userDayCache[uid + "|" + $0] == nil }
+        if !missing.isEmpty {
+            let got = await service.plays(userId: uid, days: missing)
+            let byDay = Dictionary(grouping: got, by: \.day)
+            for d in missing { userDayCache[uid + "|" + d] = byDay[d] ?? [] }
+        }
+        return days.flatMap { userDayCache[uid + "|" + $0] ?? [] }.map { p in
+            var p = p; p.userId = uid; p.userName = name; return p
+        }
+    }
+
     private func fetchDays(_ days: [String], _ service: any StatsService) async -> [StatsPlay] {
         let today = StatsDecode.dayFormat.string(from: Date())
         let missing = days.filter { $0 == today || dayCache[$0] == nil }

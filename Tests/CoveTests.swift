@@ -41,8 +41,8 @@ final class CoveTests: XCTestCase {
 
     func testNavOrder() {
         let f = NavOrder.favorites, n = NavOrder.nowPlaying
-        // Nothing saved: both sections in their usual place
-        XCTAssertEqual(NavOrder.rows("", libIds: ["a", "b"]), [f, n, "a", "b"])
+        // Nothing saved: Favorites first, Activity last (owner, v1.19.6)
+        XCTAssertEqual(NavOrder.rows("", libIds: ["a", "b"]), [f, "a", "b", n])
         // Saved after a library, kept there even when the libraries are reordered
         let r = NavOrder.rows("a,\(f),b,\(n)", libIds: ["b", "a"])
         XCTAssertEqual(r, ["b", n, "a", f])
