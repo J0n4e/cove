@@ -262,11 +262,28 @@ enum NavOrder {
                 if let l = lastLib, libIds.contains(l) { after[l, default: []].append(id) } else { top.append(id) }
             } else if libIds.contains(id) { lastLib = id }
         }
-        // Sections never saved (first run) go to their usual place
-        for s in sections where !list.contains(s) { top.append(s) }
+        // Sections never saved (first run) go to their usual place: Favorites first, Activity LAST (owner)
+        for s in sections where !list.contains(s) && s != nowPlaying { top.append(s) }
         var r = top
         for l in libIds { r.append(l); r += after[l] ?? [] }
+        if !list.contains(nowPlaying) { r.append(nowPlaying) }
         return r
+    }
+
+    /// One-time move (owner, v1.19.6): Activity becomes the last item of the top bar / sidebar. Later drags in
+    /// Settings → Libraries are kept.
+    static func moveActivityLastOnce(_ d: UserDefaults = .standard) {
+        let flag = "navOrderActivityLast1"
+        guard !d.bool(forKey: flag) else { return }
+        d.set(true, forKey: flag)
+        guard let saved = d.string(forKey: key), !saved.isEmpty else { return }
+        d.set(activityLast(saved), forKey: key)
+    }
+
+    static func activityLast(_ saved: String) -> String {
+        var list = saved.split(separator: ",").map(String.init).filter { $0 != nowPlaying }
+        list.append(nowPlaying)
+        return list.joined(separator: ",")
     }
 
     /// Sections in their usual place (above every library).
