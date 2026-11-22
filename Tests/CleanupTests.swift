@@ -103,11 +103,9 @@ final class CleanupTests: XCTestCase {
     }
 
     func testCleanupTab() {
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: true, admin: true),
-                       ["Now Playing", "Notifications", "Overview", "History", "Users", "Graphs", "Libraries", "Insights", "Cleanup", "Year in review"])
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: false, admin: true)[ActivityTabs.cleanup(stats: false, admin: true)!], "Cleanup")
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: true, admin: true)[ActivityTabs.yearInReview(stats: true, admin: true)], "Year in review")
-        XCTAssertNil(ActivityTabs.cleanup(stats: true, admin: false))
-        XCTAssertFalse(ActivityTabs.titles(unread: 0, stats: true).contains("Cleanup"))
+        XCTAssertEqual(ActivityPage.segments(admin: true).last, .cleanup)
+        XCTAssertFalse(ActivityPage.segments(admin: false).contains(.cleanup))
+        XCTAssertFalse(ActivityPage.statsPages(stats: true).contains(.cleanup))
+        XCTAssertEqual(ActivityPage.cleanup.title, "Cleanup")
     }
 }
