@@ -17,6 +17,8 @@ struct StatsPlay: Identifiable, Hashable, Sendable {
     let method: String
     let seconds: Int
     var remoteAddress: String = ""   // Emby logs it; Jellyfin's GetItems doesn't send it
+    var userId: String = ""          // Insights / Year in review: whose play it is (set by the loader)
+    var userName: String = ""
 
     var isMovie: Bool { type.lowercased() == "movie" }
     var isEpisode: Bool { type.lowercased() == "episode" }

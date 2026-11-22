@@ -129,9 +129,9 @@ final class NotificationCenterTests: XCTestCase {
     // MARK: Activity tabs
 
     func testActivityTabs() {
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: false), ["Now Playing", "Notifications", "Overview", "History"])
+        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: false), ["Now Playing", "Notifications", "Overview", "History", "Year in review"])
         XCTAssertEqual(ActivityTabs.titles(unread: 3, stats: true),
-                       ["Now Playing", "Notifications 3", "Overview", "History", "Users", "Graphs", "Libraries"])
+                       ["Now Playing", "Notifications 3", "Overview", "History", "Users", "Graphs", "Libraries", "Insights", "Year in review"])
         XCTAssertEqual(ActivityTabs.notifications, 1)
     }
 
