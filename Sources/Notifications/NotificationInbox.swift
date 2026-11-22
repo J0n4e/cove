@@ -28,6 +28,8 @@ struct StoredNotification: Codable, Equatable, Identifiable {
     /// What Play starts (a movie, the episode, a batch's first new episode); nil = no Play button
     let playId: String?
     var read: Bool
+    /// When the server added the item(s); nil for old entries (then the alert time is shown)
+    var added: Date? = nil
 
     init(_ n: NewMediaNotification, date: Date, target: [String: String], read: Bool = false) {
         self.id = n.id + "|" + String(Int(date.timeIntervalSince1970))
@@ -42,6 +44,7 @@ struct StoredNotification: Codable, Equatable, Identifiable {
         self.userId = n.userId
         self.playId = n.playId
         self.read = read
+        self.added = n.added
     }
 }
 
@@ -121,11 +124,22 @@ enum NotificationInbox {
     /// Today / Yesterday / Earlier, in that order, empty sections left out; items newest first.
     static func grouped(_ list: [StoredNotification], now: Date, calendar: Calendar = .current)
         -> [(section: Section, items: [StoredNotification])] {
-        let sorted = list.sorted { $0.date > $1.date }
+        // By when the server added it (owner), old entries by the alert time
+        let sorted = list.sorted { ($0.added ?? $0.date) > ($1.added ?? $1.date) }
         return [Section.today, .yesterday, .earlier].compactMap { s in
-            let items = sorted.filter { section(of: $0.date, now: now, calendar: calendar) == s }
+            let items = sorted.filter { section(of: $0.added ?? $0.date, now: now, calendar: calendar) == s }
             return items.isEmpty ? nil : (s, items)
         }
+    }
+
+    /// The card's time line: when the server ADDED it (owner: the alert time isn't interesting), e.g.
+    /// "Added yesterday, 21:14" / "Added today, 09:02" / "Added 18 Nov, 21:14"; old entries keep the alert time.
+    static func addedText(_ n: StoredNotification, now: Date, calendar: Calendar = .current) -> String {
+        guard let a = n.added else { return relativeTime(n.date, now: now) }
+        let t = a.formatted(date: .omitted, time: .shortened)
+        if calendar.isDate(a, inSameDayAs: now) { return "Added today, \(t)" }
+        if let y = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(a, inSameDayAs: y) { return "Added yesterday, \(t)" }
+        return "Added " + a.formatted(.dateTime.day().month(.abbreviated)) + ", " + t
     }
 
     /// "Just now", "5 min ago", "2 h ago", "3 d ago".
