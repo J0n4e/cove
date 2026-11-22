@@ -94,8 +94,11 @@ struct CoveApp: App {
             // No Services, Hide Cove, Hide Others or Show All in the Cove menu (Quit stays)
             CommandGroup(replacing: .systemServices) {}
             CommandGroup(replacing: .appVisibility) {}
-            // Help → Report an Issue… (same sheet as About → Report an issue)
+            // Help → Cove Help (⌘?, offline topics: Sources/Help) and Report an Issue… (same sheet as About → Report an issue)
             CommandGroup(replacing: .help) {
+                Button("Cove Help") { HelpWindow.show() }
+                    .keyboardShortcut("?", modifiers: .command)
+                Divider()
                 Button("Report an Issue…") { ReportIssueWindow.show() }
             }
         }

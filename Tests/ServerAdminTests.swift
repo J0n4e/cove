@@ -196,9 +196,9 @@ final class ServerAdminTests: XCTestCase {
         func input(_ admin: Bool?) -> ProfileMenuInput {
             ProfileMenuInput(name: "J", jellyfin: true, admin: admin, hasPicture: false, servers: [], currentServer: "")
         }
-        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(true)), [.manageServer, .settings, .checkUpdates, .about])
-        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(false)), [.settings, .checkUpdates, .about])
-        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(nil)), [.settings, .checkUpdates, .about])
+        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(true)), [.manageServer, .settings, .checkUpdates, .about, .help])
+        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(false)), [.settings, .checkUpdates, .about, .help])
+        XCTAssertEqual(ProfileMenuSpec.rows(.app, input(nil)), [.settings, .checkUpdates, .about, .help])
         XCTAssertEqual(ProfileMenuSpec.title(.manageServer), "Manage server…")
         XCTAssertEqual(ServerAdmin.Tab.allCases.map(\.title), ["Overview", "Users", "Libraries", "Tasks", "Devices", "Plugins", "Logs"])
     }
