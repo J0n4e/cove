@@ -126,6 +126,20 @@ enum NotificationInbox {
     }
 
     /// The picture link for a card: the server's own image, without the art plugin's enhancers (as the banner).
+    /// The server a card's picture comes from: the entry's own server; old entries without one → the current server.
+    static func imageServer(stored: String, current: String) -> String {
+        let s = stored.trimmingCharacters(in: .whitespaces)
+        return (s.isEmpty ? current : s).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    /// Headers for pictures of a server that isn't the current one: its saved token (tokens keyed by the
+    /// lowercased address, as ServerStore), or none (Emby/Jellyfin pictures usually need no sign-in).
+    static func otherServerHeaders(server: String, current: String, tokens: [String: String]) -> [String: String] {
+        guard !server.isEmpty, server.lowercased() != current.lowercased(),
+              let t = tokens[server.lowercased()], !t.isEmpty else { return [:] }
+        return ["X-Emby-Token": t]
+    }
+
     static func imageURL(server: String, _ img: StoredNotificationImage, width: Int = 480) -> URL? {
         URL(string: "\(server)/Items/\(img.id)/Images/\(img.kind)?maxWidth=\(width)&quality=80&EnableImageEnhancers=false")
     }

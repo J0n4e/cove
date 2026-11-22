@@ -29,7 +29,13 @@ final class PlayerModel: ObservableObject {
     @Published var volume: Float = (UserDefaults.standard.object(forKey: "playerVolume") as? NSNumber)?.floatValue ?? 1 {
         didSet { player?.volume = volume; UserDefaults.standard.set(volume, forKey: "playerVolume") }
     }
-    @Published var subOffset = 0 { didSet { updateCaption(now) } }   // ms, positive = later
+    @Published var subOffset = 0 {   // ms, positive = later
+        didSet {
+            updateCaption(now)
+            // AirPlay's local WebVTT rendition (same cue shifting as Cast)
+            if airPlayLocalSub != nil, oldValue != subOffset { CastSubtitleServer.shared.updateHLSOffset(subOffset) }
+        }
+    }
     private var obs: NSKeyValueObservation?
     private var cues: [Cue] = []
     /// The film's seconds the downloaded cues cover (infinity: the whole track)

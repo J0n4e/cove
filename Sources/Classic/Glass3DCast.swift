@@ -254,11 +254,12 @@ struct CastPlayerPicker: View {
             .onAppear {
                 CastPickerState.shared.pick = { d in
                     let at = player.now
-                    let audio = player.audio, sub = player.sub
-                    DebugLog.write("cast: from the player at \(Int(at)) s")
+                    let audio = player.audio, sub = player.sub, off = player.subOffset
+                    DebugLog.write("cast: from the player at \(Int(at)) s (subtitle offset \(off) ms)")
                     close()
                     CastSession.shared.cast(req.item, to: d, emby: emby, sourceId: req.sourceId,
-                                            audio: audio, sub: sub, start: at, collection: req.collection)
+                                            audio: audio, sub: sub, start: at, collection: req.collection,
+                                            subOffset: off)
                 }
             }
             .onDisappear { CastPickerState.shared.open = false; CastPickerState.shared.pick = nil }
@@ -423,6 +424,17 @@ private struct CastRemoteContent: View {
                 ForEach(subs) { s in
                     Toggle(s.DisplayTitle ?? "Track \(s.Index)", isOn: Binding(get: { cast.sub == s.Index },
                                                                              set: { if $0 { cast.setSub(s.Index) } }))
+                }
+                if cast.sub != nil {
+                    Divider()
+                    if cast.subIsBurnedIn {
+                        Text(CastSubOffset.burnedInHint)
+                    } else {
+                        Text("Offset: \(CastSubOffset.label(cast.subOffset))")
+                        Button("Show 100 ms earlier") { cast.setSubOffset(cast.subOffset - CastSubOffset.step) }
+                        Button("Show 100 ms later") { cast.setSubOffset(cast.subOffset + CastSubOffset.step) }
+                        if cast.subOffset != 0 { Button("Reset offset") { cast.setSubOffset(0) } }
+                    }
                 }
             } label: { menuIcon("captions.bubble") }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().helpLabel("Subtitles")

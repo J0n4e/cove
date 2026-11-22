@@ -9,6 +9,7 @@ struct StatsServerUser: Identifiable, Hashable, Sendable {
     let name: String
     let lastActivity: Date?
     let imageTag: String?
+    var lastLogin: Date? = nil
 }
 
 /// Direct play / Direct stream / Transcode shares of a user's plays (0…1 each, summing to 1 when any are known).
@@ -36,6 +37,9 @@ struct StatsUserSummary: Identifiable, Hashable, Sendable {
     let methods: StatsMethodShares
     let lastSeen: Date?
     let address: String?          // the latest play's RemoteAddress (Emby); nil when the server doesn't record it
+    /// The account's own User.LastActivityDate / LastLoginDate (Last active line + tooltip)
+    var lastActive: Date? = nil
+    var lastLogin: Date? = nil
     var isLocal: Bool? { address.flatMap(StatsNet.isLocal) }
 }
 
@@ -109,7 +113,7 @@ enum StatsUsersAggregate {
                                 seconds: StatsAggregate.totalSeconds(plays),
                                 movies: plays.filter(\.isMovie).count, episodes: plays.filter(\.isEpisode).count,
                                 titles: titles, topDevice: topDevice(plays), methods: methodShares(plays),
-                                lastSeen: seen, address: addr)
+                                lastSeen: seen, address: addr, lastActive: user.lastActivity, lastLogin: user.lastLogin)
     }
 
     /// Most watch time first, then most plays, then the name.
@@ -195,7 +199,7 @@ extension StatsDecode {
             guard !id.isEmpty else { return nil }
             let tag = string(o["PrimaryImageTag"])
             return StatsServerUser(id: id, name: string(o["Name"]), lastActivity: isoDate(string(o["LastActivityDate"])),
-                                   imageTag: tag.isEmpty ? nil : tag)
+                                   imageTag: tag.isEmpty ? nil : tag, lastLogin: isoDate(string(o["LastLoginDate"])))
         }
     }
 

@@ -408,6 +408,10 @@ struct ClassicDetailView: View {
             }
             if let g = model.full?.Genres?.first { Text(g) }
             if let t = model.full?.RunTimeTicks, !model.simple { Text("Ends at " + endsAtText(t)) }
+            if let a = classicParseDate(model.full?.DateCreated) {
+                Text("Added " + a.formatted(date: .abbreviated, time: .omitted)).tip("Date added: " + a.formatted(date: .abbreviated, time: .shortened))
+            }
+            WatchActivityPill(item: item)   // admins only: who watched it (Glass3DWatchActivity.swift)
         }.cvFont(11, weight: .regular).foregroundColor(.secondary)
     }
 

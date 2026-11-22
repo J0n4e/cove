@@ -29,10 +29,22 @@ final class ImageCache: @unchecked Sendable {
     /// before a server switch never sends the new server's token to the old one (or the other way round).
     private func headers(for url: URL) -> [String: String] {
         authLock.withLock {
-            guard let s = _auth.server, Net.sameOrigin(s, url) else { return [:] }
-            return _auth.headers
+            if let s = _auth.server, Net.sameOrigin(s, url) { return _auth.headers }
+            // Another saved server (notification pictures from the server that isn't the current one)
+            for (k, h) in _other { if let s = URL(string: k), Net.sameOrigin(s, url) { return h } }
+            return [:]
         }
     }
+
+    private var _other: [String: [String: String]] = [:]
+
+    /// Sign-in headers for a saved server that isn't the current one (only ever sent to that server's origin).
+    func setOtherServerAuth(server: String, headers: [String: String]) {
+        authLock.withLock { _other[server.lowercased()] = headers.isEmpty ? nil : headers }
+    }
+
+    /// The current server's address ("" before sign-in).
+    var currentServer: String { authLock.withLock { _auth.server?.absoluteString ?? "" } }
 
     /// A download and how many views are waiting for it (prefetches pin it, so it is never cancelled).
     private final class Job { var task: Task<NSImage?, Never>!; var waiters = 0; var pinned = false }

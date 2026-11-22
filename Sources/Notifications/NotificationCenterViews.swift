@@ -10,12 +10,28 @@ struct NotificationThumb: View {
     let n: StoredNotification
     let width: CGFloat
     @State private var index = 0
+    init(n: StoredNotification, width: CGFloat) {
+        self.n = n; self.width = width
+        Self.prepareAuth(NotificationInbox.imageServer(stored: n.server, current: ImageCache.shared.currentServer))
+    }
+    /// The entry's own server (it may not be the current one); old entries → the current server
+    var server: String { NotificationInbox.imageServer(stored: n.server, current: ImageCache.shared.currentServer) }
+
+    /// A picture from another saved server gets that server's saved token (its own origin only).
+    static func prepareAuth(_ server: String) {
+        let cur = ImageCache.shared.currentServer
+        guard !server.isEmpty, server.lowercased() != cur.lowercased() else { return }
+        let h = NotificationInbox.otherServerHeaders(server: server, current: cur,
+                                                     tokens: ServerStore.sealedTokens(.standard) ?? [:])
+        if !h.isEmpty { ImageCache.shared.setOtherServerAuth(server: server, headers: h) }
+    }
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb, style: .continuous)
         ZStack {
             shape.fill(Color.white.opacity(0.06))
             if index < n.images.count {
-                CachedImage(url: NotificationInbox.imageURL(server: n.server, n.images[index])) { phase in
+                CachedImage(url: NotificationInbox.imageURL(server: server, n.images[index])) { phase in
                     if let img = phase.image { img.resizable().aspectRatio(contentMode: .fill) }
                     else if case .failure = phase { Color.clear.onAppear { index += 1 } }
                     else { Color.clear }

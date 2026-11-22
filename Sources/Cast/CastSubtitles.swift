@@ -67,7 +67,7 @@ extension CastSession {
     /// Text subtitle → reads its cues (waiting up to 20 s for the whole track) and serves it from this Mac;
     /// picture → burned in. Sets request.subIsImage / subURL.
     func prepareSubtitle() async {
-        subURL = nil; subVTT = nil
+        subURL = nil; subVTT = nil; subCues = nil
         guard let s = request?.sub else { stopSubtitleServer(); return }
         let st = streams.first { $0.Index == s }
         let d = CastSubtitles.delivery(st)
@@ -100,7 +100,8 @@ extension CastSession {
             stopSubtitleServer()
             return
         }
-        subVTT = CastVTT.make(cues)
+        subCues = cues
+        subVTT = CastVTT.make(cues, offsetMs: subOffset)
         DebugLog.write("cast: serving subtitle \(CastSubtitles.describe(s, st)) (\(cues.count) cues)")
     }
 
@@ -120,7 +121,7 @@ extension CastSession {
     }
 
     func stopSubtitleServer() {
-        subURL = nil; subVTT = nil
+        subURL = nil; subVTT = nil; subCues = nil
         CastSubtitleServer.shared.stop()
         CastSubAwake.set(false)
     }
