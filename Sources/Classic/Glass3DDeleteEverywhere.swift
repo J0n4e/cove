@@ -16,21 +16,21 @@ enum DeleteEverywhereWindow {
         Task { @MainActor in
             let plan = await DeleteEverywhereService.prepare(item, emby: emby)
             opening.remove(id)
-            ItemAdminWindows.show(id, title: "Delete", size: NSSize(width: 500, height: height(for: plan)), emby: emby,
+            ItemAdminWindows.show(id, title: "Delete", size: NSSize(width: 470, height: height(for: plan)), emby: emby,
                                   DeleteConfirmView(item: item, initial: plan, close: { ItemAdminWindows.close(id) }))
         }
     }
 
     /// Title bar + poster block (with the buttons) + the effects card + warning / hints.
     static func height(for p: DeleteEverywhereService.Plan) -> CGFloat {
-        var h: CGFloat = 28 + 8 + 132 + 16 + 28 + 20          // top inset, padding, header, gap, card padding, bottom
-        let rows: [CGFloat] = p.text.bullets.map { DeleteEffectRow.split($0).detail == nil ? CGFloat(20) : CGFloat(38) }
+        var h: CGFloat = 28 + 8 + 124 + 16 + 28 + 18          // top inset, padding, header, gap, card padding, bottom
+        let rows: [CGFloat] = p.text.bullets.map { DeleteEffectRow.split($0).detail == nil ? CGFloat(18) : CGFloat(34) }
         let gaps = CGFloat(max(rows.count - 1, 0)) * CGFloat(12)
         h += rows.reduce(CGFloat(0), +) + gaps
         if p.text.warning != nil { h += 16 + 72 }
         if p.text.hint != nil { h += 16 + 34 }
         if p.lookupProblem != nil { h += 16 + 34 }
-        return h + 30                                          // room for an error line
+        return h                                               // an error shows in place of the size/badge line
     }
 }
 
@@ -84,12 +84,17 @@ struct DeleteConfirmView: View {
                 Text("Delete \(kindWord)?").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.6))
                 Text(DeleteConfirmView.shortTitle(p.text.scopeLine)).cvFont(18, weight: .bold).foregroundColor(.white)
                     .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                if let error {
+                    // the error takes the size/badge line, so the compact window never needs to grow
+                    Text(error).cvFont(12, weight: .semibold).foregroundColor(.orange).lineLimit(2).tip(error)
+                } else {
                 HStack(spacing: 8) {
-                    if let s = p.sizeBytes, s > 0 {
-                        Text(ByteCountFormatter.string(fromByteCount: s, countStyle: .file)).cvFont(12, weight: .medium) { $0.monospacedDigit() }
-                            .foregroundColor(.white.opacity(0.75))
+                        if let s = p.sizeBytes, s > 0 {
+                            Text(ByteCountFormatter.string(fromByteCount: s, countStyle: .file)).cvFont(12, weight: .medium) { $0.monospacedDigit() }
+                                .foregroundColor(.white.opacity(0.75))
+                        }
+                        DeleteStatusBadge(inNexcrate: p.inNexcrate, configured: p.configured)
                     }
-                    DeleteStatusBadge(inNexcrate: p.inNexcrate, configured: p.configured)
                 }
                 buttons(p).padding(.top, 4)
             }
@@ -114,7 +119,6 @@ struct DeleteConfirmView: View {
         }
         if let m = p.lookupProblem { Text(m).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
         if let h = p.text.hint { Text(h).cvFont(12).foregroundColor(.white.opacity(0.65)).fixedSize(horizontal: false, vertical: true) }
-        if let error { Text(error).cvFont(12, weight: .semibold).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
     }
 
     /// Cancel + Delete right under the title (owner: buttons above the info, smaller window)
