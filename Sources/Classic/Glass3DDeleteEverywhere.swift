@@ -24,8 +24,9 @@ enum DeleteEverywhereWindow {
     /// Title bar + poster block (with the buttons) + the effects card + warning / hints.
     static func height(for p: DeleteEverywhereService.Plan) -> CGFloat {
         var h: CGFloat = 28 + 8 + 132 + 16 + 28 + 20          // top inset, padding, header, gap, card padding, bottom
-        let rows = p.text.bullets.map { DeleteEffectRow.split($0).detail == nil ? 20.0 : 38.0 }
-        h += rows.reduce(0, +) + CGFloat(max(rows.count - 1, 0)) * 12
+        let rows: [CGFloat] = p.text.bullets.map { DeleteEffectRow.split($0).detail == nil ? CGFloat(20) : CGFloat(38) }
+        let gaps = CGFloat(max(rows.count - 1, 0)) * CGFloat(12)
+        h += rows.reduce(CGFloat(0), +) + gaps
         if p.text.warning != nil { h += 16 + 72 }
         if p.text.hint != nil { h += 16 + 34 }
         if p.lookupProblem != nil { h += 16 + 34 }
