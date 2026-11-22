@@ -9,12 +9,17 @@ struct ItemAdminButton: View {
     var onChange: () -> Void = {}
     @EnvironmentObject var emby: Emby
     @ObservedObject private var profile = ProfileModel.shared
+    @Environment(\.dismiss) private var dismissPage
 
     var body: some View {
         let actions = ItemAdminAPI.detailMenu(type: item.`Type`, admin: profile.admin)
+        // Delete… last, set apart under its own header (DeleteEverywhere*.swift)
+        let canDelete = NexcrateAPI.canDelete(type: item.`Type`, admin: profile.admin)
         if !actions.isEmpty {
             GlassListButton(list: {
-                (["Admin"] + actions.map(\.title), [], [0], { i in
+                (["Admin"] + actions.map(\.title) + (canDelete ? ["Danger zone", "Delete\u{2026}"] : []), [],
+                 Set(canDelete ? [0, actions.count + 1] : [0]), { i in
+                    if canDelete, i == actions.count + 2 { DeleteEverywhereWindow.open(item, emby: emby); return }
                     guard i >= 1, i <= actions.count else { return }
                     ItemAdminWindows.run(actions[i - 1], item: item, emby: emby, onChange: onChange)
                 })
@@ -24,6 +29,8 @@ struct ItemAdminButton: View {
             }
             .helpLabel("Admin tools")
             .padding(.leading, 4)
+            // This page's item was deleted: back to where it was opened from (episode → season / series)
+            .onReceive(DeletedItems.shared.deleted) { ids in if ids.contains(item.id) { dismissPage() } }
         }
     }
 }
