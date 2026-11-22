@@ -15,6 +15,7 @@ struct CoveApp: App {
         Self.applyIcon()
         ScrollActivity.start()   // hover effects pause while a page scrolls
         ClassicFont.migrate()    // removed font choices → SF Pro
+        NavOrder.moveActivityLastOnce()   // Activity last in the top bar (owner, v1.19.6)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
     /// Dock icon, shown exactly as drawn (newer macOS redraws .icns icons in its own style). The same icon

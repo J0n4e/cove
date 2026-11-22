@@ -28,23 +28,19 @@ struct StatsYearReviewView: View {
     @ViewBuilder private var content: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 12) {
+                // The year as a dropdown pill too (owner), same look as the user picker
                 if insights.years.count > 1 {
-                    let sel = Binding<Int>(get: { insights.years.firstIndex(of: insights.year) ?? 0 },
-                                           set: { insights.year = insights.years[min(max($0, 0), insights.years.count - 1)] })
-                    Glass3DSegmentTabs(titles: insights.years.map { String($0) }, selection: sel)
+                    YearPickerMenu(years: insights.years, selected: Binding(get: { insights.year }, set: { insights.year = $0 }))
+                }
+                // Admins: one compact dropdown for the user instead of a pill with every name (owner)
+                if model.availability == .available && insights.users.count > 1 {
+                    YearUserMenu(users: insights.users.map { ($0.id, $0.name) },
+                                 selected: Binding(get: { insights.yearUserId }, set: { insights.yearUserId = $0 }))
                 }
                 Spacer(minLength: 0)
                 if let r = insights.review, insights.reviewKey == insights.yearKey, !r.isEmpty {
                     YearShareButton(label: "Copy image", symbol: "doc.on.doc", busy: sharing) { share(r, save: false) }
                     YearShareButton(label: "Save as image", symbol: "square.and.arrow.down", busy: sharing) { share(r, save: true) }
-                }
-            }
-            if model.availability == .available && insights.users.count > 1 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    let us = insights.users
-                    let sel = Binding<Int>(get: { us.firstIndex { $0.id == insights.yearUserId } ?? 0 },
-                                           set: { insights.yearUserId = us[min(max($0, 0), us.count - 1)].id })
-                    Glass3DSegmentTabs(titles: us.map(\.name), selection: sel).padding(.vertical, 2)
                 }
             }
             if insights.limited {
@@ -361,5 +357,56 @@ struct YearShareCard: View {
             Text(label).font(.system(size: 28, weight: .medium)).foregroundColor(.white.opacity(0.6)).frame(width: 260, alignment: .leading)
             Text(value).font(.system(size: 34, weight: .bold)).foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.6)
         }
+    }
+}
+
+
+/// Year in review: the user picker as one glass pill (initials + name + chevron) opening a menu with ✓ on the current
+/// user, like the other glass pills (owner: a pill with all the names was too much).
+struct YearUserMenu: View {
+    let users: [(id: String, name: String)]
+    @Binding var selected: String
+    var current: String { users.first { $0.id == selected }?.name ?? users.first?.name ?? "" }
+    var body: some View {
+        Menu {
+            ForEach(users, id: \.id) { u in
+                Toggle(u.name, isOn: Binding(get: { selected == u.id }, set: { if $0 { selected = u.id } }))
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(ProfileInitials.of(current)).cvFont(10, weight: .bold).foregroundColor(.white)
+                    .frame(width: 22, height: 22).background(Circle().fill(Color.accentColor.opacity(0.55)))
+                Text(current).cvFont(13, weight: .semibold).lineLimit(1)
+                Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
+            }
+            .padding(.leading, 6).padding(.trailing, 12).frame(height: 36)
+            .modifier(ClassicClearGlass(shape: Capsule()))
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .helpLabel("Whose year")
+    }
+}
+
+
+/// Year in review: the year as one glass pill (calendar + year + chevron) opening a menu with ✓ on the current year.
+struct YearPickerMenu: View {
+    let years: [Int]
+    @Binding var selected: Int
+    var body: some View {
+        Menu {
+            ForEach(years, id: \.self) { y in
+                Toggle(String(y), isOn: Binding(get: { selected == y }, set: { if $0 { selected = y } }))
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "calendar").cvFont(12, weight: .semibold)
+                Text(String(selected)).cvFont(13, weight: .semibold)
+                Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
+            }
+            .padding(.horizontal, 12).frame(height: 36)
+            .modifier(ClassicClearGlass(shape: Capsule()))
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .helpLabel("Year")
     }
 }
