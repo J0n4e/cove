@@ -7,6 +7,7 @@ struct CleanupView: View {
     @EnvironmentObject var emby: Emby
     @ObservedObject private var store = CleanupStore.shared
     @ObservedObject private var trakt = Trakt.shared
+    @ObservedObject private var nexview = NexviewConnection.shared
     @AppStorage("cleanupSort") private var sortRaw = CleanupSort.leastWatched.rawValue
     @AppStorage("cleanupFilter") private var filterRaw = CleanupFilter.all.rawValue
     @AppStorage("cleanupRated") private var ratedRaw = CleanupRated.any.rawValue
@@ -16,8 +17,15 @@ struct CleanupView: View {
     @State private var selecting = false
     @State private var selected: Set<String> = []
 
-    private var sort: CleanupSort { CleanupSort(rawValue: sortRaw) ?? .leastWatched }
-    private var filter: CleanupFilter { CleanupFilter(rawValue: filterRaw) ?? .all }
+    private var sort: CleanupSort {
+        let s = CleanupSort(rawValue: sortRaw) ?? .leastWatched
+        return s.column == .requested && !nexview.configured ? .leastWatched : s
+    }
+    private var filter: CleanupFilter {
+        let f = CleanupFilter(rawValue: filterRaw) ?? .all
+        return CleanupFilter.options(nexview: nexview.configured).contains(f) ? f : .all
+    }
+    private var columns: CleanupColumns { CleanupColumns(selecting: selecting, requests: nexview.configured) }
     private var rated: CleanupRated { CleanupRated(rawValue: ratedRaw) ?? .any }
     private var kind: CleanupKind { CleanupKind(rawValue: kindRaw) ?? .both }
 
@@ -48,16 +56,20 @@ struct CleanupView: View {
                 StatsStateCard(symbol: "line.3.horizontal.decrease.circle", title: "Nothing matches",
                                message: "Try another filter or library.")
             } else {
-                LazyVStack(spacing: 8) {
-                    ForEach(shown) { i in
-                        CleanupRow(entry: i, libraryName: libraryName(i.libraryId), selecting: selecting,
-                                   selected: Binding(get: { selected.contains(i.id) },
-                                                     set: { if $0 { selected.insert(i.id) } else { selected.remove(i.id) } }))
+                LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
+                    Section {
+                        ForEach(shown) { i in
+                            CleanupRow(entry: i, libraryName: libraryName(i.libraryId), selecting: selecting, columns: columns,
+                                       selected: Binding(get: { selected.contains(i.id) },
+                                                         set: { if $0 { selected.insert(i.id) } else { selected.remove(i.id) } }))
+                        }
+                    } header: {
+                        CleanupHeaderRow(columns: columns, sort: sort) { sortRaw = sort.clicked($0).rawValue }
                     }
                 }
             }
         }
-        .task(id: emby.server + "|" + emby.userId) { await store.load(emby) }
+        .task(id: emby.server + "|" + emby.userId + "|" + (nexview.configured ? "nexview" : "")) { await store.load(emby) }
         .task { await trakt.refresh() }   // your ★ ratings
         .onReceive(DeletedItems.shared.deleted) { ids in store.remove(ids); selected.subtract(ids) }
     }
@@ -72,13 +84,14 @@ struct CleanupView: View {
             CleanupMenu(symbol: "film.stack", value: kind.title, options: CleanupKind.allCases.map { ($0.rawValue, $0.title) },
                         selected: kindRaw, help: "Movies or series") { kindRaw = $0 }
             CleanupMenu(symbol: "line.3.horizontal.decrease", value: filter.title,
-                        options: CleanupFilter.allCases.map { ($0.rawValue, $0.title) },
+                        options: CleanupFilter.options(nexview: nexview.configured).map { ($0.rawValue, $0.title) },
                         selected: filterRaw, help: "Filter") { filterRaw = $0 }
             CleanupMenu(symbol: "star", value: rated.title, options: CleanupRated.allCases.map { ($0.rawValue, $0.title) },
                         selected: ratedRaw, help: "Rated or not") { ratedRaw = $0 }
             CleanupMenu(symbol: "arrow.up.arrow.down", value: sort.title,
-                        options: Cleanup.sorts(hasSize: store.items.contains { $0.sizeBytes != nil }).map { ($0.rawValue, $0.title) },
-                        selected: sortRaw, help: "Sort") { sortRaw = $0 }
+                        options: Cleanup.sorts(hasSize: store.items.contains { $0.sizeBytes != nil }, hasRequests: nexview.configured)
+                            .map { ($0.rawValue, $0.title) },
+                        selected: sort.rawValue, help: "Sort") { sortRaw = $0 }
             // Find a title by name instead of scrolling (owner)
             ServerSearchField(placeholder: "Search titles", text: $query).frame(width: 220)
             Spacer(minLength: 0)
@@ -95,18 +108,82 @@ struct CleanupView: View {
                 Image(systemName: "arrow.clockwise").cvFont(13, weight: .semibold)
                     .frame(width: 36, height: 36).modifier(ClassicClearGlass(shape: Circle()))
             }
-            .buttonStyle(.plainHand).disabled(store.loading).helpLabel("Refresh")
+            .buttonStyle(.plainHand).disabled(store.loading).helpLabel(nexview.configured ? "Refresh (server and Nexview)" : "Refresh")
         }
         if !store.items.isEmpty {
             HStack(spacing: 8) {
                 Text(Cleanup.summary(shown).text).cvFont(Glass3DTokens.Text.meta, weight: .medium) { $0.monospacedDigit() }
                     .foregroundColor(Glass3DTokens.Grey.secondary)
+                if nexview.configured, let e = store.nexviewError {
+                    Text("Nexview: " + e).cvFont(Glass3DTokens.Text.meta).foregroundColor(.orange).lineLimit(1).tip(e)
+                }
                 if store.loading, let p = store.progress {
                     ProgressView().controlSize(.mini)
                     Text(p).cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Grey.tertiary)
                 }
             }
         }
+    }
+}
+
+/// The list's column widths, shared by the header row and every row so they line up.
+struct CleanupColumns: Equatable {
+    var selecting: Bool
+    var requests: Bool
+    static let spacing: CGFloat = 14
+    static let check: CGFloat = 18
+    static let thumb: CGFloat = 40
+    static let trash: CGFloat = 30
+    static func width(_ c: CleanupColumn) -> CGFloat {
+        switch c {
+        case .title: return 0   // flexible
+        case .watched: return 76
+        case .rating: return 60
+        case .added: return 96
+        case .lastPlayed: return 90
+        case .size: return 70
+        case .requested: return 110
+        }
+    }
+    /// The fixed columns after the title, in row order
+    var trailing: [CleanupColumn] {
+        [.watched, .rating, .added, .lastPlayed, .size] + (requests ? [.requested] : [])
+    }
+}
+
+/// Small grey uppercase column headers; a click sorts by that column, a second click reverses. Pinned at the top.
+struct CleanupHeaderRow: View {
+    let columns: CleanupColumns
+    let sort: CleanupSort
+    let pick: (CleanupColumn) -> Void
+
+    var body: some View {
+        HStack(spacing: CleanupColumns.spacing) {
+            if columns.selecting { Color.clear.frame(width: CleanupColumns.check, height: 1) }
+            Color.clear.frame(width: CleanupColumns.thumb, height: 1)
+            header(.title, alignment: .leading)
+            Spacer(minLength: 12)
+            ForEach(columns.trailing) { c in
+                header(c, alignment: .trailing).frame(width: CleanupColumns.width(c), alignment: .trailing)
+            }
+            if !columns.selecting { Color.clear.frame(width: CleanupColumns.trash, height: 1) }
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .background(Rectangle().fill(Color(white: 0.06).opacity(0.92)))
+    }
+
+    private func header(_ c: CleanupColumn, alignment: Alignment) -> some View {
+        let active = sort.column == c
+        return Button { pick(c) } label: {
+            HStack(spacing: 3) {
+                Text(c.label.uppercased()).cvFont(10, weight: .semibold).lineLimit(1)
+                if active { Image(systemName: sort.ascending ? "chevron.up" : "chevron.down").cvFont(8, weight: .bold) }
+            }
+            .foregroundColor(active ? Color.accentColor : Glass3DTokens.Grey.tertiary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plainHand)
+        .helpLabel(active ? sort.title + " \u{00B7} click to reverse" : "Sort by " + c.label.lowercased())
     }
 }
 
@@ -141,20 +218,22 @@ struct CleanupRow: View {
     let entry: CleanupItem
     let libraryName: String?
     let selecting: Bool
+    let columns: CleanupColumns
     @Binding var selected: Bool
     @EnvironmentObject var emby: Emby
     @State private var hover = false
     @State private var showUsers = false
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: CleanupColumns.spacing) {
             if selecting {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle").cvFont(18)
                     .foregroundColor(selected ? .accentColor : Glass3DTokens.Grey.tertiary)
+                    .frame(width: CleanupColumns.check)
             }
             CachedImage(url: emby.image(entry.id, width: 120)) { p in p.resizable().aspectRatio(contentMode: .fill) }
                 placeholder: { Color(white: 0.15) }
-                .frame(width: 40, height: 60).clipped().cornerRadius(Glass3DTokens.Radius.thumb)
+                .frame(width: CleanupColumns.thumb, height: 60).clipped().cornerRadius(Glass3DTokens.Radius.thumb)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(entry.name).cvFont(13, weight: .bold).foregroundColor(.white).lineLimit(1)
@@ -164,24 +243,32 @@ struct CleanupRow: View {
                     .cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary).lineLimit(1)
             }
             Spacer(minLength: 12)
-            watchedPill
+            watchedPill.frame(width: CleanupColumns.width(.watched), alignment: .trailing)
             if let mine = entry.myRating {
                 Text("\u{2605} \(mine)/10").cvFont(12, weight: .semibold) { $0.monospacedDigit() }.foregroundColor(.yellow)
-                    .lineLimit(1).frame(width: 60, alignment: .trailing)
+                    .lineLimit(1).frame(width: CleanupColumns.width(.rating), alignment: .trailing)
                     .tip("Your rating" + (entry.communityRating.map { " \u{00B7} server \(String(format: "%.1f", $0))" } ?? ""))
             } else {
-                column(entry.communityRating.map { "\u{2605} " + String(format: "%.1f", $0) } ?? "\u{2605} \u{2014}", width: 60,
+                column(entry.communityRating.map { "\u{2605} " + String(format: "%.1f", $0) } ?? "\u{2605} \u{2014}", width: CleanupColumns.width(.rating),
                    tip: entry.criticRating.map { "Critics \(Int($0))%" } ?? "Community rating")
             }
-            column(entry.dateAdded.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "\u{2014}", width: 96, tip: "Date added")
-            column(CleanupItem.lastPlayedText(entry), width: 90, tip: CleanupItem.lastPlayedTip(entry))
-            column(entry.sizeBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "", width: 70, tip: "Size")
-            if !selecting, let item = entry.item {
-                Button { DeleteEverywhereWindow.open(item, emby: emby) } label: {
-                    Image(systemName: "trash").cvFont(13, weight: .semibold).foregroundColor(.white)
-                        .frame(width: 30, height: 30).modifier(ClassicClearGlass(shape: Circle()))
+            column(entry.dateAdded.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "\u{2014}", width: CleanupColumns.width(.added), tip: "Date added")
+            column(CleanupItem.lastPlayedText(entry), width: CleanupColumns.width(.lastPlayed), tip: CleanupItem.lastPlayedTip(entry))
+            column(entry.sizeBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "", width: CleanupColumns.width(.size), tip: "Size")
+            if columns.requests {
+                column(entry.requests.isEmpty ? "\u{2014}" : Nexview.columnText(entry), width: CleanupColumns.width(.requested),
+                       tip: entry.requests.isEmpty ? "Not requested in Nexview" : Nexview.tooltip(entry))
+            }
+            if !selecting {
+                if let item = entry.item {
+                    Button { DeleteEverywhereWindow.open(item, emby: emby) } label: {
+                        Image(systemName: "trash").cvFont(13, weight: .semibold).foregroundColor(.white)
+                            .frame(width: CleanupColumns.trash, height: CleanupColumns.trash).modifier(ClassicClearGlass(shape: Circle()))
+                    }
+                    .buttonStyle(.plainHand).helpLabel("Delete\u{2026}")
+                } else {
+                    Color.clear.frame(width: CleanupColumns.trash, height: 1)
                 }
-                .buttonStyle(.plainHand).helpLabel("Delete\u{2026}")
             }
         }
         .padding(8)

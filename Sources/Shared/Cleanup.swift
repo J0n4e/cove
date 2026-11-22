@@ -27,6 +27,17 @@ struct CleanupItem: Identifiable, Equatable {
     var entries: [WatchActivityEntry] = []
     /// YOUR star rating (1–10, the ★ on the detail page, kept in Trakt); filled in by the view
     var myRating: Int? = nil
+    /// TMDB id from ProviderIds (matches Nexview requests)
+    var tmdbId: Int? = nil
+    /// Nexview requests for this title, oldest first; filled in by the store when Nexview is connected
+    var requests: [NexviewRequest] = []
+
+    /// The Rating column: YOUR ★ if you rated it, else the server's community rating
+    var shownRating: Double? { myRating.map(Double.init) ?? communityRating }
+    /// When it was first requested in Nexview
+    var requestedAt: Date? { requests.compactMap(\.requestedAt).min() }
+    /// "movie" / "tv", Nexview's media_type
+    var nexviewMediaType: String { isSeries ? "tv" : "movie" }
 
     var isSeries: Bool { type == "Series" }
     private var counted: [WatchActivityEntry] { entries.filter { !$0.user.disabled } }
@@ -60,27 +71,109 @@ struct CleanupItem: Identifiable, Equatable {
     var watchedText: String { "\(watchedBy.count)/\(userCount)" }
 }
 
-enum CleanupSort: String, CaseIterable, Identifiable {
-    case leastWatched, mostWatched, myLowest, myHighest, lowestRating, highestRating, oldestAdded, newestAdded, lastPlayedLongAgo, largest
+/// The Cleanup list's columns; a click on a header sorts by it, a second click reverses.
+enum CleanupColumn: String, CaseIterable, Identifiable {
+    case title, watched, rating, added, lastPlayed, size, requested
     var id: String { rawValue }
-    var title: String {
+    var label: String {
         switch self {
-        case .leastWatched: return "Least watched first"
-        case .mostWatched: return "Most watched first"
-        case .myLowest: return "Your rating: lowest"
-        case .myHighest: return "Your rating: highest"
-        case .lowestRating: return "Server rating: lowest"
-        case .highestRating: return "Server rating: highest"
-        case .oldestAdded: return "Oldest added"
-        case .newestAdded: return "Newest added"
-        case .lastPlayedLongAgo: return "Last played long ago"
-        case .largest: return "Largest"
+        case .title: return "Title"
+        case .watched: return "Watched"
+        case .rating: return "Rating"
+        case .added: return "Added"
+        case .lastPlayed: return "Last played"
+        case .size: return "Size"
+        case .requested: return "Requested by"
+        }
+    }
+    /// First click on a header
+    var defaultSort: CleanupSort {
+        switch self {
+        case .title: return .titleAZ
+        case .watched: return .leastWatched
+        case .rating: return .ratingHighest
+        case .added: return .newestAdded
+        case .lastPlayed: return .lastPlayedLongAgo
+        case .size: return .largest
+        case .requested: return .requestedNewest
         }
     }
 }
 
+/// One sort state (column + direction), shared by the header row and the Sort dropdown (which keeps its presets).
+enum CleanupSort: String, CaseIterable, Identifiable {
+    case titleAZ, titleZA, leastWatched, mostWatched, ratingHighest, ratingLowest, myLowest, myHighest, lowestRating, highestRating,
+         newestAdded, oldestAdded, lastPlayedLongAgo, lastPlayedRecent, largest, smallest, requestedNewest, requestedOldest
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .titleAZ: return "Title A\u{2013}Z"
+        case .titleZA: return "Title Z\u{2013}A"
+        case .leastWatched: return "Least watched first"
+        case .mostWatched: return "Most watched first"
+        case .ratingHighest: return "Rating: highest"
+        case .ratingLowest: return "Rating: lowest"
+        case .myLowest: return "Your rating: lowest"
+        case .myHighest: return "Your rating: highest"
+        case .lowestRating: return "Server rating: lowest"
+        case .highestRating: return "Server rating: highest"
+        case .newestAdded: return "Newest added"
+        case .oldestAdded: return "Oldest added"
+        case .lastPlayedLongAgo: return "Last played long ago"
+        case .lastPlayedRecent: return "Last played recently"
+        case .largest: return "Largest"
+        case .smallest: return "Smallest"
+        case .requestedNewest: return "Requested: newest"
+        case .requestedOldest: return "Requested: oldest"
+        }
+    }
+    var column: CleanupColumn {
+        switch self {
+        case .titleAZ, .titleZA: return .title
+        case .leastWatched, .mostWatched: return .watched
+        case .ratingHighest, .ratingLowest, .myLowest, .myHighest, .lowestRating, .highestRating: return .rating
+        case .newestAdded, .oldestAdded: return .added
+        case .lastPlayedLongAgo, .lastPlayedRecent: return .lastPlayed
+        case .largest, .smallest: return .size
+        case .requestedNewest, .requestedOldest: return .requested
+        }
+    }
+    /// Smallest / oldest / A first
+    var ascending: Bool {
+        switch self {
+        case .titleAZ, .leastWatched, .ratingLowest, .myLowest, .lowestRating, .oldestAdded, .lastPlayedLongAgo, .smallest, .requestedOldest:
+            return true
+        default: return false
+        }
+    }
+    var reversed: CleanupSort {
+        switch self {
+        case .titleAZ: return .titleZA
+        case .titleZA: return .titleAZ
+        case .leastWatched: return .mostWatched
+        case .mostWatched: return .leastWatched
+        case .ratingHighest: return .ratingLowest
+        case .ratingLowest: return .ratingHighest
+        case .myLowest: return .myHighest
+        case .myHighest: return .myLowest
+        case .lowestRating: return .highestRating
+        case .highestRating: return .lowestRating
+        case .newestAdded: return .oldestAdded
+        case .oldestAdded: return .newestAdded
+        case .lastPlayedLongAgo: return .lastPlayedRecent
+        case .lastPlayedRecent: return .lastPlayedLongAgo
+        case .largest: return .smallest
+        case .smallest: return .largest
+        case .requestedNewest: return .requestedOldest
+        case .requestedOldest: return .requestedNewest
+        }
+    }
+    /// A header click: same column → reversed, another column → that column's first sort.
+    func clicked(_ c: CleanupColumn) -> CleanupSort { column == c ? reversed : c.defaultSort }
+}
+
 enum CleanupFilter: String, CaseIterable, Identifiable {
-    case all, neverWatched, notInAYear, lowRated, oldUnwatched
+    case all, neverWatched, notInAYear, lowRated, oldUnwatched, requested, requestedUnwatched
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -89,7 +182,13 @@ enum CleanupFilter: String, CaseIterable, Identifiable {
         case .notInAYear: return "Watched by nobody in 1 year"
         case .lowRated: return "Low rated (<6\u{2605})"
         case .oldUnwatched: return "Not watched, added > 6 months ago"
+        case .requested: return "Requested via Nexview"
+        case .requestedUnwatched: return "Requested, requester never watched it"
         }
+    }
+    /// The Nexview filters only when Nexview is connected
+    nonisolated static func options(nexview: Bool) -> [CleanupFilter] {
+        allCases.filter { nexview || ($0 != .requested && $0 != .requestedUnwatched) }
     }
 }
 
@@ -171,7 +270,15 @@ enum Cleanup {
                            criticRating: (o["CriticRating"] as? NSNumber)?.doubleValue,
                            dateAdded: (o["DateCreated"] as? String).flatMap(WatchActivity.isoDate),
                            sizeBytes: type == "Movie" && !sizes.isEmpty ? sizes.reduce(0, +) : nil,
-                           item: decoded)
+                           item: decoded,
+                           tmdbId: tmdbId(o["ProviderIds"] as? [String: Any]))
+    }
+
+    /// ProviderIds "Tmdb" (any case) → Int
+    nonisolated static func tmdbId(_ ids: [String: Any]?) -> Int? {
+        guard let v = ids?.first(where: { $0.key.lowercased() == "tmdb" })?.value else { return nil }
+        if let n = v as? NSNumber { return n.intValue }
+        return (v as? String).flatMap { Int($0.trimmingCharacters(in: .whitespaces)) }
     }
 
     /// Adds one user's page to the items (titles the admin can't see are skipped).
@@ -193,6 +300,8 @@ enum Cleanup {
         case .notInAYear: return (i.lastPlayed ?? .distantPast) < now.addingTimeInterval(-year)
         case .lowRated: return (i.communityRating ?? 99) < lowRating
         case .oldUnwatched: return i.watchedBy.isEmpty && (i.dateAdded ?? now) < now.addingTimeInterval(-sixMonths)
+        case .requested: return !i.requests.isEmpty
+        case .requestedUnwatched: return !i.requests.isEmpty && !NexviewMatch.anyRequesterWatched(i)
         }
     }
 
@@ -215,45 +324,48 @@ enum Cleanup {
         }
     }
 
+    /// Known values in the asked direction, unknown (nil) always last; nil result = tie.
+    nonisolated static func order<T: Comparable>(_ x: T?, _ y: T?, ascending: Bool) -> Bool? {
+        switch (x, y) {
+        case let (a?, b?): return a == b ? nil : (ascending ? a < b : a > b)
+        case (nil, _?): return false
+        case (_?, nil): return true
+        default: return nil
+        }
+    }
+
     nonisolated static func sorted(_ items: [CleanupItem], by sort: CleanupSort) -> [CleanupItem] {
         func added(_ i: CleanupItem) -> Date { i.dateAdded ?? .distantPast }
-        func name(_ a: CleanupItem, _ b: CleanupItem) -> Bool { a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending }
+        func name(_ a: CleanupItem, _ b: CleanupItem) -> Bool {
+            let r = a.name.localizedStandardCompare(b.name)
+            return r == .orderedSame ? a.id < b.id : r == .orderedAscending
+        }
+        let asc = sort.ascending
         return items.sorted { a, b in
             switch sort {
+            case .titleAZ, .titleZA:
+                let r = a.name.localizedStandardCompare(b.name)
+                if r == .orderedSame { return a.id < b.id }
+                return asc ? r == .orderedAscending : r == .orderedDescending
             case .leastWatched, .mostWatched:
-                let asc = sort == .leastWatched
                 if a.watchedFraction != b.watchedFraction { return asc ? a.watchedFraction < b.watchedFraction : a.watchedFraction > b.watchedFraction }
                 if a.playCount != b.playCount { return asc ? a.playCount < b.playCount : a.playCount > b.playCount }
                 if added(a) != added(b) { return asc ? added(a) < added(b) : added(a) > added(b) }
                 return name(a, b)
+            case .ratingHighest, .ratingLowest:
+                return order(a.shownRating, b.shownRating, ascending: asc) ?? name(a, b)
             case .myLowest, .myHighest:
-                // titles you didn't rate go last either way
-                switch (a.myRating, b.myRating) {
-                case let (x?, y?) where x != y: return sort == .myLowest ? x < y : x > y
-                case (nil, _?): return false
-                case (_?, nil): return true
-                default: return name(a, b)
-                }
+                return order(a.myRating, b.myRating, ascending: asc) ?? name(a, b)
             case .lowestRating, .highestRating:
-                // unrated titles go last either way
-                switch (a.communityRating, b.communityRating) {
-                case let (x?, y?) where x != y: return sort == .lowestRating ? x < y : x > y
-                case (nil, _?): return false
-                case (_?, nil): return true
-                default: return name(a, b)
-                }
+                return order(a.communityRating, b.communityRating, ascending: asc) ?? name(a, b)
             case .oldestAdded, .newestAdded:
-                if added(a) != added(b) { return sort == .oldestAdded ? added(a) < added(b) : added(a) > added(b) }
-                return name(a, b)
-            case .lastPlayedLongAgo:
-                // never played first, then the longest ago
-                let x = a.lastPlayed ?? .distantPast, y = b.lastPlayed ?? .distantPast
-                if x != y { return x < y }
-                return name(a, b)
-            case .largest:
-                let x = a.sizeBytes ?? -1, y = b.sizeBytes ?? -1
-                if x != y { return x > y }
-                return name(a, b)
+                return order(a.dateAdded, b.dateAdded, ascending: asc) ?? name(a, b)
+            case .lastPlayedLongAgo, .lastPlayedRecent:
+                return order(a.lastPlayed, b.lastPlayed, ascending: asc) ?? name(a, b)
+            case .largest, .smallest:
+                return order(a.sizeBytes, b.sizeBytes, ascending: asc) ?? name(a, b)
+            case .requestedNewest, .requestedOldest:
+                return order(a.requestedAt, b.requestedAt, ascending: asc) ?? name(a, b)
             }
         }
     }
@@ -281,7 +393,10 @@ enum Cleanup {
     }
 
     /// The Size sort only makes sense when some title has a size.
-    nonisolated static func sorts(hasSize: Bool) -> [CleanupSort] { CleanupSort.allCases.filter { hasSize || $0 != .largest } }
+    /// The Size sorts only make sense when some title has a size, the Requested ones when Nexview is connected.
+    nonisolated static func sorts(hasSize: Bool, hasRequests: Bool = false) -> [CleanupSort] {
+        CleanupSort.allCases.filter { (hasSize || $0.column != .size) && (hasRequests || $0.column != .requested) }
+    }
 }
 
 /// Several deletes one after another; stops at the first error (the rest stay untouched).
@@ -322,13 +437,16 @@ final class CleanupStore: ObservableObject {
     @Published private(set) var loading = false
     @Published private(set) var progress: String?
     @Published private(set) var error: String?
+    /// Nexview couldn't be read (the list still shows, without requests)
+    @Published private(set) var nexviewError: String?
     private var loadedAt: Date?
     private var key = ""
 
     func remove(_ ids: Set<String>) { items.removeAll { ids.contains($0.id) } }
 
     func load(_ emby: Emby, force: Bool = false) async {
-        let k = emby.server.lowercased() + "|" + emby.userId
+        let nexview = NexviewConnection.shared
+        let k = emby.server.lowercased() + "|" + emby.userId + "|" + (nexview.configured ? "nexview" : "")
         if !force, k == key, let at = loadedAt, Date().timeIntervalSince(at) < Cleanup.cacheSeconds { return }
         guard !loading else { return }
         if k != key { items = []; libraries = [] }
@@ -377,6 +495,14 @@ final class CleanupStore: ObservableObject {
                 done += 1
                 progress = Cleanup.progressText(done: done, total: users.count)
                 next()
+            }
+        }
+        guard key == k else { return }
+        nexviewError = nil
+        if nexview.configured {
+            switch await nexview.requests() {
+            case .success(let reqs): NexviewMatch.attach(reqs, to: &map)
+            case .failure(let e): nexviewError = e.message
             }
         }
         guard key == k else { return }

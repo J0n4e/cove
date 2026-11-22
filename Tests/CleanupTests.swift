@@ -58,7 +58,8 @@ final class CleanupTests: XCTestCase {
         XCTAssertEqual(ids(.highestRating), ["half", "neverOld", "never", "all"])
         XCTAssertEqual(ids(.oldestAdded).last, "never")
         XCTAssertEqual(ids(.newestAdded).first, "never")
-        XCTAssertEqual(Array(ids(.lastPlayedLongAgo).suffix(2)), ["half", "all"])
+        // never played (no date) goes last in both directions
+        XCTAssertEqual(Array(ids(.lastPlayedLongAgo).prefix(2)), ["half", "all"])
         XCTAssertEqual(ids(.largest), ["half", "all", "never", "neverOld"])
         XCTAssertFalse(Cleanup.sorts(hasSize: false).contains(.largest))
     }
