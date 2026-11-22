@@ -89,6 +89,26 @@ enum CleanupFilter: String, CaseIterable, Identifiable {
     }
 }
 
+/// Rated or not (owner: tell apart what was rated from what has no rating at all).
+enum CleanupRated: String, CaseIterable, Identifiable {
+    case any, rated, unrated
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .any: return "Any rating"
+        case .rated: return "Has a rating"
+        case .unrated: return "No rating"
+        }
+    }
+    nonisolated func matches(_ i: CleanupItem) -> Bool {
+        switch self {
+        case .any: return true
+        case .rated: return i.communityRating != nil
+        case .unrated: return i.communityRating == nil
+        }
+    }
+}
+
 enum CleanupKind: String, CaseIterable, Identifiable {
     case both, movies, series
     var id: String { rawValue }
