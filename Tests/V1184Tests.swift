@@ -33,10 +33,11 @@ final class V1184Tests: XCTestCase {
 
     func testRatingIsLastInDetailRow() {
         XCTAssertEqual(DetailRowOrder.order.last, "rating")   // ★ stays last; the admin ⋯ sits right after ♡
-        XCTAssertEqual(DetailRowOrder.order.dropLast().last, "rating")
+        XCTAssertEqual(DetailRowOrder.order.dropLast().last, "admin")
         XCTAssertEqual(Array(DetailRowOrder.order.prefix(2)), ["play", "resume"])
         let i = DetailRowOrder.order.firstIndex(of: "favorite")!
-        XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "rating"), i + 1)
+        XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "admin"), i + 1)   // ⋯ right after ♡
+        XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "rating"), i + 2)
         let c = DetailRowOrder.order.firstIndex(of: "cast")!
         XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "airplay"), c + 1)   // AirPlay right after Cast
         XCTAssertEqual(DetailRowOrder.order.firstIndex(of: "trailer"), c + 2)
