@@ -25,6 +25,8 @@ struct CleanupItem: Identifiable, Equatable {
     let item: Item?
     /// One entry per user who can see it (enabled and disabled)
     var entries: [WatchActivityEntry] = []
+    /// YOUR star rating (1–10, the ★ on the detail page, kept in Trakt); filled in by the view
+    var myRating: Int? = nil
 
     var isSeries: Bool { type == "Series" }
     private var counted: [WatchActivityEntry] { entries.filter { !$0.user.disabled } }
@@ -59,14 +61,16 @@ struct CleanupItem: Identifiable, Equatable {
 }
 
 enum CleanupSort: String, CaseIterable, Identifiable {
-    case leastWatched, mostWatched, lowestRating, highestRating, oldestAdded, newestAdded, lastPlayedLongAgo, largest
+    case leastWatched, mostWatched, myLowest, myHighest, lowestRating, highestRating, oldestAdded, newestAdded, lastPlayedLongAgo, largest
     var id: String { rawValue }
     var title: String {
         switch self {
         case .leastWatched: return "Least watched first"
         case .mostWatched: return "Most watched first"
-        case .lowestRating: return "Lowest rating"
-        case .highestRating: return "Highest rating"
+        case .myLowest: return "Your rating: lowest"
+        case .myHighest: return "Your rating: highest"
+        case .lowestRating: return "Server rating: lowest"
+        case .highestRating: return "Server rating: highest"
         case .oldestAdded: return "Oldest added"
         case .newestAdded: return "Newest added"
         case .lastPlayedLongAgo: return "Last played long ago"
@@ -91,18 +95,20 @@ enum CleanupFilter: String, CaseIterable, Identifiable {
 
 /// Rated or not (owner: tell apart what was rated from what has no rating at all).
 enum CleanupRated: String, CaseIterable, Identifiable {
-    case any, rated, unrated
+    case any, mine, rated, unrated
     var id: String { rawValue }
     var title: String {
         switch self {
         case .any: return "Any rating"
-        case .rated: return "Has a rating"
-        case .unrated: return "No rating"
+        case .mine: return "Rated by you"
+        case .rated: return "Has a server rating"
+        case .unrated: return "No server rating"
         }
     }
     nonisolated func matches(_ i: CleanupItem) -> Bool {
         switch self {
         case .any: return true
+        case .mine: return i.myRating != nil
         case .rated: return i.communityRating != nil
         case .unrated: return i.communityRating == nil
         }
@@ -130,7 +136,7 @@ enum Cleanup {
     /// The admin's facts call for one library (one page).
     nonisolated static func libraryPath(userId: String, libraryId: String, start: Int) -> String {
         "/Users/\(userId)/Items?ParentId=\(libraryId)&Recursive=true&IncludeItemTypes=Movie,Series"
-            + "&Fields=DateCreated,ProviderIds,MediaSources,CriticRating,RecursiveItemCount,Path"
+            + "&Fields=DateCreated,ProviderIds,MediaSources,CriticRating,CommunityRating,RecursiveItemCount,Path"
             + "&EnableUserData=false&EnableImageTypes=Primary&ImageTypeLimit=1"
             + "&SortBy=SortName&StartIndex=\(start)&Limit=\(pageSize)"
     }
@@ -220,6 +226,14 @@ enum Cleanup {
                 if a.playCount != b.playCount { return asc ? a.playCount < b.playCount : a.playCount > b.playCount }
                 if added(a) != added(b) { return asc ? added(a) < added(b) : added(a) > added(b) }
                 return name(a, b)
+            case .myLowest, .myHighest:
+                // titles you didn't rate go last either way
+                switch (a.myRating, b.myRating) {
+                case let (x?, y?) where x != y: return sort == .myLowest ? x < y : x > y
+                case (nil, _?): return false
+                case (_?, nil): return true
+                default: return name(a, b)
+                }
             case .lowestRating, .highestRating:
                 // unrated titles go last either way
                 switch (a.communityRating, b.communityRating) {
