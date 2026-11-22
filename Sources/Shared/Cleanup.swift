@@ -179,6 +179,16 @@ enum Cleanup {
         items.filter { (library == nil || $0.libraryId == library) && matches($0, kind: kind) && matches($0, filter: filter, now: now) }
     }
 
+    /// Title search (any word order, ignores case and accents; also matches the year).
+    nonisolated static func searched(_ items: [CleanupItem], _ query: String) -> [CleanupItem] {
+        let words = query.split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        guard !words.isEmpty else { return items }
+        return items.filter { i in
+            let hay = i.name + " " + (i.year.map(String.init) ?? "")
+            return words.allSatisfy { hay.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        }
+    }
+
     nonisolated static func sorted(_ items: [CleanupItem], by sort: CleanupSort) -> [CleanupItem] {
         func added(_ i: CleanupItem) -> Date { i.dateAdded ?? .distantPast }
         func name(_ a: CleanupItem, _ b: CleanupItem) -> Bool { a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending }
