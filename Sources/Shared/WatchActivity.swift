@@ -149,6 +149,11 @@ enum WatchActivity {
         guard let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
         let item = (o["Items"] as? [[String: Any]])?.first ?? (o["Id"] != nil ? o : nil)
         guard let item else { return nil }
+        return entry(item: item, user: user)
+    }
+
+    /// One item object of an /Items answer → the user's entry and the item's DateCreated (also used by Cleanup).
+    nonisolated static func entry(item: [String: Any], user: WatchActivityUser) -> (WatchActivityEntry, Date?) {
         let ud = item["UserData"] as? [String: Any] ?? [:]
         func int(_ v: Any?) -> Int? { (v as? Int) ?? (v as? NSNumber)?.intValue }
         func int64(_ v: Any?) -> Int64? { (v as? Int64) ?? (v as? NSNumber)?.int64Value }

@@ -222,12 +222,15 @@ extension NotificationTabLabel {
 enum ActivityTabs {
     static let notifications = 1
     static let insights = 7
-    static func titles(unread: Int, stats: Bool) -> [String] {
+    /// Cleanup (admins only, no plugin needed) sits after the stats tabs, right before Year in review.
+    static func titles(unread: Int, stats: Bool, admin: Bool = false) -> [String] {
         ["Now Playing", NotificationTabLabel.text(unread: unread), "Overview", "History"]
-            + (stats ? ["Users", "Graphs", "Libraries", "Insights"] : []) + ["Year in review"]
+            + (stats ? ["Users", "Graphs", "Libraries", "Insights"] : []) + (admin ? ["Cleanup"] : []) + ["Year in review"]
     }
+    /// The Cleanup tab's index, nil when it isn't shown.
+    static func cleanup(stats: Bool, admin: Bool) -> Int? { admin ? (stats ? 8 : 4) : nil }
     /// Year in review is the last tab for everyone (after the admin tabs when they show).
-    static func yearInReview(stats: Bool) -> Int { stats ? 8 : 4 }
+    static func yearInReview(stats: Bool, admin: Bool = false) -> Int { (stats ? 8 : 4) + (admin ? 1 : 0) }
 }
 
 /// The toast's "Show all": Activity switches to its Notifications tab (also when the page is only now opening).
