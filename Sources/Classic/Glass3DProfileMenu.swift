@@ -215,7 +215,7 @@ struct Glass3DProfileMenu: View {
 /// Activity's tab after "My activity": Overview; for admins with the Playback Reporting plugin the Users tab
 /// drilled to the signed-in user. Applied with one `.modifier(...)` line in ClassicNowPlayingView.
 struct ProfileActivityJump: ViewModifier {
-    @Binding var tab: Int
+    @Binding var tab: ActivityPage
     @ObservedObject var stats: StatsModel
     @EnvironmentObject var emby: Emby
     @ObservedObject private var jump = ProfileJump.shared
@@ -232,14 +232,14 @@ struct ProfileActivityJump: ViewModifier {
     private func take() {
         guard jump.myActivityPending else { return }
         jump.myActivityPending = false
-        tab = 2; drilling = true
+        tab = .overview; drilling = true
         drill()
     }
 
     private func drill() {
         guard drilling, let a = stats.availability else { return }
         guard a == .available else { drilling = false; return }   // not admin: the normal Overview
-        tab = 4
+        tab = .users
         let me = StatsDecode.norm(emby.userId)
         if let u = stats.users.first(where: { StatsDecode.norm($0.id) == me }) {
             drilling = false

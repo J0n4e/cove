@@ -129,10 +129,24 @@ final class NotificationCenterTests: XCTestCase {
     // MARK: Activity tabs
 
     func testActivityTabs() {
-        XCTAssertEqual(ActivityTabs.titles(unread: 0, stats: false), ["Now Playing", "Notifications", "Overview", "History", "Year in review"])
-        XCTAssertEqual(ActivityTabs.titles(unread: 3, stats: true),
-                       ["Now Playing", "Notifications", "Overview", "History", "Users", "Graphs", "Libraries", "Insights", "Year in review"])
-        XCTAssertEqual(ActivityTabs.notifications, 1)
+        XCTAssertEqual(ActivityPage.segments(admin: false), [.nowPlaying, .notifications])
+        XCTAssertEqual(ActivityPage.segments(admin: true).map(\.title), ["Now Playing", "Notifications", "Cleanup"])
+        XCTAssertEqual(ActivityPage.statsPages(stats: false).map(\.title), ["Overview", "History", "Year in review"])
+        XCTAssertEqual(ActivityPage.statsPages(stats: true).map(\.title),
+                       ["Overview", "History", "Users", "Graphs", "Libraries", "Insights", "Year in review"])
+        // every page lives in exactly one place
+        XCTAssertEqual(Set(ActivityPage.segments(admin: true) + ActivityPage.statsPages(stats: true)), Set(ActivityPage.allCases))
+        XCTAssertFalse(ActivityPage.notifications.isStats); XCTAssertTrue(ActivityPage.graphs.isStats)
+        // stored by id: unavailable pages fall back to Now Playing without losing the stored choice
+        XCTAssertEqual(ActivityPage.resolve("graphs", stats: true, admin: false), .graphs)
+        XCTAssertEqual(ActivityPage.resolve("graphs", stats: false, admin: false), .nowPlaying)
+        XCTAssertEqual(ActivityPage.resolve("cleanup", stats: false, admin: false), .nowPlaying)
+        XCTAssertEqual(ActivityPage.resolve("cleanup", stats: false, admin: true), .cleanup)
+        XCTAssertEqual(ActivityPage.resolve("2", stats: true, admin: true), .nowPlaying)
+        // the pill shows the current stats page, else the last used one
+        XCTAssertEqual(ActivityPage.pillPage(current: .insights, last: "history", stats: true), .insights)
+        XCTAssertEqual(ActivityPage.pillPage(current: .notifications, last: "history", stats: true), .history)
+        XCTAssertEqual(ActivityPage.pillPage(current: .nowPlaying, last: "users", stats: false), .overview)
         XCTAssertNil(NotificationTabLabel.badgeText(unread: 0))
         XCTAssertEqual(NotificationTabLabel.badgeText(unread: 3), "3")
         XCTAssertEqual(NotificationTabLabel.badgeText(unread: 140), "99+")
