@@ -193,6 +193,8 @@ struct NotificationToastLayer: View {
 
 /// The Activity tab's label: "Notifications 3" while some are unread.
 enum NotificationTabLabel {
+    /// The red badge on the Notifications tab, like the Dock's: nil when nothing is unread, "99+" above 99.
+    static func badgeText(unread: Int) -> String? { unread <= 0 ? nil : unread > 99 ? "99+" : "\(unread)" }
     static func text(unread: Int) -> String { unread > 0 ? "Notifications \(unread)" : "Notifications" }
 }
 
@@ -224,7 +226,7 @@ enum ActivityTabs {
     static let insights = 7
     /// Cleanup (admins only, no plugin needed) sits after the stats tabs, right before Year in review.
     static func titles(unread: Int, stats: Bool, admin: Bool = false) -> [String] {
-        ["Now Playing", NotificationTabLabel.text(unread: unread), "Overview", "History"]
+        ["Now Playing", "Notifications", "Overview", "History"]   // the unread count is a Dock-style badge (badgeText)
             + (stats ? ["Users", "Graphs", "Libraries", "Insights"] : []) + (admin ? ["Cleanup"] : []) + ["Year in review"]
     }
     /// The Cleanup tab's index, nil when it isn't shown.
