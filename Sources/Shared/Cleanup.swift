@@ -117,7 +117,7 @@ enum Cleanup {
 
     /// One user's watch state over all libraries (one page).
     nonisolated static func userPath(userId: String, start: Int) -> String {
-        "/Users/\(userId)/Items?Recursive=true&IncludeItemTypes=Movie,Series&Fields=RecursiveItemCount"
+        "/Users/\(userId)/Items?Recursive=true&IncludeItemTypes=Movie,Series&Fields=RecursiveItemCount,UserDataPlayCount,UserDataLastPlayedDate"
             + "&EnableUserData=true&EnableImages=false&SortBy=SortName&StartIndex=\(start)&Limit=\(pageSize)"
     }
 
