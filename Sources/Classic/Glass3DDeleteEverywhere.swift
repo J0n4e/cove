@@ -6,10 +6,31 @@ import SwiftUI
 
 @MainActor
 enum DeleteEverywhereWindow {
+    private static var opening: Set<String> = []
+
+    /// Checks nexcrate and the server first, then opens a window just as tall as its content (owner: no empty area).
     static func open(_ item: Item, emby: Emby) {
         let id = "admin-delete-" + item.id
-        ItemAdminWindows.show(id, title: "Delete", size: NSSize(width: 500, height: 470), emby: emby,
-                              DeleteConfirmView(item: item, close: { ItemAdminWindows.close(id) }))
+        guard !opening.contains(id) else { return }
+        opening.insert(id)
+        Task { @MainActor in
+            let plan = await DeleteEverywhereService.prepare(item, emby: emby)
+            opening.remove(id)
+            ItemAdminWindows.show(id, title: "Delete", size: NSSize(width: 500, height: height(for: plan)), emby: emby,
+                                  DeleteConfirmView(item: item, initial: plan, close: { ItemAdminWindows.close(id) }))
+        }
+    }
+
+    /// Title bar + poster block (with the buttons) + the effects card + warning / hints.
+    static func height(for p: DeleteEverywhereService.Plan) -> CGFloat {
+        var h: CGFloat = 28 + 8 + 132 + 16 + 28 + 20          // top inset, padding, header, gap, card padding, bottom
+        let rows: [CGFloat] = p.text.bullets.map { DeleteEffectRow.split($0).detail == nil ? CGFloat(20) : CGFloat(38) }
+        let gaps = CGFloat(max(rows.count - 1, 0)) * CGFloat(12)
+        h += rows.reduce(CGFloat(0), +) + gaps
+        if p.text.warning != nil { h += 16 + 72 }
+        if p.text.hint != nil { h += 16 + 34 }
+        if p.lookupProblem != nil { h += 16 + 34 }
+        return h + 30                                          // room for an error line
     }
 }
 
@@ -19,6 +40,11 @@ struct DeleteConfirmView: View {
     @EnvironmentObject var emby: Emby
     @AppStorage("accent") private var accentName = "red"
     @State private var plan: DeleteEverywhereService.Plan?
+
+    init(item: Item, initial: DeleteEverywhereService.Plan? = nil, close: @escaping () -> Void) {
+        self.item = item; self.close = close
+        _plan = State(initialValue: initial)
+    }
     @State private var busy = false
     @State private var error: String?
 
@@ -31,7 +57,15 @@ struct DeleteConfirmView: View {
         }
         .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .task { plan = await DeleteEverywhereService.prepare(item, emby: emby) }
+        .task { if plan == nil { plan = await DeleteEverywhereService.prepare(item, emby: emby) } }
+    }
+
+    /// "The movie “X”" → "X" (the small line above already says what it is)
+    static func shortTitle(_ line: String) -> String {
+        for pre in ["The movie ", "The series "] where line.hasPrefix(pre) {
+            return String(line.dropFirst(pre.count)).trimmingCharacters(in: CharacterSet(charactersIn: "\u{201C}\u{201D}\""))
+        }
+        return line
     }
 
     /// The kind in words for the header ("Delete movie?")
@@ -48,7 +82,7 @@ struct DeleteConfirmView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 8) {
                 Text("Delete \(kindWord)?").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.6))
-                Text(p.text.scopeLine).cvFont(18, weight: .bold).foregroundColor(.white)
+                Text(DeleteConfirmView.shortTitle(p.text.scopeLine)).cvFont(18, weight: .bold).foregroundColor(.white)
                     .lineLimit(3).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     if let s = p.sizeBytes, s > 0 {
@@ -57,6 +91,7 @@ struct DeleteConfirmView: View {
                     }
                     DeleteStatusBadge(inNexcrate: p.inNexcrate, configured: p.configured)
                 }
+                buttons(p).padding(.top, 4)
             }
             Spacer(minLength: 0)
         }
@@ -80,9 +115,11 @@ struct DeleteConfirmView: View {
         if let m = p.lookupProblem { Text(m).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
         if let h = p.text.hint { Text(h).cvFont(12).foregroundColor(.white.opacity(0.65)).fixedSize(horizontal: false, vertical: true) }
         if let error { Text(error).cvFont(12, weight: .semibold).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
-        Spacer(minLength: 0)
-        HStack {
-            Spacer()
+    }
+
+    /// Cancel + Delete right under the title (owner: buttons above the info, smaller window)
+    @ViewBuilder func buttons(_ p: DeleteEverywhereService.Plan) -> some View {
+        HStack(spacing: 10) {
             Button("Cancel") { close() }.buttonStyle(AboutButton(accentName: accentName)).keyboardShortcut(.cancelAction)
             Button {
                 busy = true; error = nil
