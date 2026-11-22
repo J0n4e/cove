@@ -38,6 +38,7 @@ final class NotificationCenterStore: ObservableObject {
         self.now = now
         if let file, let d = try? Data(contentsOf: file) {
             all = NotificationInbox.pruned(NotificationInbox.decode(d), now: now())
+            items = all   // didSet doesn't run inside init; no active server yet → everything
         }
     }
 
