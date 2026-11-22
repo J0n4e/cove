@@ -233,14 +233,26 @@ enum DeleteEverywhereService {
 
     /// Runs the confirmed delete. nil = done; else the sentence to show.
     static func run(_ plan: Plan, emby: Emby) async -> String? {
+        let o = await perform(plan, emby: emby)
+        if let e = o.error { return e }
+        if let rec = o.record { DeleteUndoToast.show(rec, emby: emby) }
+        else { emby.toast = Emby.Toast(text: "Deleted \u{201C}\(plan.item.Name)\u{201D} from the server", icon: "trash") }
+        return nil
+    }
+
+    /// What one delete did: an error sentence, or the nexcrate record to undo (nil record = deleted on the server
+    /// for good). Shows no toast, so a batch (Activity → Cleanup) can show one for all.
+    struct Outcome { var error: String?; var record: DeletionRecord? }
+
+    static func perform(_ plan: Plan, emby: Emby) async -> Outcome {
         let item = plan.item
         if plan.inNexcrate, let t = plan.target {
             let conn = NexcrateConnection.shared
             let started = Date()
             let req = t.whole ? NexcrateAPI.removeTitle(t) : NexcrateAPI.deleteFiles(t)
             let (c, d) = await conn.send(req, timeout: 120)
-            if c == 0 { return NexcrateConnection.unreachable }
-            if let m = NexcrateAPI.message(status: c, code: NexcrateAPI.errorCode(d)) { return m }
+            if c == 0 { return Outcome(error: NexcrateConnection.unreachable) }
+            if let m = NexcrateAPI.message(status: c, code: NexcrateAPI.errorCode(d)) { return Outcome(error: m) }
             if !t.whole { _ = await conn.send(NexcrateAPI.monitoring(t, monitored: false)) }
             let (bc, bd) = await conn.send(NexcrateAPI.recycleBin(), timeout: 20)
             let entries = (200..<300).contains(bc) ? NexcrateAPI.matching(NexcrateAPI.decodeRecycleBin(bd), target: t, since: started) : []
@@ -249,20 +261,18 @@ enum DeleteEverywhereService {
                                      entryIds: entries.map(\.entryId), libraryId: plan.libraryId)
             DeletedItems.shared.add(rec)
             DeletedItems.shared.announce([item.id])
-            DeleteUndoToast.show(rec, emby: emby)
             Task { await settle(item.id, libraryId: plan.libraryId, emby: emby) }
-            return nil
+            return Outcome(record: rec)
         }
-        guard let u = URL(string: emby.server + "/Items/\(ItemAdminAPI.p(item.id))") else { return "Couldn't delete (bad address)." }
+        guard let u = URL(string: emby.server + "/Items/\(ItemAdminAPI.p(item.id))") else { return Outcome(error: "Couldn't delete (bad address).") }
         var r = URLRequest(url: u, timeoutInterval: 60); r.httpMethod = "DELETE"; emby.authorize(&r)
         do {
             let (_, resp) = try await Net.session.data(for: r)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            if let m = NexcrateAPI.serverDeleteMessage(status: code) { return m }
-        } catch { return "Couldn't reach the server to delete this item. Check the connection and try again." }
+            if let m = NexcrateAPI.serverDeleteMessage(status: code) { return Outcome(error: m) }
+        } catch { return Outcome(error: "Couldn't reach the server to delete this item. Check the connection and try again.") }
         DeletedItems.shared.announce([item.id])
-        emby.toast = Emby.Toast(text: "Deleted \u{201C}\(item.Name)\u{201D} from the server", icon: "trash")
-        return nil
+        return Outcome()
     }
 
     /// After nexcrate deleted: the server should notice by itself (nexcrate asks it to rescan). If the item is still

@@ -86,10 +86,13 @@ enum DeleteUndoToast {
     private static var panel: NSPanel?
     private static var hide: Task<Void, Never>?
 
-    static func show(_ rec: DeletionRecord, emby: Emby) {
+    static func show(_ rec: DeletionRecord, emby: Emby) { show([rec], title: "Deleted \u{201C}\(rec.name)\u{201D}", emby: emby) }
+
+    /// One toast for several deletes (Activity → Cleanup): Undo restores every record.
+    static func show(_ recs: [DeletionRecord], title: String, emby: Emby) {
         panel?.close()
         let size = NSSize(width: 380, height: 54)
-        let host = NSHostingView(rootView: DeleteUndoToastView(rec: rec, dismiss: { dismiss() }).environmentObject(emby)
+        let host = NSHostingView(rootView: DeleteUndoToastView(recs: recs, title: title, dismiss: { dismiss() }).environmentObject(emby)
             .preferredColorScheme(.dark).frame(width: size.width, height: size.height))
         let p = NSPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel],
                         backing: .buffered, defer: false)
@@ -110,7 +113,8 @@ enum DeleteUndoToast {
 }
 
 struct DeleteUndoToastView: View {
-    let rec: DeletionRecord
+    let recs: [DeletionRecord]
+    let title: String
     let dismiss: () -> Void
     @EnvironmentObject var emby: Emby
     @State private var busy = false
@@ -119,16 +123,18 @@ struct DeleteUndoToastView: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "trash").foregroundColor(.white)
-            Text(note ?? "Deleted \u{201C}\(rec.name)\u{201D}").cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1)
+            Text(note ?? title).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1)
             Spacer(minLength: 4)
             Button(busy ? "Undoing\u{2026}" : "Undo") {
                 busy = true
                 Task {
-                    let m = await DeleteEverywhereService.undo(rec, emby: emby)
+                    var m: String?
+                    for rec in recs { if let e = await DeleteEverywhereService.undo(rec, emby: emby) { m = m ?? e } }
                     busy = false
-                    if let m { note = m } else { emby.toast = Emby.Toast(text: "Restored \u{201C}\(rec.name)\u{201D}", icon: "arrow.uturn.backward"); dismiss() }
+                    let what = recs.count == 1 ? "\u{201C}\(recs[0].name)\u{201D}" : "\(recs.count) titles"
+                    if let m { note = m } else { emby.toast = Emby.Toast(text: "Restored " + what, icon: "arrow.uturn.backward"); dismiss() }
                 }
-            }.buttonStyle(AboutButton(primary: true)).disabled(busy)
+            }.buttonStyle(AboutButton(primary: true)).disabled(busy || recs.isEmpty)
         }
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

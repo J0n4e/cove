@@ -90,6 +90,8 @@ struct ClassicNowPlayingView: View {
     @ObservedObject private var inbox = NotificationCenterStore.shared
     @StateObject private var stats = StatsModel()
     @StateObject private var insights = InsightsModel()
+    @ObservedObject private var profile = ProfileModel.shared
+    private var isAdmin: Bool { profile.admin == true }
 
     var body: some View {
         ScrollView {
@@ -106,7 +108,7 @@ struct ClassicNowPlayingView: View {
                         }
                         Spacer()
                     }
-                    Glass3DSegmentTabs(titles: ActivityTabs.titles(unread: inbox.unread, stats: stats.availability == .available),
+                    Glass3DSegmentTabs(titles: ActivityTabs.titles(unread: inbox.unread, stats: stats.availability == .available, admin: isAdmin),
                                        selection: $tab)
                 }
                 if tab == ActivityTabs.notifications { NotificationsTabView() }
@@ -116,7 +118,8 @@ struct ClassicNowPlayingView: View {
                 else if tab == 5 && stats.availability == .available { StatsGraphsView(model: stats) }
                 else if tab == 6 && stats.availability == .available { StatsLibrariesView(model: stats) }
                 else if tab == ActivityTabs.insights && stats.availability == .available { StatsInsightsView(model: stats, insights: insights) }
-                else if tab == ActivityTabs.yearInReview(stats: stats.availability == .available) {
+                else if tab == ActivityTabs.cleanup(stats: stats.availability == .available, admin: isAdmin) { CleanupView() }
+                else if tab == ActivityTabs.yearInReview(stats: stats.availability == .available, admin: isAdmin) {
                     StatsYearReviewView(model: stats, insights: insights)
                 }
                 else { sessionsContent }
