@@ -36,6 +36,20 @@ struct CleanupItem: Identifiable, Equatable {
     var playCount: Int { counted.reduce(0) { $0 + $1.playCount } }
     var lastPlayed: Date? { entries.compactMap(\.lastPlayed).max() }
     var favourites: Int { counted.filter(\.favorite).count }
+    /// Last played column: a title marked as watched (or played in another app that kept no date) has no play date,
+    /// so it reads "Watched", not "Never" (owner: 1/13 watched but "Never").
+    static func lastPlayedText(_ e: CleanupItem) -> String {
+        if let d = e.lastPlayed { return LastActive.ago(d) }
+        if !e.watchedBy.isEmpty || !e.inProgressBy.isEmpty || e.playCount > 0 { return "Watched" }
+        return "Never"
+    }
+    static func lastPlayedTip(_ e: CleanupItem) -> String {
+        if let d = e.lastPlayed { return "Last played " + LastActive.exact(d) }
+        if !e.watchedBy.isEmpty || !e.inProgressBy.isEmpty || e.playCount > 0 {
+            return "Watched by " + (e.watchedBy + e.inProgressBy).joined(separator: ", ") + " (marked as watched, no play date on the server)"
+        }
+        return "Never played"
+    }
     /// 0…1: how many of the users who can see it watched it all
     var watchedFraction: Double { userCount == 0 ? 0 : Double(watchedBy.count) / Double(userCount) }
     /// Nobody watched any of it (no play, no progress)

@@ -151,8 +151,7 @@ struct CleanupRow: View {
             column(entry.communityRating.map { "\u{2605} " + String(format: "%.1f", $0) } ?? "\u{2605} \u{2014}", width: 60,
                    tip: entry.criticRating.map { "Critics \(Int($0))%" } ?? "Community rating")
             column(entry.dateAdded.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? "\u{2014}", width: 96, tip: "Date added")
-            column(entry.lastPlayed.map { LastActive.ago($0) } ?? "Never", width: 90,
-                   tip: entry.lastPlayed.map { "Last played " + LastActive.exact($0) } ?? "Never played")
+            column(CleanupItem.lastPlayedText(entry), width: 90, tip: CleanupItem.lastPlayedTip(entry))
             column(entry.sizeBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "", width: 70, tip: "Size")
             if !selecting, let item = entry.item {
                 Button { DeleteEverywhereWindow.open(item, emby: emby) } label: {
