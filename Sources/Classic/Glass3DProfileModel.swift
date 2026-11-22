@@ -36,7 +36,7 @@ enum ProfileRow: Equatable, Identifiable {
     case otherUser(key: String, name: String)
     case search, myActivity, favorites
     case notifications(unread: Int)
-    case settings, checkUpdates, about
+    case settings, checkUpdates, about, help
     case manageServer   // admins only (App section)
     case signOut
 
@@ -84,7 +84,7 @@ enum ProfileMenuSpec {
                 + [.addServer]
         case .users: return [.switchUser] + i.otherUsers.map { .otherUser(key: $0.key, name: $0.name) }
         case .shortcuts: return [.search, .myActivity, .favorites, .notifications(unread: i.unread)]
-        case .app: return (i.admin == true ? [.manageServer] : []) + [.settings, .checkUpdates, .about]
+        case .app: return (i.admin == true ? [.manageServer] : []) + [.settings, .checkUpdates, .about, .help]
         case .signOut: return [.signOut]
         }
     }
@@ -109,6 +109,7 @@ enum ProfileMenuSpec {
         case .settings: return "Settings…"
         case .checkUpdates: return "Check for updates"
         case .about: return "About Cove"
+        case .help: return "Cove Help"
         case .manageServer: return "Manage server…"
         case .signOut: return "Sign out"
         }
