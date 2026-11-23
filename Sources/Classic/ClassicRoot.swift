@@ -94,7 +94,7 @@ struct ClassicHomeView: View {
     /// Favorites or Activity in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
         if id == NavOrder.favorites { sideRow("Favorites", "heart.fill", "favorites") }
-        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount).modifier(ActivityUnreadDot(inset: 6)) }
+        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount).modifier(ActivityUnreadDot(inset: 7)) }
     }
 
     /// One sidebar line: the chosen one on an accent glass band, the one under the pointer lit softly (as the glass
@@ -106,7 +106,7 @@ struct ClassicHomeView: View {
                 Image(systemName: icon).cvFont(13).frame(width: 18).foregroundStyle(.tint)
                 Text(title).cvFont(13, weight: on ? .semibold : .regular).lineLimit(1)
                 Spacer(minLength: 0)
-                if badge > 0 { Text("\(badge)").cvFont(11, weight: .semibold).foregroundColor(.secondary) }
+                if badge > 0 { CountBadge(count: badge, size: 18) }
             }
             .foregroundColor(.white)
             .padding(.horizontal, 12).frame(height: 32)
@@ -417,8 +417,10 @@ struct ClassicTopNavButtons: View {
                 // Glossy lettering (the 3D face, no thickness)
                 if labels != "names" { Text3D(image: Image(systemName: icon), size: labels == "icons" ? 16 : 14, thick: false) }
                 if labels != "icons" {
-                    Text3D(text: badge > 0 ? "\(title) \(badge)" : title, size: 15, thick: false, weight: .bold)   // every tab as readable as the selected one (owner)
-                } else if badge > 0 { Text3D(text: "\(badge)", size: 15, thick: false) }
+                    Text3D(text: title, size: 15, thick: false, weight: .bold)   // every tab as readable as the selected one (owner)
+                }
+                // the count in a red circle (owner's mock-up), names or icons alike
+                if badge > 0 { CountBadge(count: badge) }
             }
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
@@ -433,7 +435,7 @@ struct ClassicTopNavButtons: View {
     /// Favorites or Activity, wherever Settings → Libraries placed it.
     @ViewBuilder func section(_ id: String) -> some View {
         if id == NavOrder.favorites { item("Favorites", "favorites", "heart.fill") }
-        else if id == NavOrder.nowPlaying { item(ActivitySection.title, "nowplaying", ActivitySection.icon, badge: nav.activeCount).modifier(ActivityUnreadDot()) }
+        else if id == NavOrder.nowPlaying { item(ActivitySection.title, "nowplaying", ActivitySection.icon, badge: nav.activeCount).modifier(ActivityUnreadDot(inset: 7)) }
     }
     func icon(_ lib: LibPref) -> String {
         switch lib.kind {
@@ -493,5 +495,19 @@ struct ClassicTopBackButton: View {
         .keyboardShortcut("[", modifiers: .command)
         .accessibilityLabel("Back")
         .disabled(emby.playing != nil)
+    }
+}
+
+
+/// A count in a red circle with a white number (owner: Activity's streams number), '99+' above 99.
+struct CountBadge: View {
+    let count: Int
+    var size: CGFloat = 20
+    var body: some View {
+        let t = count > 99 ? "99+" : "\(count)"
+        Text(t).font(.system(size: size * 0.6, weight: .bold, design: .rounded)).monospacedDigit().foregroundColor(.white)
+            .padding(.horizontal, t.count > 1 ? size * 0.25 : 0).frame(minWidth: size, minHeight: size)
+            .background(Capsule().fill(Color(red: 0.93, green: 0.27, blue: 0.27)))
+            .fixedSize()
     }
 }
