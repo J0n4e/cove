@@ -14,14 +14,15 @@ struct Glass3DSegmentTabs: View {
         HStack(spacing: 2) {
             ForEach(titles.indices, id: \.self) { i in
                 Button { selection = i } label: {
-                    HStack(spacing: 6) {
-                        Text3D(text: titles[i], size: 12, weight: selection == i ? .bold : .semibold)
-                        if let b = badges[i] { DockBadge(text: b) }
-                    }
+                    Text3D(text: titles[i], size: 12, weight: selection == i ? .bold : .semibold)
                         .padding(.horizontal, 14).frame(height: 32)
                         .classicSelectedGlass(selection == i)   // a step quieter than the top bar's pill
                         .modifier(Glass3DTabHover(on: selection == i))   // as the top bar's tabs
                         .modifier(SectionHoverGlow(on: !(selection == i)))   // accent glow on hover (Settings → Hover effect), as the top bar
+                        // the count sits on the tab's top-right corner, like the Activity dot in the top bar (owner)
+                        .overlay(alignment: .topTrailing) {
+                            if let b = badges[i] { DockBadge(text: b, small: true).offset(x: 4, y: -5).allowsHitTesting(false) }
+                        }
                 }.buttonStyle(.plainHand)
             }
         }.padding(3).frame(height: 38).classicClearGlass().opacity(0.92)   // interactive clear glass, as the top bar
@@ -31,9 +32,11 @@ struct Glass3DSegmentTabs: View {
 /// A red capsule with a white number, like the badges on Dock icons.
 struct DockBadge: View {
     let text: String
+    var small = false
     var body: some View {
-        Text(text).font(.system(size: 10, weight: .bold, design: .rounded)).monospacedDigit().foregroundColor(.white)
-            .padding(.horizontal, text.count > 1 ? 5 : 0).frame(minWidth: 17, minHeight: 17)
+        let d: CGFloat = small ? 15 : 17
+        Text(text).font(.system(size: small ? 9 : 10, weight: .bold, design: .rounded)).monospacedDigit().foregroundColor(.white)
+            .padding(.horizontal, text.count > 1 ? 4 : 0).frame(minWidth: d, minHeight: d)
             .background(Capsule().fill(Color(red: 1, green: 0.23, blue: 0.19)))
             .overlay(Capsule().strokeBorder(Color.black.opacity(0.25), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.35), radius: 1.5, y: 1)
