@@ -232,7 +232,9 @@ enum WhatsNew {
         let last = d.string(forKey: lastSeenKey)
         d.set(cur, forKey: lastSeenKey)
         let saved = takePending(for: cur)
-        guard shouldShow(lastSeen: last, current: cur) else { return }
+        // The updater's own notes for exactly this version (also after the leave-beta switch to an older official
+        // version, which the "newer than last seen" rule would hide); otherwise only after an upgrade
+        guard saved != nil || shouldShow(lastSeen: last, current: cur) else { return }
         var notes = saved
         if notes == nil { notes = await Updater.fetchRelease(tag: cur)?.body }
         guard let notes else { return }
