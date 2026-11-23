@@ -12,7 +12,7 @@ struct SettingsView: View {
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "General", home = "Home", libraries = "Libraries",
-             subtitles = "Subtitles", playback = "Playback", servers = "Connect", trakt = "Trakt", shortcuts = "Shortcuts", about = "About"
+             subtitles = "Subtitles", playback = "Playback", servers = "Connect", trakt = "Trakt", about = "About"   // Shortcuts moved to Help → Keyboard shortcuts (owner)
         var id: String { rawValue }
         var icon: String {
             switch self {
@@ -23,7 +23,6 @@ struct SettingsView: View {
             case .playback: return "play.rectangle"
             case .servers: return "link"
             case .trakt: return "chart.bar"
-            case .shortcuts: return "keyboard"
             case .about: return "info.circle"
             }
         }
@@ -52,7 +51,6 @@ struct SettingsView: View {
                     case .playback: PlaybackSettings()
                     case .servers: ServerSettings()
                     case .trakt: TraktStatsSettings()
-                    case .shortcuts: ShortcutsSettings()
                     case .about: AboutSettings()
                     }
                 }
@@ -881,59 +879,6 @@ struct PlaybackSettings: View {
     }
 }
 
-// MARK: - Shortcuts
-
-/// Read-only list of the app's keyboard shortcuts .
-struct ShortcutsSettings: View {
-    func keys(_ list: [(String, String)]) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            ForEach(Array(list.enumerated()), id: \.offset) { _, row in
-                let (key, what) = row
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(key).coveFont(size: 12, weight: .semibold, design: .rounded)
-                        .padding(.horizontal, 8).padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.1)))
-                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.white.opacity(0.15)))
-                        .frame(width: prefLabelW, alignment: .trailing)
-                    Text(what).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
-    var body: some View {
-        PrefSection(title: "While a video plays") {
-            keys([("Space", "Play or pause (on Up Next: play the next episode now)"),
-                  ("Return", "Play the next episode while Up Next shows"),
-                  ("← →", "Skip back / forward (Settings → Playback)"),
-                  ("F", "Full screen on or off"),
-                  ("Esc", "Close a panel, leave full screen, or close the player"),
-                  ("I", "Show or hide playback info"),
-                  ("P", "Picture in Picture"),
-                  ("E", "Episodes panel (episodes only)"),
-                  ("C", "Chapters panel (when the video has chapters)")])
-        }
-        PrefSection(title: "Everywhere") {
-            keys([("⌘ F", "Search"),
-                  ("H", "Home (when not typing in a field)"),
-                  ("F  or  ⌃ ⌘ F", "Full screen on / off (F when not typing in a field)"),
-                  ("Esc", "Esc leaves full screen"),
-                  ("← →", "Home: previous / next banner"),
-                  ("⌘ ,", "Open Settings"),
-                  ("⌘ ?", "Cove Help"),
-                  ("⌘ ←  or  ⌘ [", "Back")])
-        }
-        PrefSection(title: "In Settings") {
-            keys([("Return", "OK"),
-                  ("Esc", "Close and keep the changes")])
-        }
-        PrefSection(title: "Other", last: true) {
-            keys([("Return", "Open the selected Continue Watching card"),
-                  ("Return", "Try Again when the server can't be reached")])
-            PrefNote("The usual Mac shortcuts work too, such as ⌘Q, ⌘W and ⌘H.")
-        }
-    }
-}
 
 // MARK: - Servers
 
