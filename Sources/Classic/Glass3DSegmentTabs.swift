@@ -21,7 +21,12 @@ struct Glass3DSegmentTabs: View {
                         .modifier(SectionHoverGlow(on: !(selection == i)))   // accent glow on hover (Settings → Hover effect), as the top bar
                         // the count sits on the tab's top-right corner, like the Activity dot in the top bar (owner)
                         .overlay(alignment: .topTrailing) {
-                            if let b = badges[i] { DockBadge(text: b, small: true).offset(x: 4, y: -5).allowsHitTesting(false) }
+                            if let b = badges[i] {
+                                // the same small red dot as on Activity in the top bar (owner), count in the tooltip
+                                Circle().fill(Color.red).frame(width: 8, height: 8)
+                                    .overlay(Circle().strokeBorder(Color.black.opacity(0.35), lineWidth: 0.5))
+                                    .padding(2).allowsHitTesting(false).help("\(b) unread")
+                            }
                         }
                 }.buttonStyle(.plainHand)
             }
