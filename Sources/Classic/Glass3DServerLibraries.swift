@@ -39,7 +39,7 @@ struct ServerLibrariesTab: View {
                     ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 12) { ForEach(model.libraries) { card($0) }; RecentlyDeletedCard() }.padding(.bottom, 8)
+                        LazyVStack(spacing: 12) { ForEach(model.libraries) { card($0) } }.padding(.bottom, 8)
                     }.scrollIndicators(.never)
                 }
             }

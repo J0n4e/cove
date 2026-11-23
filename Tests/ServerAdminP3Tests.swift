@@ -117,7 +117,7 @@ final class ServerAdminP3Tests: XCTestCase {
 
     func testTabs() {
         XCTAssertEqual(ServerAdmin.Tab.allCases.first, .overview)
-        XCTAssertEqual(ServerAdmin.Tab.allCases.map(\.title), ["Overview", "Users", "Libraries", "Tasks", "Devices", "Plugins", "Logs"])
+        XCTAssertEqual(ServerAdmin.Tab.allCases.map(\.title), ["Overview", "Users", "Libraries", "Tasks", "Devices", "Plugins", "Logs", "Trash"])
     }
 
     // MARK: Server alerts

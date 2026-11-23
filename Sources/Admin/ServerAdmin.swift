@@ -279,7 +279,7 @@ extension Emby {
 @MainActor
 final class ServerAdmin: ObservableObject {
     enum Tab: Int, CaseIterable, Identifiable {
-        case overview, users, libraries, tasks, devices, plugins, logs
+        case overview, users, libraries, tasks, devices, plugins, logs, trash   // Trash last (owner: easy to find)
         var id: Int { rawValue }
         var title: String {
             switch self {
@@ -290,6 +290,7 @@ final class ServerAdmin: ObservableObject {
             case .devices: return "Devices"
             case .plugins: return "Plugins"
             case .logs: return "Logs"
+            case .trash: return "Trash"
             }
         }
     }

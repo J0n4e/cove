@@ -370,11 +370,12 @@ enum HelpTopics {
                     HelpSection(heading: "Tabs", blocks: [
                         .bullets(["Overview: the server's name and version, how many streams run, Restart server and Shut down server.",
                                   "Users: add, rename and delete users, change a password, pick which libraries they can open, and see when they were last active.",
-                                  "Libraries: scan one library or all of them, add a library or a folder, rename or remove one, and the Recently deleted list.",
+                                  "Libraries: scan one library or all of them, add a library or a folder, rename or remove one.",
                                   "Tasks: the server's scheduled tasks. Run now starts one.",
                                   "Devices: the devices that use the server. Rename one, or remove it to sign it out.",
                                   "Plugins: installed plugins, install updates, or uninstall one.",
-                                  "Logs: read the server's log files."]),
+                                  "Logs: read the server's log files.",
+                                  "Trash: titles you deleted in the last 7 days, with Undo for each."]),
                         .text("Anything that can't be undone, such as a restart or removing a user, asks you first."),
                         .place("Profile circle → Manage server…"),
                     ]),
@@ -440,8 +441,8 @@ enum HelpTopics {
                                   "Without nexcrate: the server deletes the files for good. There is no Undo."]),
                     ]),
                     HelpSection(heading: "Undo", blocks: [
-                        .text("Right after deleting, a toast offers Undo. Later, use the Recently deleted list. It keeps each delete for 7 days."),
-                        .place("Manage server → Libraries → Recently deleted"),
+                        .text("Right after deleting, a toast offers Undo. Later, open the Trash tab in Manage server: it lists each delete for 7 days, with Undo."),
+                        .place("Manage server → Trash"),
                     ]),
                     HelpSection(heading: "If the server says no", blocks: [
                         .text("Your account needs Allow media deletion. Turn it on for your user in Manage server → Users."),
