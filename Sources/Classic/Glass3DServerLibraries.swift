@@ -184,6 +184,7 @@ struct ServerLibrarySheet: View {
             }
         }
         .onAppear { if case .rename(let l) = sheet { name = l.name } }
+        .keepsWindowOpen(busy || !typed.isEmpty || !path.isEmpty)
     }
 
     var serverPathHint: some View {

@@ -1096,6 +1096,7 @@ struct ServerSettings: View {
             }
             PrefNote("Rate movies and episodes with the star button next to Play. Your ratings are saved on Trakt and show up on every Mac connected to the same Trakt account. The Client ID and sign-in are saved on this Mac, scrambled with a key tied to it.")
         }
+        .keepsWindowOpen(busy != nil || !clientIdDraft.isEmpty)
     }
 }
 

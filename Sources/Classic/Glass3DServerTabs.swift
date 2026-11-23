@@ -26,6 +26,7 @@ struct ServerOverviewTab: View {
             if let c = confirm { confirmSheet(c) }
         }
         .task { await model.loadOverview() }
+        .keepsWindowOpen(confirm != nil)
     }
 
     func infoCard(_ i: ServerAdminInfo) -> some View {

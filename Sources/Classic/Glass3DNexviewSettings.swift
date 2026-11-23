@@ -41,5 +41,6 @@ struct NexviewSettingsSection: View {
             }
             PrefNote("Admins: Activity \u{2192} Cleanup shows who requested each title in Nexview, and can filter for requests the requester never watched. Make a token in Nexview under Profile \u{2192} Account \u{2192} Security \u{2192} API tokens (\u{201C}may only read\u{201D} is enough); the account must be a Nexview admin or approver. The token is kept sealed on this Mac.")
         }
+        .keepsWindowOpen(testing || !keyDraft.isEmpty || addressDraft.trimmingCharacters(in: .whitespacesAndNewlines) != conn.address)
     }
 }

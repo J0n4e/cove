@@ -287,7 +287,7 @@ enum HelpTopics {
                     ]),
                   ]),
         HelpTopic(id: "settings", group: .watching, title: "Settings overview", symbol: "gearshape",
-                  intro: "Open Settings with ⌘, or from the profile menu. Changes apply right away. Esc closes the window.",
+                  intro: "Open Settings with ⌘, or from the profile menu. Changes apply right away. Esc closes the window. Side windows such as Settings, Help and Manage server close by themselves when you click elsewhere, unless they hold unsaved changes or something is still running (a save, a download, an open dialog).",
                   sections: [
                     HelpSection(heading: "Tabs", blocks: [
                         .bullets(["General: font, hover effect, Glass, text size, accent color, background, navigation style and the top bar, poster labels and Dim watched posters.",
