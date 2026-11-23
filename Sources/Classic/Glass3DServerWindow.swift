@@ -60,6 +60,8 @@ struct ServerAdminRoot: View {
     @AppStorage("bg") private var bgName = "black"
     @AppStorage("accent") private var accentName = "red"
     @ObservedObject private var nav = ServerAdminNav.shared
+    @EnvironmentObject var emby: Emby
+    @ObservedObject private var trash = DeletedItems.shared
 
     init(model: ServerAdmin, title: String) {
         _model = StateObject(wrappedValue: model)
@@ -76,7 +78,8 @@ struct ServerAdminRoot: View {
                     }
                     Spacer()
                     if !model.forbidden {
-                        Glass3DSegmentTabs(titles: ServerAdmin.Tab.allCases.map(\.title), selection: $nav.tab)
+                        Glass3DSegmentTabs(titles: ServerAdmin.Tab.allCases.map(\.title), selection: $nav.tab,
+                                           badges: ServerTrashTab.badge(emby: emby).map { [ServerAdmin.Tab.trash.rawValue: $0] } ?? [:])
                     }
                 }
                 if model.forbidden {
@@ -90,6 +93,7 @@ struct ServerAdminRoot: View {
                     case .devices: ServerDevicesTabHost(admin: model)
                     case .plugins: ServerPluginsTab(admin: model)
                     case .logs: ServerLogsTab(admin: model)
+                    case .trash: ServerTrashTab()
                     }
                 }
             }

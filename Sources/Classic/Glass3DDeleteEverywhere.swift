@@ -216,7 +216,7 @@ struct RecentlyDeletedCard: View {
     var body: some View {
         let mine = store.records.filter { $0.server == emby.server.lowercased() }
         if !mine.isEmpty {
-            ServerAdminCard(title: "Recently deleted") {
+            ServerAdminCard(title: "Recently deleted (\(mine.count))") {
                 ForEach(mine) { r in
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -238,6 +238,35 @@ struct RecentlyDeletedCard: View {
             }
             .onAppear { store.reload() }
         }
+    }
+}
+
+// MARK: - Manage server → Trash (owner: its own tab after Logs, easy to find)
+
+struct ServerTrashTab: View {
+    @EnvironmentObject var emby: Emby
+    @ObservedObject private var store = DeletedItems.shared
+
+    /// The Trash tab's Dock-style badge: titles you can still restore on this server
+    @MainActor static func badge(emby: Emby) -> String? {
+        let n = DeletedItems.shared.records.filter { $0.server == emby.server.lowercased() }.count
+        return n == 0 ? nil : n > 99 ? "99+" : "\(n)"
+    }
+
+    var body: some View {
+        let mine = store.records.filter { $0.server == emby.server.lowercased() }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Deleted titles stay in nexcrate's recycle bin for 7 days. Undo puts the files back and the title returns to the library.")
+                    .cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
+                if mine.isEmpty {
+                    ServerAdminNotice(icon: "trash", text: "Nothing deleted in the last 7 days.")
+                } else {
+                    RecentlyDeletedCard()
+                }
+            }.padding(.bottom, 8)
+        }
+        .onAppear { store.reload() }
     }
 }
 
