@@ -78,7 +78,7 @@ struct SettingsWindowRoot: View {
     @AppStorage("bg") private var bgName = "black"
     var body: some View {
         SettingsView().environmentObject(emby).environment(\.appBG, Theme.bg(bgName))
-            .frame(width: 760, height: 640)
+            .frame(width: 680, height: 640)
             .dropdownLayer()   // the glass dropdowns open over the whole window
             .preferredColorScheme(.dark).focusEffectDisabled()
     }
@@ -102,7 +102,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         self.emby = emby
         self.onClose = onClose
         if window == nil {
-            let size = NSSize(width: 760, height: 640)
+            let size = NSSize(width: 680, height: 640)   // owner: was 760, a little too wide
             let host = NSHostingView(rootView: SettingsWindowRoot(emby: emby))
             host.sizingOptions = []   // fixed size; never let SwiftUI layout drive the window frame
             let w = PanelWindow(contentRect: NSRect(origin: .zero, size: size),
@@ -130,7 +130,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 // MARK: - Building blocks
 
 /// Width of the right-aligned label column, shared by every row so all controls line up.
-let prefLabelW: CGFloat = 180
+let prefLabelW: CGFloat = 160
 
 /// A group of related rows: a small heading over a rounded card (System Settings style).
 struct PrefSection<C: View>: View {
@@ -230,7 +230,7 @@ struct GeneralSettings: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             ForEach(list, id: \.0) { name, color in
                 Button { selection.wrappedValue = name } label: {
                     Circle().fill(color).frame(width: 34, height: 34)
