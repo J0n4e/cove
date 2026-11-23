@@ -118,9 +118,13 @@ enum AppVersion {
         return v.isEmpty ? "1.0" : v
     }
     static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
-    /// "v0.4Beta" -> "v0.4 Beta"
-    static func pretty(_ v: String) -> String {
-        v.replacingOccurrences(of: #"(\d)(Beta|Alpha|RC)"#, with: "$1 $2", options: .regularExpression)
+    /// "v0.4Beta" -> "v0.4 Beta"; a beta tag "v1.19.9-beta.2" -> "1.19.9 beta 2".
+    nonisolated static func pretty(_ v: String) -> String {
+        if v.range(of: #"^v?[0-9]+(\.[0-9]+)*-beta\.[0-9]+$"#, options: .regularExpression) != nil,
+           let b = Updater.betaInfo(v) {
+            return "\(b.version) beta \(b.n)"
+        }
+        return v.replacingOccurrences(of: #"(\d)(Beta|Alpha|RC)"#, with: "$1 $2", options: .regularExpression)
     }
 }
 

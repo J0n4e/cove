@@ -22,6 +22,8 @@ final class Updater: ObservableObject {
     static let windowID = "softwareUpdate"
     /// The tag the user chose "Skip This Version" for; automatic checks don't offer it again.
     static let skippedKey = "SkippedUpdateVersion"
+    /// Settings → About → Updates → "Get beta versions" (off by default). On: pre-releases (vX.Y.Z-beta.N) are offered too.
+    static let betaKey = "betaUpdates"
     private var latest: Release?
     private var checkedThisLaunch = false
 
@@ -30,6 +32,9 @@ final class Updater: ObservableObject {
         let body: String?
         let html_url: String
         let assets: [Asset]
+        /// Only in the releases list; `releases/latest` never returns drafts or pre-releases.
+        var draft: Bool? = nil
+        var prerelease: Bool? = nil
         /// `digest`: "sha256:…", computed by GitHub when the file was uploaded.
         struct Asset: Decodable { let name: String; let browser_download_url: String; let digest: String? }
     }
@@ -41,6 +46,7 @@ final class Updater: ObservableObject {
     }
 
     static var autoCheck: Bool { UserDefaults.standard.object(forKey: "autoUpdateCheck") as? Bool ?? true }
+    static var betaChannel: Bool { UserDefaults.standard.bool(forKey: betaKey) }
 
     /// Once per launch, a few seconds after start; only speaks up when there is an update.
     func checkOnLaunch() async {
@@ -59,7 +65,25 @@ final class Updater: ObservableObject {
         }
         if status == .installing { showWindow(); return }
         status = .checking
-        guard let rel = await Self.fetch("releases/latest") else {
+        let beta = Self.betaChannel
+        let fetched: Release?
+        if beta {
+            // Beta channel: the newest of the recent releases, official or pre-release (drafts never count)
+            guard let list = await Self.fetchList("releases?per_page=20") else {
+                status = .failed("Couldn't reach GitHub.")
+                if interactive { alert("Couldn't check for updates", "GitHub didn't answer. Try again later.") }
+                return
+            }
+            guard let best = Self.pick(list, beta: true) else {
+                status = .upToDate
+                if interactive { alert("You're up to date", "\(AppVersion.pretty(cur)) is the latest version.") }
+                return
+            }
+            fetched = best
+        } else {
+            fetched = await Self.fetch("releases/latest")
+        }
+        guard let rel = fetched else {
             status = .failed("Couldn't reach GitHub.")
             if interactive { alert("Couldn't check for updates", "GitHub didn't answer. Try again later.") }
             return
@@ -104,6 +128,31 @@ final class Updater: ObservableObject {
         return try? JSONDecoder().decode(Release.self, from: d)
     }
 
+    /// GET the releases list (newest first); nil on any failure.
+    nonisolated static func fetchList(_ path: String) async -> [Release]? {
+        guard let url = URL(string: "https://api.github.com/repos/\(repo)/\(path)") else { return nil }
+        var r = URLRequest(url: url)
+        r.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        r.timeoutInterval = 20
+        guard let (d, resp) = try? await URLSession.shared.data(for: r),
+              (resp as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return decodeList(d)
+    }
+
+    nonisolated static func decodeList(_ d: Data) -> [Release]? { try? JSONDecoder().decode([Release].self, from: d) }
+
+    /// The release to offer from a releases list: no drafts, only valid tags, the newest by `isNewer`.
+    /// Without the beta channel, pre-releases and beta tags are skipped (the app itself uses releases/latest then).
+    nonisolated static func pick(_ list: [Release], beta: Bool) -> Release? {
+        var best: Release?
+        for r in list where r.draft != true && isValidReleaseTag(r.tag_name) {
+            if !beta && (r.prerelease == true || betaNumber(r.tag_name) != nil) { continue }
+            if let b = best, !isNewer(r.tag_name, than: b.tag_name) { continue }
+            best = r
+        }
+        return best
+    }
+
     /// The release with this tag ("v1.17.1", as the release tags are written).
     nonisolated static func fetchRelease(tag: String) async -> Release? {
         guard let t = tag.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: ".-_"))) else { return nil }
@@ -117,8 +166,12 @@ final class Updater: ObservableObject {
     /// A local build between releases ("v1.16.0-5-gc5f529b": commits after the tag, from make-app.sh). It would
     /// always look older than the release it's based on, so it doesn't ask at launch; Check for Updates still works.
     static var isDevBuild: Bool {
-        let v = Bundle.main.infoDictionary?["CoveVersion"] as? String ?? ""
-        return v.range(of: #"-\d+-g[0-9a-f]+$"#, options: .regularExpression) != nil
+        isDevVersion(Bundle.main.infoDictionary?["CoveVersion"] as? String ?? "")
+    }
+
+    /// "v1.16.0-5-gc5f529b" (or "v1.19.9-beta.2-3-gabc1234") is a dev build; a beta tag "v1.19.9-beta.2" is not.
+    nonisolated static func isDevVersion(_ v: String) -> Bool {
+        v.range(of: #"-\d+-g[0-9a-f]+$"#, options: .regularExpression) != nil
     }
 
     /// Why an update can't replace the app, in words the user can act on. macOS runs a downloaded app that was
@@ -134,10 +187,23 @@ final class Updater: ObservableObject {
             + "update from GitHub instead."
     }
 
-    /// Release tags as the protected ruleset allows them: lowercase "v" and 2 to 4 numbers ("v1.17.2").
+    /// Release tags as the protected ruleset allows them: lowercase "v" and 2 to 4 numbers ("v1.17.2"), optionally
+    /// a beta ("v1.19.9-beta.2").
     nonisolated static func isValidReleaseTag(_ tag: String) -> Bool {
-        tag.range(of: #"^v[0-9]+(\.[0-9]+){1,3}$"#, options: .regularExpression) != nil
+        tag.range(of: #"^v[0-9]+(\.[0-9]+){1,3}(-beta\.[0-9]+)?$"#, options: .regularExpression) != nil
     }
+
+    /// "v1.19.9-beta.2" → ("1.19.9", 2); nil for anything that isn't a beta (a dev build of a beta,
+    /// "v1.19.9-beta.2-3-gabc1234", counts as that beta).
+    nonisolated static func betaInfo(_ tag: String) -> (version: String, n: Int)? {
+        guard let m = tag.range(of: #"^v?[0-9]+(\.[0-9]+)*-beta\.[0-9]+"#, options: .regularExpression) else { return nil }
+        let t = tag[m].hasPrefix("v") ? tag[m].dropFirst() : tag[m]
+        let parts = t.components(separatedBy: "-beta.")
+        guard parts.count == 2, let n = Int(parts[1]) else { return nil }
+        return (parts[0], n)
+    }
+
+    nonisolated static func betaNumber(_ tag: String) -> Int? { betaInfo(tag)?.n }
 
     static let mismatchMessage = "The update doesn't match the release it came from, so it was not installed."
 
@@ -153,13 +219,14 @@ final class Updater: ObservableObject {
         return nil
     }
 
-    // MARK: Version compare ("v1.2" > "v1.1" > "v1.0" > "v0.10Beta"; a release beats a beta of the same number)
+    // MARK: Version compare ("v1.2" > "v1.1" > "v1.0" > "v0.10Beta"; a release beats a beta of the same number;
+    // "v1.19.9" > "v1.19.9-beta.2" > "v1.19.9-beta.1" > "v1.19.8")
 
-    nonisolated static func key(_ tag: String) -> (nums: [Int], release: Bool) {
+    nonisolated static func key(_ tag: String) -> (nums: [Int], release: Bool, beta: Int) {
         let t = tag.hasPrefix("v") || tag.hasPrefix("V") ? String(tag.dropFirst()) : tag
         let numPart = t.prefix { $0.isNumber || $0 == "." }
         let nums = numPart.split(separator: ".").compactMap { Int($0) }
-        return (nums, numPart.count == t.count)
+        return (nums, numPart.count == t.count, betaNumber(tag) ?? 0)
     }
 
     nonisolated static func isNewer(_ a: String, than b: String) -> Bool {
@@ -168,7 +235,8 @@ final class Updater: ObservableObject {
             let p = i < x.nums.count ? x.nums[i] : 0, q = i < y.nums.count ? y.nums[i] : 0
             if p != q { return p > q }
         }
-        return x.release && !y.release
+        if x.release != y.release { return x.release }
+        return x.beta > y.beta
     }
 
     // MARK: UI
@@ -359,6 +427,16 @@ final class Updater: ObservableObject {
 struct UpdateRow: View {
     @ObservedObject var up = Updater.shared
     @AppStorage("autoUpdateCheck") private var auto = true
+    @AppStorage(Updater.betaKey) private var beta = false
+
+    static let betaNote = "Betas arrive first and may have rough edges. Turning this off never downgrades: "
+        + "you stay on the beta until the next official release."
+
+    /// "You're on beta 2 of 1.19.9" while running a beta, else nil.
+    nonisolated static func onBetaText(_ current: String?) -> String? {
+        guard let current, let b = Updater.betaInfo(current) else { return nil }
+        return "You're on beta \(b.n) of \(b.version)"
+    }
 
     var statusText: String {
         switch up.status {
@@ -386,6 +464,17 @@ struct UpdateRow: View {
                 Text(statusText).foregroundColor(.secondary).lineLimit(2)
             }
             Toggle("Check for updates automatically", isOn: $auto)
+            Toggle("Get beta versions", isOn: $beta)
+                .onChange(of: beta) { _, _ in
+                    // The channel changed: look again quietly (an update window opens only if there is one)
+                    guard up.current != nil, up.status != .installing else { return }
+                    Task { await up.check(interactive: false) }
+                }
+            Text(Self.betaNote).coveFont(size: 11).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let t = Self.onBetaText(up.current) {
+                Text(t).coveFont(size: 11).foregroundColor(.secondary)
+            }
             Button("What's New in Cove…") { WhatsNew.show() }
                 .buttonStyle(.link).coveFont(size: 10)
         }
