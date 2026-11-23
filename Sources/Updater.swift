@@ -24,7 +24,12 @@ final class Updater: ObservableObject {
     static let skippedKey = "SkippedUpdateVersion"
     /// Settings → About → Updates → "Get beta versions" (off by default). On: pre-releases (vX.Y.Z-beta.N) are offered too.
     static let betaKey = "betaUpdates"
+    /// The official tag Settings' "Stay on this beta" was chosen for; automatic checks don't offer that switch again.
+    static let skippedLeaveBetaKey = "SkippedLeaveBetaVersion"
     private var latest: Release?
+    /// Set only while the pending release is the explicit leave-beta switch (an OLDER official version than the
+    /// running beta). verifyBundle accepts a downgrade only to exactly this tag; every other install stays newer-only.
+    private(set) var allowDowngradeTo: String?
     private var checkedThisLaunch = false
 
     struct Release: Decodable {
@@ -57,7 +62,8 @@ final class Updater: ObservableObject {
     }
 
     /// `interactive`: also tell the user when they're up to date or the check failed.
-    func check(interactive: Bool) async {
+    /// `leavingBeta`: the user just turned "Get beta versions" off, so the switch offer opens even if it was declined before.
+    func check(interactive: Bool, leavingBeta: Bool = false) async {
         guard let cur = current else {
             status = .failed("Updates work only in the built app.")
             if interactive { alert("Can't check for updates", "This copy isn't a built app bundle.") }
@@ -97,6 +103,19 @@ final class Updater: ObservableObject {
             return
         }
         latest = rel
+        allowDowngradeTo = nil
+        if Self.leaveBetaDecision(current: cur, official: rel.tag_name, betaChannel: beta) == .offerSwitch {
+            // Running a beta with the channel off: offer the (older) official release, one click, never silently
+            let d = UserDefaults.standard
+            if !interactive && !leavingBeta && d.string(forKey: Self.skippedLeaveBetaKey) == rel.tag_name {
+                status = .idle; return
+            }
+            d.removeObject(forKey: Self.skippedLeaveBetaKey)
+            allowDowngradeTo = rel.tag_name
+            status = .available(rel.tag_name)
+            showWindow()
+            return
+        }
         if Self.isNewer(rel.tag_name, than: cur) {
             let d = UserDefaults.standard
             let skipped = d.string(forKey: Self.skippedKey)
@@ -205,18 +224,43 @@ final class Updater: ObservableObject {
 
     nonisolated static func betaNumber(_ tag: String) -> Int? { betaInfo(tag)?.n }
 
+    enum LeaveBeta: Equatable { case none, offerSwitch, normalUpdate }
+
+    /// With the beta channel off: what to do with the official release `official` (from releases/latest).
+    /// Only a running beta (never an official version) may be offered an older official release.
+    nonisolated static func leaveBetaDecision(current: String, official: String, betaChannel: Bool) -> LeaveBeta {
+        guard !betaChannel, isValidReleaseTag(official), betaInfo(official) == nil else { return .none }
+        if isNewer(official, than: current) { return .normalUpdate }
+        guard betaInfo(current) != nil, isNewer(current, than: official) else { return .none }
+        return .offerSwitch
+    }
+
+    /// "v1.20.0" → "1.20.0", "v1.20.1-beta.3" → "1.20.1 beta 3".
+    nonisolated static func plain(_ tag: String) -> String {
+        if let b = betaInfo(tag) { return "\(b.version) beta \(b.n)" }
+        return tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+    }
+
+    nonisolated static func leaveBetaText(official: String, current: String) -> String {
+        "You're leaving the beta. Cove \(plain(official)) replaces \(plain(current)). Your settings stay."
+    }
+
     static let mismatchMessage = "The update doesn't match the release it came from, so it was not installed."
 
     /// Checks the unzipped app's Info.plist against the release: same bundle id, CoveVersion equal to the tag,
     /// and strictly newer than the running version. Nil when it's fine. (The signature covers only the zip, so
-    /// without this an older signed zip could be republished under a new tag.)
-    nonisolated static func verifyBundle(info: [String: Any], expectedId: String?, tag: String, current: String) -> Error? {
+    /// without this an older signed zip could be republished under a new tag.) The one exception is the explicit
+    /// leave-beta switch: `allowDowngradeTo` == tag, the running version is a beta and the tag an official release.
+    nonisolated static func verifyBundle(info: [String: Any], expectedId: String?, tag: String, current: String,
+                                         allowDowngradeTo: String? = nil) -> Error? {
         guard let expectedId, !expectedId.isEmpty,
               info["CFBundleIdentifier"] as? String == expectedId,
               isValidReleaseTag(tag),
-              let v = info["CoveVersion"] as? String, v == tag,
-              isNewer(v, than: current) else { return Err(mismatchMessage) }
-        return nil
+              let v = info["CoveVersion"] as? String, v == tag else { return Err(mismatchMessage) }
+        if isNewer(v, than: current) { return nil }
+        let leavingBeta = allowDowngradeTo == tag && betaInfo(current) != nil && betaInfo(tag) == nil
+            && isNewer(current, than: tag)
+        return leavingBeta ? nil : Err(mismatchMessage)
     }
 
     // MARK: Version compare ("v1.2" > "v1.1" > "v1.0" > "v0.10Beta"; a release beats a beta of the same number;
@@ -254,7 +298,19 @@ final class Updater: ObservableObject {
         default: return
         }
         if status != .installing { windowError = nil }
+        if allowDowngradeTo == rel.tag_name {
+            CoveWindows.show(Self.windowID, title: "Software Update", LeaveBetaWindowView(rel: rel, current: cur))
+            return
+        }
         CoveWindows.show(Self.windowID, title: "Software Update", UpdateWindowView(rel: rel, current: cur))
+    }
+
+    /// "Stay on this beta": keep the old behaviour (stay until a newer official release); launches don't ask again.
+    func stayOnBeta(_ tag: String) {
+        UserDefaults.standard.set(tag, forKey: Self.skippedLeaveBetaKey)
+        allowDowngradeTo = nil
+        status = .idle
+        CoveWindows.close(Self.windowID)
     }
 
     func skip(_ tag: String) {
@@ -321,13 +377,15 @@ final class Updater: ObservableObject {
             let found = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)) ?? []
             guard let newApp = found.first(where: { $0.pathExtension == "app" }) else { throw Err("The download didn't contain the app.") }
             guard await run("/usr/bin/codesign", ["-v", newApp.path]) == 0 else { throw Err("The downloaded app failed its signature check.") }
-            // The app inside must be Cove, of exactly the release's version, and newer than this one (no downgrade)
+            // The app inside must be Cove, of exactly the release's version, and newer than this one (no downgrade,
+            // except the explicit leave-beta switch to exactly this official tag)
             let plist = newApp.appendingPathComponent("Contents/Info.plist")
             guard let pd = try? Data(contentsOf: plist),
                   let info = try? PropertyListSerialization.propertyList(from: pd, format: nil) as? [String: Any] else {
                 throw Err(Self.mismatchMessage)
             }
-            if let e = Self.verifyBundle(info: info, expectedId: Bundle.main.bundleIdentifier, tag: rel.tag_name, current: cur) {
+            if let e = Self.verifyBundle(info: info, expectedId: Bundle.main.bundleIdentifier, tag: rel.tag_name, current: cur,
+                                      allowDowngradeTo: allowDowngradeTo) {
                 throw e
             }
             // What's New after the relaunch shows these notes (no second request to GitHub)
@@ -429,8 +487,8 @@ struct UpdateRow: View {
     @AppStorage("autoUpdateCheck") private var auto = true
     @AppStorage(Updater.betaKey) private var beta = false
 
-    static let betaNote = "Betas arrive first and may have rough edges. Turning this off never downgrades: "
-        + "you stay on the beta until the next official release."
+    static let betaNote = "Betas arrive first and may have rough edges. Turning this off while on a beta offers "
+        + "to switch back to the latest official version (one click, your settings stay)."
 
     /// "You're on beta 2 of 1.19.9" while running a beta, else nil.
     nonisolated static func onBetaText(_ current: String?) -> String? {
@@ -465,18 +523,81 @@ struct UpdateRow: View {
             }
             Toggle("Check for updates automatically", isOn: $auto)
             Toggle("Get beta versions", isOn: $beta)
-                .onChange(of: beta) { _, _ in
-                    // The channel changed: look again quietly (an update window opens only if there is one)
+                .onChange(of: beta) { _, on in
+                    // The channel changed: look again quietly (an update window opens only if there is one; turning
+                    // it off on a beta opens the switch-to-official offer)
                     guard up.current != nil, up.status != .installing else { return }
-                    Task { await up.check(interactive: false) }
+                    Task { await up.check(interactive: false, leavingBeta: !on) }
                 }
             Text(Self.betaNote).coveFont(size: 11).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let t = Self.onBetaText(up.current) {
-                Text(t).coveFont(size: 11).foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    Text(beta ? t : t + ".").coveFont(size: 11).foregroundColor(.secondary)
+                    if !beta {
+                        Button("Switch to official version") { Task { await up.check(interactive: true) } }
+                            .buttonStyle(.link).coveFont(size: 11)
+                            .disabled(up.status == .checking || up.status == .installing)
+                    }
+                }
             }
             Button("What's New in Cove…") { WhatsNew.show() }
                 .buttonStyle(.link).coveFont(size: 10)
         }
+    }
+}
+
+/// The leave-beta offer: the latest official release, older than the running beta. One click installs it.
+struct LeaveBetaWindowView: View {
+    let rel: Updater.Release
+    let current: String
+    @ObservedObject var up = Updater.shared
+    @AppStorage("accent") private var accentName = "red"
+
+    var installing: Bool { up.status == .installing }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                AppIconView(size: 56)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Switch to the official version").coveFont(size: 15, weight: .bold)
+                    Text(Updater.leaveBetaText(official: rel.tag_name, current: current)).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            NotesText(markdown: rel.body ?? "").frame(minHeight: 140)
+                .padding(4)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            if installing {
+                if let p = up.progress, p.total > 0 {
+                    ProgressView(value: Double(p.received), total: Double(p.total))
+                    Text("Downloading… " + UpdateWindowView.mb(p.received) + " of " + UpdateWindowView.mb(p.total))
+                        .coveFont(size: 10).foregroundColor(.secondary)
+                } else {
+                    ProgressView().progressViewStyle(.linear)
+                    Text(up.progressText).coveFont(size: 10).foregroundColor(.secondary)
+                }
+            }
+            if let e = up.windowError {
+                Text(e).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Stay on this beta") { up.stayOnBeta(rel.tag_name) }
+                    .buttonStyle(AboutButton(accentName: accentName))
+                Button("Install \(Updater.plain(rel.tag_name))") { Task { await up.install() } }
+                    .buttonStyle(AboutButton(primary: true, accentName: accentName))
+                    .keyboardShortcut(.defaultAction)
+            }
+            .disabled(installing)
+            .opacity(installing ? 0.45 : 1)
+        }
+        .padding(EdgeInsets(top: 34, leading: 20, bottom: 16, trailing: 20))   // below the transparent title bar
+        .frame(minWidth: 420, minHeight: 320)
+        .ignoresSafeArea(.container, edges: .top)
     }
 }

@@ -85,4 +85,41 @@ final class UpdaterBetaTests: XCTestCase {
         XCTAssertTrue(Updater.isNewer("v1.19.9-beta.3", than: "v1.19.9-beta.2-3-gabc1234"))
         XCTAssertTrue(Updater.isNewer("v1.16.0", than: "v1.16.0-5-gc5f529b"))
     }
+
+    // MARK: Leaving the beta
+
+    func testLeaveBetaDecision() {
+        XCTAssertEqual(Updater.leaveBetaDecision(current: "v1.20.1-beta.3", official: "v1.20.0", betaChannel: false), .offerSwitch)
+        XCTAssertEqual(Updater.leaveBetaDecision(current: "v1.20.0", official: "v1.20.0", betaChannel: false), .none)
+        XCTAssertEqual(Updater.leaveBetaDecision(current: "v1.20.1", official: "v1.20.0", betaChannel: false), .none)
+        XCTAssertEqual(Updater.leaveBetaDecision(current: "v1.20.1-beta.3", official: "v1.20.1", betaChannel: false), .normalUpdate)
+        XCTAssertEqual(Updater.leaveBetaDecision(current: "v1.20.1-beta.3", official: "v1.20.0", betaChannel: true), .none)
+        XCTAssertEqual(Updater.leaveBetaDecision(current: "v1.20.1-beta.3", official: "v1.20.0-beta.9", betaChannel: false), .none)
+        XCTAssertEqual(Updater.leaveBetaDecision(current: "v1.20.1-beta.3", official: "1.20.0", betaChannel: false), .none)
+        XCTAssertEqual(Updater.leaveBetaText(official: "v1.20.0", current: "v1.20.1-beta.3"),
+                       "You're leaving the beta. Cove 1.20.0 replaces 1.20.1 beta 3. Your settings stay.")
+        XCTAssertEqual(Updater.plain("v1.20.0"), "1.20.0")
+    }
+
+    func testVerifyBundleDowngradeOnlyWithFlag() {
+        let id = "eu.jonae.cove"
+        func info(_ v: String) -> [String: Any] { ["CFBundleIdentifier": id, "CoveVersion": v] }
+        let beta = "v1.20.1-beta.3"
+        XCTAssertNil(Updater.verifyBundle(info: info("v1.20.0"), expectedId: id, tag: "v1.20.0", current: beta, allowDowngradeTo: "v1.20.0"))
+        XCTAssertNotNil(Updater.verifyBundle(info: info("v1.20.0"), expectedId: id, tag: "v1.20.0", current: beta))
+        XCTAssertNotNil(Updater.verifyBundle(info: info("v1.20.0"), expectedId: id, tag: "v1.20.0", current: beta, allowDowngradeTo: "v1.19.9"))
+        XCTAssertNotNil(Updater.verifyBundle(info: info("v1.19.9"), expectedId: id, tag: "v1.20.0", current: beta, allowDowngradeTo: "v1.20.0"))
+        XCTAssertNotNil(Updater.verifyBundle(info: ["CFBundleIdentifier": "x.other", "CoveVersion": "v1.20.0"], expectedId: id,
+                                             tag: "v1.20.0", current: beta, allowDowngradeTo: "v1.20.0"))
+        // Never from an official version, never to a beta
+        XCTAssertNotNil(Updater.verifyBundle(info: info("v1.20.0"), expectedId: id, tag: "v1.20.0", current: "v1.20.1", allowDowngradeTo: "v1.20.0"))
+        XCTAssertNotNil(Updater.verifyBundle(info: info("v1.20.1-beta.2"), expectedId: id, tag: "v1.20.1-beta.2", current: beta,
+                                             allowDowngradeTo: "v1.20.1-beta.2"))
+        // A normal upgrade is unaffected by the flag
+        XCTAssertNil(Updater.verifyBundle(info: info("v1.20.1"), expectedId: id, tag: "v1.20.1", current: beta, allowDowngradeTo: "v1.20.0"))
+    }
+
+    func testWhatsNewSkippedForDowngradeWithoutPendingNotes() {
+        XCTAssertFalse(WhatsNew.shouldShow(lastSeen: "v1.20.1-beta.3", current: "v1.20.0"))
+    }
 }

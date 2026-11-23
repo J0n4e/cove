@@ -343,7 +343,7 @@ enum HelpTopics {
                                   "Check now from the Cove menu or the profile menu.",
                                   "Keep Cove in your Applications folder, so the update can replace it.",
                                   "Turn on Get beta versions to get new versions first. Betas may have rough edges.",
-                                  "Turning betas off never downgrades: you stay on the beta until the next official release."]),
+                                  "Turning betas off while you run a beta opens Switch to the official version: Install puts the latest official release back (signed like every update, your settings stay); Stay on this beta keeps the beta until the next official release. Settings → About → Updates also shows Switch to official version while you are on a beta with betas off."]),
                         .place("Cove → Check for Updates…, or Settings → About → Updates"),
                     ]),
                     HelpSection(heading: "Report an issue", blocks: [
