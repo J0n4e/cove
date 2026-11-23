@@ -17,9 +17,9 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 // Like the update alert: the app icon on top, the bold white name under it
-                AppIconView(size: 84)
+                AppIconView(size: 72)
                 (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
                     .coveFont(size: 20, weight: .bold)
                 Text("Version \(versionText.hasPrefix("v") ? String(versionText.dropFirst()) : versionText)")
@@ -39,13 +39,13 @@ struct AboutView: View {
                 .padding(.top, 6)
             }
             .glassReadable()
-            .padding(.horizontal, 40).padding(.top, 44)
+            .padding(.horizontal, 32).padding(.top, 36)
 
             Button { open(Self.repo.appendingPathComponent("blob/main/LICENSE")) } label: {
                 Text("© 2026 J0n4e · GNU GPL-3.0")
                     .coveFont(size: 11).foregroundColor(Color.white.opacity(0.85)).glassReadable()
             }
-            .buttonStyle(.plainHand).padding(.top, 22).padding(.bottom, 26)
+            .buttonStyle(.plainHand).padding(.top, 16).padding(.bottom, 20)
         }
         .frame(width: AboutWindow.size.width)
         .frame(height: AboutWindow.size.height, alignment: .top)
@@ -144,7 +144,7 @@ final class PanelWindow: NSWindow {
 enum AboutWindow {
     private static var window: NSWindow?
     /// Room for the icon, name, version, text, buttons and footer at the larger text sizes.
-    static let size = NSSize(width: 520, height: 430)
+    static let size = NSSize(width: 440, height: 370)   // owner: a little smaller (was 520×430)
 
     static func show() {
         if window == nil {
