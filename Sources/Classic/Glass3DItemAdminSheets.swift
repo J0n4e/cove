@@ -50,6 +50,7 @@ struct ItemRefreshView: View {
         }
         .padding(.horizontal, 24).padding(.bottom, 20)
         .foregroundColor(.white)
+        .keepsWindowOpen(busy)
     }
 
     func start() {
@@ -134,6 +135,7 @@ struct ItemIdentifyView: View {
             year = item.ProductionYear.map(String.init) ?? ""
             ids = (item.ProviderIds ?? [:]).filter { fields.contains($0.key) }
         }
+        .keepsWindowOpen(busy)
     }
 
     func label(_ k: String) -> String { ["Imdb": "IMDb id", "Tmdb": "TMDb id", "Tvdb": "TVDb id"][k] ?? k }

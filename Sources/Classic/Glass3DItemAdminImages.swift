@@ -37,6 +37,7 @@ struct ItemImagesView: View {
         .padding(.horizontal, 24).padding(.bottom, 12)
         .foregroundColor(.white)
         .task { await reload() }
+        .keepsWindowOpen(busy != nil)
     }
 
     func reload() async {

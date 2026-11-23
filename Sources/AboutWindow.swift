@@ -128,7 +128,28 @@ struct CoveWindowBackground: ViewModifier {
 extension View { func coveWindowBackground() -> some View { modifier(CoveWindowBackground()) } }
 
 /// A window that Esc and ⌘W close (About and Settings).
+/// Side windows also close by themselves when they lose focus (AutoCloseWindows.swift).
 final class PanelWindow: NSWindow {
+    /// Views holding unsaved changes or a running action (`.keepsWindowOpen`).
+    var keepOpenReasons: Set<String> = []
+    /// When the window was last brought on screen (ignore resigns during its own opening).
+    var shownAt: Date?
+    /// The side window that was in front when this one opened (it stays open while this one is in front).
+    weak var opener: PanelWindow?
+
+    override func makeKeyAndOrderFront(_ sender: Any?) {
+        if !isVisible {
+            shownAt = Date()
+            let key = NSApp.keyWindow as? PanelWindow
+            opener = key === self ? nil : key
+        }
+        AutoCloseMonitor.start()
+        super.makeKeyAndOrderFront(sender)
+    }
+    override func resignKey() {
+        super.resignKey()
+        AutoCloseMonitor.schedule(self)
+    }
     override func cancelOperation(_ sender: Any?) { performClose(sender) }
     override func performKeyEquivalent(with ev: NSEvent) -> Bool {
         if ev.modifierFlags.intersection([.command, .control, .option, .shift]) == .command,

@@ -183,6 +183,7 @@ struct ServerAddUserSheet: View {
                     .disabled(busy || name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
+        .keepsWindowOpen(busy || !name.isEmpty || !password.isEmpty)
     }
 }
 
@@ -242,6 +243,7 @@ struct ServerUserSheet: View {
             let e = UserPolicyEdit.from(user.policy)
             edit = e; original = e
         }
+        .keepsWindowOpen(busy || edit != original || !newPassword.isEmpty)
     }
 
     var passwordSection: some View {

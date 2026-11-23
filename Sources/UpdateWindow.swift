@@ -169,6 +169,7 @@ struct UpdateWindowView: View {
         .padding(EdgeInsets(top: 34, leading: 20, bottom: 16, trailing: 20))   // below the transparent title bar
         .frame(minWidth: 420, minHeight: 320)
         .ignoresSafeArea(.container, edges: .top)
+        .keepsWindowOpen(up.status == .installing)
     }
 
     static func mb(_ n: Int64) -> String { String(format: "%.1f MB", Double(n) / 1_000_000) }

@@ -115,6 +115,7 @@ struct ServerDeviceSheet: View {
             }
         }
         .onAppear { if case .rename(let d) = sheet { name = d.customName ?? "" } }
+        .keepsWindowOpen(busy)
     }
 
     func go() {
@@ -191,6 +192,7 @@ struct ServerPluginsTab: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { await model.load() }
+        .keepsWindowOpen(confirm != nil || busy != nil)
     }
 
     var restartBanner: some View {

@@ -65,6 +65,7 @@ struct MetadataEditorView: View {
         .padding(.horizontal, 24).padding(.bottom, 16)
         .foregroundColor(.white)
         .task { await load() }
+        .keepsWindowOpen(busy || (!loading && d != original))
     }
 
     // MARK: Sections

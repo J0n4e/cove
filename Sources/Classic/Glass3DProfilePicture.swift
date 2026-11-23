@@ -183,6 +183,7 @@ struct ProfilePictureView: View {
         .padding(.horizontal, 28).padding(.bottom, 22)
         .frame(width: ProfilePictureWindow.size.width, height: ProfilePictureWindow.size.height)
         .foregroundColor(.white)
+        .keepsWindowOpen(busy || image != nil)
     }
 
     /// Drop zone before a picture is chosen; then the picture, draggable (on the picture only), under a round mask.

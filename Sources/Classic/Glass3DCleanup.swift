@@ -351,6 +351,7 @@ struct CleanupBatchView: View {
             }
             plans = out; checking = false; progress = nil
         }
+        .keepsWindowOpen(busy)
     }
 
     @ViewBuilder private var content: some View {

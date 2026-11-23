@@ -36,6 +36,7 @@ struct ItemMissingView: View {
         .padding(.horizontal, 24).padding(.bottom, 12)
         .foregroundColor(.white)
         .task { await scan() }
+        .keepsWindowOpen(refreshing)
     }
 
     var status: String {

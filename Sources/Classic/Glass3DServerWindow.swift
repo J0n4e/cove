@@ -107,6 +107,7 @@ struct ServerAdminRoot: View {
         .frame(width: ServerAdminWindow.size.width, height: ServerAdminWindow.size.height)
         .dropdownLayer()
         .preferredColorScheme(.dark).focusEffectDisabled()
+        .keepsWindowOpen(model.power == .restarting || model.power == .shuttingDown)
     }
 }
 

@@ -58,6 +58,7 @@ struct DeleteConfirmView: View {
         .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { if plan == nil { plan = await DeleteEverywhereService.prepare(item, emby: emby) } }
+        .keepsWindowOpen(busy)
     }
 
     /// "The movie “X”" → "X" (the small line above already says what it is)
@@ -324,6 +325,7 @@ struct NexcrateSettingsSection: View {
             }
             PrefNote("Admins: Delete\u{2026} on a movie, series, season or episode goes through nexcrate when it has the title \u{2014} its torrents leave qBittorrent and the files sit in nexcrate's recycle bin for 7 days, so you can Undo. Connect asks nexcrate for a key (read + request); confirm the code there. The key is kept sealed on this Mac.")
         }
+        .keepsWindowOpen(testing || !keyDraft.isEmpty || addressDraft.trimmingCharacters(in: .whitespacesAndNewlines) != conn.address)
     }
 }
 
