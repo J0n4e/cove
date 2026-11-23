@@ -15,19 +15,17 @@ struct Glass3DSegmentTabs: View {
             ForEach(titles.indices, id: \.self) { i in
                 Button { selection = i } label: {
                     Text3D(text: titles[i], size: 12, weight: selection == i ? .bold : .semibold)
+                        // unread: a small red dot just past the text's top-right (owner's mock-up)
+                        .overlay(alignment: .topTrailing) {
+                            if let b = badges[i] {
+                                Circle().fill(Color(red: 1, green: 0.27, blue: 0.27)).frame(width: 7, height: 7)
+                                    .offset(x: 9, y: -2).allowsHitTesting(false).help("\(b) unread")
+                            }
+                        }
                         .padding(.horizontal, 14).frame(height: 32)
                         .classicSelectedGlass(selection == i)   // a step quieter than the top bar's pill
                         .modifier(Glass3DTabHover(on: selection == i))   // as the top bar's tabs
                         .modifier(SectionHoverGlow(on: !(selection == i)))   // accent glow on hover (Settings → Hover effect), as the top bar
-                        // the count sits on the tab's top-right corner, like the Activity dot in the top bar (owner)
-                        .overlay(alignment: .topTrailing) {
-                            if let b = badges[i] {
-                                // the same small red dot as on Activity in the top bar (owner), count in the tooltip
-                                Circle().fill(Color.red).frame(width: 8, height: 8)
-                                    .overlay(Circle().strokeBorder(Color.black.opacity(0.35), lineWidth: 0.5))
-                                    .padding(2).allowsHitTesting(false).help("\(b) unread")
-                            }
-                        }
                 }.buttonStyle(.plainHand)
             }
         }.padding(3).frame(height: 38).classicClearGlass().opacity(0.92)   // interactive clear glass, as the top bar
