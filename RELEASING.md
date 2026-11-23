@@ -66,13 +66,34 @@ Only the repository owner can add environments, secrets and rulesets.
    (Actions → the run → *Review deployments*).
 7. **Verify** the draft: the job already checks `Cove.zip.sig` against the key installed apps trust; download both
    files and check the attestation (below) before publishing.
-8. Write the release notes and **Publish**. Pre-releases are ignored by the updater. The notes (Markdown) are what
+8. Write the release notes and **Publish**. Pre-releases are only offered to apps with *Get beta versions* on. The notes (Markdown) are what
    the Software Update and What's New windows show, so write them for users.
    The bug report form (`.github/ISSUE_TEMPLATE`) that **Help → Report an Issue…** prefills is read from `main`,
    so changes to it reach users only after `Development` is merged into `main`.
 
 Anyone can check that a download came from this repository's workflow:
 `gh attestation verify Cove.zip -R J0n4e/cove`.
+
+## Beta releases
+
+Betas let testers (Settings → About → Updates → *Get beta versions*) get the next version before it is official.
+
+1. Tags are `vX.Y.Z-beta.N` (`v1.19.9-beta.1`, `-beta.2`, …), for the version that will be released next.
+2. Betas are **not** merged into `main`: the owner tags the current `Development` head commit directly (the
+   tag ruleset allows `v*` tags for the admin token on any commit):
+   ```sh
+   git fetch origin && git tag v1.19.9-beta.1 origin/Development && git push origin v1.19.9-beta.1
+   ```
+3. The `release` job runs exactly as for a release (tests, signing, update signature) and builds with
+   `CoveVersion` = the tag. For a `-beta.` tag it creates the draft as a **pre-release** titled
+   `Cove vX.Y.Z-beta.N (beta)`.
+4. Write the notes and publish it **as a pre-release; never tick "Set as the latest release"**. GitHub's
+   `releases/latest` skips pre-releases, so apps without the beta toggle (and all apps up to v1.19.8) never see it.
+5. **Official release:** merge `Development` into `main` as usual and tag `vX.Y.Z` (no suffix) on `main`. It is
+   newer than every `vX.Y.Z-beta.N`, so beta users move to it and everyone else gets it as before.
+
+Order: `v1.19.9` > `v1.19.9-beta.2` > `v1.19.9-beta.1` > `v1.19.8`. The updater never downgrades: turning the
+toggle off on a beta offers nothing until an official release of that number or newer exists.
 
 ## Changing the update key (lost or leaked key)
 

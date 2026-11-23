@@ -298,7 +298,7 @@ enum HelpTopics {
                                   "Connect: your current and saved servers, Trakt, and for admins nexcrate and Nexview.",
                                   "Trakt: your Trakt numbers (only while Trakt is connected).",
                                   "Shortcuts: the list of keyboard shortcuts.",
-                                  "About: version, updates, storage (image and subtitle cache), backup of your settings, and Reset."]),
+                                  "About: version, updates (including Get beta versions), storage (image and subtitle cache), backup of your settings, and Reset."]),
                         .place("Cove → Settings… (⌘,)"),
                     ]),
                   ]),
@@ -342,7 +342,9 @@ enum HelpTopics {
                     HelpSection(heading: "Updates", blocks: [
                         .bullets(["Cove checks for updates when it starts, if Check for updates automatically is on.",
                                   "Check now from the Cove menu or the profile menu.",
-                                  "Keep Cove in your Applications folder, so the update can replace it."]),
+                                  "Keep Cove in your Applications folder, so the update can replace it.",
+                                  "Turn on Get beta versions to get new versions first. Betas may have rough edges.",
+                                  "Turning betas off never downgrades: you stay on the beta until the next official release."]),
                         .place("Cove → Check for Updates…, or Settings → About → Updates"),
                     ]),
                     HelpSection(heading: "Report an issue", blocks: [
