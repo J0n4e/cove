@@ -206,8 +206,9 @@ struct ActivityUnreadDot: ViewModifier {
     func body(content: Content) -> some View {
         content.overlay(alignment: .topTrailing) {
             if store.unread > 0 {
-                Circle().fill(Color(red: 1, green: 0.27, blue: 0.27)).frame(width: 7, height: 7)   // fitted inside the pill (owner)
-                    .padding(inset).allowsHitTesting(false)
+                // the unread COUNT in a red circle on the pill's corner (owner: replaces the plain dot)
+                CountBadge(count: store.unread, size: 16)
+                    .offset(x: 4 - inset, y: inset - 6).allowsHitTesting(false)
                     .help(NotificationTabLabel.unreadHelp(store.unread))
             }
         }
