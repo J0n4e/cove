@@ -14,7 +14,7 @@ struct ClassicPillStyle: ViewModifier {
     let active: Bool
     func body(content: Content) -> some View {
         content.cvFont(12, weight: .medium)
-            .padding(.horizontal, 14).padding(.vertical, 8)
+            .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s)
             .classicGlassPill()
     }
 }
@@ -131,7 +131,7 @@ struct ClassicPosterCard: View {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
                         p.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        ZStack { Color(white: 0.15); Text(item.Name).cvFont(10, weight: .regular).padding(6) }
+                        ZStack { Color(white: 0.15); Text(item.Name).cvFont(10, weight: .regular).padding(Glass3DTokens.Space.s) }
                     }
                     .frame(width: 150, height: 225).clipped()
                     .watchedDim(played)
@@ -141,7 +141,9 @@ struct ClassicPosterCard: View {
                     if !played { ResumeRingMark(fraction: emby.progressFraction(item)) }
                 }
                 .cornerRadius(Glass3DTokens.Radius.field)
-                .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
+                .modifier(ClassicLightCard(radius: Glass3DTokens.Radius.field, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
+                // Soft light following the pointer on the hovered poster, under the badges (owner: no tilt)
+                .posterShine(hover: hover, radius: Glass3DTokens.Radius.field)
                 // ♡ ★ ✓ as on the library grid: after the clip and the glass edge, so their soft shadow isn't cut off
                 // and the lit hover edge / sheen never wash over their dark glass (the grid masks them out too)
                 .overlay { PosterBadgesOverlay(item: item, hover: hover).environment(\.posterBadgeHalo, hover) }

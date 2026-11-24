@@ -41,23 +41,28 @@ struct GlassSlider: View {
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     @State private var dragging = false
+    typealias S = Glass3DTokens.Scrubber
 
     var body: some View {
         let accent = Theme.accent(accentName)
         GeometryReader { g in
             let span = max(range.upperBound - range.lowerBound, 0.000_1)
             let frac = CGFloat(min(1, max(0, (value - range.lowerBound) / span)))
-            let thick: CGFloat = hover || dragging ? 8 : 6
+            // Thicker under the pointer, inside the fixed frame: nothing around it moves
+            let thick: CGFloat = hover || dragging ? S.trackHover : S.track
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.black.opacity(0.35)).frame(height: thick)
+                // track
+                Capsule().fill(Color.black.opacity(S.trackOpacity)).frame(height: thick)
                 ClassicGlassBacking(shape: Capsule()).frame(height: thick)
-                Capsule().fill(accent.opacity(0.55))
+                // fill: see-through accent with a glossy top half and a soft glow
+                Capsule().fill(accent.opacity(S.fillOpacity))
                     .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.4), .clear], startPoint: .top, endPoint: .center)))
                     .frame(width: max(thick, g.size.width * frac), height: thick)
-                    .shadow(color: accent.opacity(0.8), radius: 4)
-                Circle().fill(Color.white).frame(width: 14, height: 14)
-                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
-                    .offset(x: g.size.width * frac - 7)
+                    .shadow(color: accent.opacity(0.8), radius: Glass3DTokens.Space.xs)
+                // knob: only under the pointer or while dragging
+                Circle().fill(Color.white).frame(width: S.knob, height: S.knob)
+                    .g3Shadow(Glass3DTokens.shadowSmall)
+                    .offset(x: g.size.width * frac - S.knob / 2)
                     .opacity(hover || dragging ? 1 : 0)
             }
             .frame(maxHeight: .infinity)
@@ -69,9 +74,9 @@ struct GlassSlider: View {
                 }
                 .onEnded { _ in dragging = false; onEditing(false) })
         }
-        .frame(height: 18)
+        .frame(height: S.height)
         .scrollHover($hover)
-        .animation(.easeOut(duration: 0.12), value: hover || dragging)
+        .animation(Glass3DTokens.Motion.fast, value: hover || dragging)
     }
 }
 
@@ -385,7 +390,7 @@ struct ClassicPlayerView: View {
                     Spinner(inPlayer: true).controlSize(.small)
                     Text("Loading subtitles…").cvFont(14, weight: .medium).glossyLettering()
                 }
-                .padding(.horizontal, 12).padding(.vertical, 6)
+                .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
                 .modifier(TimeBubble(classic: true))   // dark glass, as the time above the timeline
                 .padding(.bottom, subLift(size))
             }.frame(maxWidth: .infinity).allowsHitTesting(false)
@@ -402,7 +407,7 @@ struct ClassicPlayerView: View {
                     .foregroundColor(color)
                     .multilineTextAlignment(.center)
                     .modifier(SubShadow(style: subShadow, color: shade))
-                    .padding(.horizontal, 10).padding(.vertical, 3)
+                    .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.xs)
                     .background(Color.black.opacity(Self.bgs.first { $0.0 == subBg }?.2 ?? 0))
                     .cornerRadius(Glass3DTokens.Radius.tag)
                     .padding(.horizontal, size.width * 0.08)
@@ -438,7 +443,7 @@ struct ClassicPlayerView: View {
             }.frame(width: 160).handCursor()
             iconButton(ui.volumeIcon, size: 18) { ui.toggleMute() }.helpLabel(model.volume == 0 ? "Unmute" : "Mute")
         }
-        .padding(.horizontal, 20).padding(.top, 14)
+        .padding(.horizontal, Glass3DTokens.Space.xl).padding(.top, Glass3DTokens.Space.l)
     }
 
     // MARK: Bottom bar
@@ -469,7 +474,7 @@ struct ClassicPlayerView: View {
                 Spacer()
                 if !classic {   // Glass3D: subtitles, audio, quality & speed are in the glass bar
                     iconButton("captions.bubble", on: ui.panel != nil) {
-                        withAnimation(.easeOut(duration: 0.2)) { ui.toggleMediaPanel() }
+                        withAnimation(Glass3DTokens.Motion.spring) { ui.toggleMediaPanel() }
                     }.helpLabel("Subtitles, audio, quality & speed")
                 }
             }
@@ -516,9 +521,10 @@ struct ClassicPlayerView: View {
                     }.helpLabel(ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
                 }
             }
-            .padding(.top, 4)
+            .modifier(PlayerControlCapsule(on: classic))   // Glass3D: the transport and the bar in ONE glass capsule
+            .padding(.top, Glass3DTokens.Space.xs)
         }
-        .padding(.horizontal, 34).padding(.bottom, 24)
+        .padding(.horizontal, Glass3DTokens.Space.page).padding(.bottom, 24)
     }
 
     @ViewBuilder func iconButton(_ name: String, size: CGFloat = 22, on: Bool = false, _ action: @escaping () -> Void) -> some View {
@@ -551,7 +557,7 @@ struct ClassicPlayerView: View {
             if classic {
                 // Right above its button (top right of the controls), growing from it
                 VStack { Spacer(); HStack { Spacer(); mediaPanel } }
-                    .padding(.top, 84).padding(.bottom, 196).padding(.trailing, 30)
+                    .padding(.top, 84).padding(.bottom, 196).padding(.trailing, Glass3DTokens.Space.xxl)
                     .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
             } else {
                 HStack { Spacer(); mediaPanel }
@@ -586,7 +592,7 @@ struct ClassicPlayerView: View {
         let reset = { subTextSize = "normal"; subColor = "white"; subShadow = "drop"; subBg = "none"; subBottom = 10 }
         if classic {
             Button(action: reset) {
-                Text("Reset to Default").cvFont(13, weight: .semibold).padding(.horizontal, 16).frame(minHeight: 34).classicGlassPill()
+                Text("Reset to Default").cvFont(13, weight: .semibold).padding(.horizontal, Glass3DTokens.Space.l).frame(minHeight: 34).classicGlassPill()
             }.buttonStyle(HoverButton())
         } else {
             Button("Reset to Default", action: reset)
@@ -625,10 +631,10 @@ struct ClassicPlayerView: View {
     func sectionTitle(_ t: String) -> some View {
         Text(classic ? t.uppercased() : t).cvFont(classic ? 10 : 13, weight: .semibold).foregroundColor(.secondary)
             .kerning(classic ? 0.6 : 0)
-            .padding(.horizontal, classic ? 18 : 22).padding(.top, classic ? 8 : 10).padding(.bottom, 4)
+            .padding(.horizontal, classic ? 18 : 22).padding(.top, classic ? 8 : 10).padding(.bottom, Glass3DTokens.Space.xs)
     }
 
-    func panelDivider() -> some View { Divider().padding(.horizontal, 18).padding(.vertical, 6) }
+    func panelDivider() -> some View { Divider().padding(.horizontal, Glass3DTokens.Space.xl).padding(.vertical, Glass3DTokens.Space.s) }
 
     /// One side panel with everything the old Subtitles, Speed and Settings popups had (Glass3D: Glass3DMediaPanel).
     @ViewBuilder var mediaPanel: some View {
@@ -705,7 +711,7 @@ struct ClassicPlayerView: View {
                         }.buttonStyle(.plainHand).helpLabel(PlayerUIModel.speedHelp(r))
                     }
                 }
-                .padding(.horizontal, classic ? 18 : 22).padding(.bottom, 6)
+                .padding(.horizontal, classic ? 18 : 22).padding(.bottom, Glass3DTokens.Space.s)
             }
             .padding(.vertical, classic ? 8 : 12)
         }
@@ -739,7 +745,7 @@ struct ClassicPlayerView: View {
                     Spacer()
                     Image(systemName: "chevron.down").cvFont(13, weight: .bold)
                 }
-                .padding(.horizontal, 14).padding(.vertical, 11)
+                .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.m)
                 .background(Color.white.opacity(0.1)).cornerRadius(Glass3DTokens.Radius.thumb)
                 .contentShape(Rectangle())
             }
@@ -757,7 +763,7 @@ struct ClassicPlayerView: View {
                     .buttonStyle(.plainHand)
                 Text("Subtitle Appearance").cvFont(18, weight: .bold)
             }
-            .padding(.horizontal, 28).padding(.vertical, 22)
+            .padding(.horizontal, Glass3DTokens.Space.xxl).padding(.vertical, Glass3DTokens.Space.xl)
         }
     }
 
@@ -770,13 +776,13 @@ struct ClassicPlayerView: View {
                     dropdown("Text color", $subColor, Self.colors.map { ($0.0, $0.1) })
                     dropdown("Drop shadow", $subShadow, Self.shadows)
                     dropdown("Background color", $subBg, Self.bgs.map { ($0.0, $0.1) })
-                    Text("Subtitle Position").cvFont(20, weight: .bold).padding(.top, 8)
+                    Text("Subtitle Position").cvFont(20, weight: .bold).padding(.top, Glass3DTokens.Space.s)
                     VStack(alignment: .leading, spacing: 8) {
                         dropdown("Bottom Edge Position", $subBottom, PlayerUIModel.bottomPositions)
                         Text("Set the vertical position of the subtitles relative to the bottom of the screen.")
                             .cvFont(13).foregroundColor(.secondary)
                     }
-                    resetAppearanceButton.padding(.top, 6)
+                    resetAppearanceButton.padding(.top, Glass3DTokens.Space.s)
                 }
                 .padding(.horizontal, classic ? 20 : 28).padding(.bottom, classic ? 18 : 28)
             }
@@ -830,18 +836,18 @@ extension ClassicPlayerView {
         var a: [Glass3DBarItem] = []
         if ui.hasEpisodeList(item) {
             a.append(Glass3DBarItem(id: "episodes", icon: "list.and.film", on: ui.panel == .episodes, help: ui.listHelp) {
-                withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
+                withAnimation(Glass3DTokens.Motion.spring) { ui.toggleEpisodes(item) }
             })
         }
         if !model.chapterList.isEmpty {
             a.append(Glass3DBarItem(id: "chapters", icon: "list.bullet.rectangle", on: ui.panel == .chapters, help: "Chapters (C)") {
-                withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
+                withAnimation(Glass3DTokens.Motion.spring) { ui.toggleChapters() }
             })
         }
         // Subtitles: a glass panel (tracks, then offset and appearance)
         let subsOpen = ui.panel == .subtitles || ui.panel == .appearance
         a.append(Glass3DBarItem(id: "subtitles", icon: "captions.bubble", on: subsOpen || model.sub != nil, help: "Subtitles") {
-            withAnimation(.easeOut(duration: 0.2)) { ui.panel = subsOpen ? nil : .subtitles }
+            withAnimation(Glass3DTokens.Motion.spring) { ui.panel = subsOpen ? nil : .subtitles }
         })
         if !model.audioStreams.isEmpty {
             let audio = model.audioStreams
@@ -854,7 +860,7 @@ extension ClassicPlayerView {
         a.append(Glass3DBarItem(id: "quality", icon: "dial.medium", on: model.quality != 0 || model.speed != 1,
                                 help: "Quality & speed", menu: qualitySpeedMenu))
         a.append(Glass3DBarItem(id: "syncplay", icon: "person.2.fill", on: ui.panel == .syncPlay, help: "Watch together", syncPlayOnly: true) {
-            withAnimation(.easeOut(duration: 0.2)) { ui.toggleSyncPlay() }
+            withAnimation(Glass3DTokens.Motion.spring) { ui.toggleSyncPlay() }
         })
         a.append(Glass3DBarItem(id: "info", icon: "info.circle", on: ui.showInfo, help: "Playback info (I)") { ui.showInfo.toggle() })
         if model.pipSupported {
@@ -862,7 +868,7 @@ extension ClassicPlayerView {
                                     help: "Picture in picture (P)") { model.togglePiP() })
         }
         a.append(Glass3DBarItem(id: "cast", icon: "tv.and.mediabox", on: CastPickerState.shared.open, help: "Cast") {
-            withAnimation(.easeOut(duration: 0.2)) { CastPickerState.shared.open.toggle() }
+            withAnimation(Glass3DTokens.Motion.spring) { CastPickerState.shared.open.toggle() }
         })
         a.append(Glass3DBarItem(id: "airplay", icon: "airplayvideo", on: model.airPlayActive, help: "AirPlay", routePlayer: model.player))
         a.append(Glass3DBarItem(id: "fullscreen", icon: ui.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
@@ -886,18 +892,18 @@ extension ClassicPlayerView {
         HStack(spacing: 22) {
             if ui.hasEpisodeList(item) {
                 iconButton("list.and.film", size: 18, on: ui.panel == .episodes) {
-                    withAnimation(.easeOut(duration: 0.2)) { ui.toggleEpisodes(item) }
+                    withAnimation(Glass3DTokens.Motion.spring) { ui.toggleEpisodes(item) }
                 }.helpLabel(ui.listHelp)
             }
             classicQualityMenu   // subtitles: only the floating captions button's panel
             if !model.chapterList.isEmpty {
                 iconButton("list.bullet.rectangle", size: 18, on: ui.panel == .chapters) {
-                    withAnimation(.easeOut(duration: 0.2)) { ui.toggleChapters() }
+                    withAnimation(Glass3DTokens.Motion.spring) { ui.toggleChapters() }
                 }.helpLabel("Chapters (C)")
             }
             SyncPlayPlayerButton(group: emby.syncPlay.group) {
                 iconButton("person.2.fill", size: 18, on: ui.panel == .syncPlay) {
-                    withAnimation(.easeOut(duration: 0.2)) { ui.toggleSyncPlay() }
+                    withAnimation(Glass3DTokens.Motion.spring) { ui.toggleSyncPlay() }
                 }.helpLabel("Watch together")
             }
             iconButton("info.circle", size: 18, on: ui.showInfo) { ui.showInfo.toggle() }.helpLabel("Playback info (I)")
@@ -962,7 +968,7 @@ extension ClassicPlayerView {
                         // A secondary glass pill, as Cancel on the Up next card (no bare accent text as a button)
                         Button { model.watchIntro() } label: {
                             Text("Watch intro").cvFont(14, weight: .semibold).foregroundColor(.white)
-                                .padding(.horizontal, 14).padding(.vertical, 7)
+                                .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s)
                                 .classicGlassPill()
                         }.buttonStyle(HoverButton())
                     } else {
@@ -970,21 +976,21 @@ extension ClassicPlayerView {
                             .cvFont(15, weight: .semibold).foregroundColor(accent)
                     }
                 }
-                .padding(.horizontal, 18).frame(height: 44)
+                .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: 44)
                 .searchGlass()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
                     Label("Skip Intro", systemImage: "forward.fill").cvFont(16, weight: .semibold)
                         .foregroundColor(.white)
-                        .padding(.horizontal, 22).frame(height: 44)
+                        .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: 44)
                         .searchGlass()
                 }.buttonStyle(HoverButton())
             }
             if classicShowUpNext, let n = nextEp { classicUpNextCard(n).transition(.coveGlassPopIn) }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.trailing, 34)
+        .padding(.trailing, Glass3DTokens.Space.page)
         .padding(.bottom, ui.showUI ? 200 : 40)
         .animation(.easeOut(duration: 0.2), value: model.skippedIntro)
         .coveGlassPopIn(value: classicShowUpNext)   // as the bottom search pill
@@ -1003,12 +1009,12 @@ extension ClassicPlayerView {
                 HStack(spacing: 10) {
                     Button { play(n) } label: {
                         Text("Play now").cvFont(14, weight: .semibold)
-                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
                     Button { ui.upNextCancelled = true } label: {
                         Text("Cancel").cvFont(14, weight: .semibold)
-                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s)
                             .classicGlassPill()
                     }.buttonStyle(HoverButton())
                     .helpLabel(emby.syncPlay.group.isInGroup ? GroupUpNext.cancelTip : "Cancel")
@@ -1018,7 +1024,7 @@ extension ClassicPlayerView {
             }
         }
         .modifier(Glass3DReadableText())   // the top bar tabs' text treatment (owner)
-        .padding(12)
+        .padding(Glass3DTokens.Space.m)
         .glassPanel()
         .environment(\.colorScheme, .dark)
         .onTapGesture {}
@@ -1039,13 +1045,13 @@ extension ClassicPlayerView {
                     }
                 }
                 .cvFont(12) { $0.monospacedDigit() }
-                .padding(14)
+                .padding(Glass3DTokens.Space.l)
                 .modifier(InfoSurface(classic: classic))
                 Spacer()
             }
             Spacer()
         }
-        .padding(.top, 70).padding(.leading, 20)
+        .padding(.top, 70).padding(.leading, Glass3DTokens.Space.xl)
         .allowsHitTesting(false)
     }
 
@@ -1067,12 +1073,12 @@ extension ClassicPlayerView {
                         }.labelsHidden().fixedSize()
                     }
                 }
-            }.padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
+            }.padding(.horizontal, Glass3DTokens.Space.xl).padding(.top, Glass3DTokens.Space.l).padding(.bottom, Glass3DTokens.Space.s)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(list) { ep in classicEpisodePickerRow(ep).id(ep.Id) }
-                    }.padding(.bottom, 10)
+                    }.padding(.bottom, Glass3DTokens.Space.m)
                 }
                 .classicScrollBars()   // thin overlay bars, only while scrolling
                 .onAppear { proxy.scrollTo(item.Id, anchor: .center) }
@@ -1096,7 +1102,7 @@ extension ClassicPlayerView {
                 .overlay {
                     if current {
                         Image(systemName: "speaker.wave.2.fill").cvFont(18).foregroundColor(.white)
-                            .padding(6).background(Circle().fill(Color.black.opacity(0.6)))
+                            .padding(Glass3DTokens.Space.s).background(Circle().fill(Color.black.opacity(0.6)))
                     }
                 }
                 .overlay {
@@ -1108,7 +1114,7 @@ extension ClassicPlayerView {
                 .overlay(alignment: .topTrailing) {
                     if played && !current {
                         Image(systemName: "checkmark.circle.fill").cvFont(14)
-                            .foregroundColor(.white).shadow(radius: 2).padding(4)
+                            .foregroundColor(.white).shadow(radius: 2).padding(Glass3DTokens.Space.xs)
                     }
                 }
                 VStack(alignment: .leading, spacing: 3) {
@@ -1120,7 +1126,7 @@ extension ClassicPlayerView {
                 Spacer(minLength: 0)
             }
             .foregroundColor(classic || !current ? .white : accent)
-            .padding(.horizontal, 14).padding(.vertical, 6)
+            .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s)
             .background {
                 // Classic: the playing one on an accent glass band, as the chosen line in the glass lists
                 if classic && current { RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(accent.opacity(0.4)) }
@@ -1171,7 +1177,7 @@ extension ClassicPlayerView {
                 Spacer()
             }
             .foregroundColor(classic || !current ? .white : accent)
-            .padding(.horizontal, classic ? 12 : 18).padding(.vertical, 7)
+            .padding(.horizontal, classic ? 12 : 18).padding(.vertical, Glass3DTokens.Space.s)
             .background {
                 if classic && current { RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(accent.opacity(0.4)) }
             }

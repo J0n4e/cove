@@ -4,7 +4,13 @@ import SwiftUI
 /// spinners stay only inside buttons and rows. Like `Spinner`, draws nothing while a video plays (pages behind the
 /// player can show through it).
 struct SkeletonShimmer: View {
+    /// rows: list-shaped blocks; posters: poster-shaped blocks that wrap like the poster grids (Library, Home rows)
+    enum Layout { case rows, posters }
+    var layout: Layout = .rows
     var rows: Int = 3
+    /// Poster blocks: their size and the grid spacing (the poster grid's)
+    var poster = CGSize(width: 150, height: 225)
+    var posterSpacing: CGFloat = Glass3DTokens.Space.l
     var rowHeight: CGFloat = 56
     var spacing: CGFloat = Glass3DTokens.Space.m
     var radius: CGFloat = Glass3DTokens.Radius.card
@@ -48,11 +54,28 @@ struct SkeletonShimmer: View {
         }
     }
 
-    private var blocks: some View {
-        VStack(spacing: spacing) {
-            ForEach(0..<Self.blockCount(rows), id: \.self) { _ in
-                RoundedRectangle(cornerRadius: radius, style: .continuous).frame(height: rowHeight)
+    @ViewBuilder private var blocks: some View {
+        switch layout {
+        case .rows:
+            VStack(spacing: spacing) {
+                ForEach(0..<Self.blockCount(rows), id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: radius, style: .continuous).frame(height: rowHeight)
+                }
+            }
+        case .posters:
+            // Wraps to the width it gets (a fixed row of posters would widen the page)
+            LazyVGrid(columns: Self.posterColumns(poster.width, spacing: posterSpacing), alignment: .leading,
+                      spacing: posterSpacing) {
+                ForEach(0..<Self.blockCount(rows), id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous)
+                        .frame(width: poster.width, height: poster.height)
+                }
             }
         }
+    }
+
+    /// The poster skeleton's grid: as the poster grids, fixed-width columns as many as fit.
+    static func posterColumns(_ width: CGFloat, spacing: CGFloat) -> [GridItem] {
+        [GridItem(.adaptive(minimum: width, maximum: width), spacing: spacing, alignment: .topLeading)]
     }
 }

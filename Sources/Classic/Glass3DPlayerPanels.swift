@@ -163,7 +163,7 @@ struct Glass3DPanelHeading<Trailing: View>: View {
             Spacer(minLength: 8)
             trailing()
         }
-        .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
+        .padding(.horizontal, Glass3DTokens.Space.xl).padding(.top, Glass3DTokens.Space.l).padding(.bottom, Glass3DTokens.Space.s)
     }
 }
 
@@ -183,7 +183,7 @@ struct Glass3DPanelSection: View {
             Text(title.uppercased()).cvFont(11, weight: .semibold).kerning(0.6)
         }
         .foregroundColor(.secondary)
-        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 4)
+        .padding(.horizontal, Glass3DTokens.Space.xl).padding(.top, Glass3DTokens.Space.m).padding(.bottom, Glass3DTokens.Space.xs)
     }
 }
 
@@ -206,11 +206,11 @@ struct Glass3DPanelRow: View {
                 if chevron { Image(systemName: "chevron.right").cvFont(11, weight: .bold).foregroundColor(.secondary) }
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 14).padding(.vertical, 8).frame(minHeight: 36)
+            .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s).frame(minHeight: 36)
             .contentShape(Rectangle())
         }
         .buttonStyle(PanelRowStyle(glass: true))
-        .padding(.horizontal, 6)
+        .padding(.horizontal, Glass3DTokens.Space.s)
     }
 }
 
@@ -225,8 +225,8 @@ struct Glass3DPanelControlRow<Controls: View>: View {
             controls()
         }
         .foregroundColor(.white)
-        .padding(.horizontal, 14).padding(.vertical, 8).frame(minHeight: 36)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s).frame(minHeight: 36)
+        .padding(.horizontal, Glass3DTokens.Space.s)
     }
 }
 
@@ -300,7 +300,7 @@ struct Glass3DFieldPicker<T: Hashable>: View {
             }
             .cvFont(13, weight: .medium)
             .foregroundColor(.white)
-            .padding(.horizontal, 12).frame(height: 32)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 32)
             .background(shape.fill(Color.white.opacity(hover ? 0.14 : 0.07)))
             .overlay(shape.strokeBorder(Color.white.opacity(hover ? 0.3 : 0.15), lineWidth: 0.75))
             .contentShape(shape)
@@ -360,10 +360,10 @@ struct Glass3DSubtitlesPanel: View {
             }
             Glass3DPanelRow(title: "Subtitle Appearance", chevron: true, action: openAppearance)
         }
-        .padding(.bottom, 8)
+        .padding(.bottom, Glass3DTokens.Space.s)
     }
 
-    var divider: some View { Divider().padding(.horizontal, 20).padding(.vertical, 6) }
+    var divider: some View { Divider().padding(.horizontal, Glass3DTokens.Space.xl).padding(.vertical, Glass3DTokens.Space.s) }
 }
 
 // MARK: - Bar menus (audio; quality & speed)
@@ -447,15 +447,53 @@ struct Glass3DControlBar: View {
                 else { Glass3DBarButton(item: it, poke: poke) }
             }
         }
-        .padding(.horizontal, 6).padding(.vertical, 3)
+        .padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, Glass3DTokens.Space.xs)
         .modifier(Glass3DBarSurface())
         .environment(\.colorScheme, .dark)
     }
 }
 
-private struct Glass3DBarSurface: ViewModifier {
+private struct PlayerBarInCapsuleKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    /// The control bar sits inside the player's one glass capsule: it draws no glass of its own
+    var playerBarInCapsule: Bool {
+        get { self[PlayerBarInCapsuleKey.self] }
+        set { self[PlayerBarInCapsuleKey.self] = newValue }
+    }
+}
+
+/// Glass3D player: the bottom controls (transport + the right-hand bar) in ONE glass capsule on the level-3
+/// elevation recipe (specular top edge, its shadow). Liquid Glass on macOS 26, the material fallback before.
+/// The plain theme: unchanged.
+struct PlayerControlCapsule: ViewModifier {
+    let on: Bool
     @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 26, *) {
+        if on {
+            let lv = Glass3DTokens.elevation(3)
+            content
+                .padding(.horizontal, Glass3DTokens.Space.xl).padding(.vertical, Glass3DTokens.Space.s)
+                .environment(\.playerBarInCapsule, true)
+                .modifier(Glass3DBarSurface(force: true))
+                .overlay {
+                    Capsule().strokeBorder(LinearGradient(colors: [Color.white.opacity(lv.highlight), .clear],
+                                                          startPoint: .top, endPoint: .center), lineWidth: 1)
+                        .allowsHitTesting(false)
+                }
+                .g3Shadow(lv.shadow ?? Glass3DTokens.shadowLarge)
+        } else {
+            content
+        }
+    }
+}
+
+private struct Glass3DBarSurface: ViewModifier {
+    /// Draw even inside the capsule (the capsule's own surface)
+    var force = false
+    @Environment(\.playerBarInCapsule) private var inCapsule
+    @ViewBuilder func body(content: Content) -> some View {
+        if inCapsule && !force {
+            content
+        } else if #available(macOS 26, *) {
             GlassEffectContainer {
                 content
                     .background(Capsule().fill(Color.black.opacity(0.18)))
@@ -499,7 +537,7 @@ private struct Glass3DBarButton: View {
             Image(systemName: item.icon).cvFont(17, weight: .medium)
                 .foregroundColor(item.on ? Theme.accent(accentName) : .white)
                 .frame(width: 42, height: 38)
-                .background(Capsule().fill(Color.white.opacity(hover ? 0.14 : 0)).padding(.vertical, 2))
+                .background(Capsule().fill(Color.white.opacity(hover ? 0.14 : 0)).padding(.vertical, Glass3DTokens.Space.xs))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)

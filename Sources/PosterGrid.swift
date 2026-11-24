@@ -241,6 +241,8 @@ struct PosterGrid: NSViewRepresentable {
         var open: (Item) -> Void = { _ in }
         /// The poster under the pointer
         private var hoverIndex: Int?
+        /// The hover shine: ONE layer for the whole grid, moved onto the hovered poster (UI polish round 2)
+        let shine = PosterShineLayer()
 
         func collectionView(_ cv: NSCollectionView, numberOfItemsInSection section: Int) -> Int { items.count }
 
@@ -311,7 +313,14 @@ struct PosterGrid: NSViewRepresentable {
             guard i != hoverIndex else { return }
             if let old = hoverIndex { cell(old)?.setHover(false) }
             hoverIndex = i
-            if let i { cell(i)?.setHover(true) }
+            shine.removeFromSuperlayer()   // off while scrolling too: a scroll ends the hover
+            if let i, let c = cell(i) { c.setHover(true); c.attachShine(shine) }
+        }
+
+        /// Moves the shine with the pointer (`p` in the grid's coordinates): only its points change.
+        func moveShine(_ p: NSPoint) {
+            guard let i = hoverIndex, let c = cell(i), let cv else { return }
+            c.placeShine(shine, at: c.view.convert(p, from: cv))
         }
 
         func cell(_ i: Int) -> PosterGridCell? { cv?.item(at: IndexPath(item: i, section: 0)) as? PosterGridCell }
@@ -349,8 +358,10 @@ final class PosterCollectionView: NSCollectionView {
     override func mouseMoved(with e: NSEvent) {
         super.mouseMoved(with: e)
         guard !ScrollActivity.scrolling, let c = coordinator else { return }
-        let i = c.item(at: convert(e.locationInWindow, from: nil))
+        let p = convert(e.locationInWindow, from: nil)
+        let i = c.item(at: p)
         c.hover(i)
+        c.moveShine(p)
         if i != nil { NSCursor.pointingHand.set() }
     }
 
@@ -637,8 +648,34 @@ final class PosterGridCell: NSCollectionViewItem {
         }
     }
 
+    /// Takes the grid's single shine layer: over the picture, under the badges and the edge; fades in.
+    func attachShine(_ s: PosterShineLayer) {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        card.insertSublayer(s, above: poster)
+        s.frame = card.bounds
+        s.cornerRadius = look.radius
+        s.place(Glass3DTokens.Shine.rest)
+        CATransaction.commit()
+        let f = CABasicAnimation(keyPath: "opacity")
+        f.fromValue = NSNumber(value: 0); f.toValue = NSNumber(value: 1)
+        f.duration = Glass3DTokens.Motion.duration(.fast, reduceMotion: PosterShineLayer.reduceMotion)
+        s.add(f, forKey: "in")
+    }
+
+    /// Puts the shine under the pointer (`p` in this cell's view; the card may be zoomed about its centre).
+    func placeShine(_ s: PosterShineLayer, at p: NSPoint) {
+        guard s.superlayer === card else { return }
+        let ps = look.size
+        let q = CGPoint(x: p.x - (card.position.x - ps.width / 2), y: p.y - (card.position.y - ps.height / 2))
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        s.place(PosterShineMath.unit(cardPoint: q, size: ps, zoom: hovered ? PosterBadgeHit.zoom : 1,
+                                     reduceMotion: PosterShineLayer.reduceMotion))
+        CATransaction.commit()
+    }
+
     /// Zooms the poster in or out over 0.2 s; going the other way mid-way continues from where it is.
     func setHover(_ on: Bool, animated: Bool = true) {
+        if !on { card.sublayers?.first { $0 is PosterShineLayer }?.removeFromSuperlayer() }   // a reused cell keeps no shine
         if on == hovered && animated { return }
         hovered = on
         view.layer?.zPosition = on ? 1 : 0   // over its neighbours while zoomed

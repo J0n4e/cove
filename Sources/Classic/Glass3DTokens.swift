@@ -23,6 +23,41 @@ enum Glass3DTokens {
         static let banner: CGFloat = 22
         /// Year in review share image cards (rendered at a fixed large pixel size)
         static let shareCard: CGFloat = 32
+        /// Capsule ends for rounded-rectangle APIs (SwiftUI clamps it to half the height)
+        static let pill: CGFloat = 999
+    }
+
+    // MARK: Hover shine (posters)
+    /// The soft light that follows the pointer over the hovered poster: a radial highlight under the badges.
+    enum Shine {
+        /// Centre opacity of the highlight
+        static let opacity = 0.16
+        /// Radius as a fraction of the poster's longer side
+        static let radius: CGFloat = 0.7
+        /// Where it rests with Reduce Motion on (top-left third; y measured from the top)
+        static let rest = CGPoint(x: 0.3, y: 0.25)
+    }
+
+    // MARK: Ken Burns (Home banner, detail hero backdrop)
+    enum KenBurns {
+        /// Seconds for one zoom-in (then the same back out)
+        static let period: Double = 26
+        /// Largest zoom
+        static let maxScale: CGFloat = 1.06
+        /// How far off-centre the zoom's anchor sits (fraction of the size), which gives the slow pan
+        static let pan: CGFloat = 0.3
+        /// Redraw interval: slow movement needs no more than this
+        static let frameInterval: Double = 1.0 / 30
+    }
+
+    // MARK: Player scrubber
+    enum Scrubber {
+        static let track: CGFloat = 6
+        static let trackHover: CGFloat = 8
+        static let knob: CGFloat = 14
+        static let height: CGFloat = 18
+        static let trackOpacity = 0.35
+        static let fillOpacity = 0.55
     }
 
     // MARK: Glass fill / outline
@@ -63,6 +98,11 @@ enum Glass3DTokens {
         static let m: CGFloat = 10
         static let l: CGFloat = 14
         static let xl: CGFloat = 20
+        static let xxl: CGFloat = 28
+        /// Page side inset (Home rows, banner card)
+        static let page: CGFloat = 32
+        /// Wide page side inset (detail pages, library)
+        static let pageWide: CGFloat = 40
     }
 
     // MARK: Animation
@@ -186,7 +226,7 @@ struct Glass3DRowHeading: View {
     var seeAll: (() -> Void)? = nil
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            SwiftUI.Text(title).cvFont(Glass3DTokens.Text.section, weight: .bold)
+            SectionHeader(title: title, style: .page)
             Spacer(minLength: 12)
             if let seeAll {
                 Button(action: seeAll) {

@@ -270,7 +270,7 @@ struct ClassicDetailView: View {
                 // Fill the page width without growing it: a filled image sized by its own width made the whole
                 // page wider than the window (pushing the Top bar's Search and Settings off screen)
                 Color.clear.frame(height: 520)
-                    .overlay { ClassicBackdrop(id: item.backdropId ?? item.Id) }
+                    .overlay { ClassicBackdrop(id: item.backdropId ?? item.Id).kenBurns(seed: item.id) }
                     .clipped().opacity(0.35)
                 LinearGradient(colors: [Color.clear, bg], startPoint: .top, endPoint: .bottom)
             }.frame(height: 520) }
@@ -291,7 +291,7 @@ struct ClassicDetailView: View {
     var showBanner: some View {
         ZStack(alignment: .bottomLeading) {
             Color.clear.frame(maxWidth: .infinity).frame(height: max(pageH, 420))
-                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: 2560) }.clipped()
+                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: 2560).kenBurns(seed: item.id) }.clipped()
             LinearGradient(stops: [.init(color: .black.opacity(0.75), location: 0), .init(color: .clear, location: 0.6)],
                            startPoint: .leading, endPoint: .trailing)
             LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
@@ -310,6 +310,7 @@ struct ClassicDetailView: View {
                 Text(item.Overview ?? "").cvFont(15).lineLimit(3)
                     .foregroundColor(.white.opacity(0.85)).frame(maxWidth: 520, alignment: .leading)
             }
+            .modifier(DetailInfoPanel())   // layered depth: the info on a glass panel over the backdrop
             .padding(.leading, 80).padding(.bottom, 56).padding(.trailing, item.isSeries || item.isBox ? 600 : 80)
             if item.isBox && !model.boxMovies.isEmpty {
                 // A collection's movies as a deck, oldest first, the year under the front one
@@ -326,7 +327,7 @@ struct ClassicDetailView: View {
                            watched: { emby.isPlayed(movies[$0]) },
                            noun: "movie")
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.trailing, 44).padding(.bottom, 30)
+                    .padding(.trailing, 44).padding(.bottom, Glass3DTokens.Space.xxl)
                     .transition(.opacity)
             }
             if model.seasonNumbers.count > 1 {
@@ -363,7 +364,7 @@ struct ClassicDetailView: View {
                        badge: { model.unwatched($0) },
                        seasonItem: { n in model.seasonItem(n) },
                        episodes: { n in model.episodes(inSeason: n) })
-                    .padding(.trailing, 40)   // in line with the episodes' right edge
+                    .padding(.trailing, Glass3DTokens.Space.pageWide)   // in line with the episodes' right edge
                 }
             }
     }
@@ -375,9 +376,9 @@ struct ClassicDetailView: View {
             } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
             .frame(width: item.isEpisode ? 320 : 220, height: item.isEpisode ? 180 : 330)
             .clipped().cornerRadius(Glass3DTokens.Radius.row)
-            .modifier(ClassicLightCard(radius: 10,
+            .modifier(ClassicLightCard(radius: Glass3DTokens.Radius.row,
                                        size: item.isEpisode ? CGSize(width: 320, height: 180) : CGSize(width: 220, height: 330)))   // the posters' light glass edge and sheen, as the cards
-            .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
+            .g3Shadow(Glass3DTokens.shadowLarge)   // level-2 depth under the poster
             VStack(alignment: .leading, spacing: 14) {
                 Text(item.Name).cvFont(46, weight: .black)
                 meta
@@ -391,7 +392,8 @@ struct ClassicDetailView: View {
                         .cvFont(12, weight: .regular)
                 }
             }
-        }.padding(.horizontal, 40).padding(.top, 40)
+            .modifier(DetailInfoPanel())   // layered depth: the info on a glass panel over the backdrop
+        }.padding(.horizontal, Glass3DTokens.Space.pageWide).padding(.top, Glass3DTokens.Space.pageWide)
     }
 
     var meta: some View {
@@ -403,7 +405,7 @@ struct ClassicDetailView: View {
             if let y = item.ProductionYear { Text(String(y)) }
             if let t = model.full?.RunTimeTicks { Text(runtimeText(t)) }
             if let o = model.full?.OfficialRating {
-                Text(o).cvFont(10, weight: .regular).padding(.horizontal, 5).padding(.vertical, 1)
+                Text(o).cvFont(10, weight: .regular).padding(.horizontal, Glass3DTokens.Space.xs).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag).stroke(Color.secondary))
             }
             if let g = model.full?.Genres?.first { Text(g) }
@@ -457,38 +459,39 @@ struct ClassicDetailView: View {
     var buttons: some View {
         let played = emby.isPlayed(item)
         let fav = emby.isFav(item)
-        // All the same size and shape: 44-pt glass pills
-        return HStack(spacing: 10) {
+        // All the same height (DetailInfoPanel.buttonHeight), one button family (HoverButton = GlassButtonStyle.lift)
+        return HStack(spacing: Glass3DTokens.Space.m) {
             let r = model.resumePoint
             if item.isBox {   // Play collection (+ Resume <film>): collection mode, Glass3DCollectionPlay.swift
                 CollectionPlayButtons(collection: item, films: model.kids)
             } else {
                 Button { model.playNow(from: r > 0 ? 0 : nil) } label: {
-                    Label(model.playLabel, systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
+                    // Primary: solid accent with the glossy top edge (owner), same 44-pt height as the rest
+                    Label(model.playLabel, systemImage: "play.fill").classicPrimaryPill(size: DetailInfoPanel.buttonHeight)
                 }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? model.playLabel + " from the beginning" : model.playLabel)
             }
             if r > 0 {
                 Button { model.playNow() } label: {
                     // Short (owner): the time alone says a resume is there; the full text is the tooltip
-                    Label(timeString(r), systemImage: "arrow.uturn.forward").classicGlassPill(size: 44, iconOnly: false)
+                    Label(timeString(r), systemImage: "arrow.uturn.forward").classicGlassPill(size: DetailInfoPanel.buttonHeight, iconOnly: false)
                 }.buttonStyle(HoverButton()).tip("Resume from \(timeString(r))").accessibilityLabel("Resume from \(timeString(r))")
             }
             WatchTogetherButton(item: model.playTarget, start: r, classic: true)
             if model.playTarget != nil || item.isBox { DetailTvButtons(model: model) }
             if let u = SafeLink.url(model.full?.RemoteTrailers?.first?.Url) {
                 Button { Trailer.open(u, item: item, emby: emby) } label: {
-                    Label("Trailer", systemImage: "film").classicGlassPill(size: 44).glass3DRoundOutline()
+                    Label("Trailer", systemImage: "film").classicGlassPill(size: DetailInfoPanel.buttonHeight).glass3DRoundOutline()
                 }.buttonStyle(HoverButton()).helpLabel("Trailer")
             }
             Button { Task { await emby.setItemPlayed(item, !played, name: item.Name, rollback: false) } } label: {
                 Label(played ? "Watched" : "Mark as Watched", systemImage: played ? "checkmark.circle.fill" : "checkmark.circle")
-                    .classicGlassPill(size: 44).glass3DRoundOutline()
+                    .classicGlassPill(size: DetailInfoPanel.buttonHeight).glass3DRoundOutline()
             }.buttonStyle(HoverButton()).helpLabel(item.isBox ? CollectionWatched.tip(played: played, count: emby.boxFilms[item.id]?.count) : played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {
                 Label { Text(fav ? "Favorite" : "Add to Favorites") } icon: {
                     if fav { FavHeart(size: 17) } else { Image(systemName: "heart") }
                 }
-                .classicGlassPill(size: 44).glass3DRoundOutline()
+                .classicGlassPill(size: DetailInfoPanel.buttonHeight).glass3DRoundOutline()
             }.buttonStyle(HoverButton()).helpLabel(fav ? "Remove from Favorites" : "Add to Favorites")
             // Admins: the ⋯ tools right after ♡, with the other actions (owner), before the divider and ★
             ItemAdminButton(item: item) { Task { await model.load() } }
@@ -529,13 +532,13 @@ struct ClassicDetailView: View {
 
     var seasonRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Glass3DRowHeading(title: "Seasons").padding(.horizontal, 40)
+            Glass3DRowHeading(title: "Seasons").padding(.horizontal, Glass3DTokens.Space.pageWide)
             if seasonLayout == "grid" {
                 // All seasons at once, wrapped onto as many lines as needed
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 170), spacing: 18, alignment: .top)],
                           alignment: .leading, spacing: 18) {
                     ForEach(model.seasonNumbers, id: \.self) { n in seasonPoster(n) }
-                }.padding(.horizontal, 40).padding(.vertical, 8)
+                }.padding(.horizontal, Glass3DTokens.Space.pageWide).padding(.vertical, Glass3DTokens.Space.s)
             } else {
                 ArrowScrollRow(ids: model.seasonNumbers, itemWidth: 170) { n in seasonPoster(n) }
             }
@@ -546,12 +549,12 @@ struct ClassicDetailView: View {
         let multi: Bool = model.seasonNumbers.count > 1
         let heading: String = multi ? model.seasonTitle(model.currentSeason) : "Episodes"
         return HStack(spacing: 16) {
-            Text(heading).cvFont(Glass3DTokens.Text.section, weight: .bold)
+            SectionHeader(title: heading, style: .page)
             if model.canFilterWatched {
                 // A secondary glass pill (no bare accent text as a button)
                 Button { model.showAllEps.toggle() } label: {
                     Text(model.showAllEps ? "Hide watched" : "Show all").cvFont(12, weight: .semibold).foregroundColor(.white)
-                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.xs)
                         .classicGlassPill()
                 }.buttonStyle(HoverButton())
             }
@@ -563,7 +566,7 @@ struct ClassicDetailView: View {
                             options: [("", defaultSubLabel)] + (subAlwaysOn ? [("off", "Off")] : [])
                                 + model.epLangs.map { ($0.code, $0.name) })
             }
-        }.padding(.horizontal, 40).padding(.top, 10)
+        }.padding(.horizontal, Glass3DTokens.Space.pageWide).padding(.top, Glass3DTokens.Space.m)
     }
 
     /// Netflix-style episode row: big number, clean 16:9 still with progress, title + length, summary.
@@ -596,11 +599,11 @@ struct ClassicDetailView: View {
                     if showEpDesc { Text(ep.Overview ?? "").lineLimit(3).cvFont(12, weight: .regular).foregroundColor(.secondary) }
                 }
             }
-            .padding(.vertical, 14)
+            .padding(.vertical, Glass3DTokens.Space.l)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1) }
             .contentShape(Rectangle())
         }.handCursor()
-        .buttonStyle(.plainHand).padding(.horizontal, 40)
+        .buttonStyle(.plainHand).padding(.horizontal, Glass3DTokens.Space.pageWide)
     }
 
     var episodesList: some View {
@@ -618,7 +621,7 @@ struct ClassicDetailView: View {
                 } else if epLayout == "grid" {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
                         ForEach(eps) { ep in episodeTile(ep) }
-                    }.padding(.horizontal, 40)
+                    }.padding(.horizontal, Glass3DTokens.Space.pageWide)
                 } else {
                     VStack(alignment: .leading, spacing: 12) { ForEach(eps) { ep in episodeRow(ep) } }
                 }
@@ -642,7 +645,7 @@ struct ClassicDetailView: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(4).frame(height: 44).classicClearGlass()
+        }.padding(Glass3DTokens.Space.xs).frame(height: 44).classicClearGlass()
     }
 
 
@@ -683,8 +686,8 @@ struct ClassicDetailView: View {
                     // No background: a black outline keeps it readable (as on Continue Watching)
                     Text(ep.Name).cvFont(14, weight: .semibold).foregroundColor(.white).lineLimit(2)
                         .classicBlackOutline()
-                        .padding(.leading, 10).padding(.trailing, 10)
-                        .padding(.bottom, 9)
+                        .padding(.leading, Glass3DTokens.Space.m).padding(.trailing, Glass3DTokens.Space.m)
+                        .padding(.bottom, Glass3DTokens.Space.m)
                         .modifier(ProgressRingClearance(active: hasProgress))   // clear of the ring
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -692,7 +695,7 @@ struct ClassicDetailView: View {
                 .overlay(alignment: .topLeading) {
                     Text(episodeInfo(ep, hasProgress: hasProgress)).cvFont(10, weight: .semibold).foregroundColor(.white)
                         .classicBlackOutline()
-                        .padding(10)
+                        .padding(Glass3DTokens.Space.m)
                 }
                 // How far you got: glow line along the bottom, Resume ring bottom-right
                 .overlay { if hasProgress { epProgress(ep, pct) } }
@@ -715,7 +718,7 @@ struct ClassicDetailView: View {
     var boxGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
             ForEach(model.kids) { ClassicPosterCard(item: $0) }
-        }.padding(.horizontal, 40)
+        }.padding(.horizontal, Glass3DTokens.Space.pageWide)
     }
 
     @AppStorage("castSize") private var castSize = "normal"
@@ -723,7 +726,7 @@ struct ClassicDetailView: View {
         let people = Array((model.full?.People ?? []).prefix(30))
         if !people.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Glass3DRowHeading(title: "Cast & Crew").padding(.horizontal, 40)
+                Glass3DRowHeading(title: "Cast & Crew").padding(.horizontal, Glass3DTokens.Space.pageWide)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(people[i].Name)")   // no tooltip on actors
@@ -754,14 +757,10 @@ struct ClassicDetailView: View {
                             aboutTile(t, played: played, added: added, genres: genres, studios: studios, links: links)
                         }
                     }
-                    .padding(18)
-                    .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous).fill(Color.white.opacity(0.03)))
-                    .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous),
-                                                interactive: false, frost: false))
-                    .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.10), lineWidth: 1).allowsHitTesting(false))
+                    // The shared GlassCard surface (level 2: fill, outline, specular top edge, shadow)
+                    .glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.window)
                 }
-                .padding(.horizontal, 40).frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Glass3DTokens.Space.pageWide).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -816,7 +815,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var includedInSection: some View {
         if !model.includedIn.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Included In").cvFont(Glass3DTokens.Text.section, weight: .bold).padding(.horizontal, 40)
+                SectionHeader(title: "Included In", style: .page).padding(.horizontal, Glass3DTokens.Space.pageWide)
                 ArrowScrollRow(ids: Array(model.includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.includedIn[$0]) }
             }
         }
@@ -826,19 +825,19 @@ struct ClassicDetailView: View {
         if !model.similar.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("More Like This").cvFont(Glass3DTokens.Text.section, weight: .bold)
+                    SectionHeader(title: "More Like This", style: .page)
                     Spacer()
                     similarLayoutToggle
-                }.padding(.horizontal, 40)
+                }.padding(.horizontal, Glass3DTokens.Space.pageWide)
                 // Extra space below, and the header kept in front: a hovered poster grows a little (hover lift)
                 // and could otherwise cover the view buttons and swallow their clicks
-                .padding(.bottom, 14).zIndex(1)
+                .padding(.bottom, Glass3DTokens.Space.l).zIndex(1)
                 if similarLayout == "grid" {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], alignment: .leading, spacing: 18) {
                         ForEach(model.similar) { ClassicPosterCard(item: $0) }
-                    }.padding(.horizontal, 40)
+                    }.padding(.horizontal, Glass3DTokens.Space.pageWide)
                 } else if similarLayout == "list" {
-                    LazyVStack(spacing: 6) { ForEach(model.similar) { Glass3DListRow(item: $0) } }.padding(.horizontal, 40)
+                    LazyVStack(spacing: 6) { ForEach(model.similar) { Glass3DListRow(item: $0) } }.padding(.horizontal, Glass3DTokens.Space.pageWide)
                 } else {
                     ArrowScrollRow(ids: Array(model.similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.similar[$0]) }
                 }
@@ -860,7 +859,7 @@ struct ClassicDetailView: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "row" ? "Row view" : m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(4).frame(height: 44).classicClearGlass()
+        }.padding(Glass3DTokens.Space.xs).frame(height: 44).classicClearGlass()
     }
 }
 
@@ -868,5 +867,15 @@ extension ClassicDetailView {
     /// The Subtitles picker's lines, saying where each comes from ("Romanian · SRT (file)").
     static func subtitleChoices(_ subs: [MStream]) -> [(Int, String)] {
         Array(zip(subs.map(\.Index), Glass3DTrackLabel.sourcedSubtitles(subs)))
+    }
+}
+
+/// Detail pages, layered depth (UI polish round 2): backdrop → fades → the info on a level-3 glass panel → the
+/// buttons. The panel only adds a surface around the text; it never changes the buttons' sizes.
+struct DetailInfoPanel: ViewModifier {
+    /// The height every button in the row shares (Play, Resume, ♡, ✓, ★, ⋯)
+    static let buttonHeight: CGFloat = 44
+    func body(content: Content) -> some View {
+        content.glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.hero, level: 3)
     }
 }

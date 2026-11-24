@@ -27,7 +27,7 @@ struct ClassicLibraryView: View {
                 // While there are none yet (loading, an error, an empty library) the page below shows why.
                 GeometryReader { g in
                     PosterGrid(emby: emby, items: model.visibleItems,
-                               header: AnyView(header.padding(.leading, 40).padding(.trailing, 92).padding(.top, 24)),
+                               header: AnyView(header.padding(.leading, Glass3DTokens.Space.pageWide).padding(.trailing, 92).padding(.top, 24)),
                                footer: model.loading ? AnyView(Spinner())
                                    : model.loadFailed ? AnyView(LoadMoreFailedView { model.retry() }) : nil,
                                topInset: g.safeAreaInsets.top, willShow: { i in
@@ -41,7 +41,7 @@ struct ClassicLibraryView: View {
                     VStack(spacing: 18) {
                         header
                         if model.tab == 2 { genreGrid } else { grid }
-                    }.padding(.leading, 40).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
+                    }.padding(.leading, Glass3DTokens.Space.pageWide).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
                 }
                 .classicScrollBars()   // thin overlay bars, only while scrolling
             }
@@ -82,10 +82,10 @@ struct ClassicLibraryView: View {
             }
         }
         .animation(.easeOut(duration: 0.12), value: alphaHover)
-        .padding(.vertical, 6).padding(.horizontal, 3)
+        .padding(.vertical, Glass3DTokens.Space.s).padding(.horizontal, Glass3DTokens.Space.xs)
         .background(Capsule().fill(Color.black.opacity(0.3)))
         .background(ClassicGlassBacking(shape: Capsule()))
-        .padding(.trailing, 34)
+        .padding(.trailing, Glass3DTokens.Space.page)
     }
 
     var header: some View {
@@ -175,12 +175,16 @@ struct ClassicLibraryView: View {
                     }
                 }
             }   // grid: PosterGrid, see body
-            if model.loading { SkeletonShimmer().padding(.horizontal, 40).padding(.vertical, 20) }
+            if model.loading {
+                // Page loading: poster-shaped blocks for the grid, row blocks for the list
+                SkeletonShimmer(layout: model.layout == "list" ? .rows : .posters, rows: model.layout == "list" ? 3 : 12)
+                    .padding(.vertical, Glass3DTokens.Space.xl)
+            }
             else if model.loadFailed {
                 if model.items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { model.reload() } }
                 else { LoadMoreFailedView { model.retry() } }
             }
-            else if model.visibleItems.isEmpty { EmptyState(symbol: "tray", title: "Nothing here.").padding(.vertical, 10) }
+            else if model.visibleItems.isEmpty { EmptyState(symbol: "tray", title: "Nothing here.").padding(.vertical, Glass3DTokens.Space.m) }
         }
     }
 
@@ -198,7 +202,7 @@ struct ClassicLibraryView: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plainHand).helpLabel(m.0 == "grid" ? "Grid view" : "List view")
             }
-        }.padding(4).frame(height: 44).classicClearGlass()
+        }.padding(Glass3DTokens.Space.xs).frame(height: 44).classicClearGlass()
     }
 
     var genreGrid: some View {
@@ -251,7 +255,7 @@ struct ClassicAlphaLetter: View {
                 Text(l).cvFont(19, weight: .heavy).foregroundColor(.black.opacity(0.85))
                     .frame(width: 34, height: 36)
                     .offset(x: 7, y: -15)   // the turn moves the drop's round part up-left; the letter follows
-                    .padding(.trailing, 8)   // the point
+                    .padding(.trailing, Glass3DTokens.Space.s)   // the point
                     // The drop lies like a backslash: round part up-left, the point down-right at the letter
                     .background(TeardropGlass().rotationEffect(.degrees(45), anchor: .trailing))
                     .fixedSize()

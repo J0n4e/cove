@@ -29,6 +29,11 @@ struct GlassButtonStyle: ButtonStyle {
     static func brightness(pressed: Bool, hover: Bool) -> Double { pressed ? -0.1 : hover ? 0.04 : 0 }
     /// Solid face colour, nil for glass kinds.
     static func isSolid(_ k: Kind) -> Bool { k == .primary || k == .destructive }
+    /// Text buttons that get the 3D face (glossy top edge, inner shadow, bottom shade): primary, destructive AND
+    /// secondary (owner: Cancel must not look flat next to Delete), so they read as one family.
+    static func usesHighlightRecipe(_ k: Kind) -> Bool { k == .primary || k == .destructive || k == .secondary }
+    /// The secondary face: neutral grey glass under the same 3D recipe.
+    static let secondaryFill = 0.16
 }
 
 private struct GlassButtonBody: View {
@@ -63,11 +68,12 @@ private struct GlassButtonBody: View {
                 if solid {
                     SolidButtonFace(color: face, shape: shape)
                 } else {
-                    shape.fill(Color.white.opacity(0.08))
+                    // Secondary: dark glass under a neutral grey 3D face, same height / radius as primary
+                    ZStack {
+                        shape.fill(Color.black.opacity(0.25))
+                        SolidButtonFace(color: Color.white.opacity(GlassButtonStyle.secondaryFill), shape: shape)
+                    }
                 }
-            }
-            .overlay {
-                if !solid { shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1).allowsHitTesting(false) }
             }
             .brightness(GlassButtonStyle.brightness(pressed: c.isPressed, hover: hover))
             .contentShape(Rectangle())
