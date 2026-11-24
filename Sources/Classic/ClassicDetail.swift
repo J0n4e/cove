@@ -116,12 +116,17 @@ struct SeasonDeck: View {
     }
 
     func card(_ n: Int, k: Int) -> some View {
-        CachedImage(url: image(n)) { img in
-            img.resizable().aspectRatio(contentMode: .fill)
-                // the front card's cover slowly zooms inside its frame, like the hero backdrops (owner)
-                .modifier(DeckKenBurns(on: k == 0, seed: "\(n)"))
-        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
-        .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
+        // Built like the Home banner: a fixed frame with the picture as an overlay, the zoom on the overlay and
+        // the clip on the frame, so the front card's cover moves exactly like the banner (owner)
+        Color.clear.frame(width: w, height: h)
+            .overlay {
+                CachedImage(url: image(n)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
+                .frame(width: w, height: h)
+                .modifier(DeckKenBurns(on: k == 0, seed: "deck-\(n)-\(image(n)?.absoluteString ?? "")"))
+            }
+            .clipped()   // no name on the card: season and movie covers show their own
         .cornerRadius(Glass3DTokens.Radius.row)
         .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card

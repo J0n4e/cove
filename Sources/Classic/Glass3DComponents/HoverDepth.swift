@@ -207,7 +207,9 @@ struct KenBurnsEffect: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var visibility = WindowOcclusion.shared
-    @State private var start = Date()
+    /// One clock per picture: a view that SwiftUI re-creates (hover, a parent redraw) keeps its place in the
+    /// zoom instead of jumping back to the start, so every place moves exactly like the Home banner (owner)
+    @MainActor private var start: Date { KenBurnsClock.start(for: seed) }
 
     func body(content: Content) -> some View {
         let running = KenBurnsMath.runs(reduceMotion: reduceMotion, playing: playback.active, visible: visibility.visible)
@@ -223,4 +225,16 @@ struct KenBurnsEffect: ViewModifier {
 extension View {
     /// Ken Burns on a hero backdrop (see KenBurnsEffect).
     func kenBurns(seed: String) -> some View { modifier(KenBurnsEffect(seed: seed)) }
+}
+
+
+/// When each picture's slow zoom began (kept across view re-creation; a new picture starts at zero).
+@MainActor enum KenBurnsClock {
+    private static var starts: [String: Date] = [:]
+    static func start(for seed: String) -> Date {
+        if let d = starts[seed] { return d }
+        if starts.count > 64 { starts.removeAll() }
+        let d = Date(); starts[seed] = d; return d
+    }
+    static func reset(_ seed: String) { starts[seed] = nil }
 }
