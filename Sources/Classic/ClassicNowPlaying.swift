@@ -86,7 +86,10 @@ struct ClassicNowPlayingView: View {
     @State private var loaded = false
     @State private var lastPush: Date?
     @State private var syncGroups: [SyncPlayGroupInfo] = []   // v1.18.8: one card per SyncPlay group
+    // The page is remembered only while the app runs: the first open after a launch is always Now Playing (owner);
+    // the 📊 menu still remembers its last stats page across launches.
     @AppStorage("activityPage") private var tabRaw = ActivityPage.nowPlaying.rawValue   // by page id, not index
+    @MainActor private static var openedThisLaunch = false
     @AppStorage("activityLastStatsPage") private var lastStats = ActivityPage.overview.rawValue
     @ObservedObject private var inbox = NotificationCenterStore.shared
     @StateObject private var stats = StatsModel()
@@ -100,6 +103,12 @@ struct ClassicNowPlayingView: View {
     }
 
     var body: some View {
+        activityBody.onAppear {
+            if !Self.openedThisLaunch { Self.openedThisLaunch = true; tabRaw = ActivityPage.nowPlaying.rawValue }
+        }
+    }
+
+    @ViewBuilder private var activityBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // v1.18.11: Now Playing · Overview · History, the library header's glass tabs (Stats inside Now Playing)
