@@ -20,8 +20,8 @@ struct EmptyState: View {
 
     var body: some View {
         VStack(spacing: compact ? Glass3DTokens.Space.s : Glass3DTokens.Space.m) {
-            Image(systemName: symbol).coveFont(size: compact ? 22 : 34, weight: .light)
-                .symbolRenderingMode(.hierarchical)
+            Image(systemName: symbol).symbolRenderingMode(.hierarchical)
+                .coveFont(size: compact ? 22 : 34, weight: .light)
                 .foregroundColor(Glass3DTokens.Grey.secondary)
             Text(title).coveFont(size: compact ? 13 : 15, weight: .bold)
                 .foregroundColor(Glass3DTokens.Grey.primary)
