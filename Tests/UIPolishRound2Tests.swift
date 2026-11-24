@@ -123,4 +123,14 @@ final class UIPolishRound2Tests: XCTestCase {
             XCTAssertLessThanOrEqual(n, limit, "\(f): use Glass3DTokens.Space")
         }
     }
+
+    // MARK: Secondary button 3D recipe (owner add)
+    func testSecondaryUsesTheHighlightRecipe() {
+        XCTAssertTrue(GlassButtonStyle.usesHighlightRecipe(.secondary))
+        XCTAssertTrue(GlassButtonStyle.usesHighlightRecipe(.primary))
+        XCTAssertTrue(GlassButtonStyle.usesHighlightRecipe(.destructive))
+        XCTAssertFalse(GlassButtonStyle.usesHighlightRecipe(.icon))
+        XCTAssertTrue((0.14...0.18).contains(GlassButtonStyle.secondaryFill))
+        XCTAssertLessThan(GlassButtonStyle.brightness(pressed: true, hover: false), 0)   // pressed = darker
+    }
 }

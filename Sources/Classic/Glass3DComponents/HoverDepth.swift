@@ -188,8 +188,8 @@ enum KenBurnsMath {
 }
 
 /// Whether any of the app's windows can be seen (not hidden, minimised away or covered).
-final class AppVisibility: ObservableObject {
-    static let shared = AppVisibility()
+final class WindowOcclusion: ObservableObject {
+    static let shared = WindowOcclusion()
     @Published private(set) var visible = true
     private var observer: NSObjectProtocol?
     private init() {
@@ -206,7 +206,7 @@ struct KenBurnsEffect: ViewModifier {
     let seed: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
-    @ObservedObject private var visibility = AppVisibility.shared
+    @ObservedObject private var visibility = WindowOcclusion.shared
     @State private var start = Date()
 
     func body(content: Content) -> some View {
