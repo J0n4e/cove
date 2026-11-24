@@ -754,78 +754,31 @@ struct ClassicDetailView: View {
         }
     }
 
-    /// "About": one clear-glass card with a grid of tiles (last played, added, genres, studios, file, links).
+    /// "About": one clear-glass card about as wide as 4 cast cards, left-aligned like the cast row: a key-facts line,
+    /// a plain two-column list (every audio/subtitle track), the link pills and a hidden-by-default file path.
     @ViewBuilder var aboutSection: some View {
         if let f = model.full {
-            let played = classicParseDate(f.UserData?.LastPlayedDate)
             let added = classicParseDate(f.DateCreated)
-            let genres = f.Genres ?? []
-            let studios = (f.Studios ?? []).map { $0.Name }
             let links: [(String, URL)] = (f.ExternalUrls ?? []).compactMap { l in
                 guard let n = l.Name, let u = SafeLink.url(l.Url) else { return nil }
                 return (n, u)
             }
-            let tiles = AboutCard.tiles(lastPlayed: played, added: added, genres: genres, studios: studios,
-                                        hasFile: model.src != nil, links: links.count)
-            if !tiles.isEmpty {
+            let s = model.src
+            let streams = s?.MediaStreams ?? []
+            let facts = AboutCard.keyFacts(video: streams.first { $0.`Type` == "Video" },
+                                           audio: streams.filter { $0.`Type` == "Audio" },
+                                           runTimeTicks: f.RunTimeTicks, size: s?.Size)
+            let rows = AboutCard.rows(streams: streams, container: s?.Container, size: s?.Size, added: added,
+                                      hasFile: s != nil, genres: f.Genres ?? [], studios: (f.Studios ?? []).map { $0.Name })
+            if !facts.isEmpty || !rows.isEmpty || !links.isEmpty {
                 VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     Glass3DRowHeading(title: "About")
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 22, alignment: .topLeading)],
-                              alignment: .leading, spacing: 18) {
-                        ForEach(tiles, id: \.self) { t in
-                            aboutTile(t, played: played, added: added, genres: genres, studios: studios, links: links)
-                        }
-                    }
-                    // The shared GlassCard surface (level 2: fill, outline, specular top edge, shadow)
-                    .glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.window)
+                    AboutCardContent(facts: facts, rows: rows, links: links, path: s?.Path)
+                        // The shared GlassCard surface (level 2) — the only box in the card
+                        .glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.window)
+                        .frame(width: AboutCard.cardWidth(castCardWidth: CastTile.width(castSize)))
                 }
                 .padding(.horizontal, Glass3DTokens.Space.pageWide).frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    @ViewBuilder func aboutTile(_ t: AboutCard.Tile, played: Date?, added: Date?, genres: [String], studios: [String],
-                                links: [(String, URL)]) -> some View {
-        switch t {
-        case .lastPlayed:
-            if let d = played {
-                AboutTileView(icon: "clock.arrow.circlepath", label: "Last played") {
-                    Text(d.formatted(.relative(presentation: .named))).cvFont(13, weight: .semibold)
-                        .foregroundColor(.white)
-                        .helpLabel(d.formatted(date: .abbreviated, time: .shortened))
-                }
-            }
-        case .added:
-            if let d = added {
-                AboutTileView(icon: "calendar.badge.plus", label: "Added") {
-                    Text(d.formatted(date: .abbreviated, time: .shortened)).cvFont(13, weight: .semibold)
-                        .foregroundColor(.white).textSelection(.enabled)
-                }
-            }
-        case .genres:
-            AboutTileView(icon: "theatermasks", label: "Genres") {
-                FlowLayout(hSpacing: 6, vSpacing: 6) { ForEach(genres, id: \.self) { AboutChip(text: $0) } }
-            }
-        case .studios:
-            AboutTileView(icon: "building.2", label: "Studios") {
-                FlowLayout(hSpacing: 6, vSpacing: 6) { ForEach(Array(studios.enumerated()), id: \.offset) { AboutChip(text: $0.element) } }
-            }
-        case .file:
-            if let s = model.src {
-                let v = s.MediaStreams?.first { $0.`Type` == "Video" }
-                AboutTileView(icon: "doc", label: "File") {
-                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
-                        let sum = AboutCard.fileSummary(container: s.Container, size: s.Size, videoHeight: v?.Height, videoWidth: v?.Width)
-                        if !sum.isEmpty { Text(sum).cvFont(13, weight: .semibold).foregroundColor(.white).textSelection(.enabled) }
-                        if let p = s.Path, !p.isEmpty { AboutPathLine(path: p) }
-                    }
-                }
-            }
-        case .links:
-            AboutTileView(icon: "link", label: "Links") {
-                FlowLayout(hSpacing: 6, vSpacing: 6) {
-                    ForEach(Array(links.enumerated()), id: \.offset) { AboutLinkPill(name: $0.element.0, url: $0.element.1) }
-                }
             }
         }
     }

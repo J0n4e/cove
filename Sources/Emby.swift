@@ -102,6 +102,9 @@ struct MStream: Decodable, Identifiable {
     var Level: Double? = nil
     var BitDepth: Int? = nil
     var IsInterlaced: Bool? = nil
+    /// Subtitles: forced / hearing-impaired (SDH) flags (decoded when present)
+    var IsForced: Bool? = nil
+    var IsHearingImpaired: Bool? = nil
     var id: Int { Index }
 }
 
