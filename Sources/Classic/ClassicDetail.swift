@@ -118,6 +118,8 @@ struct SeasonDeck: View {
     func card(_ n: Int, k: Int) -> some View {
         CachedImage(url: image(n)) { img in
             img.resizable().aspectRatio(contentMode: .fill)
+                // the front card's cover slowly zooms inside its frame, like the hero backdrops (owner)
+                .modifier(DeckKenBurns(on: k == 0, seed: "\(n)"))
         } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
         .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
         .cornerRadius(Glass3DTokens.Radius.row)
@@ -877,5 +879,15 @@ struct DetailInfoPanel: ViewModifier {
     static let buttonHeight: CGFloat = 44
     func body(content: Content) -> some View {
         content.glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.hero, level: 3)
+    }
+}
+
+
+/// Ken Burns only on the deck's front card (the cards behind stay still).
+struct DeckKenBurns: ViewModifier {
+    let on: Bool
+    let seed: String
+    @ViewBuilder func body(content: Content) -> some View {
+        if on { content.kenBurns(seed: seed) } else { content }
     }
 }
