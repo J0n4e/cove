@@ -185,7 +185,8 @@ enum HelpTopics {
                                   "Watch together starts a SyncPlay group (Jellyfin only)."]),
                     ]),
                     HelpSection(heading: "More on the page", blocks: [
-                        .bullets(["The About card shows the details: year, runtime, genres, the story and more.",
+                        .bullets(["The About card shows the key facts (resolution, HDR, audio format, runtime, size), then video, every audio and subtitle track, the file, genres and studios.",
+                                  "Click Show file path in the About card to see where the file lives; click the path to copy it.",
                                   "Cast & Crew, and More Like This, are further down.",
                                   "Series pages list seasons and episodes."]),
                         .text("Movie pages can show a big banner or a poster with details."),
