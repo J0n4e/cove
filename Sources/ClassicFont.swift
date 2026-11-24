@@ -49,8 +49,8 @@ struct ClassicFontPreview: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .frame(maxWidth: 320, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous).fill(Color.white.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
         .animation(.easeOut(duration: 0.15), value: choice)
         .accessibilityHidden(true)
     }

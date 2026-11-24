@@ -38,7 +38,6 @@ struct HoverBacking: ViewModifier {
             .background(Capsule().fill(Color.white.opacity(hover ? 0.16 : 0)))
             .padding(-4)
             .brightness(hover ? 0.12 : 0)
-            .scaleEffect(hover ? 1.07 : 1)
             .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
             .scrollHover($hover)
             .handCursor()
@@ -115,22 +114,11 @@ enum PlayerView {
     static let qualities = PlayerUIModel.qualities
 }
 
-struct PanelRowStyle: ButtonStyle {
+struct PanelRowStyle: ButtonStyle {   // thin alias for GlassButtonStyle(.accentRow)
     /// Classic theme: the line under the pointer lights up in the accent, as in the glass lists
     var glass = false
     func makeBody(configuration: Configuration) -> some View {
-        if glass { GlassRow(c: configuration) }
-        else { configuration.label.background(Color.white.opacity(configuration.isPressed ? 0.15 : 0)) }
-    }
-    struct GlassRow: View {
-        let c: ButtonStyleConfiguration
-        @AppStorage("accent") private var accentName = "red"
-        @State private var hover = false
-        var body: some View {
-            c.label
-                .background { if hover || c.isPressed { Capsule().fill(Theme.accent(accentName).opacity(c.isPressed ? 0.7 : 0.55)) } }
-                .scrollHover($hover)
-        }
+        GlassButtonStyle(.accentRow(glass: glass)).makeBody(configuration: configuration)
     }
 }
 

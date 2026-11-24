@@ -148,9 +148,8 @@ struct PrefSection<C: View>: View {
             VStack(alignment: .leading, spacing: 10) { content }
                 .padding(.vertical, 12).padding(.trailing, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                // A subtle glass card on the window's glass: light fill, thin light outline
-                .background(RoundedRectangle(cornerRadius: r, style: .continuous).fill(Color.white.opacity(0.08)))
-                .overlay(RoundedRectangle(cornerRadius: r, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                // The shared GlassCard surface (elevation 2)
+                .elevation(2, radius: r)
         }
         .padding(.vertical, 6)
     }
@@ -251,8 +250,8 @@ struct GeneralSettings: View {
                 let on = selection.wrappedValue == name
                 Button { selection.wrappedValue = name } label: {
                     VStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 8).fill(color).frame(width: 64, height: 44)
-                            .overlay(RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(color).frame(width: 64, height: 44)
+                            .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field)
                                 .stroke(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.15)), lineWidth: on ? 3 : 1))
                         Text(name.capitalized).coveFont(size: 10).foregroundColor(on ? .primary : .secondary)
                     }.contentShape(Rectangle())
@@ -620,8 +619,8 @@ struct LibrariesSettings: View {
             .frame(height: CGFloat(min(tableRows.count, 7)) * 32 + 8)
         }
         .frame(width: 440)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(Color.white.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).stroke(Color.white.opacity(0.1)))
     }
 
     /// Table order: the libraries, with Favorites and Now Playing at their saved places.
@@ -638,7 +637,7 @@ struct LibrariesSettings: View {
             Toggle("", isOn: $emby.libs[i].onHome).labelsHidden().disabled(!lib.visible).frame(width: 60)
         }
         .padding(.horizontal, 6).frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectedLib = lib.id }.handCursor()
     }
@@ -657,7 +656,7 @@ struct LibrariesSettings: View {
             Color.clear.frame(width: 60, height: 1)
         }
         .padding(.horizontal, 6).frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 6).fill(on ? blue.opacity(0.85) : Color.clear))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectedLib = id }.handCursor()
     }
@@ -820,10 +819,10 @@ struct SubtitleSettings: View {
                 .modifier(SubShadow(style: subShadow, color: subColor == "black" ? .white : .black))
                 .padding(.horizontal, 10).padding(.vertical, 3)
                 .background(Color.black.opacity(PlayerView.bgs.first { $0.0 == subBg }?.2 ?? 0))
-                .cornerRadius(4)
+                .cornerRadius(Glass3DTokens.Radius.tag)
                 .padding(.bottom, h * subBottom / 100)
         }
-        .frame(height: h).frame(maxWidth: .infinity).cornerRadius(8)
+        .frame(height: h).frame(maxWidth: .infinity).cornerRadius(Glass3DTokens.Radius.field)
     }
 }
 
@@ -976,8 +975,8 @@ struct ServerSettings: View {
                     }
                 }
                 .frame(width: 440)
-                .background(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).stroke(Color.white.opacity(0.1)))
+                .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field))
             }
             PrefRow { Button("Add Server…") { emby.switchServer(); dismiss() } }
             PrefNote("Click a server's name to rename it. Connect switches Cove to that server. Add Server opens the sign-in screen.")
@@ -1013,7 +1012,7 @@ struct ServerSettings: View {
                     } else {
                         Text("Not set up yet. Follow the steps below.").foregroundColor(.secondary)
                     }
-                    if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(.orange) }
+                    if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(Glass3DTokens.Status.warning) }
                 }
             }
             if trakt.user != nil {
@@ -1128,7 +1127,7 @@ struct TraktStatsSettings: View {
                     Button("Refresh") { Task { await trakt.loadStats() } }.disabled(trakt.loadingStats)
                 }
                 .coveFont(size: 12).padding(.top, 8).padding(.horizontal, 6)
-                if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(.orange).padding(.horizontal, 6) }
+                if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(Glass3DTokens.Status.warning).padding(.horizontal, 6) }
                 if let s = trakt.stats { content(s) }
                 else if trakt.loadingStats { Text("Loading your stats…").foregroundColor(.secondary).padding(20) }
             }
@@ -1183,7 +1182,7 @@ struct TraktStatsSettings: View {
             Text(detail).coveFont(size: 10).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(Color.white.opacity(0.05)))
     }
 
     func monthsChart(_ months: [Trakt.Stats.Month]) -> some View {
@@ -1192,7 +1191,7 @@ struct TraktStatsSettings: View {
             ForEach(Array(months.enumerated()), id: \.offset) { i, m in
                 VStack(spacing: 4) {
                     Text(m.minutes > 0 ? "\(m.minutes / 60)" : "").coveFont(size: 9).foregroundColor(.secondary)
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag)
                         .fill(i == months.count - 1 ? accent : accent.opacity(0.45))
                         .frame(height: max(2, CGFloat(m.minutes) / CGFloat(maxH) * 90))
                     Text(monthLetter(m.key)).coveFont(size: 10).foregroundColor(.secondary)
@@ -1209,7 +1208,7 @@ struct TraktStatsSettings: View {
             ForEach(0..<10, id: \.self) { i in
                 VStack(spacing: 4) {
                     Text(dist[i] > 0 ? "\(dist[i])" : "").coveFont(size: 9).foregroundColor(.secondary)
-                    RoundedRectangle(cornerRadius: 3).fill(accent.opacity(0.35 + 0.065 * Double(i)))
+                    RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag).fill(accent.opacity(0.35 + 0.065 * Double(i)))
                         .frame(height: max(2, CGFloat(dist[i]) / CGFloat(maxN) * 70))
                     Text("\(i + 1)").coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
                 }.frame(maxWidth: .infinity)

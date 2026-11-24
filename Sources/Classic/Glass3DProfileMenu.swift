@@ -177,13 +177,13 @@ struct Glass3DProfileMenu: View {
     func row(_ r: ProfileRow) -> some View {
         Button { ProfileActions.perform(r, emby: emby) } label: {
             HStack(spacing: 10) {
-                if r == .signOut { Image(systemName: icon(r)).cvFont(12).frame(width: 18).foregroundColor(.red) }
+                if r == .signOut { Image(systemName: icon(r)).cvFont(12).frame(width: 18).foregroundColor(Glass3DTokens.Status.danger) }
                 else { Image(systemName: icon(r)).cvFont(12).frame(width: 18).foregroundStyle(.tint) }
                 if case .notifications(let n) = r {
                     Text("Notifications").cvFont(13).lineLimit(1)
                     if n > 0 {
                         Text("\(n)").cvFont(10, weight: .bold).foregroundColor(.white)
-                            .padding(.horizontal, 6).frame(height: 16).background(Capsule().fill(Color.red))
+                            .padding(.horizontal, 6).frame(height: 16).background(Capsule().fill(Glass3DTokens.Status.danger))
                     }
                 } else {
                     Text(ProfileMenuSpec.title(r)).cvFont(13, weight: r == .signOut ? .semibold : .regular).lineLimit(1)
@@ -203,7 +203,7 @@ struct Glass3DProfileMenu: View {
     @ViewBuilder func trailing(_ r: ProfileRow) -> some View {
         switch r {
         case .server(_, _, let current, let online):
-            Circle().fill(online == true ? Color.green : Color.gray.opacity(0.6)).frame(width: 7, height: 7)
+            Circle().fill(online == true ? Glass3DTokens.Status.success : Color.gray.opacity(0.6)).frame(width: 7, height: 7)
                 .help(online == nil ? "Checking…" : online! ? "Reachable" : "Not reachable")
             if current { Image(systemName: "checkmark").cvFont(11, weight: .bold).foregroundStyle(.tint) }
             else { Color.clear.frame(width: 11) }

@@ -20,7 +20,7 @@ struct StatsLibrariesView: View {
                     }
                     .frame(maxWidth: .infinity)
                 } else if model.librariesLoading || model.librariesRange == nil {
-                    Spinner().frame(maxWidth: .infinity).padding(60)
+                    SkeletonShimmer().padding(.vertical, 30)
                 } else {
                     StatsStateCard(symbol: "books.vertical", title: "No libraries found",
                                    message: "Movie, TV and music libraries you can see show here.")

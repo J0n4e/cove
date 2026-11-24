@@ -36,7 +36,7 @@ struct ServerLibrariesTab: View {
                 if let e = model.error, model.libraries.isEmpty {
                     ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
                 } else if !model.loaded {
-                    ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) { ForEach(model.libraries) { card($0) } }.padding(.bottom, 8)
@@ -171,13 +171,13 @@ struct ServerLibrarySheet: View {
                     .cvFont(13).foregroundColor(Glass3DTokens.Grey.primary).fixedSize(horizontal: false, vertical: true)
                 TextField(l.name, text: $typed).textFieldStyle(.roundedBorder).cvFont(13)
             }
-            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
             HStack {
                 if busy { ProgressView().controlSize(.small) }
                 Spacer()
                 Button("Cancel") { done(nil) }.buttonStyle(AboutButton(accentName: accentName)).keyboardShortcut(.cancelAction)
                 if danger {
-                    Button(actionTitle) { go() }.buttonStyle(ServerDangerButton()).disabled(busy || !ready)
+                    Button(actionTitle) { go() }.buttonStyle(GlassButtonStyle(.destructive)).disabled(busy || !ready)
                 } else {
                     Button(actionTitle) { go() }.buttonStyle(AboutButton(primary: true, accentName: accentName)).disabled(busy || !ready)
                 }
@@ -189,7 +189,7 @@ struct ServerLibrarySheet: View {
 
     var serverPathHint: some View {
         Text("This is a path on the SERVER's machine (e.g. /mnt/media/Movies or D:\\Movies), not on this Mac.")
-            .cvFont(11).foregroundColor(.orange.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
+            .cvFont(11).foregroundColor(Glass3DTokens.Status.warning.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
     }
 
     func title(_ t: String) -> some View { Text(t).cvFont(17, weight: .bold).foregroundColor(.white) }

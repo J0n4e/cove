@@ -80,14 +80,14 @@ struct DeleteConfirmView: View {
         HStack(alignment: .center, spacing: 16) {
             ItemAdminThumb(url: URL(string: emby.server + "/Items/\(ItemAdminAPI.p(item.posterId))/Images/Primary?maxWidth=240&quality=85"),
                            placeholder: "film").frame(width: 80, height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field))
             VStack(alignment: .leading, spacing: 8) {
                 Text("Delete \(kindWord)?").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.6))
                 Text(DeleteConfirmView.shortTitle(p.text.scopeLine)).cvFont(18, weight: .bold).foregroundColor(.white)
                     .lineLimit(3).fixedSize(horizontal: false, vertical: true)
                 if let error {
                     // the error takes the size/badge line, so the compact window never needs to grow
-                    Text(error).cvFont(12, weight: .semibold).foregroundColor(.orange).lineLimit(2).tip(error)
+                    Text(error).cvFont(12, weight: .semibold).foregroundColor(Glass3DTokens.Status.warning).lineLimit(2).tip(error)
                 } else {
                 HStack(spacing: 8) {
                         if let s = p.sizeBytes, s > 0 {
@@ -106,8 +106,8 @@ struct DeleteConfirmView: View {
             ForEach(p.text.bullets, id: \.self) { DeleteEffectRow(text: $0) }
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.10), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).fill(Color.white.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).stroke(Color.white.opacity(0.10), lineWidth: 0.5))
         if let w = p.text.warning {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill").cvFont(15).foregroundColor(.white)
@@ -115,10 +115,10 @@ struct DeleteConfirmView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.red.opacity(0.32)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.red.opacity(0.85), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).fill(Glass3DTokens.Status.danger.opacity(0.32)))
+            .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).stroke(Glass3DTokens.Status.danger.opacity(0.85), lineWidth: 1))
         }
-        if let m = p.lookupProblem { Text(m).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+        if let m = p.lookupProblem { Text(m).cvFont(12).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
         if let h = p.text.hint { Text(h).cvFont(12).foregroundColor(.white.opacity(0.65)).fixedSize(horizontal: false, vertical: true) }
     }
 
@@ -136,7 +136,7 @@ struct DeleteConfirmView: View {
             } label: {
                 HStack(spacing: 6) { if busy { ProgressView().controlSize(.mini) }; Text(p.text.button) }
             }
-            .buttonStyle(ServerDangerButton()).disabled(busy)
+            .buttonStyle(GlassButtonStyle(.destructive)).disabled(busy)
         }
         .focusEffectDisabled()   // no blue focus ring on Cancel (owner); Esc still cancels
     }
@@ -201,8 +201,8 @@ struct DeleteUndoToastView: View {
         }
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(.ultraThinMaterial))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
     }
 }
 
@@ -335,8 +335,8 @@ struct DeleteStatusBadge: View {
     let inNexcrate: Bool
     let configured: Bool
     var body: some View {
-        let (t, c, i): (String, Color, String) = inNexcrate ? ("In nexcrate", .green, "checkmark.circle.fill")
-            : configured ? ("Not in nexcrate", .orange, "xmark.circle.fill") : ("nexcrate not connected", .gray, "link")
+        let (t, c, i): (String, Color, String) = inNexcrate ? ("In nexcrate", Glass3DTokens.Status.success, "checkmark.circle.fill")
+            : configured ? ("Not in nexcrate", Glass3DTokens.Status.warning, "xmark.circle.fill") : ("nexcrate not connected", .gray, "link")
         HStack(spacing: 4) { Image(systemName: i).cvFont(10, weight: .bold); Text(t).cvFont(11, weight: .semibold) }
             .foregroundColor(c).padding(.horizontal, 8).padding(.vertical, 3)
             .background(Capsule().fill(c.opacity(0.16)))

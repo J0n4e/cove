@@ -43,10 +43,10 @@ struct CleanupView: View {
             header(shown)
             if store.items.isEmpty {
                 if store.loading {
-                    VStack(spacing: 10) {
-                        Spinner()
+                    VStack(spacing: Glass3DTokens.Space.m) {
                         Text(store.progress ?? "").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
-                    }.frame(maxWidth: .infinity).padding(60)
+                        SkeletonShimmer(rows: 5, rowHeight: 64, spacing: 8)
+                    }.frame(maxWidth: .infinity)
                 } else if let e = store.error {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Cleanup couldn't be loaded", message: e)
                 } else {
@@ -100,7 +100,7 @@ struct CleanupView: View {
                     let picked = shown.filter { selected.contains($0.id) }.compactMap(\.item)
                     CleanupBatchWindow.open(picked, emby: emby)
                 }
-                .buttonStyle(ServerDangerButton()).disabled(selected.isEmpty)
+                .buttonStyle(GlassButtonStyle(.destructive)).disabled(selected.isEmpty)
             }
             Button(selecting ? "Done" : "Select") { selecting.toggle(); if !selecting { selected = [] } }
                 .buttonStyle(AboutButton())
@@ -115,7 +115,7 @@ struct CleanupView: View {
                 Text(Cleanup.summary(shown).text).cvFont(Glass3DTokens.Text.meta, weight: .medium) { $0.monospacedDigit() }
                     .foregroundColor(Glass3DTokens.Grey.secondary)
                 if nexview.configured, let e = store.nexviewError {
-                    Text("Nexview: " + e).cvFont(Glass3DTokens.Text.meta).foregroundColor(.orange).lineLimit(1).tip(e)
+                    Text("Nexview: " + e).cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Status.warning).lineLimit(1).tip(e)
                 }
                 if store.loading, let p = store.progress {
                     ProgressView().controlSize(.mini)
@@ -372,12 +372,12 @@ struct CleanupBatchView: View {
             Text("Not in nexcrate, deleted from the server for good (no undo): " + permanent.map(\.item.Name).joined(separator: ", "))
                 .cvFont(13, weight: .semibold).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.red.opacity(0.35)))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.red.opacity(0.9), lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Glass3DTokens.Status.danger.opacity(0.35)))
+                .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).stroke(Glass3DTokens.Status.danger.opacity(0.9), lineWidth: 1))
         }
-        if let m = plans.compactMap(\.lookupProblem).first { Text(m).cvFont(12).foregroundColor(.orange) }
+        if let m = plans.compactMap(\.lookupProblem).first { Text(m).cvFont(12).foregroundColor(Glass3DTokens.Status.warning) }
         if let progress { Text(progress).cvFont(12).foregroundColor(.white.opacity(0.8)) }
-        if let error { Text(error).cvFont(12, weight: .semibold).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+        if let error { Text(error).cvFont(12, weight: .semibold).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
         Spacer(minLength: 0)
         HStack {
             Spacer()
@@ -388,7 +388,7 @@ struct CleanupBatchView: View {
             } label: {
                 HStack(spacing: 6) { if busy { ProgressView().controlSize(.mini) }; Text("Delete \(plans.count)") }
             }
-            .buttonStyle(ServerDangerButton()).disabled(busy || plans.isEmpty)
+            .buttonStyle(GlassButtonStyle(.destructive)).disabled(busy || plans.isEmpty)
         }
         .focusEffectDisabled()   // no blue focus ring on Cancel
     }

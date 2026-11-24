@@ -50,9 +50,9 @@ private struct StatsHeatSquare: View {
     let intensity: Double
     let selected: Bool
     var body: some View {
-        RoundedRectangle(cornerRadius: 3, style: .continuous)
+        RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag, style: .continuous)
             .fill(intensity > 0 ? color.opacity(0.15 + 0.85 * min(1, intensity)) : Color.white.opacity(0.05))
-            .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous)
+            .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag, style: .continuous)
                 .strokeBorder(Color.white.opacity(selected ? 0.8 : 0), lineWidth: 1))
             .frame(maxWidth: .infinity).frame(height: 18)
             .contentShape(Rectangle())
@@ -79,7 +79,7 @@ struct StatsDevicesCard: View {
                     BarMark(x: .value("Hours", Double(r.seconds) / 3600), y: .value("Device", r.name))
                         .foregroundStyle(LinearGradient(colors: [accent.opacity(0.55), accent], startPoint: .leading, endPoint: .trailing))
                         .opacity(hovered == nil || hovered == r.name ? 1 : 0.45)
-                        .cornerRadius(3)
+                        .cornerRadius(Glass3DTokens.Radius.tag)
                 }
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { v in
@@ -130,7 +130,7 @@ struct StatsKindsCard: View {
             ZStack {
                 Chart(slices) { s in
                     SectorMark(angle: .value("Watch time", Double(s.seconds)), innerRadius: .ratio(0.62), angularInset: 1.5)
-                        .cornerRadius(3)
+                        .cornerRadius(Glass3DTokens.Radius.tag)
                         .foregroundStyle(s.color.opacity(hovered == nil || hovered?.id == s.id ? 0.85 : 0.35))
                 }
                 .chartLegend(.hidden)

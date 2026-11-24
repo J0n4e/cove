@@ -4,17 +4,7 @@ import SwiftUI
 
 /// Glass3D polish round 2: the thumbnails' progress line, the library sort label and item count.
 final class Glass3DRound2Tests: XCTestCase {
-    func testProgressLineWidth() {
-        XCTAssertEqual(Glass3DTokens.progressWidth(fraction: 0.5, width: 260), 130)
-        XCTAssertEqual(Glass3DTokens.progressWidth(fraction: 0.25, width: 220), 55)
-    }
-
-    func testNoLineWhenUnstartedFinishedOrInvalid() {
-        XCTAssertEqual(Glass3DTokens.progressWidth(fraction: 0, width: 260), 0)
-        XCTAssertEqual(Glass3DTokens.progressWidth(fraction: 1, width: 260), 0)
-        XCTAssertEqual(Glass3DTokens.progressWidth(fraction: -0.2, width: 260), 0)
-        XCTAssertEqual(Glass3DTokens.progressWidth(fraction: 0.5, width: 0), 0)
-    }
+    // The bottom progress line (progressWidth) is gone: the Resume ring replaced it (UI polish round 1).
 
     func testSortLabel() {
         XCTAssertEqual(Glass3DTokens.sortLabel(field: "Name", ascending: true), "Sort: Name ↑")

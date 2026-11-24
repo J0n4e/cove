@@ -15,8 +15,8 @@ struct ServerOverviewTab: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let i = model.info { infoCard(i) }
-                    else if let e = model.infoError { ServerAdminCard { Text(e).cvFont(13).foregroundColor(.red) } }
-                    else { ServerAdminCard { ProgressView().controlSize(.small) } }
+                    else if let e = model.infoError { ServerAdminCard { Text(e).cvFont(13).foregroundColor(Glass3DTokens.Status.danger) } }
+                    else { SkeletonShimmer(rows: 2, rowHeight: 44) }
                     streamsCard
                     powerCard
                 }
@@ -80,7 +80,7 @@ struct ServerOverviewTab: View {
                 Button { confirm = .restart } label: { Label("Restart server", systemImage: "arrow.clockwise") }
                     .buttonStyle(AboutButton(accentName: accentName)).disabled(busy)
                 Button { confirm = .shutdown } label: { Label("Shut down server", systemImage: "power") }
-                    .buttonStyle(ServerDangerButton()).disabled(busy)
+                    .buttonStyle(GlassButtonStyle(.destructive)).disabled(busy)
             }
             powerStatus
         }
@@ -94,10 +94,10 @@ struct ServerOverviewTab: View {
         case .restarting:
             HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Restarting… waiting for the server to come back.").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary) }
         case .shuttingDown: Text("Shutting down…").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
-        case .back: Text("The server is back.").cvFont(12).foregroundColor(.green)
-        case .timedOut: Text("The server hasn't come back after 3 minutes. Check it on the machine it runs on.").cvFont(12).foregroundColor(.orange)
-        case .shutDown: Text("The server is shutting down. Start it again on the machine it runs on.").cvFont(12).foregroundColor(.orange)
-        case .failed(let m): Text(m).cvFont(12).foregroundColor(.red)
+        case .back: Text("The server is back.").cvFont(12).foregroundColor(Glass3DTokens.Status.success)
+        case .timedOut: Text("The server hasn't come back after 3 minutes. Check it on the machine it runs on.").cvFont(12).foregroundColor(Glass3DTokens.Status.warning)
+        case .shutDown: Text("The server is shutting down. Start it again on the machine it runs on.").cvFont(12).foregroundColor(Glass3DTokens.Status.warning)
+        case .failed(let m): Text(m).cvFont(12).foregroundColor(Glass3DTokens.Status.danger)
         }
     }
 
@@ -120,7 +120,7 @@ struct ServerOverviewTab: View {
                     Button(restart ? "Restart" : "Shut Down") {
                         confirm = nil
                         Task { if restart { await model.restart() } else { await model.shutdown() } }
-                    }.buttonStyle(ServerDangerButton())
+                    }.buttonStyle(GlassButtonStyle(.destructive))
                 }
             }
             .padding(20).frame(width: 420)
@@ -159,7 +159,7 @@ struct ServerTasksTab: View {
             if let e = model.tasksError, model.tasks.isEmpty {
                 ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
             } else if !model.tasksLoaded {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
                 let sections = ServerTaskGrouping.sections(model.tasks, query: query)
                 if sections.isEmpty {

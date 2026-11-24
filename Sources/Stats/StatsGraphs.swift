@@ -12,7 +12,7 @@ struct StatsGraphsView: View {
             VStack(alignment: .leading, spacing: 20) {
                 StatsRangePills(range: $model.range)
                 if let g = model.graphs, model.graphsRange == model.range { StatsGraphsContent(data: g) }
-                else if model.graphsLoading || model.graphs == nil { Spinner().frame(maxWidth: .infinity).padding(60) }
+                else if model.graphsLoading || model.graphs == nil { SkeletonShimmer().padding(.vertical, 30) }
                 else {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Graphs couldn't be loaded",
                                    message: "The server didn't answer. Open this tab again to retry.")
@@ -131,7 +131,7 @@ private struct StatsPlaysChartCard: View {
                 BarMark(x: .value("Period", b.start, unit: unit.component), y: .value("Plays", b.plays))
                     .foregroundStyle(LinearGradient(colors: [accent, accent.opacity(0.55)], startPoint: .top, endPoint: .bottom))
                     .opacity(hovered == nil || hovered?.start == b.start ? 1 : 0.45)
-                    .cornerRadius(3)
+                    .cornerRadius(Glass3DTokens.Radius.tag)
             }
             .statsTimeAxes(unit: unit, count: buckets.count)
             .statsDateHover { d in hovered = d.flatMap { StatsGraphsAggregate.bucket(at: $0, in: buckets, start: \.start) } }

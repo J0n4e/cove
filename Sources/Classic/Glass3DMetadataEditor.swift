@@ -46,7 +46,7 @@ struct MetadataEditorView: View {
         VStack(alignment: .leading, spacing: 10) {
             ItemAdminHeader(title: "Edit Metadata", subtitle: [title, raw["Path"] as? String].compactMap { $0 }.joined(separator: " · "))
             if loading {
-                Spacer(); HStack { Spacer(); Spinner(); Spacer() }; Spacer()
+                SkeletonShimmer(rows: 5, rowHeight: 36, radius: Glass3DTokens.Radius.field); Spacer()
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
@@ -87,8 +87,8 @@ struct MetadataEditorView: View {
                 Text("Overview").cvFont(10).foregroundColor(.white.opacity(0.6))
                 TextEditor(text: $d.overview).cvFont(12).scrollContentBackground(.hidden)
                     .padding(6).frame(height: 110)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.35)))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15)))
+                    .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(Color.black.opacity(0.35)))
+                    .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).stroke(Color.white.opacity(0.15)))
             }
             HStack(spacing: 10) {
                 field("Year", $d.year).frame(width: 80)
@@ -115,7 +115,7 @@ struct MetadataEditorView: View {
             ChipEditor(values: b, suggestions: sugg, placeholder: "Add \(t.lowercased().dropLast())…")
             if API.needsLockHint(d, original: original).contains(lock) {
                 HStack(spacing: 8) {
-                    Image(systemName: "lock.open").cvFont(11).foregroundColor(.orange)
+                    Image(systemName: "lock.open").cvFont(11).foregroundColor(Glass3DTokens.Status.warning)
                     Text("Lock \(t) so a refresh keeps your changes").cvFont(11).foregroundColor(.white.opacity(0.75))
                     Button("Lock \(t)") { if !d.lockedFields.contains(lock) { d.lockedFields.append(lock) } }
                         .buttonStyle(AboutButton(accentName: accentName))
@@ -161,7 +161,7 @@ struct MetadataEditorView: View {
                 Button("Lock all fields") { lockConfirm = true }.buttonStyle(AboutButton(accentName: accentName))
                 Button("Unlock all fields") { lockConfirm = false }.buttonStyle(AboutButton(accentName: accentName))
                 if let all = lockConfirm {
-                    Text(all ? "Lock every field?" : "Unlock every field?").cvFont(11).foregroundColor(.orange)
+                    Text(all ? "Lock every field?" : "Unlock every field?").cvFont(11).foregroundColor(Glass3DTokens.Status.warning)
                     Button("Yes") {
                         d.lockedFields = all ? API.lockableFields.map(\.key) : []
                         lockConfirm = nil
@@ -183,7 +183,7 @@ struct MetadataEditorView: View {
                 Text(changes.isEmpty ? "Nothing changed." : changes).cvFont(11).foregroundColor(.white.opacity(0.85))
                     .lineLimit(4).fixedSize(horizontal: false, vertical: true)
             }
-            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
             HStack(spacing: 8) {
                 if let it = asItem() {
                     Button("Refresh metadata…") { ItemAdminWindows.refresh(it, emby: emby, onChange: reloadAfterTool) }

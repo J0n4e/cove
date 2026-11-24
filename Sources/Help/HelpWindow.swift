@@ -81,10 +81,8 @@ struct HelpView: View {
                         }
                     }
                     if results.isEmpty {
-                        Text("No help topic matches \u{201C}\(query)\u{201D}.")
-                            .coveFont(size: 12).foregroundColor(Color.white.opacity(0.6))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(12)
+                        EmptyState(symbol: "magnifyingglass", title: "No matches",
+                                   message: EmptyState.helpNoMatch(query), compact: true)
                     }
                 }
                 .padding(.horizontal, 8).padding(.bottom, 14)
@@ -126,9 +124,9 @@ struct HelpView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.button, style: .continuous)
                 .fill(on ? Color.white.opacity(0.12) : Color.clear))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.button, style: .continuous)
                 .stroke(on ? Color.white.opacity(0.16) : Color.clear, lineWidth: 1))
             .contentShape(Rectangle())
         }
@@ -142,7 +140,7 @@ struct HelpView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack(spacing: 12) {
-                        Image(systemName: t.symbol).font(.system(size: 26)).foregroundColor(accent)
+                        Image(systemName: t.symbol).coveFont(size: 26).foregroundColor(accent)
                         highlighted(t.title).coveFont(size: 26, weight: .bold).foregroundColor(.white)
                     }
                     highlighted(t.intro)
@@ -202,7 +200,7 @@ struct HelpView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.06)))
+            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous).fill(Color.white.opacity(0.06)))
         }
     }
 

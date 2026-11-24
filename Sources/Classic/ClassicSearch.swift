@@ -66,7 +66,7 @@ struct ClassicSearchView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         heading
-                        if busy { Spinner() }
+                        if busy { SkeletonShimmer() }
                         else if people.isEmpty {
                             ClassicEmptyState(symbol: "magnifyingglass", title: "No results",
                                               message: "Nothing matches “\(query)”. Try another title, person or spelling.")
@@ -95,7 +95,7 @@ struct ClassicSearchView: View {
                                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").cvFont(50).foregroundColor(.secondary) }
                                 }
                                 // Poster-sized portrait, like the other result cards
-                                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
+                                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card))
                                 .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225),
                                            tracksHover: true))   // the posters' light glass edge, and their glow
                                 .overlay(alignment: .topLeading) {

@@ -170,7 +170,7 @@ struct ProfilePictureView: View {
             if !otherTargets.isEmpty {
                 Toggle(isOn: $allServers) { Text("Use for all my servers").cvFont(12) }.toggleStyle(.checkbox)
             }
-            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(.orange).multilineTextAlignment(.center) }
+            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).multilineTextAlignment(.center) }
             ForEach(results, id: \.self) { Text($0).cvFont(11).foregroundColor(.secondary) }
             Spacer(minLength: 0)
             HStack {
@@ -211,11 +211,11 @@ struct ProfilePictureView: View {
                                                        image: imageSize, viewport: viewport, zoom: zoom)
                         }
                         .onEnded { _ in dragStart = nil })
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous))
             } else {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)
                     .strokeBorder(Color.white.opacity(dropHover ? 0.8 : 0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
-                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(dropHover ? 0.35 : 0.2)))
+                    .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(dropHover ? 0.35 : 0.2)))
                     .frame(width: viewport, height: viewport)
                     .overlay(VStack(spacing: 8) {
                         Image(systemName: "photo.on.rectangle").cvFont(30, weight: .light)

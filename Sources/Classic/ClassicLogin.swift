@@ -22,7 +22,7 @@ struct ClassicLoginView: View {
             bg.ignoresSafeArea()   // Settings → General → Background, as every other page
             VStack(spacing: 14) {
                 if showForm { form } else { serverList }
-                if !error.isEmpty { Text(error).foregroundColor(.orange).cvFont(10, weight: .regular).multilineTextAlignment(.center) }
+                if !error.isEmpty { Text(error).foregroundColor(Glass3DTokens.Status.warning).cvFont(10, weight: .regular).multilineTextAlignment(.center) }
             }
             .frame(width: showForm ? 340 : 520).padding(36)
             .modifier(PanelSurface(classic: true))   // dark glass, as the player panels
@@ -39,7 +39,7 @@ struct ClassicLoginView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "plus").cvFont(34, weight: .light)
                             .frame(width: 150, height: 100)
-                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6])))
                         Text("Add Server").cvFont(13, weight: .bold)
                         Text(" ").cvFont(10, weight: .regular)
@@ -56,8 +56,8 @@ struct ClassicLoginView: View {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "server.rack").cvFont(38)
                         .frame(width: 150, height: 100)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
-                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)))
                     if s.token != nil {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(6)
                             .helpLabel("Signed in")

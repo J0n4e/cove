@@ -36,9 +36,9 @@ struct ItemRefreshView: View {
                 .toggleStyle(.checkbox).disabled(mode == .scan).opacity(mode == .scan ? 0.5 : 1)
             if confirming {
                 Text("This overwrites all metadata of \u{201C}\(item.Name)\u{201D}, including your own edits. Continue?")
-                    .cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)
+                    .cvFont(12).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true)
             }
-            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
             Spacer(minLength: 0)
             HStack {
                 if busy { Spinner().controlSize(.small) }
@@ -107,7 +107,7 @@ struct ItemIdentifyView: View {
             }
             HStack {
                 if busy { Spinner().controlSize(.small) }
-                if !error.isEmpty { Text(error).cvFont(11).foregroundColor(.orange).lineLimit(2) }
+                if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).lineLimit(2) }
                 Spacer()
                 Button("Search") { search() }.buttonStyle(AboutButton(primary: picked == nil, accentName: accentName)).disabled(busy)
             }

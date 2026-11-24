@@ -18,8 +18,8 @@ struct Glass3DSegmentTabs: View {
                         // unread: a small red dot just past the text's top-right (owner's mock-up)
                         .overlay(alignment: .topTrailing) {
                             if let b = badges[i] {
-                                Circle().fill(Color(red: 1, green: 0.27, blue: 0.27)).frame(width: 7, height: 7)
-                                    .offset(x: 9, y: -2).allowsHitTesting(false).help("\(b) unread")
+                                UnreadDot()
+                                    .offset(x: 9, y: -2).help("\(b) unread")
                             }
                         }
                         .padding(.horizontal, 14).frame(height: 32)
@@ -38,9 +38,9 @@ struct DockBadge: View {
     var small = false
     var body: some View {
         let d: CGFloat = small ? 15 : 17
-        Text(text).font(.system(size: small ? 9 : 10, weight: .bold, design: .rounded)).monospacedDigit().foregroundColor(.white)
+        Text(text).coveFont(size: small ? 9 : 10, weight: .bold, design: .rounded) { $0.monospacedDigit() }.foregroundColor(.white)
             .padding(.horizontal, text.count > 1 ? 4 : 0).frame(minWidth: d, minHeight: d)
-            .background(Capsule().fill(Color(red: 1, green: 0.23, blue: 0.19)))
+            .background(Capsule().fill(Glass3DTokens.Status.danger))
             .overlay(Capsule().strokeBorder(Color.black.opacity(0.25), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.35), radius: 1.5, y: 1)
             .fixedSize()

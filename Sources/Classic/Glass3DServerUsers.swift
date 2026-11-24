@@ -27,7 +27,7 @@ struct ServerUsersTab: View {
                 if let e = model.error, model.users.isEmpty {
                     ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
                 } else if !model.loaded {
-                    ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     let found = model.users.filter { AdminUser.matches($0, query) }
                     let list = sort == LastActive.Sort.lastActive.rawValue
@@ -167,7 +167,7 @@ struct ServerAddUserSheet: View {
             ServerField(title: "Password (optional)", text: $password, secure: true)
             Text("The new user can see all libraries and has no administrator rights. Change that in the user's settings.")
                 .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
-            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
             HStack {
                 if busy { ProgressView().controlSize(.small) }
                 Spacer()
@@ -227,9 +227,9 @@ struct ServerUserSheet: View {
                 }.padding(.trailing, 4)
             }
             .frame(maxHeight: 400).scrollIndicators(.never)
-            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
             if !summary.isEmpty {
-                Text("Saved: " + summary.joined(separator: " · ")).cvFont(12).foregroundColor(.green).fixedSize(horizontal: false, vertical: true)
+                Text("Saved: " + summary.joined(separator: " · ")).cvFont(12).foregroundColor(Glass3DTokens.Status.success).fixedSize(horizontal: false, vertical: true)
             }
             HStack {
                 if busy { ProgressView().controlSize(.small) }
@@ -315,11 +315,11 @@ struct ServerUserSheet: View {
                         .cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).fixedSize(horizontal: false, vertical: true)
                     HStack {
                         TextField(user.name, text: $deleteName).textFieldStyle(.roundedBorder).cvFont(13)
-                        Button("Delete user") { delete() }.buttonStyle(ServerDangerButton())
+                        Button("Delete user") { delete() }.buttonStyle(GlassButtonStyle(.destructive))
                             .disabled(!UserAdminRules.deleteConfirmed(deleteName, user: user) || busy)
                     }
                 } else {
-                    Button("Delete user…") { deleting = true }.buttonStyle(ServerDangerButton())
+                    Button("Delete user…") { deleting = true }.buttonStyle(GlassButtonStyle(.destructive))
                 }
             }
         }

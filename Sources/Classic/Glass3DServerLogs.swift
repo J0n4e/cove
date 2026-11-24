@@ -26,7 +26,7 @@ struct ServerLogsTab: View {
                         .buttonStyle(AboutButton(accentName: accentName))
                 }
                 if !model.loaded {
-                    ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else if section == 0 { activityList } else { fileList }
             }
         }
@@ -131,7 +131,7 @@ struct ServerLogViewer: View {
                 Text(note ?? "\(shown.count) of \(model.lines.count) lines").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
             }
             if model.loadingFile {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
                 ScrollView([.vertical, .horizontal]) {
                     Text(attributed(shown))
@@ -154,7 +154,7 @@ struct ServerLogViewer: View {
         let q = query.trimmingCharacters(in: .whitespaces)
         for (i, l) in lines.enumerated() {
             var a = AttributedString(l.text + (i == lines.count - 1 ? "" : "\n"))
-            a.foregroundColor = l.level == .error ? Color.red.opacity(0.95) : (l.level == .warn ? Color.orange : Color.white.opacity(0.85))
+            a.foregroundColor = l.level == .error ? Glass3DTokens.Status.danger.opacity(0.95) : (l.level == .warn ? Glass3DTokens.Status.warning : Color.white.opacity(0.85))
             if !q.isEmpty {
                 var from = a.startIndex
                 while from < a.endIndex, let r = a[from...].range(of: q, options: .caseInsensitive) {

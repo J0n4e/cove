@@ -13,7 +13,7 @@ struct Glass3DListRow: View {
                 CachedImage(url: emby.image(item.posterId, width: 160)) { p in
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
-                .frame(width: 60, height: 90).clipped().cornerRadius(4)
+                .frame(width: 60, height: 90).clipped().cornerRadius(Glass3DTokens.Radius.tag)
                 .watchedDim(played)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.Name).coveFont(size: 13, weight: .bold).lineLimit(1)
@@ -24,7 +24,7 @@ struct Glass3DListRow: View {
                 PosterBadgesInline(item: item)
             }
             .padding(8)
-            .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(6)
+            .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(Glass3DTokens.Radius.thumb)
             .contentShape(Rectangle())
             .scrollHover($hover)
         }.buttonStyle(.plainHand)

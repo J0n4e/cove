@@ -51,7 +51,7 @@ struct ClassicHomeContent: View {
                         }
                     }
                 }
-                if model.loading { Spinner().frame(maxWidth: .infinity).padding(60) }
+                if model.loading { SkeletonShimmer().padding(.vertical, 30) }
                 else if model.rows.isEmpty, let m = emby.lastFailure {
                     // The server couldn't be reached: say so, instead of an empty page
                     ErrorStateView(message: m, retry: { model.retry() },
@@ -81,7 +81,7 @@ private struct BannerShape: ViewModifier {
     let card: Bool
     @ViewBuilder func body(content: Content) -> some View {
         if card {
-            content.clipShape(RoundedRectangle(cornerRadius: 18))
+            content.clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero))
                 .modifier(ClassicLightCard(radius: 18))   // the posters' light glass edge, drawn once per size
                 .padding(.horizontal, 32)
         } else {
@@ -166,8 +166,8 @@ struct ClassicHero: View {
             Group {
                 if style == "panel" {
                     info(item).padding(24)
-                        .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: 22, style: .continuous)))
-                        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black.opacity(0.35)))
+                        .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.banner, style: .continuous)))
+                        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.banner, style: .continuous).fill(Color.black.opacity(0.35)))
                 } else { info(item) }
             }
             .padding(.leading, style == "card" ? 44 : 80).padding(.bottom, 56)
@@ -306,10 +306,10 @@ struct ClassicHero: View {
             img.resizable().aspectRatio(contentMode: .fill)
         } placeholder: { Color(white: 0.15) }
         .frame(width: deckW, height: deckW * 9 / 16).clipped()   // no name on the card (the banner beside it says it)
-        .cornerRadius(12)
+        .cornerRadius(Glass3DTokens.Radius.card)
         .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: deckW, height: deckW * 9 / 16),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
-        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(Double(k) * 0.22)))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
 
@@ -400,7 +400,7 @@ struct ClassicResumeCard: View {
                         .onHover { onPlay = $0 }
                     }
                 }
-                .cornerRadius(8)
+                .cornerRadius(Glass3DTokens.Radius.field)
                 .modifier(ClassicLightCard(radius: 8, hover: hover && !onPlay, accent: Theme.accent(accentName),
                                            size: CGSize(width: 260, height: 146)))   // the posters' light glass edge
                 .classicHoverLift()
@@ -444,7 +444,7 @@ struct Glass3DBannerDot: View {
         Button(action: action) {
             Capsule().fill(on ? accent : Color.white.opacity(hover ? 0.8 : 0.5))
                 .frame(width: on ? 24 : 8, height: 8)
-                .scaleEffect(hover && !on ? 1.2 : 1)
+                .brightness(hover && !on ? 0.15 : 0)   // light only, no growth (owner)
                 .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
                 .contentShape(Rectangle().inset(by: -6))
         }
