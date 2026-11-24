@@ -30,7 +30,7 @@ struct ClassicHomeContent: View {
                 ForEach(model.rows) { row in
                     VStack(alignment: .leading, spacing: 12) {
                         Glass3DRowHeading(title: row.title, seeAll: row.libId.map { id in { ClassicNavState.shared.sel = id } })
-                            .padding(.horizontal, 32)
+                            .padding(.horizontal, Glass3DTokens.Space.page)
                         let wide = row.title == "Continue Watching"
                         // Continue Watching has its own Row / Grid choice; every other section follows Home's
                         if (wide ? resumeLayout : homeLayout) == "grid" {
@@ -39,7 +39,7 @@ struct ClassicHomeContent: View {
                                 ForEach(row.items) { it in
                                     if wide { ClassicResumeCard(item: it) } else { ClassicPosterCard(item: it) }
                                 }
-                            }.padding(.horizontal, 32)
+                            }.padding(.horizontal, Glass3DTokens.Space.page)
                         } else if wide {
                             ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 260, spacing: 14, inset: 32) {
                                 ClassicResumeCard(item: row.items[$0])
@@ -51,13 +51,17 @@ struct ClassicHomeContent: View {
                         }
                     }
                 }
-                if model.loading { SkeletonShimmer().padding(.vertical, 30) }
+                if model.loading {
+                    // Rows still loading: poster-shaped blocks, as the rows will be
+                    SkeletonShimmer(layout: .posters, rows: model.rows.isEmpty ? 12 : 6)
+                        .padding(.horizontal, Glass3DTokens.Space.page).padding(.vertical, Glass3DTokens.Space.xxl)
+                }
                 else if model.rows.isEmpty, let m = emby.lastFailure {
                     // The server couldn't be reached: say so, instead of an empty page
                     ErrorStateView(message: m, retry: { model.retry() },
                                    switchServer: { emby.switchServer() }).padding(.top, 80)
                 }
-            }.padding(.bottom, 40)
+            }.padding(.bottom, Glass3DTokens.Space.pageWide)
         }
         .classicScrollBars()   // thin overlay bars, only while scrolling
         // The banner runs up under the floating top bar (not the inset card)
@@ -83,7 +87,7 @@ private struct BannerShape: ViewModifier {
         if card {
             content.clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero))
                 .modifier(ClassicLightCard(radius: 18))   // the posters' light glass edge, drawn once per size
-                .padding(.horizontal, 32)
+                .padding(.horizontal, Glass3DTokens.Space.page)
         } else {
             content.clipped()
         }
@@ -155,7 +159,7 @@ struct ClassicHero: View {
         let item = items[index % items.count]
         ZStack(alignment: .bottomLeading) {
             Color.clear.frame(maxWidth: .infinity).frame(height: bannerH)
-                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: min(Int(width * 2), 2560)) }.clipped()   // Retina-sharp
+                .overlay { Backdrop(id: item.backdropId ?? item.Id, width: min(Int(width * 2), 2560)).kenBurns(seed: item.id) }.clipped()   // Retina-sharp; slow zoom per slide
                 // The new picture fades in over the old one, which stays solid underneath until it is covered (both
                 // half see-through at once made the banner dim mid-change)
                 .id("b" + item.id)
@@ -183,7 +187,7 @@ struct ClassicHero: View {
                     // The hover is tracked on the bullets/cards themselves, BEFORE the full-size frame: on the frame
                     // it covered the whole banner and a resting pointer stopped the cycle (owner)
                     if bannerNav == "bullets" {
-                        thumbs.scrollHover($hoverNav).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 26)
+                        thumbs.scrollHover($hoverNav).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, Glass3DTokens.Space.xxl)
                     } else {
                         deck.scrollHover($hoverNav).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                             .padding(.trailing, 44).padding(.bottom, 56)
@@ -261,7 +265,7 @@ struct ClassicHero: View {
                 NavigationLink(value: item) {
                     Label("More Info", systemImage: "info").classicGlassPill(size: 46).glass3DRoundOutline()
                 }.buttonStyle(HoverButton()).helpLabel("More Info")
-            }.padding(.top, 6)
+            }.padding(.top, Glass3DTokens.Space.s)
         }
         .frame(maxWidth: 520, alignment: .leading)
     }
@@ -333,7 +337,7 @@ struct ClassicResumeCard: View {
     @EnvironmentObject var emby: Emby
     let item: Item
     @State private var hover = false
-    /// The pointer is on the play button: only the button glows then, not the card (as the episode cards)
+    /// The pointer is on the play button or the Resume ring: only that control glows then, not the card
     @State private var onPlay = false
     @AppStorage("accent") private var accentName = "red"
 
@@ -366,7 +370,7 @@ struct ClassicResumeCard: View {
                 CachedImage(url: imageURL) { p in
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    ZStack { Color(white: 0.15); Text(item.heroTitle).cvFont(10, weight: .regular).padding(6) }
+                    ZStack { Color(white: 0.15); Text(item.heroTitle).cvFont(10, weight: .regular).padding(Glass3DTokens.Space.s) }
                 }
                 .frame(width: 260, height: 146).clipped()
                 .overlay { ThumbnailScrim() }   // soft dark gradient behind the code, time left and title
@@ -376,7 +380,7 @@ struct ClassicResumeCard: View {
                     Text(item.heroTitle)
                         .cvFont(12, weight: .semibold).foregroundColor(.white).lineLimit(1)
                         .classicBlackOutline()
-                        .padding(.leading, 10).padding(.trailing, 10).padding(.bottom, 12)
+                        .padding(.leading, Glass3DTokens.Space.m).padding(.trailing, Glass3DTokens.Space.m).padding(.bottom, Glass3DTokens.Space.m)
                         .modifier(ProgressRingClearance(active: hasProgress))   // clear of the ring
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -384,7 +388,7 @@ struct ClassicResumeCard: View {
                 .overlay(alignment: .topLeading) {
                     if let subtitle {
                         Text(subtitle).cvFont(10, weight: .semibold).foregroundColor(.white)
-                            .classicBlackOutline().padding(10)
+                            .classicBlackOutline().padding(Glass3DTokens.Space.m)
                     }
                 }
                 // How far you got: glow line along the bottom, Resume ring bottom-right
@@ -397,18 +401,20 @@ struct ClassicResumeCard: View {
                         }.buttonStyle(.plainHand)
                         .tip(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "")
                         .accessibilityLabel(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "Play")
-                        .onHover { onPlay = $0 }
+                        .reportsThumbnailInnerHover()
                     }
                 }
                 .cornerRadius(Glass3DTokens.Radius.field)
-                .modifier(ClassicLightCard(radius: 8, hover: hover && !onPlay, accent: Theme.accent(accentName),
+                .modifier(ClassicLightCard(radius: Glass3DTokens.Radius.field, hover: hover, accent: Theme.accent(accentName),
                                            size: CGSize(width: 260, height: 146)))   // the posters' light glass edge
                 .classicHoverLift()
             }
             .frame(width: 260, alignment: .leading)
             .contentShape(Rectangle())
             .scrollHover($hover)
-            .onChange(of: hover) { _, h in if !h { onPlay = false } }   // the button goes with the hover
+            .onChange(of: hover) { _, h in onPlay = ThumbnailHover.innerAfterCardHover(h, inner: onPlay) }   // the controls go with the hover
+            // Play and the Resume ring share one flag: on either, only that control glows, not the card
+            .modifier(ThumbnailInnerHoverScope(flag: $onPlay, value: onPlay))
             .onTapGesture { openPage() }.handCursor()
             // Keyboard and VoiceOver: one element that opens the page (Return), with Resume as an action; the
             // Resume button itself only shows under the pointer

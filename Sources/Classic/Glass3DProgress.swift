@@ -99,6 +99,8 @@ struct ThumbnailResumeRing: View {
             .buttonStyle(.plainHand)
             .tip(ProgressStyle.resumeTip(resumeAt))
             .accessibilityLabel("Resume")
+            // Like the centre Play button: while the pointer is on the ring, the card's lit border steps back
+            .reportsThumbnailInnerHover()
     }
     var label: some View {
         Label("Resume", systemImage: "play.fill").classicGlassPill(size: ProgressStyle.ringSize)

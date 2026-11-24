@@ -199,9 +199,11 @@ struct ClassicLightCard: ViewModifier {
     /// The card's size when it isn't fixed (episode tiles follow the window width), measured once per change
     @State private var measured: CGSize?
     @Environment(\.displayScale) private var scale
+    /// The pointer is on one of the card's own controls (centre Play, Resume ring): the card stays unlit
+    @Environment(\.thumbnailInnerHovered) private var innerHovered
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .circular)
-        let hover = self.hover || ownHover
+        let hover = ThumbnailHover.cardLit(hover: self.hover || ownHover, innerControl: innerHovered)
         let lit = hover ? 1.0 : 0.7
         return content
             .modifier(MeasureSize(enabled: size == nil, size: $measured))

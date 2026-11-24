@@ -668,17 +668,23 @@ struct SelfHoverLift: ViewModifier {
             Image(systemName: "play.circle.fill").coveFont(size: play).foregroundColor(.white).shadow(radius: 6)
         }
     }
-    func body(content: Content) -> some View {
-        content
+    /// The pointer is on the play button or the Resume ring: the card's lit edge steps back (ThumbnailHover)
+    @State private var inner = false
+    @ViewBuilder func body(content: Content) -> some View {
+        let lifted = content
             .overlay {
                 if hover && play > 0 {
                     if let onPlay {
                         Button(action: onPlay) { icon.contentShape(Circle()) }.buttonStyle(.plainHand)
                             .tip(playTip ?? (classic ? "" : "Play")).accessibilityLabel(playTip ?? "Play")   // Classic: no default tooltip
+                            .reportsThumbnailInnerHover()
                     } else { icon }
                 }
             }
             .modifier(HoverLift(hover: hover)).scrollHover($hover)
+            .onChange(of: hover) { _, h in inner = ThumbnailHover.innerAfterCardHover(h, inner: inner) }
+        // Only cards with a play button own the flag (a plain lift inside another card keeps that card's flag)
+        if play > 0 { lifted.modifier(ThumbnailInnerHoverScope(flag: $inner, value: inner)) } else { lifted }
     }
 }
 
