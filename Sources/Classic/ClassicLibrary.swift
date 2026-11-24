@@ -13,6 +13,8 @@ struct ClassicLibraryView: View {
     @StateObject private var model: LibraryModel
     /// Bumped by the root when the library already shown is clicked again: reload it from the server.
     var refresh = 0
+    /// The page-title icon follows Settings → Appearance → Toolbar style
+    @AppStorage(ToolbarStyle.key) private var toolbarStyle = ToolbarStyle.defaultValue.rawValue
 
     init(lib: LibPref, refresh: Int = 0) {
         self.lib = lib
@@ -94,7 +96,7 @@ struct ClassicLibraryView: View {
                 // Title on the grid's leading edge, the count as small grey text under it
                 HStack {
                     VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
-                        ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind))
+                        ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind, name: lib.name, style: ToolbarStyle(raw: toolbarStyle)))
                         Text(Glass3DTokens.itemCount(model.visibleCount))
                             .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
                     }

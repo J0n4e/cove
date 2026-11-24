@@ -228,6 +228,7 @@ struct GeneralSettings: View {
     @AppStorage(GlassFrost.frostKey) private var glassFrost = GlassFrost.defaultFrost
     @AppStorage("navStyle") private var navStyle = "sidebar"
     @AppStorage("topBarLabels") private var topBarLabels = "both"
+    @AppStorage(ToolbarStyle.key) private var toolbarStyle = ToolbarStyle.defaultValue.rawValue
     @AppStorage("homeLayout") private var homeLayout = "row"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
@@ -290,6 +291,8 @@ struct GeneralSettings: View {
                      ? "The top bar, its buttons, the search pill and the player controls. Follow macOS uses the Liquid Glass setting in System Settings → Appearance; off, cove frosts the glass itself."
                      : "The top bar, its buttons, the search pill and the player controls: from clear to tinted.")
             PrefRow(label: "Text size") { menuPicker($textSize, TextScale.choices) }
+            PrefRow(label: "Toolbar style") { menuPicker($toolbarStyle, ToolbarStyle.options) }
+            PrefNote("Classic is the original look. Clean has crisp labels, steady glass and a More (⋯) menu on narrow windows.")
             PrefRow(label: "Accent color") { swatches(Theme.accents, selection: $accent) }
             PrefRow(label: "Background") { bgTiles(selection: $bg) }
         }
