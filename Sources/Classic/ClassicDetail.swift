@@ -467,7 +467,7 @@ struct ClassicDetailView: View {
             } else {
                 Button { model.playNow(from: r > 0 ? 0 : nil) } label: {
                     // Primary: solid accent with the glossy top edge (owner), same 44-pt height as the rest
-                    Label(model.playLabel, systemImage: "play.fill").classicPrimaryPill(size: DetailInfoPanel.buttonHeight)
+                    Label(model.playLabel, systemImage: "play.fill").classicGlassPill(size: DetailInfoPanel.buttonHeight, iconOnly: false)   // glass like the other buttons, no red fill (owner)
                 }.buttonStyle(HoverButton()).accessibilityLabel(r > 0 ? model.playLabel + " from the beginning" : model.playLabel)
             }
             if r > 0 {
