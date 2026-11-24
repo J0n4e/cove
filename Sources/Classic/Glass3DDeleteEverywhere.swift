@@ -216,27 +216,45 @@ struct RecentlyDeletedCard: View {
     var body: some View {
         let mine = store.records.filter { $0.server == emby.server.lowercased() }
         if !mine.isEmpty {
-            ServerAdminCard(title: "Recently deleted (\(mine.count))") {
-                ForEach(mine) { r in
-                    HStack(spacing: Glass3DTokens.Space.m) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(r.what).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1)
-                            Text("Deleted \(r.deletedAt.formatted(date: .abbreviated, time: .shortened)) · Undo until \(r.deletedAt.addingTimeInterval(DeletionStore.lifetime).formatted(date: .abbreviated, time: .omitted))")
-                                .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
-                        }
-                        Spacer()
-                        Button(busy == r.id ? "Undoing\u{2026}" : "Undo") {
-                            busy = r.id
-                            Task {
-                                message = await DeleteEverywhereService.undo(r, emby: emby) ?? "Restored \u{201C}\(r.name)\u{201D}."
-                                busy = nil
-                            }
-                        }.buttonStyle(AboutButton()).disabled(busy != nil)
-                    }
-                }
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+                SectionHeader(title: "Recently deleted (\(mine.count))", style: .eyebrow)
+                ForEach(mine) { r in row(r) }
                 if let message { Text(message).cvFont(12).foregroundColor(Glass3DTokens.Grey.primary) }
             }
             .onAppear { store.reload() }
+        }
+    }
+
+    /// One card per title, built like a Devices row: poster · title + line · Undo
+    func row(_ r: DeletionRecord) -> some View {
+        let m = DeletedRowModel.make(r) { emby.image($0, width: 120) }
+        return ServerAdminCard {
+            HStack(spacing: Glass3DTokens.Space.m) {
+                poster(m.poster)
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                    Text(m.title).cvFont(14, weight: .bold).foregroundColor(.white).lineLimit(1)
+                    Text(m.line).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
+                }
+                Spacer()
+                let c = DeletedRowModel.countdown(r)
+                Text(c.text).cvFont(Glass3DTokens.Text.meta).lineLimit(1)
+                    .foregroundColor(c.urgency == .danger ? Glass3DTokens.Status.danger
+                                     : c.urgency == .warning ? Glass3DTokens.Status.warning : Glass3DTokens.Grey.secondary)
+                Button(busy == r.id ? "Undoing\u{2026}" : "Undo") {
+                    busy = r.id
+                    Task {
+                        message = await DeleteEverywhereService.undo(r, emby: emby) ?? "Restored \u{201C}\(r.name)\u{201D}."
+                        busy = nil
+                    }
+                }.buttonStyle(AboutButton()).disabled(busy != nil)
+            }
+        }
+    }
+
+    @ViewBuilder func poster(_ p: DeletedRowModel.Poster) -> some View {
+        switch p {
+        case .url(let u): ItemAdminThumb(url: u, placeholder: "film").frame(width: 40, height: 60)
+        case .placeholder(let s): ItemAdminThumb(url: nil, placeholder: s).frame(width: 40, height: 60)
         }
     }
 }
@@ -260,7 +278,7 @@ struct ServerTrashTab: View {
                 Text("Deleted titles stay in nexcrate's recycle bin for 7 days. Undo puts the files back and the title returns to the library.")
                     .cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
                 if mine.isEmpty {
-                    ServerAdminNotice(icon: "trash", text: "Nothing deleted in the last 7 days.")
+                    EmptyState(symbol: "trash", title: "Nothing deleted in the last 7 days.")
                 } else {
                     RecentlyDeletedCard()
                 }
