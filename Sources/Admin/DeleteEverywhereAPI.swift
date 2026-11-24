@@ -353,7 +353,35 @@ struct DeletionRecord: Codable, Equatable, Identifiable {
     let deletedAt: Date
     var entryIds: [Int]
     var libraryId: String?
+    /// Poster link captured at delete time (older records don't have it; decodes as nil)
+    var posterURL: String? = nil
+    /// The item whose poster that is (the series for an episode)
+    var posterItemId: String? = nil
     var target: NexcrateAPI.Target { .init(kind: kind, ref: ref, scope: scope) }
+}
+
+/// What a Trash row shows: the same wording as before, plus where its small poster comes from.
+struct DeletedRowModel: Equatable {
+    enum Poster: Equatable { case url(URL), placeholder(String) }
+    let title: String
+    let line: String
+    let poster: Poster
+
+    nonisolated static func lineText(_ r: DeletionRecord) -> String {
+        "Deleted \(r.deletedAt.formatted(date: .abbreviated, time: .shortened)) · Undo until \(r.deletedAt.addingTimeInterval(DeletionStore.lifetime).formatted(date: .abbreviated, time: .omitted))"
+    }
+    nonisolated static func placeholder(_ k: NexcrateAPI.Kind) -> String { k == .series ? "tv" : "film" }
+    /// Stored poster link → the server's picture for the stored poster id / item id (may still be cached) → a placeholder
+    nonisolated static func poster(_ r: DeletionRecord, server: (String) -> URL?) -> Poster {
+        if let s = r.posterURL, let u = URL(string: s), u.scheme != nil { return .url(u) }
+        for id in [r.posterItemId, r.itemId].compactMap({ $0 }) where !id.isEmpty {
+            if let u = server(id) { return .url(u) }
+        }
+        return .placeholder(placeholder(r.kind))
+    }
+    nonisolated static func make(_ r: DeletionRecord, server: (String) -> URL?) -> DeletedRowModel {
+        DeletedRowModel(title: r.what, line: lineText(r), poster: poster(r, server: server))
+    }
 }
 
 enum DeletionStore {
