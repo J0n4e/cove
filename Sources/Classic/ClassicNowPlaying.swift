@@ -34,9 +34,9 @@ enum NowPlayingStyle {
     /// The play method pill: label and tint (PlayState.PlayMethod: DirectPlay / DirectStream / Transcode).
     static func playMethod(_ method: String?) -> (label: String, tint: Tint) {
         switch method?.lowercased() {
-        case "transcode": return ("Transcoding", Glass3DTokens.Status.warning)
+        case "transcode": return ("Transcoding", .orange)
         case "directstream": return ("Direct stream", .blue)
-        default: return ("Direct play", Glass3DTokens.Status.success)
+        default: return ("Direct play", .green)
         }
     }
     static func color(_ t: Tint) -> Color {
