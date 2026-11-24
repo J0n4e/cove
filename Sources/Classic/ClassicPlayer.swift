@@ -521,7 +521,7 @@ struct ClassicPlayerView: View {
                     }.helpLabel(ui.isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
                 }
             }
-            .modifier(PlayerControlCapsule(on: classic))   // Glass3D: the transport and the bar in ONE glass capsule
+            .modifier(PlayerControlCapsule(on: false))   // owner: no big capsule, the controls as before round 2
             .padding(.top, Glass3DTokens.Space.xs)
         }
         .padding(.horizontal, Glass3DTokens.Space.page).padding(.bottom, 24)
