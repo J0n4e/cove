@@ -236,6 +236,10 @@ struct RecentlyDeletedCard: View {
                     Text(m.line).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
                 }
                 Spacer()
+                let c = DeletedRowModel.countdown(r)
+                Text(c.text).cvFont(Glass3DTokens.Text.meta).lineLimit(1)
+                    .foregroundColor(c.urgency == .danger ? Glass3DTokens.Status.danger
+                                     : c.urgency == .warning ? Glass3DTokens.Status.warning : Glass3DTokens.Grey.secondary)
                 Button(busy == r.id ? "Undoing\u{2026}" : "Undo") {
                     busy = r.id
                     Task {

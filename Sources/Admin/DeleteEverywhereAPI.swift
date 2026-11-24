@@ -368,7 +368,19 @@ struct DeletedRowModel: Equatable {
     let poster: Poster
 
     nonisolated static func lineText(_ r: DeletionRecord) -> String {
-        "Deleted \(r.deletedAt.formatted(date: .abbreviated, time: .shortened)) · Undo until \(r.deletedAt.addingTimeInterval(DeletionStore.lifetime).formatted(date: .abbreviated, time: .omitted))"
+        "Deleted \(r.deletedAt.formatted(date: .abbreviated, time: .shortened)) · Deleted permanently on \(r.deletedAt.addingTimeInterval(DeletionStore.lifetime).formatted(date: .abbreviated, time: .omitted))"
+    }
+    enum Urgency: Equatable { case normal, warning, danger }
+    /// Time left before nexcrate empties it: ≥48 h "N days left", 24–48 h "Last day", <24 h "N h left" ("<1 h left")
+    nonisolated static func countdown(_ r: DeletionRecord, now: Date = Date()) -> (text: String, urgency: Urgency) {
+        countdown(seconds: r.deletedAt.addingTimeInterval(DeletionStore.lifetime).timeIntervalSince(now))
+    }
+    nonisolated static func countdown(seconds: TimeInterval) -> (text: String, urgency: Urgency) {
+        let hours = Int((max(seconds, 0) / 3600).rounded(.down))
+        if hours >= 48 { return ("\(hours / 24) days left", .normal) }
+        if hours >= 24 { return ("Last day", .warning) }
+        if hours < 1 { return ("<1 h left", .danger) }
+        return ("\(hours) h left", .danger)
     }
     nonisolated static func placeholder(_ k: NexcrateAPI.Kind) -> String { k == .series ? "tv" : "film" }
     /// Stored poster link → the server's picture for the stored poster id / item id (may still be cached) → a placeholder

@@ -14,7 +14,7 @@ final class TrashCardsTests: XCTestCase {
         let r = rec()
         let m = DeletedRowModel.make(r, server: server)
         XCTAssertEqual(m.title, "The movie \u{201C}I Am Lisa\u{201D}")
-        let expected = "Deleted \(when.formatted(date: .abbreviated, time: .shortened)) · Undo until \(when.addingTimeInterval(DeletionStore.lifetime).formatted(date: .abbreviated, time: .omitted))"
+        let expected = "Deleted \(when.formatted(date: .abbreviated, time: .shortened)) · Deleted permanently on \(when.addingTimeInterval(DeletionStore.lifetime).formatted(date: .abbreviated, time: .omitted))"
         XCTAssertEqual(m.line, expected)
     }
 
@@ -24,6 +24,21 @@ final class TrashCardsTests: XCTestCase {
         XCTAssertEqual(DeletedRowModel.poster(rec(), server: server), .url(server("i1")!))
         XCTAssertEqual(DeletedRowModel.poster(rec(itemId: ""), server: { _ in nil }), .placeholder("film"))
         XCTAssertEqual(DeletedRowModel.poster(rec(kind: .series), server: { _ in nil }), .placeholder("tv"))
+    }
+
+    func testCountdownThresholds() {
+        func c(_ h: Double) -> (String, DeletedRowModel.Urgency) { let x = DeletedRowModel.countdown(seconds: h * 3600); return (x.text, x.urgency) }
+        XCTAssertTrue(c(168) == ("7 days left", .normal))
+        XCTAssertTrue(c(120.5) == ("5 days left", .normal))
+        XCTAssertTrue(c(48) == ("2 days left", .normal))
+        XCTAssertTrue(c(47.9) == ("Last day", .warning))
+        XCTAssertTrue(c(24) == ("Last day", .warning))
+        XCTAssertTrue(c(23.9) == ("23 h left", .danger))
+        XCTAssertTrue(c(1) == ("1 h left", .danger))
+        XCTAssertTrue(c(0.5) == ("<1 h left", .danger))
+        XCTAssertTrue(c(-1) == ("<1 h left", .danger))
+        let r = rec()
+        XCTAssertEqual(DeletedRowModel.countdown(r, now: when.addingTimeInterval(3 * 86400)).text, "4 days left")
     }
 
     func testOldRecordsDecodeWithoutPoster() throws {
