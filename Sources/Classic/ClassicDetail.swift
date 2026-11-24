@@ -503,6 +503,7 @@ struct ClassicDetailView: View {
             }
             Button { Task { await emby.setItemPlayed(item, !played, name: item.Name, rollback: false) } } label: {
                 Label(played ? "Watched" : "Mark as Watched", systemImage: played ? "checkmark.circle.fill" : "checkmark.circle")
+                    .symbolSwap()
                     .classicGlassPill(size: DetailInfoPanel.buttonHeight).glass3DRoundOutline()
             }.buttonStyle(HoverButton()).helpLabel(item.isBox ? CollectionWatched.tip(played: played, count: emby.boxFilms[item.id]?.count) : played ? "Mark as unwatched" : "Mark as watched")
             Button { Task { await emby.setFav(item.id, !fav, name: item.Name) } } label: {

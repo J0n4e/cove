@@ -25,13 +25,16 @@ struct Elevation: ViewModifier {
                 if level > 0 {
                     ZStack {
                         shape.strokeBorder(Color.white.opacity(r.stroke), lineWidth: 0.75)
-                        // specular top edge, fading out towards the middle
-                        shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(r.highlight), .clear],
-                                                          startPoint: .top, endPoint: .center), lineWidth: 1)
+                        // specular top edge, fading out towards the middle (level 1's own faint edge stays)
+                        if level < Glass3DTokens.Specular.minLevel {
+                            shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(r.highlight), .clear],
+                                                              startPoint: .top, endPoint: .center), lineWidth: 1)
+                        }
                     }
                     .allowsHitTesting(false)
                 }
             }
+            .specularEdge(level: level, in: shape)   // the shared 1 pt top edge of level 2+ surfaces
     }
 }
 

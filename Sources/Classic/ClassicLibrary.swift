@@ -177,7 +177,7 @@ struct ClassicLibraryView: View {
             }   // grid: PosterGrid, see body
             if model.loading {
                 // Page loading: poster-shaped blocks for the grid, row blocks for the list
-                SkeletonShimmer(layout: model.layout == "list" ? .rows : .posters, rows: model.layout == "list" ? 3 : 12)
+                SkeletonShimmer(layout: model.layout == "list" ? .rows : .posters, rows: model.layout == "list" ? 3 : 12).skeletonCrossfade()
                     .padding(.vertical, Glass3DTokens.Space.xl)
             }
             else if model.loadFailed {

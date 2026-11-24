@@ -12,7 +12,7 @@ struct StatsYearReviewView: View {
 
     var body: some View {
         Group {
-            if model.availability == nil { SkeletonShimmer().padding(.vertical, 30) }
+            if model.availability == nil { SkeletonShimmer().padding(.vertical, 30).skeletonCrossfade() }
             else { content }
         }
         .task(id: "\(model.availability.map { "\($0)" } ?? "")|\(emby.server)|\(emby.userId)") {
@@ -54,7 +54,7 @@ struct StatsYearReviewView: View {
                     StatsStateCard(symbol: "sparkles", title: "Nothing watched in \(String(r.year))",
                                    message: "Plays from this year show here as soon as there are some.")
                 } else { YearStory(review: r, limited: insights.limited) }
-            } else { SkeletonShimmer().padding(.vertical, 30) }
+            } else { SkeletonShimmer().padding(.vertical, 30).skeletonCrossfade() }
         }
     }
 

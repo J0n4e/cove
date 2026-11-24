@@ -70,7 +70,7 @@ struct Glass3DProfileMenuLayer: ViewModifier {
                             .frame(width: Glass3DProfileMenu.width)
                             .offset(x: max(8, min(r.maxX - Glass3DProfileMenu.width, g.size.width - Glass3DProfileMenu.width - 8)),
                                     y: r.maxY + 8)
-                            .transition(.opacity)   // menus open and close alike (Glass3DTokens.Menu)
+                            .transition(.coveMenuPopIn)   // menus open and close alike (Glass3DTokens.Menu, GlassPopIn.swift)
                     }
                     .onExitCommand { profile.menuOpen = false }
                 }

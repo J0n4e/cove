@@ -36,7 +36,7 @@ struct ServerLibrariesTab: View {
                 if let e = model.error, model.libraries.isEmpty {
                     ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
                 } else if !model.loaded {
-                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top).skeletonCrossfade()
                 } else {
                     ScrollView {
                         LazyVStack(spacing: Glass3DTokens.Space.m) { ForEach(model.libraries) { card($0) } }.padding(.bottom, Glass3DTokens.Space.s)

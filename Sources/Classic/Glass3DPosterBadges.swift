@@ -85,6 +85,7 @@ struct PosterBadgeCircle: View {
     var outline = false
     var body: some View {
         Image(systemName: symbol).cvFont(PosterBadges.size * 0.46, weight: .bold)
+            .symbolSwap()   // ♡ ↔ ♥ / ✓ swap in place; circle and size unchanged
             .foregroundColor(.white)
             .opacity(outline ? PosterBadges.outlineOpacity : 1)
             .frame(width: PosterBadges.size, height: PosterBadges.size)

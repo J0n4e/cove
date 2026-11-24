@@ -19,7 +19,7 @@ struct StatsInsightsView: View {
                         StatsStateCard(symbol: "lightbulb", title: "No playback recorded in this range",
                                        message: "Insights appear once people have watched something. Try a longer range.")
                     } else { InsightsGrid(data: d, range: insights.range) }
-                } else if insights.loading || insights.data == nil { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+                } else if insights.loading || insights.data == nil { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
                 else {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Insights couldn't be loaded",
                                    message: "The server didn't answer. Open this tab again to retry.")

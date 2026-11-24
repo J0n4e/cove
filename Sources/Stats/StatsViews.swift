@@ -58,7 +58,7 @@ struct StatsGate<Content: View>: View {
     var body: some View {
         Group {
             switch model.availability {
-            case nil: SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl)
+            case nil: SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade()
             case .available: content()
             case .notAdmin: StatsFallbackView(model: model)
             case .pluginMissing:
@@ -88,7 +88,7 @@ struct StatsFallbackView: View {
             }
             .statsCard()
             StatsHeading(text: "Recently played")
-            if !model.fallbackLoaded { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xl) }
+            if !model.fallbackLoaded { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xl).skeletonCrossfade() }
             else if model.fallback.isEmpty {
                 StatsStateCard(symbol: "clock", title: "Nothing played yet", message: "Movies and episodes you finish show here.")
             } else {

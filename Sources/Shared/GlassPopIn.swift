@@ -16,3 +16,11 @@ extension View {
     /// `.coveGlassPopIn` transition to the view that appears inside).
     func coveGlassPopIn<V: Equatable>(value: V) -> some View { animation(.coveGlassPopIn, value: value) }
 }
+
+extension AnyTransition {
+    /// Every shared glass menu (profile menu, glass dropdowns) opens and closes with this: a fade plus a small
+    /// drop from its anchor, never a scale. Animate it with `Glass3DTokens.Menu.animation`.
+    static var coveMenuPopIn: AnyTransition {
+        .opacity.combined(with: .offset(y: -Glass3DTokens.Space.xs))
+    }
+}

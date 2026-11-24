@@ -26,7 +26,7 @@ struct ServerLogsTab: View {
                         .buttonStyle(AboutButton(accentName: accentName))
                 }
                 if !model.loaded {
-                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top).skeletonCrossfade()
                 } else if section == 0 { activityList } else { fileList }
             }
         }
@@ -131,7 +131,7 @@ struct ServerLogViewer: View {
                 Text(note ?? "\(shown.count) of \(model.lines.count) lines").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
             }
             if model.loadingFile {
-                SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top).skeletonCrossfade()
             } else {
                 ScrollView([.vertical, .horizontal]) {
                     Text(attributed(shown))

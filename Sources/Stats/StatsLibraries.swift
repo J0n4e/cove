@@ -20,7 +20,7 @@ struct StatsLibrariesView: View {
                     }
                     .frame(maxWidth: .infinity)
                 } else if model.librariesLoading || model.librariesRange == nil {
-                    SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl)
+                    SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade()
                 } else {
                     StatsStateCard(symbol: "books.vertical", title: "No libraries found",
                                    message: "Movie, TV and music libraries you can see show here.")

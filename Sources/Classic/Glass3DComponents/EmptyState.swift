@@ -40,5 +40,6 @@ struct EmptyState: View {
         .padding(compact ? Glass3DTokens.Space.m : 30)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Self.spoken(title: title, message: message))
+        .skeletonCrossfade()   // swaps with content / skeletons on Motion.standard
     }
 }
