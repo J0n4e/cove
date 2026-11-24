@@ -883,7 +883,7 @@ struct DetailInfoPanel: ViewModifier {
     /// The height every button in the row shares (Play, Resume, ♡, ✓, ★, ⋯)
     static let buttonHeight: CGFloat = 44
     func body(content: Content) -> some View {
-        content.glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.hero, level: 3)
+        content   // no glass panel behind the info: the owner wants the text straight on the backdrop (as before round 2)
     }
 }
 
