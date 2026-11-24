@@ -12,7 +12,7 @@ struct StatsGraphsView: View {
             VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 StatsRangePills(range: $model.range)
                 if let g = model.graphs, model.graphsRange == model.range { StatsGraphsContent(data: g) }
-                else if model.graphsLoading || model.graphs == nil { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+                else if model.graphsLoading || model.graphs == nil { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
                 else {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Graphs couldn't be loaded",
                                    message: "The server didn't answer. Open this tab again to retry.")

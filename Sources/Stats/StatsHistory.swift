@@ -9,7 +9,7 @@ struct StatsHistoryView: View {
     var body: some View {
         StatsGate(model: model) {
             VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
-                if model.historyLoading && model.history.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+                if model.historyLoading && model.history.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
                 else if model.history.isEmpty {
                     StatsStateCard(symbol: "clock.arrow.circlepath", title: "No plays in the last \(StatsModel.historyRange) days",
                                    message: "Data is collected from now on: plays longer than a minute show here once the Playback Reporting plugin has recorded them.")

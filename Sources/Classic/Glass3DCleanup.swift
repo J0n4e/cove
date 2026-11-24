@@ -45,7 +45,7 @@ struct CleanupView: View {
                 if store.loading {
                     VStack(spacing: Glass3DTokens.Space.m) {
                         Text(store.progress ?? "").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
-                        SkeletonShimmer(rows: 5, rowHeight: 64, spacing: Glass3DTokens.Space.s)
+                        SkeletonShimmer(rows: 5, rowHeight: 64, spacing: Glass3DTokens.Space.s).skeletonCrossfade()
                     }.frame(maxWidth: .infinity)
                 } else if let e = store.error {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Cleanup couldn't be loaded", message: e)

@@ -46,7 +46,7 @@ struct MetadataEditorView: View {
         VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             ItemAdminHeader(title: "Edit Metadata", subtitle: [title, raw["Path"] as? String].compactMap { $0 }.joined(separator: " · "))
             if loading {
-                SkeletonShimmer(rows: 5, rowHeight: 36, radius: Glass3DTokens.Radius.field); Spacer()
+                SkeletonShimmer(rows: 5, rowHeight: 36, radius: Glass3DTokens.Radius.field).skeletonCrossfade(); Spacer()
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {

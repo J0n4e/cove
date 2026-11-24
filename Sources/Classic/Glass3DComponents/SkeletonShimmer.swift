@@ -51,6 +51,7 @@ struct SkeletonShimmer: View {
                 .allowsHitTesting(false)
                 .accessibilityElement()
                 .accessibilityLabel("Loading")
+                .skeletonCrossfade()   // fades out as the content fades in (Motion.standard)
         }
     }
 

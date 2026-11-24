@@ -53,7 +53,7 @@ struct ClassicHomeContent: View {
                 }
                 if model.loading {
                     // Rows still loading: poster-shaped blocks, as the rows will be
-                    SkeletonShimmer(layout: .posters, rows: model.rows.isEmpty ? 12 : 6)
+                    SkeletonShimmer(layout: .posters, rows: model.rows.isEmpty ? 12 : 6).skeletonCrossfade()
                         .padding(.horizontal, Glass3DTokens.Space.page).padding(.vertical, Glass3DTokens.Space.xxl)
                 }
                 else if model.rows.isEmpty, let m = emby.lastFailure {

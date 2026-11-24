@@ -34,7 +34,7 @@ struct ClassicFavoritesView: View {
                 if !collections.isEmpty { section("Favorite Collections", collections) }
                 let favPeople = people.filter { emby.isFav($0) }
                 if !favPeople.isEmpty { peopleSection(favPeople) }
-                if loading && items.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+                if loading && items.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     ClassicEmptyState(symbol: "heart", title: "No favorites yet",
                                       message: "Tap the heart on a movie, show, collection, episode or person to add it here.")

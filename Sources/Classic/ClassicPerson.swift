@@ -25,7 +25,7 @@ struct ClassicPersonView: View {
                 Group {
                     if !movies.isEmpty { section("Movies", movies) }
                     if !shows.isEmpty { section("Shows", shows) }
-                    if loading { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+                    if loading { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
                     else if items.isEmpty {
                         ClassicEmptyState(symbol: "person.crop.rectangle", title: "No titles",
                                           message: "Nothing in your libraries with \(person.name).")

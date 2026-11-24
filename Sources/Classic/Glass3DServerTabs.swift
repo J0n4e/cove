@@ -16,7 +16,7 @@ struct ServerOverviewTab: View {
                 VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                     if let i = model.info { infoCard(i) }
                     else if let e = model.infoError { ServerAdminCard { Text(e).cvFont(13).foregroundColor(Glass3DTokens.Status.danger) } }
-                    else { SkeletonShimmer(rows: 2, rowHeight: 44) }
+                    else { SkeletonShimmer(rows: 2, rowHeight: 44).skeletonCrossfade() }
                     streamsCard
                     powerCard
                 }
@@ -159,7 +159,7 @@ struct ServerTasksTab: View {
             if let e = model.tasksError, model.tasks.isEmpty {
                 ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
             } else if !model.tasksLoaded {
-                SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top).skeletonCrossfade()
             } else {
                 let sections = ServerTaskGrouping.sections(model.tasks, query: query)
                 if sections.isEmpty {

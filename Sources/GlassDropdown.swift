@@ -59,7 +59,7 @@ private struct DropdownLayer: View {
                         .offset(x: min(l.anchor.minX, g.size.width - width - 8),
                                 y: below ? l.anchor.maxY + 6 : max(8, l.anchor.minY - 6 - h))
                 }
-                .transition(.opacity)
+                .transition(.coveMenuPopIn)   // the shared menu pop-in (GlassPopIn.swift)
             }
         }
         .animation(Glass3DTokens.Menu.animation, value: center.list?.id)

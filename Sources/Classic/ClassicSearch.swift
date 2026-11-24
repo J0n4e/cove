@@ -66,7 +66,7 @@ struct ClassicSearchView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                         heading
-                        if busy { SkeletonShimmer() }
+                        if busy { SkeletonShimmer().skeletonCrossfade() }
                         else if people.isEmpty {
                             ClassicEmptyState(symbol: "magnifyingglass", title: "No results",
                                               message: "Nothing matches “\(query)”. Try another title, person or spelling.")

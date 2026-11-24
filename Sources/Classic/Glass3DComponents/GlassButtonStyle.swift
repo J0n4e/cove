@@ -9,7 +9,8 @@ import SwiftUI
 /// - lift: bare labels (page, player, banner buttons) that brighten under the mouse and dip when clicked;
 ///   `backing` adds a soft see-through capsule under the mouse for bare icons
 /// - accentRow: player panel rows; `glass` lights the row under the pointer in the accent (plain: a press flash)
-/// Pressing darkens; hover only brightens a little. Nothing ever changes size.
+/// Pressing darkens (−0.08) with a soft inner shade (`pressFeedback`); hover only brightens a little; keyboard focus
+/// rings the control in the accent (`focusGlow`). Nothing ever changes size.
 struct GlassButtonStyle: ButtonStyle {
     enum Kind: Equatable { case primary, secondary, destructive, icon, row, lift(backing: Bool), accentRow(glass: Bool) }
     var kind: Kind = .secondary
@@ -26,7 +27,9 @@ struct GlassButtonStyle: ButtonStyle {
     }
 
     /// Brightness of a button face: darker while pressed, a touch lighter under the mouse.
-    static func brightness(pressed: Bool, hover: Bool) -> Double { pressed ? -0.1 : hover ? 0.04 : 0 }
+    static func brightness(pressed: Bool, hover: Bool) -> Double { pressed ? Glass3DTokens.Press.brightness : hover ? 0.04 : 0 }
+    /// Hover brightening only (the press part comes from `pressFeedback`).
+    static func hoverBrightness(_ hover: Bool) -> Double { brightness(pressed: false, hover: hover) }
     /// Solid face colour, nil for glass kinds.
     static func isSolid(_ k: Kind) -> Bool { k == .primary || k == .destructive }
     /// Text buttons that get the 3D face (glossy top edge, inner shadow, bottom shade): primary, destructive AND
@@ -42,6 +45,7 @@ private struct GlassButtonBody: View {
     let accentOverride: String?
     @AppStorage("accent") private var storedAccent = "red"
     @State private var hover = false
+    @Environment(\.isFocused) private var focused
 
     var body: some View {
         switch kind {
@@ -75,7 +79,9 @@ private struct GlassButtonBody: View {
                     }
                 }
             }
-            .brightness(GlassButtonStyle.brightness(pressed: c.isPressed, hover: hover))
+            .brightness(GlassButtonStyle.hoverBrightness(hover))
+            .pressFeedback(c.isPressed, in: shape)
+            .focusGlow(focused, in: shape)
             .contentShape(Rectangle())
     }
 
@@ -86,7 +92,8 @@ private struct GlassButtonBody: View {
             .frame(width: 30, height: 30)
             .background(Circle().fill(Color.white.opacity(hover ? 0.14 : 0.08)))
             .glass3DRoundOutline()
-            .brightness(GlassButtonStyle.brightness(pressed: c.isPressed, hover: false))
+            .pressFeedback(c.isPressed, in: Circle())
+            .focusGlow(focused, in: Circle())
             .contentShape(Circle())
     }
 
@@ -94,6 +101,7 @@ private struct GlassButtonBody: View {
         c.label
             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb, style: .continuous)
                 .fill(Color.white.opacity(c.isPressed ? 0.16 : hover ? 0.1 : 0)))
+            .pressFeedback(c.isPressed, in: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb, style: .continuous))
     }
 
     /// Owner: hover never changes a control's size, so only light (brightness, soft shadow) on hover.
@@ -103,12 +111,11 @@ private struct GlassButtonBody: View {
             .background(Capsule().fill(Color.white.opacity(backing && hover ? 0.16 : 0)))
             .padding(backing ? -Glass3DTokens.Space.xs : 0)
             .brightness(hover ? 0.12 : 0)
-            .scaleEffect(c.isPressed ? 0.95 : 1)
+            .pressFeedback(c.isPressed, in: Capsule(), shade: backing && hover)
             .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
             .scrollHover($hover)
             .handCursor()
             .animation(Glass3DTokens.Motion.fast, value: hover)
-            .animation(Glass3DTokens.Motion.fast, value: c.isPressed)
     }
 
     @ViewBuilder private func accentRowButton(_ glass: Bool) -> some View {
@@ -116,8 +123,10 @@ private struct GlassButtonBody: View {
             c.label
                 .background { if hover || c.isPressed { Capsule().fill(Theme.accent(name).opacity(c.isPressed ? 0.7 : 0.55)) } }
                 .scrollHover($hover)
+                .pressFeedback(c.isPressed, in: Capsule(), shade: false)
         } else {
             c.label.background(Color.white.opacity(c.isPressed ? 0.15 : 0))
+                .pressFeedback(c.isPressed, in: Rectangle(), shade: false)
         }
     }
 }

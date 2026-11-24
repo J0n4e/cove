@@ -161,7 +161,7 @@ struct ClassicNowPlayingView: View {
     }
 
     @ViewBuilder private var sessionsContent: some View {
-        if !loaded { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+        if !loaded { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
         else if sessions.isEmpty {
             ClassicEmptyState(symbol: "play.slash", title: "Nothing playing right now",
                               message: "Playback on any device signed in to this server shows here.")

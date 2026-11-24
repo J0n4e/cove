@@ -2,7 +2,7 @@ import SwiftUI
 
 // One look for every pop-up glass menu and one for every toast, built only from existing tokens:
 // menus = elevation level 3 (the app background at 75 % under the glass, level-3 shadow), Radius.window corners,
-// a Motion.fast fade to open / close; toasts = the bottom search pill's glass capsule (white text, Space.xl sides)
+// the shared `coveMenuPopIn` (fade + a small drop) on Menu.animation to open and close alike; toasts = the bottom search pill's glass capsule (white text, Space.xl sides)
 // with the shared slide-up (`coveGlassPopIn`) entrance on Motion.spring.
 
 extension Glass3DTokens {
@@ -21,6 +21,8 @@ extension Glass3DTokens {
         static let height: CGFloat = 44
         static let compactHeight: CGFloat = 40
         static let animation: Animation = Glass3DTokens.Motion.spring
+        /// Toasts float over the page like menus: they get the level-3 specular top edge
+        static let level = 3
     }
 }
 
@@ -34,6 +36,7 @@ struct GlassMenuSurface: ViewModifier {
             .background(shape.fill(bg.opacity(e.backgroundFill)))
             .clipShape(shape)
             .modifier(ClassicClearGlass(shape: shape))
+            .specularEdge(level: Glass3DTokens.Menu.level, in: shape)
             .g3Shadow(Glass3DTokens.Menu.shadow)
     }
 }
@@ -47,11 +50,13 @@ struct ToastStyle: ViewModifier {
             content.foregroundColor(.white)
                 .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: height)
                 .searchGlass()
+                .specularEdge(level: Glass3DTokens.Toast.level, in: Capsule())
                 .environment(\.colorScheme, .dark)
         } else {
             content.foregroundColor(.white)
                 .padding(.horizontal, Glass3DTokens.Space.xl).padding(.vertical, Glass3DTokens.Space.m)
                 .searchGlass()
+                .specularEdge(level: Glass3DTokens.Toast.level, in: Capsule())
                 .environment(\.colorScheme, .dark)
         }
     }

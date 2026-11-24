@@ -8,7 +8,7 @@ struct StatsOverviewView: View {
         StatsGate(model: model) {
             VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 StatsRangePills(range: $model.range)
-                if model.overviewLoading && model.overview.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+                if model.overviewLoading && model.overview.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
                 else { StatsOverviewContent(plays: model.overview, range: model.range) }
             }
             .task(id: model.range) { await model.loadOverview() }

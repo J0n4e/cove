@@ -28,7 +28,7 @@ struct ItemImagesView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
-                        if !loaded { SkeletonShimmer(rows: 2, rowHeight: 90).padding(.top, Glass3DTokens.Space.xl) }
+                        if !loaded { SkeletonShimmer(rows: 2, rowHeight: 90).padding(.top, Glass3DTokens.Space.xl).skeletonCrossfade() }
                         else { ForEach(types, id: \.self) { section($0) } }
                     }.padding(.bottom, Glass3DTokens.Space.l)
                 }.classicScrollBars()

@@ -209,6 +209,7 @@ struct ItemActionsButton: View {
                     if icon == "heart.fill" { Label { Text(help) } icon: { FavHeart(size: 13) }.classicGlassPill(size: 30) }
                     else {
                         Label(help, systemImage: on && !icon.hasSuffix(".fill") ? icon + ".circle.fill" : icon)
+                            .symbolSwap()
                             .classicGlassPill(size: 30)
                     }
                 } else if icon == "heart.fill" {
@@ -219,6 +220,7 @@ struct ItemActionsButton: View {
                         .contentShape(Circle())
                 } else {
                     Image(systemName: icon).coveFont(size: 12, weight: .bold)
+                        .symbolSwap()
                         .foregroundStyle(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white))
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(Color.black.opacity(0.6)))
@@ -352,7 +354,8 @@ extension View {
 /// `.plain` with the pointing-hand cursor: the style of Cove's own buttons and links.
 struct PlainHand: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.75 : 1).handCursor()
+        configuration.label.opacity(configuration.isPressed ? 0.75 : 1)
+            .pressFeedback(configuration.isPressed, in: Rectangle(), shade: false).handCursor()
     }
 }
 

@@ -27,7 +27,7 @@ struct ServerUsersTab: View {
                 if let e = model.error, model.users.isEmpty {
                     ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
                 } else if !model.loaded {
-                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top).skeletonCrossfade()
                 } else {
                     let found = model.users.filter { AdminUser.matches($0, query) }
                     let list = sort == LastActive.Sort.lastActive.rawValue
@@ -104,10 +104,11 @@ struct ServerBadge: View {
 struct ServerSearchField: View {
     let placeholder: String
     @Binding var text: String
+    @FocusState private var focused: Bool
     var body: some View {
         HStack(spacing: Glass3DTokens.Space.s) {
             Image(systemName: "magnifyingglass").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
-            TextField(placeholder, text: $text).textFieldStyle(.plain).cvFont(13).foregroundColor(.white)
+            TextField(placeholder, text: $text).textFieldStyle(.plain).cvFont(13).foregroundColor(.white).focused($focused)
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(Glass3DTokens.Grey.secondary) }
                     .buttonStyle(.plainHand)
@@ -116,6 +117,7 @@ struct ServerSearchField: View {
         .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 30).frame(maxWidth: 320)
         .background(Capsule().fill(Color.white.opacity(0.08)))
         .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+        .focusGlow(focused, in: Capsule())
     }
 }
 

@@ -145,5 +145,6 @@ struct GlassField: ViewModifier {
             .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 38)
             .background(Capsule().fill(Color.black.opacity(0.35)))
             .background(ClassicGlassBacking(shape: Capsule()))
+            .focusGlowField(in: Capsule())   // accent ring while typing in it
     }
 }

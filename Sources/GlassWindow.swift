@@ -124,7 +124,15 @@ final class GlassWindowContainer: NSView {
         addSubview(fill, positioned: .above, relativeTo: b)   // a sibling: NSGlassEffectView only shows its contentView
         backdrop = b
         panelFill = fill
+        // The shared 1 pt specular top edge of raised surfaces (Glass3DTokens.Specular), over the glass and fill
+        edge?.removeFromSuperview()
+        let e = SpecularEdgeView(frame: bounds)
+        e.autoresizingMask = [.width, .height]
+        addSubview(e, positioned: .above, relativeTo: fill)
+        edge = e
     }
+
+    private var edge: NSView?
 
     private func updateTint() {
         if #available(macOS 26, *), let g = backdrop as? NSGlassEffectView {
@@ -165,3 +173,46 @@ struct GlassReadable: ViewModifier {
     }
 }
 extension View { func glassReadable() -> some View { modifier(GlassReadable()) } }
+
+/// The glass windows' specular top edge: a 1 pt light line along the rounded top, white at the window's
+/// elevation-level highlight fading to clear by the middle (as `SpecularEdge` on SwiftUI surfaces).
+@MainActor
+final class SpecularEdgeView: NSView {
+    /// Glass windows float like menus: the level-3 highlight
+    nonisolated static let level = 3
+    private let line = CAShapeLayer()
+    private let fade = CAGradientLayer()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        line.fillColor = NSColor.clear.cgColor
+        line.strokeColor = NSColor.white.cgColor
+        line.lineWidth = Glass3DTokens.Specular.lineWidth
+        let o = CGFloat(Glass3DTokens.Specular.opacity(level: Self.level))
+        fade.colors = [NSColor.white.withAlphaComponent(o).cgColor, NSColor.white.withAlphaComponent(0).cgColor]
+        // layer space: y = 1 is the top
+        fade.startPoint = CGPoint(x: 0.5, y: 1)
+        fade.endPoint = CGPoint(x: 0.5, y: 0.5)
+        fade.mask = line
+        layer?.addSublayer(fade)
+        layout()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fade.frame = bounds
+        line.frame = bounds
+        let r = GlassWindowBackdrop.cornerRadius
+        let inset = Glass3DTokens.Specular.lineWidth / 2
+        line.path = CGPath(roundedRect: bounds.insetBy(dx: inset, dy: inset), cornerWidth: r, cornerHeight: r,
+                           transform: nil)
+        CATransaction.commit()
+    }
+}

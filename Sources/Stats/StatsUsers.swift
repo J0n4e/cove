@@ -21,7 +21,7 @@ struct StatsUsersView: View {
                     Spacer()
                     Glass3DSegmentTabs(titles: ["Watch time", "Last active"], selection: $sort)
                 }
-                if model.usersLoading && model.usersRange != model.range { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+                if model.usersLoading && model.usersRange != model.range { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
                 else if model.users.isEmpty {
                     StatsStateCard(symbol: "person.2", title: "No users found",
                                    message: "The server didn't list any users. Open this tab again to retry.")
@@ -66,7 +66,7 @@ private struct StatsUserOverview: View {
                 Spacer(minLength: 0)
             }
             StatsRangePills(range: $model.range)
-            if model.userOverviewLoading && model.userOverview.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
+            if model.userOverviewLoading && model.userOverview.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl).skeletonCrossfade() }
             else {
                 StatsOverviewContent(plays: model.userOverview, range: model.range)
                 if !StatsAggregate.isFewData(model.userOverview) {   // the Insights cards for this user's plays
