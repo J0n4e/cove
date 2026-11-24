@@ -262,19 +262,31 @@ struct KenBurnsLoopEffect: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var playback = PlaybackFlag.shared
     @ObservedObject private var visibility = WindowOcclusion.shared
-    @MainActor private var start: Date { KenBurnsClock.start(for: seed) }
+    @State private var zoomed = false
+    @State private var shown = 1.0
 
+    // Driven by SwiftUI animations (not by redraws): the deck card sits inside a button, where a timeline only
+    // moved when the card was clicked (owner). An animation runs on its own, inside buttons too.
     func body(content: Content) -> some View {
         let running = KenBurnsMath.runs(reduceMotion: reduceMotion, playing: playback.active, visible: visibility.visible)
         let a = KenBurnsMath.anchor(seed: seed)
         let anchor = UnitPoint(x: a.x, y: a.y)
-        return TimelineView(.animation(minimumInterval: Glass3DTokens.KenBurns.frameInterval, paused: !running)) { ctx in
-            let st = KenBurnsLoop.state(elapsed: ctx.date.timeIntervalSince(start))
-            ZStack {
-                // the fresh copy waiting at rest underneath, revealed as the zoomed one fades away
-                content.scaleEffect(1, anchor: anchor)
-                content.scaleEffect(KenBurnsMath.scale(phase: st.zoom, reduceMotion: reduceMotion), anchor: anchor)
-                    .opacity(reduceMotion ? 1 : 1 - st.fade)
+        return ZStack {
+            content   // the copy at rest underneath, revealed as the zoomed one fades away
+            content.scaleEffect(zoomed ? Glass3DTokens.KenBurns.maxScale : 1, anchor: anchor).opacity(shown)
+        }
+        .task(id: running) {
+            guard running else { return }
+            let period = Glass3DTokens.KenBurns.period, fade = KenBurnsLoop.fade
+            while !Task.isCancelled {
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { zoomed = false; shown = 1 }
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                withAnimation(.easeInOut(duration: period)) { zoomed = true }
+                try? await Task.sleep(nanoseconds: UInt64((period - fade) * 1_000_000_000))
+                if Task.isCancelled { break }
+                withAnimation(.easeInOut(duration: fade)) { shown = 0 }
+                try? await Task.sleep(nanoseconds: UInt64(fade * 1_000_000_000))
             }
         }
     }
