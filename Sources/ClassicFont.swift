@@ -42,16 +42,16 @@ enum ClassicFont {
 struct ClassicFontPreview: View {
     let choice: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text("Cove").font(ClassicFont.font(22, .bold, choice))
             Text("Continue watching · S18:E12 · 4:42 left").font(ClassicFont.font(13, .regular, choice))
-                .foregroundColor(.secondary)
+                .foregroundColor(Glass3DTokens.Grey.secondary)
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
+        .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.m)
         .frame(maxWidth: 320, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous).fill(Color.white.opacity(0.06)))
         .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
-        .animation(.easeOut(duration: 0.15), value: choice)
+        .animation(Glass3DTokens.Motion.fast, value: choice)
         .accessibilityHidden(true)
     }
 }

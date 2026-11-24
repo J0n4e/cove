@@ -24,7 +24,7 @@ struct BackPill: View {
         .buttonStyle(HoverButton())
         .focusEffectDisabled()   // no blue macOS focus ring when a page opens
         .scrollHover($hover)
-        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(Glass3DTokens.Motion.fast, value: hover)
         .keyboardShortcut("[", modifiers: .command)
     }
 }
@@ -34,14 +34,14 @@ struct HoverBacking: ViewModifier {
     @State private var hover = false
     func body(content: Content) -> some View {
         content
-            .padding(4)
+            .padding(Glass3DTokens.Space.xs)
             .background(Capsule().fill(Color.white.opacity(hover ? 0.16 : 0)))
             .padding(-4)
             .brightness(hover ? 0.12 : 0)
             .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
             .scrollHover($hover)
             .handCursor()
-            .animation(.easeOut(duration: 0.15), value: hover)
+            .animation(Glass3DTokens.Motion.fast, value: hover)
     }
 }
 

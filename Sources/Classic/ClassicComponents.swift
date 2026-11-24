@@ -52,7 +52,7 @@ struct SectionHoverGlow: ViewModifier {
                     .opacity(on && hover ? 1 : 0)
                     .allowsHitTesting(false)
             }
-            .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
+            .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
     }
 }
 
@@ -65,7 +65,7 @@ struct PanelSurface: ViewModifier {
         if classic {
             content.background(shape.fill(bg.opacity(0.75))).clipShape(shape)
                 .modifier(ClassicClearGlass(shape: shape))
-                .shadow(color: .black.opacity(0.45), radius: 16, y: 6)
+                .g3Shadow(Glass3DTokens.Menu.shadow)   // the level-3 shadow
         } else {
             content.background(.ultraThinMaterial.opacity(0.95)).background(Color(white: 0.15).opacity(0.85))
                 .cornerRadius(Glass3DTokens.Radius.panel)
@@ -126,7 +126,7 @@ struct ClassicPosterCard: View {
     var body: some View {
         let played = emby.isPlayed(item)
         NavigationLink(value: item) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 ZStack(alignment: .topTrailing) {
                     CachedImage(url: emby.image(item.posterId, width: 360)) { p in
                         p.resizable().aspectRatio(contentMode: .fill)

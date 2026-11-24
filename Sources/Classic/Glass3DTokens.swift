@@ -75,6 +75,8 @@ enum Glass3DTokens {
     static let shadowSmall = Shadow(radius: 2, y: 1, opacity: 0.35)
     static let shadowMedium = Shadow(radius: 8, y: 3, opacity: 0.4)
     static let shadowLarge = Shadow(radius: 16, y: 6, opacity: 0.45)
+    /// The level-2 (card) shadow, for floating bits that sit at card height (tooltips)
+    static var shadowCard: Shadow { elevation(2).shadow ?? shadowMedium }
 
     // MARK: Text sizes (base points, scaled by Text size through cvFont)
     enum Text {
@@ -264,7 +266,7 @@ struct Glass3DSettingsTab: View {
                 SwiftUI.Text(title).coveFont(size: 11, weight: on ? .semibold : .regular)
                     .foregroundColor(on ? .white : .secondary)
             }
-            .frame(minWidth: 62).padding(.horizontal, 6).padding(.vertical, 6)
+            .frame(minWidth: 62).padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, Glass3DTokens.Space.s)
             .background {
                 let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous)
                 if on {

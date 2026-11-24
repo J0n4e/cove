@@ -98,7 +98,7 @@ struct CastDeviceList: View {
             switch status {
             case .none: EmptyView()
             case .searching:
-                greyRow { HStack(spacing: 8) { ProgressView().controlSize(.mini); Text("Looking for devices…").cvFont(13) } }
+                greyRow { HStack(spacing: Glass3DTokens.Space.s) { ProgressView().controlSize(.mini); Text("Looking for devices…").cvFont(13) } }
             case .notFound:
                 greyRow { Text("No Cast devices found").cvFont(13) }.help(CastMenu.notFoundHint)
             case .error(let e):
@@ -106,19 +106,19 @@ struct CastDeviceList: View {
             }
         }
         .foregroundColor(.white)
-        .padding(5)
+        .padding(Glass3DTokens.Space.xs)
     }
 
     func greyRow<C: View>(@ViewBuilder _ c: () -> C) -> some View {
         c().foregroundColor(Glass3DTokens.Grey.secondary)
-            .padding(.horizontal, 8).frame(minHeight: CastMenu.rowHeight).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Glass3DTokens.Space.s).frame(minHeight: CastMenu.rowHeight).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 private struct CastMenuRowLabel: View {
     let row: CastMenu.Row
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             Image(systemName: row.icon).cvFont(14).frame(width: 22)
             Text(row.name).cvFont(13).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
@@ -128,7 +128,7 @@ private struct CastMenuRowLabel: View {
                     .background(Circle().fill(Color.white.opacity(0.22)))
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, Glass3DTokens.Space.s)
         .frame(height: CastMenu.rowHeight)
         .contentShape(Rectangle())
     }
@@ -276,19 +276,19 @@ struct CastRemoteBar: View {
             if cast.isCasting, let item = cast.item {
                 CastUpNextCard(cast: cast)   // Glass3DCastUpNext.swift
                 CastRemoteContent(cast: cast, item: item)
-                    .padding(.horizontal, 24).padding(.bottom, 20)
+                    .padding(.horizontal, 24).padding(.bottom, Glass3DTokens.Space.xl)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if let e = cast.error {
-                HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.yellow)
+                HStack(spacing: Glass3DTokens.Space.m) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(Glass3DTokens.Status.warning)
                     Text(e).cvFont(13, weight: .medium).lineLimit(3).fixedSize(horizontal: false, vertical: true)
                     Button { cast.error = nil } label: { Image(systemName: "xmark").cvFont(12, weight: .bold) }
                         .buttonStyle(.plain).helpLabel("Dismiss")
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 18).padding(.vertical, 12).frame(maxWidth: 560)
+                .padding(.horizontal, Glass3DTokens.Space.xl).padding(.vertical, Glass3DTokens.Space.m).frame(maxWidth: 560)
                 .modifier(PanelSurface(classic: true))
-                .padding(.bottom, 28)
+                .padding(.bottom, Glass3DTokens.Space.xxl)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .task(id: e) {
                     try? await Task.sleep(for: .seconds(10))
@@ -299,7 +299,7 @@ struct CastRemoteBar: View {
         .frame(maxWidth: .infinity)
         .coveGlassPopIn(value: cast.isCasting)
         .coveGlassPopIn(value: cast.upNext?.Id)
-        .animation(.spring(duration: 0.35), value: cast.error)
+        .animation(Glass3DTokens.Toast.animation, value: cast.error)
         .task { cast.restoreIfNeeded(emby) }   // a cast still running after a relaunch
     }
 }
@@ -314,10 +314,10 @@ private struct CastRemoteContent: View {
     var body: some View {
         let t = dragging ?? cast.time
         let d = max(cast.duration, 1)
-        HStack(spacing: 14) {
+        HStack(spacing: Glass3DTokens.Space.l) {
             poster
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(title).cvFont(14, weight: .semibold).lineLimit(1)
                         Text(status).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
@@ -325,7 +325,7 @@ private struct CastRemoteContent: View {
                     Spacer(minLength: 12)
                     controls
                 }
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text(PlayerUIModel.fmt(t)).cvFont(11).monospacedDigit().frame(width: 52, alignment: .trailing)
                     GlassSlider(value: Binding(get: { dragging ?? cast.time }, set: { dragging = $0 }), range: 0...d) { editing in
                         if !editing, let v = dragging { cast.seek(to: v); dragging = nil }
@@ -335,7 +335,7 @@ private struct CastRemoteContent: View {
             }
         }
         .foregroundColor(.white)
-        .padding(.horizontal, 14).padding(.vertical, 10)
+        .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.m)
         .frame(maxWidth: 820)
         .modifier(PanelSurface(classic: true))
         .environment(\.colorScheme, .dark)
@@ -376,12 +376,12 @@ private struct CastRemoteContent: View {
     }
 
     @ViewBuilder var controls: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Glass3DTokens.Space.xs) {
             icon("gobackward.10", "Back 10 seconds") { cast.skip(-10) }
             icon(cast.isPlaying ? "pause.fill" : "play.fill", cast.isPlaying ? "Pause" : "Play", size: 18) { cast.togglePlay() }
             icon("goforward.10", "Forward 10 seconds") { cast.skip(10) }
             Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill").cvFont(12)
-                .foregroundColor(Glass3DTokens.Grey.secondary).padding(.leading, 6)
+                .foregroundColor(Glass3DTokens.Grey.secondary).padding(.leading, Glass3DTokens.Space.s)
             GlassSlider(value: $volume, range: 0...1) { editing in if !editing { cast.setVolume(volume) } }
                 .frame(width: 80)
                 .helpLabel("TV volume")

@@ -56,7 +56,7 @@ struct RatingButton: View {
                     Text("/10").foregroundColor(Glass3DTokens.Grey.tertiary)
                 }
                 .cvFont(size * 0.36, weight: .semibold)
-                .padding(.horizontal, 6).frame(height: size - 2)
+                .padding(.horizontal, Glass3DTokens.Space.s).frame(height: size - 2)
                 .contentShape(Rectangle())
                 .accessibilityLabel("Your rating: \(r)")
             }
@@ -236,7 +236,7 @@ struct RatingPicker: View {
 
     var body: some View {
         let shown = hover ?? current ?? 0
-        VStack(spacing: 10) {
+        VStack(spacing: Glass3DTokens.Space.m) {
             Text(shown > 0 ? "\(shown)/10" : "Your rating").coveFont(size: 15, weight: .semibold)
             HStack(spacing: 2) {
                 ForEach(1...10, id: \.self) { n in
@@ -256,7 +256,7 @@ struct RatingPicker: View {
                     .frame(maxWidth: 270)
             }
         }
-        .padding(14)
+        .padding(Glass3DTokens.Space.l)
     }
 }
 
@@ -266,9 +266,9 @@ struct DetailRatingTail: View {
     let item: Item
     let full: Full?
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Rectangle().fill(Color.white.opacity(Glass3DTokens.Stroke.strong)).frame(width: 1, height: 26)
-                .padding(.leading, 6)
+                .padding(.leading, Glass3DTokens.Space.s)
                 .accessibilityHidden(true)
             RatingButton(item: item, full: full, classic: true)
         }

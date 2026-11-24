@@ -239,7 +239,7 @@ struct CachedImage<Content: View>: View {
                 if let blur = BlurHash.preview(for: url) { phase = .success(Image(nsImage: blur)) }
                 else if case .success = phase {} else { phase = .empty }
                 if let img = await ImageCache.shared.image(url) {
-                    withAnimation(.easeOut(duration: 0.2)) { phase = .success(Image(nsImage: img)) }
+                    withAnimation(Glass3DTokens.Motion.standard) { phase = .success(Image(nsImage: img)) }
                     shownURL = url
                 } else if !Task.isCancelled, phase.image == nil {
                     phase = .failure(URLError(.cannotDecodeContentData))

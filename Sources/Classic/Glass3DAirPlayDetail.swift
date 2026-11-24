@@ -60,10 +60,10 @@ final class AirPlayDetailStart: ObservableObject {
 
     func fallback() {
         DebugLog.write("airplay: menu open fallback")
-        withAnimation(.easeOut(duration: 0.2)) { pulse = true }
+        withAnimation(Glass3DTokens.Motion.standard) { pulse = true }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
-            withAnimation(.easeOut(duration: 0.4)) { self.pulse = false }
+            withAnimation(Glass3DTokens.Motion.slow) { self.pulse = false }
         }
     }
 

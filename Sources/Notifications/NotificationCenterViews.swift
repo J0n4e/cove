@@ -55,11 +55,11 @@ struct NotificationActionButton: View {
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: Glass3DTokens.Space.xs) {
                 if let icon { Image(systemName: icon).cvFont(11, weight: .bold) }
                 Text(title).cvFont(12, weight: .semibold)
             }
-            .padding(.horizontal, 12).frame(height: 26)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 26)
             .classicGlassPill()   // the Glass3D pill with the chosen hover effect
             .contentShape(Capsule())
         }
@@ -79,10 +79,10 @@ struct NotificationCard: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous)
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: Glass3DTokens.Space.l) {
             NotificationThumb(n: n, width: toast ? 176 : 120)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                HStack(alignment: .firstTextBaseline, spacing: Glass3DTokens.Space.s) {
                     if !n.read { Circle().fill(Theme.accent(accentName)).frame(width: 7, height: 7).helpLabel("Unread") }
                     Text(n.cardTitle).cvFont(Glass3DTokens.Text.cardTitle, weight: .bold).lineLimit(1)
                         .modifier(Glass3DReadableText())
@@ -98,7 +98,7 @@ struct NotificationCard: View {
                     Text(NotificationInbox.addedText(n, now: ctx.date)).cvFont(Glass3DTokens.Text.meta - 1)
                         .foregroundColor(Glass3DTokens.Grey.secondary)
                 }
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     if n.playId != nil {
                         NotificationActionButton(title: "Play", icon: "play.fill") { Task { await NewMediaService.shared.playStored(n) } }
                     }
@@ -114,10 +114,10 @@ struct NotificationCard: View {
                             Text("Show all").cvFont(12, weight: .semibold).underline(hover).foregroundColor(Glass3DTokens.Grey.primary)
                         }.buttonStyle(.plainHand)
                     }
-                }.padding(.top, 4)
+                }.padding(.top, Glass3DTokens.Space.xs)
             }
         }
-        .padding(12)
+        .padding(Glass3DTokens.Space.m)
         .background(shape.fill(Color.white.opacity(hover && !toast ? Glass3DTokens.Fill.strong : Glass3DTokens.Fill.subtle)))
         .background(shape.fill(.ultraThinMaterial).opacity(toast ? 0.9 : 0.5))
         .overlay(shape.strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.subtle), lineWidth: 0.75))
@@ -132,8 +132,8 @@ struct NotificationCard: View {
 struct NotificationsTabView: View {
     @ObservedObject private var store = NotificationCenterStore.shared
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Spacer()
                 if store.unread > 0 { NotificationActionButton(title: "Mark all as read", icon: "checkmark") { store.markAllRead() } }
                 if !store.items.isEmpty {
@@ -148,8 +148,8 @@ struct NotificationsTabView: View {
             } else {
                 let groups = NotificationInbox.grouped(store.items, now: Date())
                 ForEach(groups, id: \.section.rawValue) { g in
-                    StatsHeading(text: g.section.rawValue).padding(.top, 4)
-                    LazyVStack(spacing: 10) {
+                    StatsHeading(text: g.section.rawValue).padding(.top, Glass3DTokens.Space.xs)
+                    LazyVStack(spacing: Glass3DTokens.Space.m) {
                         ForEach(g.items) { NotificationCard(n: $0) }
                     }
                     .frame(maxWidth: 860)
@@ -173,11 +173,10 @@ struct NotificationToastLayer: View {
                     .onTapGesture { store.toast = nil }
                 NotificationCard(n: t, toast: true, onClose: { store.toast = nil })
                     .frame(width: 440)
-                    .shadow(color: .black.opacity(Glass3DTokens.shadowLarge.opacity), radius: Glass3DTokens.shadowLarge.radius,
-                            y: Glass3DTokens.shadowLarge.y)
+                    .g3Shadow(Glass3DTokens.shadowLarge)
                     .padding(.top, 76).padding(.trailing, 24)
                     .onHover { hovering = $0 }
-                    .transition(.coveGlassPopIn)
+                    .transition(.toast())
                     .id(t.id)
                     .task(id: t.id) {
                         try? await Task.sleep(for: .seconds(6))
@@ -187,7 +186,7 @@ struct NotificationToastLayer: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-        .coveGlassPopIn(value: store.toast?.id)
+        .animation(Glass3DTokens.Toast.animation, value: store.toast?.id)
     }
 }
 
@@ -275,7 +274,7 @@ struct ActivityTabRow: View {
 
     var body: some View {
         let segs = ActivityPage.segments(admin: admin)
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Glass3DSegmentTabs(titles: segs.map(\.title),
                                selection: Binding(get: { segs.firstIndex(of: page) ?? -1 },
                                                   set: { if segs.indices.contains($0) { page = segs[$0] } }),
@@ -301,14 +300,14 @@ struct ActivityStatsMenu: View {
                 Toggle(p.title, isOn: Binding(get: { page == p }, set: { if $0 { page = p; lastStats = p.rawValue } }))
             }
         } label: {
-            HStack(spacing: 7) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: "chart.bar").cvFont(12, weight: .semibold)
                 Text3D(text: shown.title, size: 12, weight: on ? .bold : .semibold)
                 Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
             }
-            .padding(.horizontal, 14).frame(height: 32)
+            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 32)
             .classicSelectedGlass(on)
-            .padding(3).frame(height: 38).classicClearGlass().opacity(0.92)
+            .padding(Glass3DTokens.Space.xs).frame(height: 38).classicClearGlass().opacity(0.92)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel("Statistics")

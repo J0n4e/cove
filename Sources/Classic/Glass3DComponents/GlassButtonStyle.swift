@@ -62,7 +62,7 @@ private struct GlassButtonBody: View {
         return c.label
             .coveFont(size: 13, weight: .semibold)
             .lineLimit(1).fixedSize()
-            .padding(.horizontal, 14).padding(.vertical, 7)
+            .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s)
             .foregroundColor(kind == .primary ? Theme.onAccent(name) : .white)
             .background {
                 if solid {
@@ -108,7 +108,7 @@ private struct GlassButtonBody: View {
             .scrollHover($hover)
             .handCursor()
             .animation(Glass3DTokens.Motion.fast, value: hover)
-            .animation(.easeOut(duration: 0.1), value: c.isPressed)
+            .animation(Glass3DTokens.Motion.fast, value: c.isPressed)
     }
 
     @ViewBuilder private func accentRowButton(_ glass: Bool) -> some View {

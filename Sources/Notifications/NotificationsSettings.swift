@@ -49,14 +49,14 @@ struct NotificationsSettings: View {
     var body: some View {
         PrefSection(title: "Notifications", last: true) {
             PrefRow(label: "Notify me about") {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     Toggle("New movies", isOn: $movies)
                     Toggle("New episodes", isOn: $episodes)
                 }
             }
             if !libraries.isEmpty {
                 PrefRow(label: "Libraries") {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                         ForEach(libraries) { lib in
                             NotifLibraryRow(title: lib.title, tv: lib.kind != "movies", episodes: episodes,
                                             on: libBinding(lib.id), mode: modeBinding(lib.id))
@@ -67,7 +67,7 @@ struct NotificationsSettings: View {
             }
             if profile.admin == true {
                 PrefRow(label: "Server alerts (admins)") {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                         ForEach(ServerAlertKind.allCases, id: \.self) { k in ServerAlertToggle(kind: k) }
                     }
                 }
@@ -81,9 +81,9 @@ struct NotificationsSettings: View {
             }
             if service.permission == .denied {
                 PrefRow {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                         Label("Notifications are off for Cove in System Settings", systemImage: "bell.slash")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Glass3DTokens.Grey.secondary)
                         Button("Open System Settings") { NewMediaService.openSystemSettings() }
                     }
                 }
@@ -113,13 +113,13 @@ private struct NotifLibraryRow: View {
     @Binding var mode: NewMediaTVMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             Toggle(title, isOn: $on)
             if tv && on && episodes {
                 menuPicker($mode, [(NewMediaTVMode.all, "All new episodes"),
                                    (NewMediaTVMode.followed, "Only series I\u{2019}m watching or in Favorites")])
                     .fixedSize()
-                    .padding(.leading, 20)
+                    .padding(.leading, Glass3DTokens.Space.xl)
             }
         }
     }

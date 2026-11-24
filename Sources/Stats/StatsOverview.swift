@@ -6,9 +6,9 @@ struct StatsOverviewView: View {
 
     var body: some View {
         StatsGate(model: model) {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 StatsRangePills(range: $model.range)
-                if model.overviewLoading && model.overview.isEmpty { SkeletonShimmer().padding(.vertical, 30) }
+                if model.overviewLoading && model.overview.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
                 else { StatsOverviewContent(plays: model.overview, range: model.range) }
             }
             .task(id: model.range) { await model.loadOverview() }
@@ -22,7 +22,7 @@ struct StatsOverviewContent: View {
     let range: StatsRange
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
             if StatsAggregate.isFewData(plays) {
                 StatsStateCard(symbol: "chart.bar.xaxis", title: plays.isEmpty ? "No playback recorded in this range" : "Only a few plays so far",
                                message: "Data is collected from now on: the Playback Reporting plugin records every play from when it was installed. Check back after some watching.")
@@ -51,7 +51,7 @@ private struct StatsHeroRow: View {
     let plays: [StatsPlay]
     var body: some View {
         let titles = Set(plays.map { $0.isEpisode ? "s:" + $0.displayTitle : "i:" + $0.itemId }).count
-        HStack(spacing: 14) {
+        HStack(spacing: Glass3DTokens.Space.l) {
             StatsHero(value: StatsAggregate.hoursText(StatsAggregate.totalSeconds(plays)), label: "Watched")
             StatsHero(value: "\(plays.count)", label: plays.count == 1 ? "Play" : "Plays")
             StatsHero(value: "\(titles)", label: titles == 1 ? "Title" : "Titles")
@@ -62,7 +62,7 @@ private struct StatsHeroRow: View {
 private struct StatsHero: View {
     let value: String, label: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(value).cvFont(30, weight: .heavy).modifier(Glass3DReadableText())
             Text(label).cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
         }
@@ -77,11 +77,11 @@ private struct StatsBarsCard: View {
     var body: some View {
         let top = max(1, bars.map(\.seconds).max() ?? 1)
         let showLabels = bars.count <= 14
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             StatsHeading(text: "Time watched")
             HStack(alignment: .bottom, spacing: bars.count > 20 ? 3 : 8) {
                 ForEach(bars) { b in
-                    VStack(spacing: 4) {
+                    VStack(spacing: Glass3DTokens.Space.xs) {
                         RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag, style: .continuous)
                             .fill(LinearGradient(colors: [Theme.accent(accentName), Theme.accent(accentName).opacity(0.55)],
                                                  startPoint: .top, endPoint: .bottom))
@@ -107,9 +107,9 @@ private struct StatsTopRow: View {
     let show: Bool
     var body: some View {
         if !tops.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 StatsHeading(text: title)
-                HStack(alignment: .top, spacing: 16) {
+                HStack(alignment: .top, spacing: Glass3DTokens.Space.l) {
                     ForEach(Array(tops.enumerated()), id: \.element.id) { i, t in StatsTopTile(rank: i + 1, top: t, show: show) }
                     Spacer(minLength: 0)
                 }
@@ -124,13 +124,13 @@ private struct StatsRecentRow: View {
     let recent: [StatsRecent]
     var body: some View {
         if !recent.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 StatsHeading(text: "Recently watched")
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 16) {
+                    HStack(alignment: .top, spacing: Glass3DTokens.Space.l) {
                         ForEach(recent) { r in StatsTopTile(rank: nil, top: r.top, show: r.show, caption: r.caption) }
                     }
-                    .padding(.bottom, 8)   // room for the poster shadow
+                    .padding(.bottom, Glass3DTokens.Space.s)   // room for the poster shadow
                 }
             }
         }
@@ -149,7 +149,7 @@ private struct StatsTopTile: View {
 
     var body: some View {
         Button { if let item { emby.openPage(item) } } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 CachedImage(url: posterURL) { img in img.resizable().aspectRatio(contentMode: .fill) }
                     placeholder: { Color.white.opacity(0.08) }
                     .frame(width: 130, height: 195)
@@ -157,7 +157,7 @@ private struct StatsTopTile: View {
                     .overlay(alignment: .topLeading) {
                         if let rank {
                             Text("\(rank)").cvFont(13, weight: .heavy).foregroundColor(.white)
-                                .frame(width: 26, height: 26).background(Circle().fill(.black.opacity(0.55))).padding(6)
+                                .frame(width: 26, height: 26).background(Circle().fill(.black.opacity(0.55))).padding(Glass3DTokens.Space.s)
                         }
                     }
                     .g3Shadow(Glass3DTokens.shadowMedium)

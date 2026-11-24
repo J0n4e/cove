@@ -29,12 +29,12 @@ struct WatchActivityPill: View {
     private func pill(_ d: WatchActivityData) -> some View {
         let s = WatchActivity.summary(d.entries, folder: folder)
         return Button { open.toggle() } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: "eye").cvFont(11, weight: .semibold)
                 Text(s.text).cvFont(11, weight: .semibold) { $0.monospacedDigit() }
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 10).frame(height: 26)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 26)
             .classicGlassPill(iconOnly: false)
             .contentShape(Capsule())
         }
@@ -86,13 +86,13 @@ struct WatchActivityList: View {
 
     var body: some View {
         let s = WatchActivity.summary(data.entries, folder: folder)
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             HStack {
                 Text("Watch activity").cvFont(14, weight: .bold).foregroundColor(.white)
                 Spacer()
                 Text(s.text).cvFont(12, weight: .semibold) { $0.monospacedDigit() }.foregroundColor(Glass3DTokens.Grey.secondary)
             }
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 if let a = data.dateAdded {
                     Text("Date added: " + a.formatted(date: .abbreviated, time: .shortened))
                 }
@@ -105,23 +105,23 @@ struct WatchActivityList: View {
             .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
             Rectangle().fill(Color.white.opacity(0.10)).frame(height: 0.5)
             ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     ForEach(WatchActivity.sorted(data.entries, folder: folder)) { e in row(e) }
                 }
             }
             .frame(maxHeight: 360)
             .scrollIndicators(.never)
         }
-        .padding(14).frame(width: 400, alignment: .leading)
+        .padding(Glass3DTokens.Space.l).frame(width: 400, alignment: .leading)
         .preferredColorScheme(.dark)
     }
 
     private func row(_ e: WatchActivityEntry) -> some View {
         let st = WatchActivity.state(e, folder: folder)
-        return HStack(spacing: 10) {
+        return HStack(spacing: Glass3DTokens.Space.m) {
             WatchActivityAvatar(user: e.user, size: 24)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text(e.user.name).cvFont(12, weight: .semibold).foregroundColor(.white).lineLimit(1)
                     if e.user.disabled { Text("Disabled").cvFont(9, weight: .bold).foregroundColor(Glass3DTokens.Grey.tertiary) }
                     if e.favorite { Image(systemName: "heart.fill").cvFont(10).foregroundColor(Theme.accent(accentName)).tip("Favourite") }
@@ -129,7 +129,7 @@ struct WatchActivityList: View {
                 stateView(st)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 3) {
+            VStack(alignment: .trailing, spacing: Glass3DTokens.Space.xs) {
                 if let l = e.lastPlayed {
                     Text(LastActive.ago(l)).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
                         .tip("Last played " + LastActive.exact(l))
@@ -151,7 +151,7 @@ struct WatchActivityList: View {
         case .notStarted:
             Text("Not started").cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary)
         case .progress(let f, _):
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.white.opacity(0.18))

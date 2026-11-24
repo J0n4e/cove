@@ -58,19 +58,19 @@ struct ServerPillMenu: View {
     }
 
     @ViewBuilder func label(_ name: String) -> some View {
-        let row = HStack(spacing: 6) {
+        let row = HStack(spacing: Glass3DTokens.Space.s) {
             Image(systemName: "server.rack").imageScale(.small)
             Text(name).lineLimit(1)
         }
         .foregroundColor(.white)
         if classic {
             row.cvFont(12, weight: .medium)
-                .padding(.horizontal, 12).frame(height: 28)
+                .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 28)
                 .classicGlassPill()
                 .contentShape(Capsule())
         } else {
             row.coveFont(size: 12, weight: .medium)
-                .padding(.horizontal, 12).frame(height: 28)
+                .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 28)
                 .glassCapsule()
                 .contentShape(Capsule())
         }

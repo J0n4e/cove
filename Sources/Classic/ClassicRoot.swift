@@ -102,14 +102,14 @@ struct ClassicHomeView: View {
     func sideRow(_ title: String, _ icon: String, _ id: String, badge: Int = 0) -> some View {
         let on = sel == id
         return Button { if on { popToRoot() } else { selB.wrappedValue = id } } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: icon).cvFont(13).frame(width: 18).foregroundStyle(.tint)
                 Text(title).cvFont(13, weight: on ? .semibold : .regular).lineLimit(1)
                 Spacer(minLength: 0)
                 if badge > 0 { CountBadge(count: badge, size: 18) }
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 12).frame(height: 32)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 32)
             .background {
                 if on {
                     RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
@@ -130,18 +130,18 @@ struct ClassicHomeView: View {
                     let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
                     ForEach(NavOrder.top(rows), id: \.self) { sideSection($0) }
                     Text("MY MEDIA").cvFont(10, weight: .semibold).kerning(0.6).foregroundColor(.secondary)
-                        .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 2)
+                        .padding(.horizontal, Glass3DTokens.Space.m).padding(.top, Glass3DTokens.Space.m).padding(.bottom, 2)
                     ForEach(emby.libs) { lib in
                         if lib.visible { sideRow(lib.title, icon(lib), lib.id) }
                         ForEach(NavOrder.after(lib.id, rows), id: \.self) { sideSection($0) }
                     }
-                }.padding(.horizontal, 8).padding(.vertical, 6)
+                }.padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, Glass3DTokens.Space.s)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 215, max: 280)
             .safeAreaInset(edge: .top) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                     Button { emby.switchServer() } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(emby.currentServerName).cvFont(12, weight: .semibold).lineLimit(1)
                                 Text(emby.currentServer?.user.isEmpty == false ? emby.currentServer!.user : (URL(string: emby.server)?.host ?? ""))
@@ -150,7 +150,7 @@ struct ClassicHomeView: View {
                             Spacer(minLength: 0)
                             Image(systemName: "chevron.up.chevron.down").cvFont(10, weight: .regular).foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
                         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(0.3)))
                         .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)))
                         .contentShape(Rectangle())
@@ -158,17 +158,17 @@ struct ClassicHomeView: View {
                     .buttonStyle(.plainHand)
                     .helpLabel("Connected to \(emby.server) — click to switch server")
                 }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, Glass3DTokens.Space.m).padding(.top, Glass3DTokens.Space.m).padding(.bottom, Glass3DTokens.Space.xs)
             }
             .safeAreaInset(edge: .bottom) {
-                HStack(spacing: 12) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Button { nav.showSettings = true } label: {
                         Label("Settings", systemImage: "gearshape").cvFont(12, weight: .medium)
-                            .padding(.horizontal, 14).frame(height: 32).classicGlassPill()
+                            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 32).classicGlassPill()
                     }
                     .helpLabel("Settings (⌘,)").keyboardShortcut(",", modifiers: .command)
                     Spacer()
-                }.buttonStyle(.plainHand).padding(10)
+                }.buttonStyle(.plainHand).padding(Glass3DTokens.Space.m)
             }
             // Sidebar in the chosen background color instead of the system gray. The color stops below the
             // title bar, so the strip behind the window buttons keeps the same gray as the rest of the title bar.
@@ -376,7 +376,7 @@ struct ClassicTopNavBar: View {
     var body: some View {
         // The two sides share the leftover width equally, so the classicPill stays in the middle of the window, and the
         // fixed height keeps the bar from growing: nothing moves when Back appears or disappears.
-        HStack(spacing: 16) {
+        HStack(spacing: Glass3DTokens.Space.l) {
             HStack { if let back { ClassicTopBackButton(action: back) } }
                 .fixedSize()   // never squeezed below Back's own width
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -392,7 +392,7 @@ struct ClassicTopNavBar: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .frame(height: 44)
-        .padding(.horizontal, 28).padding(.vertical, 12)
+        .padding(.horizontal, Glass3DTokens.Space.xxl).padding(.vertical, Glass3DTokens.Space.m)
     }
 }
 
@@ -413,7 +413,7 @@ struct ClassicTopNavButtons: View {
             nav.sel = id; nav.popToRoot()
         } label: {
             // Small icon before each name, as in the sidebar
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 // Glossy lettering (the 3D face, no thickness)
                 if labels != "names" { Text3D(image: Image(systemName: icon), size: labels == "icons" ? 16 : 14, thick: false) }
                 if labels != "icons" {
@@ -448,7 +448,7 @@ struct ClassicTopNavButtons: View {
         }
     }
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             item("Home", "home", "house.fill")
             let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
             ForEach(NavOrder.top(rows), id: \.self) { section($0) }
@@ -457,7 +457,7 @@ struct ClassicTopNavButtons: View {
                 ForEach(NavOrder.after(lib.id, rows), id: \.self) { section($0) }
             }
         }
-        .padding(4)
+        .padding(Glass3DTokens.Space.xs)
         .frame(height: 44)
         .classicClearGlass()
 
@@ -467,7 +467,7 @@ struct ClassicTopNavButtons: View {
 struct ClassicTopNavTools: View {
     @ObservedObject private var nav = ClassicNavState.shared
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             // No search button (owner): ⌘F opens the search pill at the bottom of the window (SearchDock)
             Glass3DProfileCircle()   // far right: the profile menu (Glass3DProfile*.swift)
         }

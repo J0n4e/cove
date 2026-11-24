@@ -108,11 +108,10 @@ struct ToastOverlay: View {
             Spacer()
             if let t = emby.toast {
                 Label(t.text, systemImage: t.icon)
-                    .coveFont(size: 14, weight: .semibold).foregroundColor(.white).lineLimit(1)
-                    .padding(.horizontal, 18).frame(height: 44)
-                    .searchGlass()
-                    .padding(.bottom, raised ? 80 : 28)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .coveFont(size: 14, weight: .semibold).lineLimit(1)
+                    .toastStyle()   // the shared toast look
+                    .padding(.bottom, raised ? 80 : Glass3DTokens.Space.xxl)
+                    .transition(.toast())
                     .id(t.id)
                     .task(id: t.id) {
                         try? await Task.sleep(for: .seconds(2))
@@ -121,7 +120,7 @@ struct ToastOverlay: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .animation(.spring(duration: 0.35), value: emby.toast)
+        .animation(Glass3DTokens.Toast.animation, value: emby.toast)
         .allowsHitTesting(false)
     }
 }

@@ -44,7 +44,7 @@ struct SeasonDeck: View {
     var body: some View {
         HStack(spacing: 12) {
             arrow("chevron.left", "Previous \(noun)", enabled: shownPos > 0) { go(shownPos - 1) }
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 cards
                 if let caption, numbers.indices.contains(shownPos), let c = caption(numbers[shownPos]) {
                     Text(c).cvFont(15, weight: .semibold).foregroundColor(.white).classicBlackOutline()
@@ -197,7 +197,7 @@ struct ClassicCastTile: View {
     @State private var hover = false
     var body: some View {
         let big = castSize == "large"
-        VStack(spacing: 6) {
+        VStack(spacing: Glass3DTokens.Space.s) {
             CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
@@ -314,7 +314,7 @@ struct ClassicDetailView: View {
                            startPoint: .leading, endPoint: .trailing)
             LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: bg.opacity(0.7), location: 0.8),
                                    .init(color: bg, location: 1)], startPoint: .top, endPoint: .bottom)
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                 TitleLogo(item: item, height: 110, font: 56)
                 meta
                 // A movie keeps its version, audio, subtitle and quality choices (a show picks per episode)
@@ -388,7 +388,7 @@ struct ClassicDetailView: View {
     }
 
     var headerBody: some View {
-        HStack(alignment: .top, spacing: 28) {
+        HStack(alignment: .top, spacing: Glass3DTokens.Space.xxl) {
             CachedImage(url: emby.image(item.id, width: 500)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
@@ -397,7 +397,7 @@ struct ClassicDetailView: View {
             .modifier(ClassicLightCard(radius: Glass3DTokens.Radius.row,
                                        size: item.isEpisode ? CGSize(width: 320, height: 180) : CGSize(width: 220, height: 330)))   // the posters' light glass edge and sheen, as the cards
             .g3Shadow(Glass3DTokens.shadowLarge)   // level-2 depth under the poster
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                 Text(item.Name).cvFont(46, weight: .black)
                 meta
                 if !model.simple { streamsRow }
@@ -446,7 +446,7 @@ struct ClassicDetailView: View {
                 }
             }
             if let v = model.streams("Video").first {
-                HStack(spacing: 6) { Text("Video").foregroundColor(.secondary); Text(v.DisplayTitle ?? "") }
+                HStack(spacing: Glass3DTokens.Space.s) { Text("Video").foregroundColor(.secondary); Text(v.DisplayTitle ?? "") }
             }
             if !model.streams("Audio").isEmpty {
                 labeled("Audio") {
@@ -608,7 +608,7 @@ struct ClassicDetailView: View {
                     model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
                 }
                 .itemBadges(ep, .episode, inset: 6)   // ♡ / ✓ top right, as on posters
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(ep.Name).cvFont(16, weight: .semibold).lineLimit(1)
                         Spacer()
@@ -734,7 +734,7 @@ struct ClassicDetailView: View {
 
 
     var boxGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l)], spacing: 18) {
             ForEach(model.kids) { ClassicPosterCard(item: $0) }
         }.padding(.horizontal, Glass3DTokens.Space.pageWide)
     }
@@ -743,7 +743,7 @@ struct ClassicDetailView: View {
     @ViewBuilder var castSection: some View {
         let people = Array((model.full?.People ?? []).prefix(30))
         if !people.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 Glass3DRowHeading(title: "Cast & Crew").padding(.horizontal, Glass3DTokens.Space.pageWide)
                 ArrowScrollRow(ids: Array(people.indices), itemWidth: CastTile.width(castSize)) { i in
                     NavigationLink(value: PersonRef(id: people[i].Id, name: people[i].Name)) { ClassicCastTile(p: people[i]) }
@@ -767,7 +767,7 @@ struct ClassicDetailView: View {
             let tiles = AboutCard.tiles(lastPlayed: played, added: added, genres: genres, studios: studios,
                                         hasFile: model.src != nil, links: links.count)
             if !tiles.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     Glass3DRowHeading(title: "About")
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 22, alignment: .topLeading)],
                               alignment: .leading, spacing: 18) {
@@ -813,7 +813,7 @@ struct ClassicDetailView: View {
             if let s = model.src {
                 let v = s.MediaStreams?.first { $0.`Type` == "Video" }
                 AboutTileView(icon: "doc", label: "File") {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                         let sum = AboutCard.fileSummary(container: s.Container, size: s.Size, videoHeight: v?.Height, videoWidth: v?.Width)
                         if !sum.isEmpty { Text(sum).cvFont(13, weight: .semibold).foregroundColor(.white).textSelection(.enabled) }
                         if let p = s.Path, !p.isEmpty { AboutPathLine(path: p) }
@@ -832,16 +832,16 @@ struct ClassicDetailView: View {
     /// "Included In": the collections this title belongs to; a click opens the collection's page.
     @ViewBuilder var includedInSection: some View {
         if !model.includedIn.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 SectionHeader(title: "Included In", style: .page).padding(.horizontal, Glass3DTokens.Space.pageWide)
-                ArrowScrollRow(ids: Array(model.includedIn.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.includedIn[$0]) }
+                ArrowScrollRow(ids: Array(model.includedIn.indices), itemWidth: 150, spacing: Glass3DTokens.Space.l) { ClassicPosterCard(item: model.includedIn[$0]) }
             }
         }
     }
 
     @ViewBuilder var similarSection: some View {
         if !model.similar.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 HStack {
                     SectionHeader(title: "More Like This", style: .page)
                     Spacer()
@@ -851,13 +851,13 @@ struct ClassicDetailView: View {
                 // and could otherwise cover the view buttons and swallow their clicks
                 .padding(.bottom, Glass3DTokens.Space.l).zIndex(1)
                 if similarLayout == "grid" {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], alignment: .leading, spacing: 18) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l)], alignment: .leading, spacing: 18) {
                         ForEach(model.similar) { ClassicPosterCard(item: $0) }
                     }.padding(.horizontal, Glass3DTokens.Space.pageWide)
                 } else if similarLayout == "list" {
-                    LazyVStack(spacing: 6) { ForEach(model.similar) { Glass3DListRow(item: $0) } }.padding(.horizontal, Glass3DTokens.Space.pageWide)
+                    LazyVStack(spacing: Glass3DTokens.Space.s) { ForEach(model.similar) { Glass3DListRow(item: $0) } }.padding(.horizontal, Glass3DTokens.Space.pageWide)
                 } else {
-                    ArrowScrollRow(ids: Array(model.similar.indices), itemWidth: 150, spacing: 14) { ClassicPosterCard(item: model.similar[$0]) }
+                    ArrowScrollRow(ids: Array(model.similar.indices), itemWidth: 150, spacing: Glass3DTokens.Space.l) { ClassicPosterCard(item: model.similar[$0]) }
                 }
             }
         }

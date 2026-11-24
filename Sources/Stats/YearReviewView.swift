@@ -26,7 +26,7 @@ struct StatsYearReviewView: View {
     }
 
     @ViewBuilder private var content: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
             HStack(spacing: 12) {
                 // The year as a dropdown pill too (owner), same look as the user picker
                 if insights.years.count > 1 {
@@ -94,7 +94,7 @@ private struct YearShareButton: View {
     var body: some View {
         Button(action: action) {
             Label(label, systemImage: symbol).cvFont(Glass3DTokens.Text.meta + 1, weight: .semibold)
-                .padding(.horizontal, 14).frame(height: 30).classicGlassPill(iconOnly: false)
+                .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 30).classicGlassPill(iconOnly: false)
         }
         .buttonStyle(.plainHand).disabled(busy).opacity(busy ? 0.6 : 1)
     }
@@ -109,9 +109,9 @@ private struct YearStory: View {
     var body: some View {
         let r = review
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                 Text("Your \(String(r.year))").cvFont(34, weight: .heavy).modifier(Glass3DReadableText())
-                HStack(spacing: 14) {
+                HStack(spacing: Glass3DTokens.Space.l) {
                     YearBig(value: r.hoursText, label: "Hours watched")
                     YearBig(value: "\(r.movies)", label: r.movies == 1 ? "Movie" : "Movies")
                     YearBig(value: "\(r.episodes)", label: r.episodes == 1 ? "Episode" : "Episodes")
@@ -141,7 +141,7 @@ private struct YearStory: View {
                 }
             }
             YearCard(title: "Busiest month") {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     if let m = r.busiestMonth {
                         Text("\(Insights.monthNames[m]) · \(StatsAggregate.hoursText(r.months[m]))").cvFont(22, weight: .heavy)
                             .modifier(Glass3DReadableText())
@@ -178,7 +178,7 @@ private struct YearStory: View {
 private struct YearBig: View {
     let value: String, label: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(value).cvFont(40, weight: .heavy).lineLimit(1).minimumScaleFactor(0.5).modifier(Glass3DReadableText())
             Text(label).cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
         }
@@ -217,14 +217,14 @@ private struct YearPoster: View {
 
     var body: some View {
         Button { if let item { emby.openPage(item) } } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 CachedImage(url: url) { img in img.resizable().aspectRatio(contentMode: .fill) }
                     placeholder: { Color.white.opacity(0.08) }
                     .frame(width: 120, height: 180)
                     .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         Text("\(rank)").cvFont(13, weight: .heavy).foregroundColor(.white)
-                            .frame(width: 26, height: 26).background(Circle().fill(.black.opacity(0.55))).padding(6)
+                            .frame(width: 26, height: 26).background(Circle().fill(.black.opacity(0.55))).padding(Glass3DTokens.Space.s)
                     }
                     .g3Shadow(Glass3DTokens.shadowMedium)
                 Text(title).cvFont(Glass3DTokens.Text.meta + 1, weight: .semibold).lineLimit(2).modifier(Glass3DReadableText())
@@ -309,7 +309,7 @@ struct YearShareCard: View {
                 }
                 if !r.topMovies.isEmpty { posterRow("Top movies", r.topMovies.map { ($0.id, $0.title) }) }
                 if !r.topShows.isEmpty { posterRow("Top shows", r.topShows.map { ($0.id, $0.top.title) }) }
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                     if let g = r.topGenre { line("Top genre", g) }
                     if let m = r.busiestMonth { line("Busiest month", Insights.monthNames[m]) }
                     if let b = r.binge { line("Longest binge", "\(b.episodes) episodes of \(b.series)") }
@@ -326,7 +326,7 @@ struct YearShareCard: View {
 
     private func tile(_ value: String, _ label: String) -> some View {
         let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.shareCard, style: .continuous)
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             Text(value).font(.system(size: 76, weight: .heavy)).foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.5)
             Text(label).font(.system(size: 28, weight: .medium)).foregroundColor(.white.opacity(0.7))
         }
@@ -344,7 +344,7 @@ struct YearShareCard: View {
                     ZStack {
                         Color.white.opacity(0.08)
                         if let img = posters[id] { Image(nsImage: img).resizable().aspectRatio(contentMode: .fill) }
-                        else { Text(name).font(.system(size: 20, weight: .semibold)).foregroundColor(.white.opacity(0.7)).padding(10) }
+                        else { Text(name).font(.system(size: 20, weight: .semibold)).foregroundColor(.white.opacity(0.7)).padding(Glass3DTokens.Space.m) }
                     }
                     .frame(width: 166, height: 249)
                     .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous))
@@ -380,7 +380,7 @@ struct YearUserMenu: View {
                 Text(current).cvFont(13, weight: .semibold).lineLimit(1)
                 Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
             }
-            .padding(.leading, 6).padding(.trailing, 12).frame(height: 36)
+            .padding(.leading, Glass3DTokens.Space.s).padding(.trailing, 12).frame(height: 36)
             .modifier(ClassicClearGlass(shape: Capsule()))
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()

@@ -7,7 +7,7 @@ struct GlassMessageView: View {
     let close: () -> Void
     var body: some View {
         // An even square (owner): icon on top, title, text, OK across the bottom — everything centred
-        VStack(spacing: 10) {
+        VStack(spacing: Glass3DTokens.Space.m) {
             AppIconView(size: 64)
             Text(title).coveFont(size: 15, weight: .bold).glassReadable().multilineTextAlignment(.center)
             Text(text).coveFont(size: 12).foregroundColor(.white.opacity(0.85)).glassReadable()
@@ -16,7 +16,7 @@ struct GlassMessageView: View {
             Button(action: close) { Text("OK").frame(maxWidth: .infinity) }
                 .controlSize(.large).keyboardShortcut(.defaultAction)
         }
-        .padding(.horizontal, 22).padding(.bottom, 20).padding(.top, 6)
+        .padding(.horizontal, Glass3DTokens.Space.xl).padding(.bottom, Glass3DTokens.Space.xl).padding(.top, Glass3DTokens.Space.s)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

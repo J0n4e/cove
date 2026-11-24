@@ -15,7 +15,7 @@ struct NexviewSettingsSection: View {
                     .onSubmit { conn.saveAddress(addressDraft) }
             }
             PrefRow(label: "API token") {
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     SecureField(conn.hasKey ? "Saved \u{2014} paste a new one to replace it" : "nxv_\u{2026}", text: $keyDraft)
                         .textFieldStyle(.roundedBorder).frame(width: 260)
                     Button("Save") {
@@ -25,11 +25,11 @@ struct NexviewSettingsSection: View {
                 }
             }
             PrefRow(label: "Status") {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     Text(conn.status ?? (conn.configured ? "Connected" : "Not connected"))
                         .foregroundColor(.white.opacity(0.85)).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 380, alignment: .leading)
                     if conn.configured {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             Button(testing ? "Testing\u{2026}" : "Test") {
                                 conn.saveAddress(addressDraft)
                                 testing = true; Task { await conn.test(); testing = false }

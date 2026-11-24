@@ -33,7 +33,7 @@ struct EmptyState: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let actionTitle, let action {
-                Button(actionTitle, action: action).buttonStyle(GlassButtonStyle(.secondary)).padding(.top, 4)
+                Button(actionTitle, action: action).buttonStyle(GlassButtonStyle(.secondary)).padding(.top, Glass3DTokens.Space.xs)
             }
         }
         .frame(maxWidth: .infinity)

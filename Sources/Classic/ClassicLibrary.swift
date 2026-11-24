@@ -38,7 +38,7 @@ struct ClassicLibraryView: View {
                 }
             } else {
                 ScrollView {
-                    VStack(spacing: 18) {
+                    VStack(spacing: Glass3DTokens.Space.xl) {
                         header
                         if model.tab == 2 { genreGrid } else { grid }
                     }.padding(.leading, Glass3DTokens.Space.pageWide).padding(.trailing, 92).padding(.vertical, 24)   // room for the A–Z bar
@@ -81,7 +81,7 @@ struct ClassicLibraryView: View {
                 })
             }
         }
-        .animation(.easeOut(duration: 0.12), value: alphaHover)
+        .animation(Glass3DTokens.Motion.fast, value: alphaHover)
         .padding(.vertical, Glass3DTokens.Space.s).padding(.horizontal, Glass3DTokens.Space.xs)
         .background(Capsule().fill(Color.black.opacity(0.3)))
         .background(ClassicGlassBacking(shape: Capsule()))
@@ -89,11 +89,11 @@ struct ClassicLibraryView: View {
     }
 
     var header: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Glass3DTokens.Space.l) {
             ZStack {
                 // Title on the grid's leading edge, the count as small grey text under it
                 HStack {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                         ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind))
                         Text(Glass3DTokens.itemCount(model.visibleCount))
                             .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
@@ -115,7 +115,7 @@ struct ClassicLibraryView: View {
     }
 
     var controls: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Button { Task { await model.playFirst() } } label: {
                 glossyLabel("Play", "play.fill").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton())
@@ -165,9 +165,9 @@ struct ClassicLibraryView: View {
     }
 
     var grid: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Glass3DTokens.Space.xl) {
             if model.layout == "list" {
-                LazyVStack(spacing: 6) {
+                LazyVStack(spacing: Glass3DTokens.Space.s) {
                     ForEach(model.visibleItems) { it in
                         Glass3DListRow(item: it).onAppear {   // v1.18.6: the poster badges, no hover buttons
                             model.listRowAppeared(it.id)
@@ -206,7 +206,7 @@ struct ClassicLibraryView: View {
     }
 
     var genreGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: Glass3DTokens.Space.m)], spacing: Glass3DTokens.Space.m) {
             ForEach(model.genres, id: \.self) { g in
                 Button { model.genre = g; model.tab = 0 } label: {
                     // Glass tiles, as the buttons

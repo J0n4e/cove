@@ -20,7 +20,7 @@ struct ClassicHomeContent: View {
     var body: some View {
         let hero = model.heroItems
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xxl) {
                 if !hero.isEmpty {
                     ClassicHero(items: hero, pageH: pageH)   // the server is in the top bar's profile menu now
                         // A banner refresh swaps in the new set with a crossfade, starting at slide 1
@@ -34,18 +34,18 @@ struct ClassicHomeContent: View {
                         let wide = row.title == "Continue Watching"
                         // Continue Watching has its own Row / Grid choice; every other section follows Home's
                         if (wide ? resumeLayout : homeLayout) == "grid" {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 260 : 150), spacing: 14)],
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 260 : 150), spacing: Glass3DTokens.Space.l)],
                                       alignment: .leading, spacing: 18) {
                                 ForEach(row.items) { it in
                                     if wide { ClassicResumeCard(item: it) } else { ClassicPosterCard(item: it) }
                                 }
                             }.padding(.horizontal, Glass3DTokens.Space.page)
                         } else if wide {
-                            ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 260, spacing: 14, inset: 32) {
+                            ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 260, spacing: Glass3DTokens.Space.l, inset: 32) {
                                 ClassicResumeCard(item: row.items[$0])
                             }
                         } else {
-                            ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 150, spacing: 14, inset: 32) {
+                            ArrowScrollRow(ids: Array(row.items.indices), itemWidth: 150, spacing: Glass3DTokens.Space.l, inset: 32) {
                                 ClassicPosterCard(item: row.items[$0])
                             }
                         }
@@ -196,7 +196,7 @@ struct ClassicHero: View {
             }
             .zIndex(Double(pos) + 1)
         }
-        .animation(.easeOut(duration: 0.15), value: hover)
+        .animation(Glass3DTokens.Motion.fast, value: hover)
         .frame(height: style == "card" ? max(bannerH - 24, 340) : bannerH)
         .modifier(BannerShape(card: style == "card"))
         .foregroundColor(.white)
@@ -240,7 +240,7 @@ struct ClassicHero: View {
                     .foregroundColor(.white.opacity(0.85))
             }
             TitleLogo(item: item, height: style == "cinematic" ? 110 : 90, font: style == "cinematic" ? 56 : 46)
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Text(meta(item))
                 if let r = item.CommunityRating {
                     HStack(spacing: 3) { Image(systemName: "star.fill"); Text(String(format: "%.1f", r)) }
@@ -366,7 +366,7 @@ struct ClassicResumeCard: View {
 
     var body: some View {
         Group {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 CachedImage(url: imageURL) { p in
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {

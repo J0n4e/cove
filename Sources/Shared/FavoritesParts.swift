@@ -22,7 +22,7 @@ struct FavPersonListRow<Link: Hashable>: View {
     @State private var hover = false
     var body: some View {
         NavigationLink(value: link) {
-            HStack(spacing: 14) {
+            HStack(spacing: Glass3DTokens.Space.l) {
                 CachedImage(url: emby.image(p.id, width: 120)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
@@ -33,7 +33,7 @@ struct FavPersonListRow<Link: Hashable>: View {
                 Spacer(minLength: 0)
                 if emby.isFav(p) { FavHeart(size: 15) }
             }
-            .padding(.horizontal, 10).padding(.vertical, 6)
+            .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.white.opacity(hover ? 0.1 : 0.04)))
             .contentShape(Rectangle())
         }

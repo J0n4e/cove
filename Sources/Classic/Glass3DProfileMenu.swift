@@ -109,12 +109,12 @@ struct Glass3DProfileMenu: View {
         let sections = ProfileMenuSpec.sections(input, shown: ProfileMenuSpec.shown)
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(sections.enumerated()), id: \.offset) { i, s in
-                if i > 0 { Rectangle().fill(Color.white.opacity(0.12)).frame(height: 0.5).padding(.horizontal, 12) }
-                section(s.0, s.1).padding(.vertical, 6)
+                if i > 0 { Rectangle().fill(Color.white.opacity(0.12)).frame(height: 0.5).padding(.horizontal, Glass3DTokens.Space.m) }
+                section(s.0, s.1).padding(.vertical, Glass3DTokens.Space.s)
             }
         }
-        .padding(.vertical, 4)
-        .modifier(PanelSurface(classic: true))
+        .padding(.vertical, Glass3DTokens.Space.xs)
+        .glassMenuSurface()   // the shared pop-up menu look, as the glass dropdowns
         .task {
             others = ProfileUserStore.others(ProfileUserStore.all(), server: emby.server, currentUserId: emby.userId)
                 .map { .init(key: $0.key, name: $0.entry.user) }
@@ -135,22 +135,22 @@ struct Glass3DProfileMenu: View {
     }
 
     var youHeader: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             ProfileAvatar(size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(profile.name.isEmpty ? (emby.currentServer?.user ?? "") : profile.name)
                     .cvFont(14, weight: .bold).foregroundColor(.white).lineLimit(1)
                 Text(ProfileMenuSpec.subtitle(jellyfin: emby.isJellyfin, admin: profile.admin))
-                    .cvFont(11).foregroundColor(.secondary).lineLimit(1)
+                    .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14).padding(.top, 6).padding(.bottom, 4)
+        .padding(.horizontal, Glass3DTokens.Space.l).padding(.top, Glass3DTokens.Space.s).padding(.bottom, Glass3DTokens.Space.xs)
     }
 
     func heading(_ t: String) -> some View {
-        Text(t).cvFont(10, weight: .semibold).kerning(0.6).foregroundColor(.secondary)
-            .padding(.horizontal, 14).padding(.top, 2).padding(.bottom, 2)
+        Text(t).cvFont(10, weight: .semibold).kerning(0.6).foregroundColor(Glass3DTokens.Grey.secondary)
+            .padding(.horizontal, Glass3DTokens.Space.l).padding(.top, 2).padding(.bottom, 2)
     }
 
     func icon(_ r: ProfileRow) -> String {
@@ -176,28 +176,28 @@ struct Glass3DProfileMenu: View {
 
     func row(_ r: ProfileRow) -> some View {
         Button { ProfileActions.perform(r, emby: emby) } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 if r == .signOut { Image(systemName: icon(r)).cvFont(12).frame(width: 18).foregroundColor(Glass3DTokens.Status.danger) }
                 else { Image(systemName: icon(r)).cvFont(12).frame(width: 18).foregroundStyle(.tint) }
                 if case .notifications(let n) = r {
                     Text("Notifications").cvFont(13).lineLimit(1)
                     if n > 0 {
                         Text("\(n)").cvFont(10, weight: .bold).foregroundColor(.white)
-                            .padding(.horizontal, 6).frame(height: 16).background(Capsule().fill(Glass3DTokens.Status.danger))
+                            .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 16).background(Capsule().fill(Glass3DTokens.Status.danger))
                     }
                 } else {
                     Text(ProfileMenuSpec.title(r)).cvFont(13, weight: r == .signOut ? .semibold : .regular).lineLimit(1)
-                        .foregroundColor(r == .signOut ? .red : .white)
+                        .foregroundColor(r == .signOut ? Glass3DTokens.Status.danger : .white)
                 }
                 Spacer(minLength: 0)
                 trailing(r)
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 14).frame(height: 28)
+            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 28)
             .contentShape(Rectangle())
         }
         .buttonStyle(PanelRowStyle(glass: true))
-        .padding(.horizontal, 4)
+        .padding(.horizontal, Glass3DTokens.Space.xs)
     }
 
     @ViewBuilder func trailing(_ r: ProfileRow) -> some View {
@@ -207,8 +207,8 @@ struct Glass3DProfileMenu: View {
                 .help(online == nil ? "Checking…" : online! ? "Reachable" : "Not reachable")
             if current { Image(systemName: "checkmark").cvFont(11, weight: .bold).foregroundStyle(.tint) }
             else { Color.clear.frame(width: 11) }
-        case .settings: Text("⌘,").cvFont(11).foregroundColor(.secondary)
-        case .search: Text("⌘F").cvFont(11).foregroundColor(.secondary)
+        case .settings: Text("⌘,").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
+        case .search: Text("⌘F").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
         default: EmptyView()
         }
     }

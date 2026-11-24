@@ -20,7 +20,7 @@ struct ClassicLoginView: View {
     var body: some View {
         ZStack {
             bg.ignoresSafeArea()   // Settings → General → Background, as every other page
-            VStack(spacing: 14) {
+            VStack(spacing: Glass3DTokens.Space.l) {
                 if showForm { form } else { serverList }
                 if !error.isEmpty { Text(error).foregroundColor(Glass3DTokens.Status.warning).cvFont(10, weight: .regular).multilineTextAlignment(.center) }
             }
@@ -31,12 +31,12 @@ struct ClassicLoginView: View {
     }
 
     var serverList: some View {
-        VStack(spacing: 14) {
-            Text("Select Server").cvFont(22, weight: .bold).padding(.bottom, 6)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
+        VStack(spacing: Glass3DTokens.Space.l) {
+            Text("Select Server").cvFont(22, weight: .bold).padding(.bottom, Glass3DTokens.Space.s)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l)], spacing: Glass3DTokens.Space.l) {
                 ForEach(emby.servers) { s in serverCard(s) }
                 Button { startAdd() } label: {
-                    VStack(spacing: 10) {
+                    VStack(spacing: Glass3DTokens.Space.m) {
                         Image(systemName: "plus").cvFont(34, weight: .light)
                             .frame(width: 150, height: 100)
                             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)
@@ -52,18 +52,18 @@ struct ClassicLoginView: View {
 
     func serverCard(_ s: SavedServer) -> some View {
         Button { open(s) } label: {
-            VStack(spacing: 10) {
+            VStack(spacing: Glass3DTokens.Space.m) {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "server.rack").cvFont(38)
                         .frame(width: 150, height: 100)
                         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(0.3)))
                         .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)))
                     if s.token != nil {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(6)
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(Glass3DTokens.Space.s)
                             .helpLabel("Signed in")
                     }
                 }
-                HStack(spacing: 5) { ConnectionBadge(address: s.url).cvFont(10, weight: .regular); Text(s.name).cvFont(13, weight: .bold).lineLimit(1) }
+                HStack(spacing: Glass3DTokens.Space.xs) { ConnectionBadge(address: s.url).cvFont(10, weight: .regular); Text(s.name).cvFont(13, weight: .bold).lineLimit(1) }
                 Text((s.user.isEmpty ? s.url : "\(s.user) · \(s.url)") + " · " + emby.kindLabel(s))
                     .cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
             }
@@ -77,7 +77,7 @@ struct ClassicLoginView: View {
     }
 
     var form: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: Glass3DTokens.Space.l) {
             HStack {
                 if !emby.servers.isEmpty {
                     Button { adding = false; error = "" } label: { Label("Back", systemImage: "chevron.left").classicGlassPill(size: 34) }
@@ -87,7 +87,7 @@ struct ClassicLoginView: View {
                 Text(emby.servers.isEmpty ? "Sign In" : "Add Server").cvFont(22, weight: .bold)
                 Spacer()
                 if !emby.servers.isEmpty { Color.clear.frame(width: 34, height: 34) }
-            }.padding(.bottom, 6)
+            }.padding(.bottom, Glass3DTokens.Space.s)
             TextField("Name (optional, e.g. Home Jellyfin)", text: $serverLabel).focused($focus, equals: .name)
                 .onSubmit { focus = .server }.modifier(GlassField())
             TextField("Server (e.g. 192.168.1.10:8096)", text: $server).focused($focus, equals: .server)
@@ -142,7 +142,7 @@ struct ClassicLoginView: View {
 struct GlassField: ViewModifier {
     func body(content: Content) -> some View {
         content.textFieldStyle(.plain).cvFont(13).foregroundColor(.white)
-            .padding(.horizontal, 16).frame(height: 38)
+            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 38)
             .background(Capsule().fill(Color.black.opacity(0.35)))
             .background(ClassicGlassBacking(shape: Capsule()))
     }

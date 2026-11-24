@@ -67,7 +67,7 @@ struct PosterBadgeGlass<S: InsettableShape>: View {
     @Environment(\.posterBadgeHalo) private var halo
     var body: some View {
         shape.inset(by: -3).fill(Color.black.opacity(halo ? 0.38 : 0)).blur(radius: 2.5)
-            .animation(.easeOut(duration: 0.15), value: halo)
+            .animation(Glass3DTokens.Motion.fast, value: halo)
             .allowsHitTesting(false)
             .overlay(shape.fill(Color.black.opacity(0.55))
             .overlay(shape.fill(Color.white.opacity(Glass3DTokens.Fill.strong)))

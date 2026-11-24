@@ -13,14 +13,14 @@ struct ServerOverviewTab: View {
     var body: some View {
         ZStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                     if let i = model.info { infoCard(i) }
                     else if let e = model.infoError { ServerAdminCard { Text(e).cvFont(13).foregroundColor(Glass3DTokens.Status.danger) } }
                     else { SkeletonShimmer(rows: 2, rowHeight: 44) }
                     streamsCard
                     powerCard
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, Glass3DTokens.Space.s)
             }
             .scrollIndicators(.never)
             if let c = confirm { confirmSheet(c) }
@@ -34,27 +34,27 @@ struct ServerOverviewTab: View {
             Text(i.name.isEmpty ? "Server" : i.name).cvFont(Glass3DTokens.Text.cardTitle + 2, weight: .bold).foregroundColor(.white)
             Text([i.product + (i.version.isEmpty ? "" : " " + i.version), i.os].filter { !$0.isEmpty }.joined(separator: " · "))
                 .cvFont(13).foregroundColor(Glass3DTokens.Grey.primary)
-            HStack(spacing: 8) {
-                if let u = i.updateLine { tag(u, icon: "arrow.down.circle.fill", color: .green) }
-                if i.restartPending { tag("Restart pending", icon: "arrow.clockwise.circle.fill", color: .orange) }
+            HStack(spacing: Glass3DTokens.Space.s) {
+                if let u = i.updateLine { tag(u, icon: "arrow.down.circle.fill", color: Glass3DTokens.Status.success) }
+                if i.restartPending { tag("Restart pending", icon: "arrow.clockwise.circle.fill", color: Glass3DTokens.Status.warning) }
                 if let s = i.startTime { tag("Up since " + ServerAdminDate.relative(s), icon: "clock", color: .gray) }
             }
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 if let a = i.localAddress { ServerMetaLine(label: "Local address", value: a) }
                 if let a = i.wanAddress { ServerMetaLine(label: "Remote address", value: a) }
                 if let p = i.cachePath { ServerMetaLine(label: "Cache", value: p) }
                 if let p = i.transcodePath { ServerMetaLine(label: "Transcoding", value: p) }
                 if let p = i.logPath { ServerMetaLine(label: "Logs", value: p) }
-            }.padding(.top, 4)
+            }.padding(.top, Glass3DTokens.Space.xs)
         }
     }
 
     func tag(_ t: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: Glass3DTokens.Space.xs) {
             Image(systemName: icon).cvFont(11).foregroundColor(color)
             Text(t).cvFont(12, weight: .semibold).foregroundColor(.white)
         }
-        .padding(.horizontal, 9).frame(height: 24)
+        .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 24)
         .background(Capsule().fill(Color.white.opacity(0.08)))
         .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
     }
@@ -73,7 +73,7 @@ struct ServerOverviewTab: View {
 
     var powerCard: some View {
         ServerAdminCard(title: "Actions") {
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Button { Task { await model.scanAll() } } label: { Label("Scan all libraries", systemImage: "arrow.triangle.2.circlepath") }
                     .buttonStyle(AboutButton(accentName: accentName))
                 Spacer()
@@ -92,7 +92,7 @@ struct ServerOverviewTab: View {
         switch model.power {
         case .none: EmptyView()
         case .restarting:
-            HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Restarting… waiting for the server to come back.").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary) }
+            HStack(spacing: Glass3DTokens.Space.s) { ProgressView().controlSize(.small); Text("Restarting… waiting for the server to come back.").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary) }
         case .shuttingDown: Text("Shutting down…").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
         case .back: Text("The server is back.").cvFont(12).foregroundColor(Glass3DTokens.Status.success)
         case .timedOut: Text("The server hasn't come back after 3 minutes. Check it on the machine it runs on.").cvFont(12).foregroundColor(Glass3DTokens.Status.warning)
@@ -106,14 +106,14 @@ struct ServerOverviewTab: View {
         let n = model.streams ?? 0
         return ZStack {
             Color.black.opacity(0.45).ignoresSafeArea().onTapGesture { confirm = nil }
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 Text(restart ? "Restart the server?" : "Shut down the server?").cvFont(17, weight: .bold).foregroundColor(.white)
                 Text(restart
                      ? "Everyone watching will be interrupted while the server restarts."
                      : "Everyone watching will be interrupted, and the server stays off until it's started again on its machine.")
                     .cvFont(13).foregroundColor(Glass3DTokens.Grey.primary).fixedSize(horizontal: false, vertical: true)
                 Text(n == 0 ? "No one is watching right now." : (n == 1 ? "1 stream is playing right now." : "\(n) streams are playing right now."))
-                    .cvFont(13, weight: .semibold).foregroundColor(n == 0 ? Glass3DTokens.Grey.secondary : .orange)
+                    .cvFont(13, weight: .semibold).foregroundColor(n == 0 ? Glass3DTokens.Grey.secondary : Glass3DTokens.Status.warning)
                 HStack {
                     Spacer()
                     Button("Cancel") { confirm = nil }.buttonStyle(AboutButton(accentName: accentName)).keyboardShortcut(.cancelAction)
@@ -123,7 +123,7 @@ struct ServerOverviewTab: View {
                     }.buttonStyle(GlassButtonStyle(.destructive))
                 }
             }
-            .padding(20).frame(width: 420)
+            .padding(Glass3DTokens.Space.xl).frame(width: 420)
             .modifier(PanelSurface(classic: true))
         }
     }
@@ -143,8 +143,8 @@ struct ServerTasksTab: View {
     @State private var query = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: "magnifyingglass").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
                 TextField("Filter tasks", text: $query).textFieldStyle(.plain).cvFont(13).foregroundColor(.white)
                 if !query.isEmpty {
@@ -152,7 +152,7 @@ struct ServerTasksTab: View {
                         .buttonStyle(.plainHand)
                 }
             }
-            .padding(.horizontal, 12).frame(height: 30).frame(maxWidth: 320)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 30).frame(maxWidth: 320)
             .background(Capsule().fill(Color.white.opacity(0.08)))
             .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
 
@@ -166,7 +166,7 @@ struct ServerTasksTab: View {
                     ServerAdminNotice(icon: "magnifyingglass", text: "No tasks match \u{201C}\(query)\u{201D}.")
                 } else {
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 14) {
+                        LazyVStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                             ForEach(sections, id: \.title) { s in
                                 ServerAdminCard(title: s.title) {
                                     ForEach(Array(s.tasks.enumerated()), id: \.element.id) { i, t in
@@ -175,7 +175,7 @@ struct ServerTasksTab: View {
                                     }
                                 }
                             }
-                        }.padding(.bottom, 8)
+                        }.padding(.bottom, Glass3DTokens.Space.s)
                     }
                     .scrollIndicators(.never)
                 }
@@ -192,17 +192,17 @@ struct ServerTaskRow: View {
     @AppStorage("accent") private var accentName = "red"
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .center, spacing: Glass3DTokens.Space.m) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 Text(task.name).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1)
                 if task.running {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         ServerProgressBar(percent: task.progress ?? 0).frame(maxWidth: 260)
                         Text(task.state == .cancelling ? "Stopping…" : "Running · \(Int(task.progress ?? 0)) %")
                             .cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
                     }
                 } else {
-                    Text(lastLine).cvFont(11).foregroundColor(task.last?.failed == true ? .red : Glass3DTokens.Grey.secondary).lineLimit(1)
+                    Text(lastLine).cvFont(11).foregroundColor(task.last?.failed == true ? Glass3DTokens.Status.danger : Glass3DTokens.Grey.secondary).lineLimit(1)
                         .help(task.last?.error ?? "")
                 }
                 if !task.triggers.isEmpty {
@@ -218,7 +218,7 @@ struct ServerTaskRow: View {
                     .buttonStyle(AboutButton(accentName: accentName))
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Glass3DTokens.Space.xs)
         .contentShape(Rectangle())
         .help(task.description)
     }

@@ -50,7 +50,7 @@ struct TrailerPlayerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 backButton.helpLabel("Back (Esc)")
                 Spacer()
                 Button { NSWorkspace.shared.open(link); close() } label: {
@@ -63,11 +63,11 @@ struct TrailerPlayerView: View {
                 .buttonStyle(HoverButton(backing: true))
                 .helpLabel(isFullScreen ? "Exit full screen (F)" : "Full screen (F)")
             }
-            .padding(.horizontal, 14).frame(height: 48)
+            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 48)
             ZStack {
                 Color.black
                 if blocked {
-                    VStack(spacing: 14) {
+                    VStack(spacing: Glass3DTokens.Space.l) {
                         Image(systemName: "film").coveFont(size: 40).foregroundStyle(.secondary)
                         Text("This trailer can only be played on YouTube.").coveFont(size: 15)
                         Button("Watch on YouTube") { NSWorkspace.shared.open(link); close() }

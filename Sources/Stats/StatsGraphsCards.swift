@@ -13,13 +13,13 @@ struct StatsHeatmapCard: View {
     var body: some View {
         let top = max(1, cells.map(\.seconds).max() ?? 1)
         let accent = Theme.accent(accentName)
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             StatsChartHeader(title: "When people watch", readout: hovered.map {
                 "\(StatsGraphsAggregate.weekdayNames[$0.weekday]) \(String(format: "%02d:00–%02d:00", $0.hour, ($0.hour + 1) % 24)) · \(StatsAggregate.hoursText($0.seconds))"
             }, hint: "Watch time by weekday and hour (local time)")
-            VStack(spacing: 3) {
+            VStack(spacing: Glass3DTokens.Space.xs) {
                 ForEach(0..<7, id: \.self) { w in
-                    HStack(spacing: 3) {
+                    HStack(spacing: Glass3DTokens.Space.xs) {
                         Text(StatsGraphsAggregate.weekdayNames[w]).cvFont(10, weight: .medium)
                             .foregroundColor(StatsChartStyle.label).frame(width: 30, alignment: .leading)
                         ForEach(0..<24, id: \.self) { h in
@@ -32,7 +32,7 @@ struct StatsHeatmapCard: View {
                         }
                     }
                 }
-                HStack(spacing: 3) {
+                HStack(spacing: Glass3DTokens.Space.xs) {
                     Color.clear.frame(width: 30, height: 1)
                     ForEach(0..<24, id: \.self) { h in
                         Text(h % 3 == 0 ? "\(h)" : "").cvFont(9).foregroundColor(StatsChartStyle.label)
@@ -68,7 +68,7 @@ struct StatsDevicesCard: View {
 
     var body: some View {
         let accent = Theme.accent(accentName)
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             StatsChartHeader(title: "Top devices", readout: rows.first { $0.name == hovered }.map {
                 "\($0.name) · \(StatsAggregate.hoursText($0.seconds)) · \($0.plays) \($0.plays == 1 ? "play" : "plays")"
             }, hint: "By watch time")
@@ -125,7 +125,7 @@ struct StatsKindsCard: View {
     var body: some View {
         let slices = self.slices
         let hovered = angle.flatMap { a in Self.slice(at: a, in: slices) }
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             StatsHeading(text: "Movies vs Episodes")
             ZStack {
                 Chart(slices) { s in
@@ -144,7 +144,7 @@ struct StatsKindsCard: View {
                 .allowsHitTesting(false)
             }
             .frame(height: 170)
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 ForEach(slices) { s in
                     HStack {
                         StatsLegendChip(color: s.color, text: s.name)

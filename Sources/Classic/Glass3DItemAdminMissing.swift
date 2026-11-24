@@ -18,7 +18,7 @@ struct ItemMissingView: View {
     @State private var fixed: Set<String> = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             ItemAdminHeader(title: kind.title, subtitle: lib.title)
             HStack {
                 Text(status).cvFont(12).foregroundColor(.white.opacity(0.7))
@@ -30,10 +30,10 @@ struct ItemMissingView: View {
             }
             if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning) }
             ScrollView {
-                LazyVStack(spacing: 8) { ForEach(rows) { row($0) } }.padding(.bottom, 12)
+                LazyVStack(spacing: Glass3DTokens.Space.s) { ForEach(rows) { row($0) } }.padding(.bottom, Glass3DTokens.Space.m)
             }.classicScrollBars()
         }
-        .padding(.horizontal, 24).padding(.bottom, 12)
+        .padding(.horizontal, 24).padding(.bottom, Glass3DTokens.Space.m)
         .foregroundColor(.white)
         .task { await scan() }
         .keepsWindowOpen(refreshing)
@@ -69,10 +69,10 @@ struct ItemMissingView: View {
     }
 
     func row(_ r: ItemAdminAPI.MissingRow) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             ItemAdminThumb(url: nil, placeholder: r.type == "Series" ? "tv" : "film").frame(width: 46, height: 69)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text(r.name + (r.year.map { " (\($0))" } ?? "")).cvFont(13, weight: .semibold).lineLimit(1)
                     if fixed.contains(r.id) { Image(systemName: "checkmark.circle.fill").cvFont(12).foregroundColor(Glass3DTokens.Status.success) }
                 }

@@ -49,13 +49,13 @@ struct DeleteConfirmView: View {
     @State private var error: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
             if let plan { content(plan) } else {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Checking nexcrate and the server\u{2026}").cvFont(13).foregroundColor(.white.opacity(0.8)) }
+                HStack(spacing: Glass3DTokens.Space.s) { ProgressView().controlSize(.small); Text("Checking nexcrate and the server\u{2026}").cvFont(13).foregroundColor(.white.opacity(0.8)) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
+        .padding(.horizontal, 24).padding(.top, Glass3DTokens.Space.s).padding(.bottom, Glass3DTokens.Space.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { if plan == nil { plan = await DeleteEverywhereService.prepare(item, emby: emby) } }
         .keepsWindowOpen(busy)
@@ -77,11 +77,11 @@ struct DeleteConfirmView: View {
 
     @ViewBuilder func content(_ p: DeleteEverywhereService.Plan) -> some View {
         // Poster + title block (one title, no repeated subtitle)
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: Glass3DTokens.Space.l) {
             ItemAdminThumb(url: URL(string: emby.server + "/Items/\(ItemAdminAPI.p(item.posterId))/Images/Primary?maxWidth=240&quality=85"),
                            placeholder: "film").frame(width: 80, height: 120)
                 .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field))
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 Text("Delete \(kindWord)?").cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.6))
                 Text(DeleteConfirmView.shortTitle(p.text.scopeLine)).cvFont(18, weight: .bold).foregroundColor(.white)
                     .lineLimit(3).fixedSize(horizontal: false, vertical: true)
@@ -89,7 +89,7 @@ struct DeleteConfirmView: View {
                     // the error takes the size/badge line, so the compact window never needs to grow
                     Text(error).cvFont(12, weight: .semibold).foregroundColor(Glass3DTokens.Status.warning).lineLimit(2).tip(error)
                 } else {
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                         if let s = p.sizeBytes, s > 0 {
                             Text(ByteCountFormatter.string(fromByteCount: s, countStyle: .file)).cvFont(12, weight: .medium) { $0.monospacedDigit() }
                                 .foregroundColor(.white.opacity(0.75))
@@ -97,24 +97,23 @@ struct DeleteConfirmView: View {
                         DeleteStatusBadge(inNexcrate: p.inNexcrate, configured: p.configured)
                     }
                 }
-                buttons(p).padding(.top, 4)
+                buttons(p).padding(.top, Glass3DTokens.Space.xs)
             }
             Spacer(minLength: 0)
         }
         // What happens: icon rows, main line + quieter detail
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             ForEach(p.text.bullets, id: \.self) { DeleteEffectRow(text: $0) }
         }
-        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).stroke(Color.white.opacity(0.10), lineWidth: 0.5))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(padding: Glass3DTokens.Space.l, radius: Glass3DTokens.Radius.card)   // the shared GlassCard (as Item admin)
         if let w = p.text.warning {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
                 Image(systemName: "exclamationmark.triangle.fill").cvFont(15).foregroundColor(.white)
                 Text(w.replacingOccurrences(of: "\u{26A0} ", with: "")).cvFont(13, weight: .semibold).foregroundColor(.white)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Glass3DTokens.Space.m).frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).fill(Glass3DTokens.Status.danger.opacity(0.32)))
             .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).stroke(Glass3DTokens.Status.danger.opacity(0.85), lineWidth: 1))
         }
@@ -124,7 +123,7 @@ struct DeleteConfirmView: View {
 
     /// Cancel + Delete right under the title (owner: buttons above the info, smaller window)
     @ViewBuilder func buttons(_ p: DeleteEverywhereService.Plan) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Button("Cancel") { close() }.buttonStyle(AboutButton(accentName: accentName)).keyboardShortcut(.cancelAction)
             Button {
                 busy = true; error = nil
@@ -134,7 +133,7 @@ struct DeleteConfirmView: View {
                     if let m { error = m } else { close() }
                 }
             } label: {
-                HStack(spacing: 6) { if busy { ProgressView().controlSize(.mini) }; Text(p.text.button) }
+                HStack(spacing: Glass3DTokens.Space.s) { if busy { ProgressView().controlSize(.mini) }; Text(p.text.button) }
             }
             .buttonStyle(GlassButtonStyle(.destructive)).disabled(busy)
         }
@@ -184,7 +183,7 @@ struct DeleteUndoToastView: View {
     @State private var note: String?
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Image(systemName: "trash").foregroundColor(.white)
             Text(note ?? title).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1)
             Spacer(minLength: 4)
@@ -199,7 +198,7 @@ struct DeleteUndoToastView: View {
                 }
             }.buttonStyle(AboutButton(primary: true)).disabled(busy || recs.isEmpty)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Glass3DTokens.Space.l)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(.ultraThinMaterial))
         .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
@@ -219,7 +218,7 @@ struct RecentlyDeletedCard: View {
         if !mine.isEmpty {
             ServerAdminCard(title: "Recently deleted (\(mine.count))") {
                 ForEach(mine) { r in
-                    HStack(spacing: 10) {
+                    HStack(spacing: Glass3DTokens.Space.m) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(r.what).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1)
                             Text("Deleted \(r.deletedAt.formatted(date: .abbreviated, time: .shortened)) · Undo until \(r.deletedAt.addingTimeInterval(DeletionStore.lifetime).formatted(date: .abbreviated, time: .omitted))")
@@ -257,7 +256,7 @@ struct ServerTrashTab: View {
     var body: some View {
         let mine = store.records.filter { $0.server == emby.server.lowercased() }
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 Text("Deleted titles stay in nexcrate's recycle bin for 7 days. Undo puts the files back and the title returns to the library.")
                     .cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
                 if mine.isEmpty {
@@ -265,7 +264,7 @@ struct ServerTrashTab: View {
                 } else {
                     RecentlyDeletedCard()
                 }
-            }.padding(.bottom, 8)
+            }.padding(.bottom, Glass3DTokens.Space.s)
         }
         .onAppear { store.reload() }
     }
@@ -287,9 +286,9 @@ struct NexcrateSettingsSection: View {
                     .onSubmit { conn.saveAddress(addressDraft) }
             }
             PrefRow(label: "Status") {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     if let code = conn.pairingCode {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             ProgressView().controlSize(.small)
                             Text("Confirm Cove in nexcrate: ").foregroundColor(.white) + Text(code).bold().foregroundColor(.white)
                         }
@@ -297,7 +296,7 @@ struct NexcrateSettingsSection: View {
                         Text(conn.status ?? (conn.configured ? "Connected" + (conn.scopes.isEmpty ? "" : " · scopes: " + conn.scopes.joined(separator: ", ")) : "Not connected"))
                             .foregroundColor(.white.opacity(0.85)).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 380, alignment: .leading)
                     }
-                    HStack(spacing: 8) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         if conn.pairingCode != nil {
                             Button("Cancel") { conn.cancelPairing() }
                         } else {
@@ -313,7 +312,7 @@ struct NexcrateSettingsSection: View {
                         }
                     }
                     if enteringKey {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             SecureField("Paste a key from nexcrate", text: $keyDraft).textFieldStyle(.roundedBorder).frame(width: 240)
                             Button("Save") {
                                 conn.saveAddress(addressDraft); conn.setKey(keyDraft); keyDraft = ""; enteringKey = false
@@ -337,8 +336,8 @@ struct DeleteStatusBadge: View {
     var body: some View {
         let (t, c, i): (String, Color, String) = inNexcrate ? ("In nexcrate", Glass3DTokens.Status.success, "checkmark.circle.fill")
             : configured ? ("Not in nexcrate", Glass3DTokens.Status.warning, "xmark.circle.fill") : ("nexcrate not connected", .gray, "link")
-        HStack(spacing: 4) { Image(systemName: i).cvFont(10, weight: .bold); Text(t).cvFont(11, weight: .semibold) }
-            .foregroundColor(c).padding(.horizontal, 8).padding(.vertical, 3)
+        HStack(spacing: Glass3DTokens.Space.xs) { Image(systemName: i).cvFont(10, weight: .bold); Text(t).cvFont(11, weight: .semibold) }
+            .foregroundColor(c).padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, Glass3DTokens.Space.xs)
             .background(Capsule().fill(c.opacity(0.16)))
     }
 }
@@ -348,7 +347,7 @@ struct DeleteEffectRow: View {
     let text: String
     var body: some View {
         let p = DeleteEffectRow.split(text)
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
             Image(systemName: p.icon).cvFont(13, weight: .semibold).foregroundColor(p.tint).frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
                 Text(p.main).cvFont(13, weight: .medium).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
@@ -370,11 +369,11 @@ struct DeleteEffectRow: View {
         if let d = detail { detail = d.prefix(1).uppercased() + d.dropFirst() }
         let l = t.lowercased()
         let (icon, tint): (String, Color) =
-            l.contains("recycle") ? ("arrow.uturn.backward.circle.fill", .green)
-            : l.contains("qbittorrent") ? ("arrow.down.circle.fill", .orange)
+            l.contains("recycle") ? ("arrow.uturn.backward.circle.fill", Glass3DTokens.Status.success)
+            : l.contains("qbittorrent") ? ("arrow.down.circle.fill", Glass3DTokens.Status.warning)
             : l.contains("frozen") ? ("snowflake", .cyan)
-            : l.contains("several episodes") ? ("doc.on.doc.fill", .orange)
-            : l.contains("disk") ? ("trash.fill", .red)
+            : l.contains("several episodes") ? ("doc.on.doc.fill", Glass3DTokens.Status.warning)
+            : l.contains("disk") ? ("trash.fill", Glass3DTokens.Status.danger)
             : l.contains("library") ? ("rectangle.stack.badge.minus", .white.opacity(0.8))
             : ("shippingbox.fill", .white.opacity(0.8))
         return (t, detail, icon, tint)

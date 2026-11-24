@@ -19,7 +19,7 @@ struct ItemImagesView: View {
     var types: [String] { ItemAdminAPI.imageTypes(item.`Type`) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             ItemAdminHeader(title: browsing.map { "Online \(ItemAdminAPI.typeTitle($0).lowercased())" } ?? "Edit Images",
                             subtitle: item.Name)
             if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
@@ -27,14 +27,14 @@ struct ItemImagesView: View {
                 ItemRemoteImagesView(item: item, type: b, back: { browsing = nil }, picked: { img in download(b, img) })
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if !loaded { SkeletonShimmer(rows: 2, rowHeight: 90).padding(.top, 20) }
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
+                        if !loaded { SkeletonShimmer(rows: 2, rowHeight: 90).padding(.top, Glass3DTokens.Space.xl) }
                         else { ForEach(types, id: \.self) { section($0) } }
-                    }.padding(.bottom, 16)
+                    }.padding(.bottom, Glass3DTokens.Space.l)
                 }.classicScrollBars()
             }
         }
-        .padding(.horizontal, 24).padding(.bottom, 12)
+        .padding(.horizontal, 24).padding(.bottom, Glass3DTokens.Space.m)
         .foregroundColor(.white)
         .task { await reload() }
         .keepsWindowOpen(busy != nil)
@@ -61,7 +61,7 @@ struct ItemImagesView: View {
     func section(_ type: String) -> some View {
         let tags = current[type] ?? []
         let tall = type == "Primary" || type == "Disc"
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             HStack {
                 Text(ItemAdminAPI.typeTitle(type)).cvFont(14, weight: .semibold)
                 if busy == type { Spinner().controlSize(.small) }
@@ -74,9 +74,9 @@ struct ItemImagesView: View {
                 Text("None – drop a JPEG or PNG here, upload one or browse online.").cvFont(11).foregroundColor(.white.opacity(0.55))
             } else {
                 ScrollView(.horizontal) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: Glass3DTokens.Space.m) {
                         ForEach(Array(tags.enumerated()), id: \.offset) { i, tag in
-                            VStack(spacing: 6) {
+                            VStack(spacing: Glass3DTokens.Space.s) {
                                 ItemAdminThumb(url: url(type, i, tag)).frame(width: tall ? 110 : 200, height: tall ? 165 : 112)
                                 deleteButton(type, i)
                             }
@@ -95,7 +95,7 @@ struct ItemImagesView: View {
     @ViewBuilder func deleteButton(_ type: String, _ i: Int) -> some View {
         let key = "\(type)|\(i)"
         if confirmDelete == key {
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Button("Delete") { delete(type, i) }.buttonStyle(AboutButton(primary: true, accentName: accentName))
                 Button("Keep") { confirmDelete = nil }.buttonStyle(AboutButton(accentName: accentName))
             }
@@ -161,8 +161,8 @@ struct ItemRemoteImagesView: View {
     @State private var error = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Button { back() } label: { Label("Back", systemImage: "chevron.left") }.buttonStyle(AboutButton(accentName: accentName))
                 if providers.count > 1 {
                     GlassPicker(selection: $provider, options: [("", "All providers")] + providers.map { ($0, $0) })
@@ -174,18 +174,18 @@ struct ItemRemoteImagesView: View {
             }
             if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning) }
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: type == "Primary" ? 130 : 210), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: type == "Primary" ? 130 : 210), spacing: Glass3DTokens.Space.m)], spacing: Glass3DTokens.Space.m) {
                     ForEach(images) { img in
                         Button { picked(img) } label: { tile(img) }.buttonStyle(HoverButton())
                     }
-                }.padding(.bottom, 12)
+                }.padding(.bottom, Glass3DTokens.Space.m)
             }.classicScrollBars()
         }
         .task(id: provider + "|\(allLanguages)") { await load() }
     }
 
     func tile(_ img: ItemAdminAPI.RemoteImage) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             ItemAdminThumb(url: URL(string: img.thumbnailURL ?? img.url))
                 .frame(height: type == "Primary" ? 190 : 118)
             Text([img.resolution, img.language?.uppercased()].compactMap { $0 }.joined(separator: " · "))
@@ -194,7 +194,7 @@ struct ItemRemoteImagesView: View {
                 .compactMap { $0 }.joined(separator: " · "))
                 .cvFont(10).foregroundColor(.white.opacity(0.55)).lineLimit(1)
         }
-        .padding(6)
+        .padding(Glass3DTokens.Space.s)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.white.opacity(Glass3DTokens.Fill.subtle)))
     }
 

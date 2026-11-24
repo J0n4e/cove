@@ -43,13 +43,13 @@ struct MetadataEditorView: View {
     var changes: String { API.summary(d, original: original) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             ItemAdminHeader(title: "Edit Metadata", subtitle: [title, raw["Path"] as? String].compactMap { $0 }.joined(separator: " · "))
             if loading {
                 SkeletonShimmer(rows: 5, rowHeight: 36, radius: Glass3DTokens.Radius.field); Spacer()
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                         general
                         chips("Genres", $d.genres, genreSugg, lock: "Genres")
                         chips("Tags", $d.tags, tagSugg, lock: "Tags")
@@ -57,12 +57,12 @@ struct MetadataEditorView: View {
                         PeopleEditor(people: $d.people)
                         externalIds
                         advanced
-                    }.padding(.bottom, 12)
+                    }.padding(.bottom, Glass3DTokens.Space.m)
                 }.classicScrollBars()
             }
             footer
         }
-        .padding(.horizontal, 24).padding(.bottom, 16)
+        .padding(.horizontal, 24).padding(.bottom, Glass3DTokens.Space.l)
         .foregroundColor(.white)
         .task { await load() }
         .keepsWindowOpen(busy || (!loading && d != original))
@@ -71,7 +71,7 @@ struct MetadataEditorView: View {
     // MARK: Sections
 
     func section<C: View>(_ t: String, @ViewBuilder _ c: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             Text(t).cvFont(13, weight: .bold)
             c()
         }
@@ -81,16 +81,16 @@ struct MetadataEditorView: View {
 
     var general: some View {
         section("General") {
-            HStack(spacing: 10) { field("Title", $d.name); field("Original title", $d.originalTitle) }
-            HStack(spacing: 10) { field("Sort title", $d.sortName); field("Tagline", $d.tagline) }
-            VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: Glass3DTokens.Space.m) { field("Title", $d.name); field("Original title", $d.originalTitle) }
+            HStack(spacing: Glass3DTokens.Space.m) { field("Sort title", $d.sortName); field("Tagline", $d.tagline) }
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 Text("Overview").cvFont(10).foregroundColor(.white.opacity(0.6))
                 TextEditor(text: $d.overview).cvFont(12).scrollContentBackground(.hidden)
-                    .padding(6).frame(height: 110)
+                    .padding(Glass3DTokens.Space.s).frame(height: 110)
                     .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(Color.black.opacity(0.35)))
                     .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).stroke(Color.white.opacity(0.15)))
             }
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 field("Year", $d.year).frame(width: 80)
                 field("Premiere date (YYYY-MM-DD)", $d.premiereDate)
                 if isSeries || !d.endDate.isEmpty { field("End date (YYYY-MM-DD)", $d.endDate) }
@@ -98,7 +98,7 @@ struct MetadataEditorView: View {
                     menuField("Status", $d.status, [("", "—"), ("Continuing", "Continuing"), ("Ended", "Ended")])
                 }
             }
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 menuField("Parental rating", $d.officialRating,
                           [("", "None")] + (ratings.contains(d.officialRating) || d.officialRating.isEmpty ? [] : [(d.officialRating, d.officialRating)])
                             + ratings.map { ($0, $0) })
@@ -114,7 +114,7 @@ struct MetadataEditorView: View {
         section(t) {
             ChipEditor(values: b, suggestions: sugg, placeholder: "Add \(t.lowercased().dropLast())…")
             if API.needsLockHint(d, original: original).contains(lock) {
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Image(systemName: "lock.open").cvFont(11).foregroundColor(Glass3DTokens.Status.warning)
                     Text("Lock \(t) so a refresh keeps your changes").cvFont(11).foregroundColor(.white.opacity(0.75))
                     Button("Lock \(t)") { if !d.lockedFields.contains(lock) { d.lockedFields.append(lock) } }
@@ -127,7 +127,7 @@ struct MetadataEditorView: View {
     var externalIds: some View {
         section("External IDs") {
             ForEach(API.providerKeys(type, existing: original.providerIds), id: \.self) { k in
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text(API.providerTitle(k)).cvFont(12).frame(width: 130, alignment: .leading)
                     TextField(API.providerTitle(k) + " id", text: Binding(get: { d.providerIds[k] ?? "" }, set: { d.providerIds[k] = $0 }))
                         .textFieldStyle(.roundedBorder).cvFont(12)
@@ -148,8 +148,8 @@ struct MetadataEditorView: View {
                     Text("A metadata refresh then leaves every field alone.").cvFont(10).foregroundColor(.white.opacity(0.6))
                 }
             }.toggleStyle(.switch)
-            Text("Lock single fields").cvFont(11, weight: .semibold).foregroundColor(.white.opacity(0.75)).padding(.top, 4)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 3), spacing: 6) {
+            Text("Lock single fields").cvFont(11, weight: .semibold).foregroundColor(.white.opacity(0.75)).padding(.top, Glass3DTokens.Space.xs)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 3), spacing: Glass3DTokens.Space.s) {
                 ForEach(API.lockableFields, id: \.key) { f in
                     Toggle(isOn: Binding(get: { d.lockedFields.contains(f.key) }, set: { on in
                         d.lockedFields.removeAll { $0 == f.key }
@@ -157,7 +157,7 @@ struct MetadataEditorView: View {
                     })) { Text(f.title).cvFont(12) }.toggleStyle(.checkbox)
                 }
             }
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Button("Lock all fields") { lockConfirm = true }.buttonStyle(AboutButton(accentName: accentName))
                 Button("Unlock all fields") { lockConfirm = false }.buttonStyle(AboutButton(accentName: accentName))
                 if let all = lockConfirm {
@@ -169,7 +169,7 @@ struct MetadataEditorView: View {
                     Button("No") { lockConfirm = nil }.buttonStyle(AboutButton(accentName: accentName))
                 }
             }
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 field("Preferred metadata language (e.g. en)", $d.language)
                 field("Country (e.g. US)", $d.country)
                 if isSeries || !d.displayOrder.isEmpty { field("Display order (e.g. aired, dvd, absolute)", $d.displayOrder) }
@@ -178,13 +178,13 @@ struct MetadataEditorView: View {
     }
 
     var footer: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             if confirming {
                 Text(changes.isEmpty ? "Nothing changed." : changes).cvFont(11).foregroundColor(.white.opacity(0.85))
                     .lineLimit(4).fixedSize(horizontal: false, vertical: true)
             }
             if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 if let it = asItem() {
                     Button("Refresh metadata…") { ItemAdminWindows.refresh(it, emby: emby, onChange: reloadAfterTool) }
                         .buttonStyle(AboutButton(accentName: accentName))
@@ -210,14 +210,14 @@ struct MetadataEditorView: View {
     // MARK: Fields
 
     func field(_ t: String, _ b: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(t).cvFont(10).foregroundColor(.white.opacity(0.6)).lineLimit(1)
             TextField(t, text: b).textFieldStyle(.roundedBorder).cvFont(12)
         }.frame(maxWidth: .infinity)
     }
 
     func menuField(_ t: String, _ b: Binding<String>, _ options: [(String, String)]) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(t).cvFont(10).foregroundColor(.white.opacity(0.6)).lineLimit(1)
             Menu {
                 ForEach(options, id: \.0) { o in Button(o.1) { b.wrappedValue = o.0 } }
@@ -227,7 +227,7 @@ struct MetadataEditorView: View {
                     Spacer(minLength: 4)
                     Image(systemName: "chevron.up.chevron.down").cvFont(9, weight: .bold).opacity(0.7)
                 }
-                .cvFont(12).padding(.horizontal, 10).frame(height: 24)
+                .cvFont(12).padding(.horizontal, Glass3DTokens.Space.m).frame(height: 24)
                 .background(Capsule().fill(Color.white.opacity(0.08)))
                 .overlay(Capsule().stroke(Color.white.opacity(0.18)))
                 .contentShape(Capsule())
@@ -300,26 +300,26 @@ struct ChipEditor: View {
     @AppStorage("accent") private var accentName = "red"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             if values.isEmpty { Text("None").cvFont(11).foregroundColor(.white.opacity(0.5)) }
-            ChipFlow(spacing: 6) {
+            ChipFlow(spacing: Glass3DTokens.Space.s) {
                 ForEach(values, id: \.self) { v in
-                    HStack(spacing: 4) {
+                    HStack(spacing: Glass3DTokens.Space.xs) {
                         Text(v).cvFont(12)
                         Button { values.removeAll { $0 == v } } label: { Image(systemName: "xmark").cvFont(9, weight: .bold) }
                             .buttonStyle(.plain).helpLabel("Remove \(v)")
                     }
-                    .padding(.horizontal, 10).frame(height: 24)
+                    .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 24)
                     .background(Capsule().fill(Color.white.opacity(0.12)))
                     .overlay(Capsule().stroke(Color.white.opacity(0.2)))
                 }
             }
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 TextField(placeholder, text: $entry).textFieldStyle(.roundedBorder).cvFont(12).frame(width: 220)
                     .onSubmit { add(entry) }
                 ForEach(MetadataEditorAPI.suggest(entry, from: suggestions, excluding: values, limit: 5), id: \.self) { s in
                     Button(s) { add(s) }.buttonStyle(.plain).cvFont(11)
-                        .padding(.horizontal, 8).frame(height: 22)
+                        .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 22)
                         .background(Capsule().stroke(Theme.accent(accentName).opacity(0.7)))
                 }
             }
@@ -366,12 +366,12 @@ struct PeopleEditor: View {
     @State private var found: [String] = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             Text("People").cvFont(13, weight: .bold)
             if people.isEmpty { Text("None").cvFont(11).foregroundColor(.white.opacity(0.5)) }
             ForEach($people) { $p in
                 let i = people.firstIndex { $0.id == p.id } ?? 0
-                HStack(spacing: 6) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     TextField("Name", text: $p.name).textFieldStyle(.roundedBorder).cvFont(12)
                     TextField("Role", text: $p.role).textFieldStyle(.roundedBorder).cvFont(12)
                     Menu {
@@ -384,12 +384,12 @@ struct PeopleEditor: View {
                         .buttonStyle(.plain).helpLabel("Remove")
                 }
             }
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 TextField("Add a person (search the server)…", text: $search).textFieldStyle(.roundedBorder).cvFont(12).frame(width: 260)
                     .onSubmit { add(search) }
                 ForEach(found.prefix(4), id: \.self) { n in
                     Button(n) { add(n) }.buttonStyle(.plain).cvFont(11)
-                        .padding(.horizontal, 8).frame(height: 22)
+                        .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 22)
                         .background(Capsule().stroke(Theme.accent(accentName).opacity(0.7)))
                 }
             }

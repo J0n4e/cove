@@ -225,13 +225,13 @@ struct AirPlayPlayingCard: View {
             .overlay(Color.black.opacity(0.62))
             .clipped()
             .ignoresSafeArea()
-            VStack(spacing: 10) {
+            VStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: "airplayvideo").cvFont(40, weight: .medium)
                 Text("Playing on \(device)").cvFont(18, weight: .semibold).multilineTextAlignment(.center)
                 Text(item.Name).cvFont(13).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 36).padding(.vertical, 26)
+            .padding(.horizontal, 36).padding(.vertical, Glass3DTokens.Space.xxl)
             .frame(maxWidth: 420)
             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(0.35)))
             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(.ultraThinMaterial))

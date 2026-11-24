@@ -155,14 +155,14 @@ struct ProfilePictureView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Change Picture").cvFont(18, weight: .bold).padding(.top, 34)
+        VStack(spacing: Glass3DTokens.Space.l) {
+            Text("Change Picture").cvFont(18, weight: .bold).padding(.top, Glass3DTokens.Space.page)
             cropArea
             if image != nil {
-                HStack(spacing: 8) {
-                    Image(systemName: "minus.magnifyingglass").cvFont(11).foregroundColor(.secondary)
+                HStack(spacing: Glass3DTokens.Space.s) {
+                    Image(systemName: "minus.magnifyingglass").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
                     Slider(value: $zoom, in: ProfileCrop.zoomRange).frame(width: 200)
-                    Image(systemName: "plus.magnifyingglass").cvFont(11).foregroundColor(.secondary)
+                    Image(systemName: "plus.magnifyingglass").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
                 }
                 .onChange(of: zoom) { offset = ProfileCrop.clamp(offset, image: imageSize, viewport: viewport, zoom: zoom) }
             }
@@ -171,7 +171,7 @@ struct ProfilePictureView: View {
                 Toggle(isOn: $allServers) { Text("Use for all my servers").cvFont(12) }.toggleStyle(.checkbox)
             }
             if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).multilineTextAlignment(.center) }
-            ForEach(results, id: \.self) { Text($0).cvFont(11).foregroundColor(.secondary) }
+            ForEach(results, id: \.self) { Text($0).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary) }
             Spacer(minLength: 0)
             HStack {
                 if busy { Spinner().controlSize(.small) }
@@ -180,7 +180,7 @@ struct ProfilePictureView: View {
                     .disabled(image == nil || busy).opacity(image == nil || busy ? 0.5 : 1)
             }
         }
-        .padding(.horizontal, 28).padding(.bottom, 22)
+        .padding(.horizontal, Glass3DTokens.Space.xxl).padding(.bottom, Glass3DTokens.Space.xl)
         .frame(width: ProfilePictureWindow.size.width, height: ProfilePictureWindow.size.height)
         .foregroundColor(.white)
         .keepsWindowOpen(busy || image != nil)
@@ -217,9 +217,9 @@ struct ProfilePictureView: View {
                     .strokeBorder(Color.white.opacity(dropHover ? 0.8 : 0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
                     .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(dropHover ? 0.35 : 0.2)))
                     .frame(width: viewport, height: viewport)
-                    .overlay(VStack(spacing: 8) {
+                    .overlay(VStack(spacing: Glass3DTokens.Space.s) {
                         Image(systemName: "photo.on.rectangle").cvFont(30, weight: .light)
-                        Text("Drop a picture here").cvFont(12).foregroundColor(.secondary)
+                        Text("Drop a picture here").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
                     })
             }
         }

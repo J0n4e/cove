@@ -70,7 +70,7 @@ struct ServerAdminRoot: View {
 
     var body: some View {
         ZStack {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title).cvFont(Glass3DTokens.Text.section, weight: .bold).foregroundColor(.white).lineLimit(1)
@@ -97,10 +97,11 @@ struct ServerAdminRoot: View {
                     }
                 }
             }
-            .padding(.horizontal, 28).padding(.top, 34).padding(.bottom, 20)
+            .padding(.horizontal, Glass3DTokens.Space.xxl).padding(.top, Glass3DTokens.Space.page).padding(.bottom, Glass3DTokens.Space.xl)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             if let m = model.message { ServerAdminToast(text: m) { model.message = nil } }
         }
+        .animation(Glass3DTokens.Toast.animation, value: model.message)
         .task { await model.checkAdmin() }
         .environment(\.appBG, Theme.bg(bgName))
         .tint(Theme.accent(accentName))
@@ -118,7 +119,7 @@ struct ServerAdminCard<C: View>: View {
     var title: String? = nil
     @ViewBuilder var content: C
     var body: some View {
-        GlassCard(title: title, padding: Glass3DTokens.Space.l, spacing: 8, radius: Glass3DTokens.Radius.panel) { content }
+        GlassCard(title: title, padding: Glass3DTokens.Space.l, spacing: Glass3DTokens.Space.s, radius: Glass3DTokens.Radius.panel) { content }
     }
 }
 
@@ -126,7 +127,7 @@ struct ServerAdminNotice: View {
     let icon: String
     let text: String
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Glass3DTokens.Space.m) {
             Image(systemName: icon).cvFont(28).foregroundColor(Glass3DTokens.Grey.secondary)
             Text(text).cvFont(14).foregroundColor(Glass3DTokens.Grey.primary).multilineTextAlignment(.center)
         }
@@ -140,12 +141,11 @@ struct ServerAdminToast: View {
     var body: some View {
         VStack {
             Spacer()
-            Text(text).cvFont(13, weight: .semibold).foregroundColor(.white)
-                .padding(.horizontal, 16).padding(.vertical, 9)
-                .modifier(PanelSurface(classic: true))
-                .padding(.bottom, 22)
+            Text(text).cvFont(13, weight: .semibold)
+                .toastStyle(height: nil)   // the shared toast look
+                .padding(.bottom, Glass3DTokens.Space.xl)
         }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.toast())
         .task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             dismiss()
@@ -157,7 +157,7 @@ struct ServerMetaLine: View {
     let label: String
     let value: String
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: Glass3DTokens.Space.s) {
             Text(label).cvFont(12).foregroundColor(Glass3DTokens.Grey.tertiary).frame(width: 110, alignment: .leading)
             Text(value).cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1).truncationMode(.middle)
                 .textSelection(.enabled)
@@ -176,6 +176,6 @@ struct ServerProgressBar: View {
             }
         }
         .frame(height: 4)
-        .animation(.easeOut(duration: 0.4), value: percent)
+        .animation(Glass3DTokens.Motion.slow, value: percent)
     }
 }

@@ -508,8 +508,8 @@ struct UpdateRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 if case .available = up.status {
                     Button("Install Update…") { up.showWindow() }
                 } else if up.status == .installing {
@@ -519,7 +519,7 @@ struct UpdateRow: View {
                         .disabled(up.status == .checking || up.status == .installing)
                 }
                 if up.status == .checking || up.status == .installing { Spinner().controlSize(.small) }
-                Text(statusText).foregroundColor(.secondary).lineLimit(2)
+                Text(statusText).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(2)
             }
             Toggle("Check for updates automatically", isOn: $auto)
             Toggle("Get beta versions", isOn: $beta)
@@ -529,20 +529,20 @@ struct UpdateRow: View {
                     guard up.current != nil, up.status != .installing else { return }
                     Task { await up.check(interactive: false, leavingBeta: !on) }
                 }
-            Text(Self.betaNote).coveFont(size: 11).foregroundColor(.secondary)
+            Text(Self.betaNote).coveFont(size: 11).foregroundColor(Glass3DTokens.Grey.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let t = Self.onBetaText(up.current) {
-                HStack(spacing: 8) {
-                    Text(beta ? t : t + ".").coveFont(size: 11).foregroundColor(.secondary)
+                HStack(spacing: Glass3DTokens.Space.s) {
+                    Text(beta ? t : t + ".").coveFont(size: 11).foregroundColor(Glass3DTokens.Grey.secondary)
                     if !beta {
                         Button("Switch to official version") { Task { await up.check(interactive: true) } }
-                            .buttonStyle(.link).coveFont(size: 11)
+                            .buttonStyle(GlassButtonStyle(.secondary))
                             .disabled(up.status == .checking || up.status == .installing)
                     }
                 }
             }
             Button("What's New in Cove…") { WhatsNew.show() }
-                .buttonStyle(.link).coveFont(size: 10)
+                .buttonStyle(GlassButtonStyle(.secondary))
         }
     }
 }
@@ -557,35 +557,31 @@ struct LeaveBetaWindowView: View {
     var installing: Bool { up.status == .installing }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
+            HStack(alignment: .center, spacing: Glass3DTokens.Space.m) {
                 AppIconView(size: 56)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text("Switch to the official version").coveFont(size: 15, weight: .bold)
-                    Text(Updater.leaveBetaText(official: rel.tag_name, current: current)).foregroundColor(.secondary)
+                    Text(Updater.leaveBetaText(official: rel.tag_name, current: current)).foregroundColor(Glass3DTokens.Grey.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
             }
-            NotesText(markdown: rel.body ?? "").frame(minHeight: 140)
-                .padding(4)
-                .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.white.opacity(0.04)))
-                .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).stroke(Color.white.opacity(0.08)))
-                .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row))
+            NotesCard(markdown: rel.body ?? "", minHeight: 140)
             if installing {
                 if let p = up.progress, p.total > 0 {
                     ProgressView(value: Double(p.received), total: Double(p.total))
                     Text("Downloading… " + UpdateWindowView.mb(p.received) + " of " + UpdateWindowView.mb(p.total))
-                        .coveFont(size: 10).foregroundColor(.secondary)
+                        .coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                 } else {
                     ProgressView().progressViewStyle(.linear)
-                    Text(up.progressText).coveFont(size: 10).foregroundColor(.secondary)
+                    Text(up.progressText).coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                 }
             }
             if let e = up.windowError {
                 Text(e).foregroundColor(Glass3DTokens.Status.danger).fixedSize(horizontal: false, vertical: true)
             }
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Spacer()
                 Button("Stay on this beta") { up.stayOnBeta(rel.tag_name) }
                     .buttonStyle(AboutButton(accentName: accentName))

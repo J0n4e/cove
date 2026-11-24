@@ -119,8 +119,8 @@ struct Glass3DGroupCard: View {
     var body: some View {
         let s = members[0], it = s.NowPlayingItem!
         let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
+            HStack(alignment: .top, spacing: Glass3DTokens.Space.l) {
                 CachedImage(url: emby.image(it.SeriesId ?? it.Id, width: 200)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.08) }
@@ -129,13 +129,13 @@ struct Glass3DGroupCard: View {
                 .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous)
                     .strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.75))
                 .g3Shadow(Glass3DTokens.shadowMedium)
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text(it.SeriesName ?? it.Name).cvFont(Glass3DTokens.Text.cardTitle, weight: .bold).lineLimit(1)
                     if it.SeriesName != nil {
                         Text("S\(it.ParentIndexNumber ?? 0):E\(it.IndexNumber ?? 0) - \(it.Name)")
                             .cvFont(13, weight: .medium).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(1)
                     }
-                    HStack(spacing: 6) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         Image(systemName: "person.2.fill").cvFont(11, weight: .semibold)
                         Text("Watching together · \(name)").lineLimit(1)
                     }
@@ -147,7 +147,7 @@ struct Glass3DGroupCard: View {
             }
             GroupProgress(s: s, fetchedAt: fetchedAt)
         }
-        .padding(16)
+        .padding(Glass3DTokens.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background { GroupBackdrop(url: emby.image(it.SeriesId ?? it.Id, "Backdrop", width: 780)) }
         .clipShape(shape)
@@ -164,14 +164,14 @@ struct Glass3DGroupCard: View {
 private struct FlowChips: View {
     let members: [ActiveSession]
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             ForEach(Array(stride(from: 0, to: members.count, by: 2)), id: \.self) { i in
-                HStack(spacing: 6) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     ForEach(members[i..<min(i + 2, members.count)], id: \.Id) { MemberChip(s: $0) }
                 }
             }
         }
-        .padding(.top, 4)
+        .padding(.top, Glass3DTokens.Space.xs)
     }
 }
 
@@ -181,18 +181,18 @@ private struct MemberChip: View {
     @State private var hover = false
     var body: some View {
         let method = NowPlayingStyle.playMethod(s.PlayState?.PlayMethod)
-        HStack(spacing: 5) {
+        HStack(spacing: Glass3DTokens.Space.xs) {
             Text(s.UserName ?? "Unknown").cvFont(11, weight: .semibold)
             Image(systemName: NowPlayingStyle.clientIcon(client: s.Client, device: s.DeviceName)).cvFont(10, weight: .semibold)
                 .help(s.DeviceName ?? s.Client ?? "")
             Text(method.label).cvFont(10, weight: .semibold)
-                .padding(.horizontal, 7).padding(.vertical, 2)
+                .padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, 2)
                 .background(Capsule().fill(NowPlayingStyle.color(method.tint).opacity(0.25)))
             if hover, let ip = s.RemoteEndPoint {
                 Text(ip).cvFont(10).foregroundColor(Glass3DTokens.Grey.tertiary).transition(.opacity)
             }
         }
-        .padding(.horizontal, 9).padding(.vertical, 4)
+        .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.xs)
         .background(Capsule().fill(Color.white.opacity(Glass3DTokens.Fill.subtle)))
         .overlay(Capsule().strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.5))
         .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
@@ -224,8 +224,8 @@ private struct GroupProgress: View {
             let pos = NowPlayingStyle.livePosition(reported: Double(s.PlayState?.PositionTicks ?? 0) / 10_000_000,
                                                    duration: dur, paused: paused,
                                                    elapsed: ctx.date.timeIntervalSince(fetchedAt))
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Image(systemName: paused ? "pause.fill" : "play.fill").cvFont(10, weight: .bold)
                     Text("\(timeString(pos)) / \(timeString(dur))").monospacedDigit()
                     if let left = NowPlayingStyle.timeLeft(position: pos, duration: dur) { Text("· \(left)").monospacedDigit() }

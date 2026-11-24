@@ -47,7 +47,7 @@ struct ClassicGlassPillStyle: ViewModifier {
     @State private var hover = false
     func body(content: Content) -> some View {
         styled(content)
-            .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hover = h } }
+            .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
     }
     /// Under the mouse: Settings → General → Hover effect (fogged mirror or soft accent glow).
     var hoverTint: some View { ClassicHoverEffect(shown: hover).opacity(hover ? 1 : 0) }
@@ -137,7 +137,7 @@ struct ClassicGlassCard: ViewModifier {
             }
             // accent glow behind a hovered card; drawn only then (a shadow on every card made scrolling drag)
             .background { if hover { HoverGlow(shape: shape, accent: accent) } }
-            .scrollHover($hover, animation: .easeOut(duration: 0.2))
+            .scrollHover($hover, animation: Glass3DTokens.Motion.standard)
     }
 
     func finish(_ shape: RoundedRectangle) -> some View {
@@ -221,7 +221,7 @@ struct ClassicLightCard: ViewModifier {
                 .allowsHitTesting(false)
             }
             .background { if hover && glow { HoverGlow(shape: shape, accent: accent).allowsHitTesting(false) } }
-            .scrollHover($ownHover, animation: .easeOut(duration: 0.2), enabled: tracksHover)
+            .scrollHover($ownHover, animation: Glass3DTokens.Motion.standard, enabled: tracksHover)
     }
 
     func edge(_ shape: RoundedRectangle, lit: Double) -> some View {

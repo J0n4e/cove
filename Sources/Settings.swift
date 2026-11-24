@@ -35,11 +35,11 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // A row of glass icon tabs; the selected tab names the page, so no title above them
-            HStack(spacing: 4) {
+            HStack(spacing: Glass3DTokens.Space.xs) {
                 ForEach(sections) { s in
                     Glass3DSettingsTab(title: s.rawValue, icon: s.icon, on: section == s) { section = s }
                 }
-            }.padding(.top, 14).padding(.bottom, 10)
+            }.padding(.top, Glass3DTokens.Space.l).padding(.bottom, Glass3DTokens.Space.m)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -55,7 +55,7 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 16)
+                .padding(.horizontal, Glass3DTokens.Space.xxl).padding(.top, Glass3DTokens.Space.m).padding(.bottom, Glass3DTokens.Space.l)
             }
             .frame(maxHeight: .infinity)   // the scroll area runs to the window's bottom edge
         }
@@ -63,7 +63,7 @@ struct SettingsView: View {
         .onChange(of: trakt.isConnected) { _, on in if !on && section == .trakt { section = .servers } }
         .tint(accent)     // switches, menus and links inside Settings too
         // Room for the traffic lights in the transparent title bar
-        .padding(.top, 18)
+        .padding(.top, Glass3DTokens.Space.xl)
         // Fill the whole window; the background goes on last so it also covers the top padding and
         // every safe-area edge (it used to sit inside a fixed 640pt frame, leaving a grey strip at the bottom).
         // No opaque background: the content sits straight on the window's glass (GlassWindowContainer)
@@ -139,19 +139,21 @@ struct PrefSection<C: View>: View {
     @ViewBuilder var content: C
     var body: some View {
         // Tight, with the panel radius and outline from Glass3DTokens
-        let r: CGFloat = max(12, Glass3DTokens.Radius.panel)
-        VStack(alignment: .leading, spacing: 6) {
+        let r: CGFloat = Glass3DTokens.Radius.panel
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             if let title {
                 Text(title.uppercased()).coveFont(size: 11, weight: .semibold).foregroundColor(Color.white.opacity(0.8))
-                    .glassReadable().padding(.leading, 6)
+                    .glassReadable().padding(.leading, Glass3DTokens.Space.s)
             }
-            VStack(alignment: .leading, spacing: 10) { content }
-                .padding(.vertical, 12).padding(.trailing, 12)
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) { content }
+                // Buttons without a style of their own (Clear, Save…, Connect…) get the shared secondary button
+                .buttonStyle(GlassButtonStyle(.secondary))
+                .padding(.vertical, Glass3DTokens.Space.m).padding(.trailing, Glass3DTokens.Space.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 // The shared GlassCard surface (elevation 2)
                 .elevation(2, radius: r)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Glass3DTokens.Space.s)
     }
 }
 
@@ -160,10 +162,10 @@ struct PrefRow<C: View>: View {
     var label: String = ""
     @ViewBuilder var control: C
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
             Text(label.isEmpty ? "" : label + ":").foregroundColor(.white).glassReadable()
                 .frame(width: prefLabelW, alignment: .trailing)
-                .padding(.top, 4)
+                .padding(.top, Glass3DTokens.Space.xs)
             control
             Spacer(minLength: 0)
         }
@@ -189,7 +191,7 @@ struct SettingsGroup<C: View>: View {
     @ViewBuilder var content: C
     var body: some View {
         PrefSection {
-            PrefRow(label: title) { VStack(alignment: .leading, spacing: 10) { content } }
+            PrefRow(label: title) { VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) { content } }
             if let note { PrefNote(note) }
         }
     }
@@ -199,7 +201,7 @@ struct SettingRow<C: View>: View {
     let label: String
     @ViewBuilder var control: C
     var body: some View {
-        HStack(spacing: 10) { Text(label).foregroundColor(.secondary); control; Spacer(minLength: 0) }
+        HStack(spacing: Glass3DTokens.Space.m) { Text(label).foregroundColor(Glass3DTokens.Grey.secondary); control; Spacer(minLength: 0) }
     }
 }
 
@@ -229,7 +231,7 @@ struct GeneralSettings: View {
     @AppStorage("homeLayout") private var homeLayout = "row"
 
     func swatches(_ list: [(String, Color)], selection: Binding<String>) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             ForEach(list, id: \.0) { name, color in
                 Button { selection.wrappedValue = name } label: {
                     Circle().fill(color).frame(width: 34, height: 34)
@@ -245,11 +247,11 @@ struct GeneralSettings: View {
 
     /// Background picker: labelled tiles, the selected one ringed in the accent color.
     func bgTiles(selection: Binding<String>) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             ForEach(Theme.backgrounds, id: \.0) { name, color in
                 let on = selection.wrappedValue == name
                 Button { selection.wrappedValue = name } label: {
-                    VStack(spacing: 6) {
+                    VStack(spacing: Glass3DTokens.Space.s) {
                         RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(color).frame(width: 64, height: 44)
                             .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field)
                                 .stroke(on ? AnyShapeStyle(TintShapeStyle()) : AnyShapeStyle(Color.white.opacity(0.15)), lineWidth: on ? 3 : 1))
@@ -272,12 +274,12 @@ struct GeneralSettings: View {
             PrefRow { ClassicFontPreview(choice: classicFont) }
             PrefRow(label: "Hover effect") { menuPicker($classicHover, HoverStyle.options) }
             PrefRow(label: "Glass") {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }
-                    HStack(spacing: 8) {
-                        Text("Clear").coveFont(size: 10).foregroundColor(.secondary)
+                    HStack(spacing: Glass3DTokens.Space.s) {
+                        Text("Clear").coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                         Slider(value: $glassFrost, in: 0...1).frame(width: 160)
-                        Text("Tinted").coveFont(size: 10).foregroundColor(.secondary)
+                        Text("Tinted").coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                     }
                     .disabled(GlassFrost.hasLiquidGlass && glassFollow)
                     .opacity(GlassFrost.hasLiquidGlass && glassFollow ? 0.5 : 1)
@@ -303,7 +305,7 @@ struct GeneralSettings: View {
         }
         PrefSection(title: "Posters", last: true) {
             PrefRow(label: "Show under poster") {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     Toggle("Title", isOn: $showTitle)
                     Toggle("Year", isOn: $showYear)
                 }
@@ -449,16 +451,16 @@ struct AboutSettings: View {
         }
         PrefSection(title: "Storage") {
             PrefRow(label: "Image cache") {
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Text(ByteCountFormatter.string(fromByteCount: Int64(cacheBytes), countStyle: .file))
-                        .foregroundColor(.secondary).monospacedDigit()
+                        .foregroundColor(Glass3DTokens.Grey.secondary).monospacedDigit()
                     Button("Clear") { ImageCache.shared.clear(); refreshStorage() }
                 }
             }
             PrefRow(label: "Subtitles") {
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Text(ByteCountFormatter.string(fromByteCount: Int64(subtitleBytes), countStyle: .file))
-                        .foregroundColor(.secondary).monospacedDigit()
+                        .foregroundColor(Glass3DTokens.Grey.secondary).monospacedDigit()
                     Button("Clear") { SubtitleCache.shared.clear(); refreshStorage() }
                 }
             }
@@ -467,7 +469,7 @@ struct AboutSettings: View {
         .onAppear { refreshStorage() }
         PrefSection(title: "Backup") {
             PrefRow(label: "Settings file") {
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Button("Save…") { saveSettings() }
                     Button("Load…") { loadSettings() }
                 }
@@ -533,10 +535,10 @@ struct LibrariesSettings: View {
     var body: some View {
         PrefSection(title: "Your libraries") {
             PrefRow(label: "Libraries") {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     libraryTable
                     Text("Drag to reorder. Click a library to change its options below.")
-                        .coveFont(size: 12).foregroundColor(.secondary)
+                        .coveFont(size: 12).foregroundColor(Glass3DTokens.Grey.secondary)
                 }
             }
         }
@@ -559,7 +561,7 @@ struct LibrariesSettings: View {
         }
         PrefSection(title: "New libraries", last: true) {
             PrefRow(label: "Open as") {
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     menuPicker($defaultLayout, [("grid", "Grid"), ("list", "List")])
                     Button("Apply to All") {
                         for lib in emby.libs { LibraryDefaults(id: lib.id).set("layout", defaultLayout) }
@@ -597,8 +599,8 @@ struct LibrariesSettings: View {
                 Text("Sidebar").frame(width: 70)
                 Text("Home").frame(width: 60)
             }
-            .coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
-            .padding(.horizontal, 12).padding(.vertical, 6)
+            .coveFont(size: 10, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
+            .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
             Divider()
             // A plain stack, not a List: the List's table view (NSTableView) took the drag over for its own row
             // dragging and cancelled ours, so rows never moved (owner)
@@ -612,7 +614,7 @@ struct LibrariesSettings: View {
                         .zIndex(dragId == id ? 1 : 0)
                     }
                 }
-                .padding(.horizontal, 4).padding(.vertical, 3)
+                .padding(.horizontal, Glass3DTokens.Space.xs).padding(.vertical, Glass3DTokens.Space.xs)
             }
             .scrollDisabled(tableRows.count <= 7 || dragId != nil)
             .scrollIndicators(tableRows.count > 7 ? .visible : .hidden)
@@ -636,7 +638,7 @@ struct LibrariesSettings: View {
             Toggle("", isOn: $emby.libs[i].visible).labelsHidden().frame(width: 70)
             Toggle("", isOn: $emby.libs[i].onHome).labelsHidden().disabled(!lib.visible).frame(width: 60)
         }
-        .padding(.horizontal, 6).frame(height: 30)
+        .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 30)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectedLib = lib.id }.handCursor()
@@ -655,7 +657,7 @@ struct LibrariesSettings: View {
             Toggle("", isOn: shown).labelsHidden().frame(width: 70)
             Color.clear.frame(width: 60, height: 1)
         }
-        .padding(.horizontal, 6).frame(height: 30)
+        .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 30)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb).fill(on ? blue.opacity(0.85) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectedLib = id }.handCursor()
@@ -683,7 +685,7 @@ struct LibrariesSettings: View {
                     if let d = dragId, let cur = rows.firstIndex(of: d), cur != target {
                         var r = rows
                         r.move(fromOffsets: [cur], toOffset: target > cur ? target + 1 : target)
-                        withAnimation(.easeOut(duration: 0.15)) { applyOrder(r) }
+                        withAnimation(Glass3DTokens.Motion.fast) { applyOrder(r) }
                     }
                 }
                 .onEnded { _ in dragId = nil })
@@ -726,7 +728,7 @@ struct LibrariesSettings: View {
     }
 
     func labeled<C: View>(_ t: String, @ViewBuilder _ c: () -> C) -> some View {
-        HStack(spacing: 6) { Text(t).foregroundColor(.secondary).lineLimit(1).fixedSize(); c() }.fixedSize()
+        HStack(spacing: Glass3DTokens.Space.s) { Text(t).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1).fixedSize(); c() }.fixedSize()
     }
 }
 
@@ -757,7 +759,7 @@ struct SeriesSettings: View {
             SettingRow(label: "Subtitle language") { menuPicker($epSubLang, langOptions) }
         }
         Text("The subtitle language is used for every episode you play from a series page; it's the same setting as the Subtitles menu next to the episode list.")
-            .coveFont(size: 10).foregroundColor(.secondary)
+            .coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
     }
 }
 
@@ -784,7 +786,7 @@ struct SubtitleSettings: View {
         // 760 × 640 window, so this fits on any monitor)
         PrefSection(title: "Style", last: true) {
             HStack(alignment: .center, spacing: 0) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     PrefRow(label: "Text size") { menuPicker($subTextSize, PlayerView.sizes.map { ($0.0, $0.1) }) }
                     PrefRow(label: "Text color") { menuPicker($subColor, PlayerView.colors.map { ($0.0, $0.1) }) }
                     PrefRow(label: "Shadow") { menuPicker($subShadow, PlayerView.shadows) }
@@ -797,7 +799,7 @@ struct SubtitleSettings: View {
                 // As big as the space beside the menus allows, kept 16:9
                 Color.clear.aspectRatio(16 / 9, contentMode: .fit)
                     .overlay(GeometryReader { g in preview(h: g.size.height) })
-                    .frame(maxWidth: .infinity).padding(.leading, 20)
+                    .frame(maxWidth: .infinity).padding(.leading, Glass3DTokens.Space.xl)
             }
             PrefRow {
                 Button("Restore Defaults") {
@@ -817,7 +819,7 @@ struct SubtitleSettings: View {
                 .coveFont(size: fs, weight: .medium)
                 .foregroundColor(color)
                 .modifier(SubShadow(style: subShadow, color: subColor == "black" ? .white : .black))
-                .padding(.horizontal, 10).padding(.vertical, 3)
+                .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.xs)
                 .background(Color.black.opacity(PlayerView.bgs.first { $0.0 == subBg }?.2 ?? 0))
                 .cornerRadius(Glass3DTokens.Radius.tag)
                 .padding(.bottom, h * subBottom / 100)
@@ -861,7 +863,7 @@ struct PlaybackSettings: View {
         }
         PrefSection(title: "Automatically") {
             PrefRow {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     Toggle("Play the next episode", isOn: $autoNext)
                     Toggle("Skip intros", isOn: $autoSkipIntro)
                 }
@@ -897,7 +899,7 @@ struct ServerSettings: View {
     }
 
     func step<V: View>(_ n: Int, @ViewBuilder _ text: () -> V) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: Glass3DTokens.Space.s) {
             Text("\(n).").bold().frame(width: 14, alignment: .trailing)
             text().fixedSize(horizontal: false, vertical: true)
         }
@@ -931,11 +933,11 @@ struct ServerSettings: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(emby.currentServerName).bold()
                     Text(emby.currentServer?.user.isEmpty == false ? "\(emby.currentServer!.user) · \(emby.server)" : emby.server)
-                        .coveFont(size: 12).foregroundColor(.secondary).textSelection(.enabled)
+                        .coveFont(size: 12).foregroundColor(Glass3DTokens.Grey.secondary).textSelection(.enabled)
                 }
             }
             PrefRow {
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Button("Sign Out", role: .destructive) { emby.logout(); dismiss() }
                 }
             }
@@ -943,19 +945,19 @@ struct ServerSettings: View {
         PrefSection(title: "Saved servers") {
             PrefRow(label: "Servers") {
                 VStack(alignment: .leading, spacing: 0) {
-                    if emby.servers.isEmpty { Text("No saved servers.").foregroundColor(.secondary).padding(12) }
+                    if emby.servers.isEmpty { Text("No saved servers.").cvFont(13).foregroundColor(Glass3DTokens.Grey.secondary).padding(Glass3DTokens.Space.m) }
                     ForEach(Array(emby.servers.enumerated()), id: \.element.id) { i, srv in
                         let current = srv.id == emby.server.lowercased()
-                        HStack(spacing: 12) {
-                            Image(systemName: "server.rack").foregroundColor(.secondary).frame(width: 20)
+                        HStack(spacing: Glass3DTokens.Space.m) {
+                            Image(systemName: "server.rack").foregroundColor(Glass3DTokens.Grey.secondary).frame(width: 20)
                             VStack(alignment: .leading, spacing: 2) {
                                 // Click the name to rename it (helps tell servers apart)
                                 TextField("Name", text: Binding(get: { srv.name }, set: { emby.renameServer(srv, $0) }))
                                     .textFieldStyle(.plain).fontWeight(.semibold).frame(maxWidth: 220)
-                                HStack(spacing: 4) {
+                                HStack(spacing: Glass3DTokens.Space.xs) {
                                     ConnectionBadge(address: srv.url)
                                     Text((srv.user.isEmpty ? srv.url : "\(srv.user) · \(srv.url)") + " · " + emby.kindLabel(srv))
-                                        .foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                                        .foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1).truncationMode(.middle)
                                 }.coveFont(size: 10)
                             }
                             Spacer(minLength: 12)
@@ -967,10 +969,10 @@ struct ServerSettings: View {
                             } else {
                                 Button("Connect") { connect(srv) }
                                 Button { emby.removeServer(srv) } label: { Image(systemName: "minus.circle") }
-                                    .buttonStyle(.borderless).handCursor().tip("Remove this server and its sign-in")
+                                    .buttonStyle(.plainHand).tip("Remove this server and its sign-in")
                             }
                         }
-                        .padding(.horizontal, 12).padding(.vertical, 10)
+                        .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.m)
                         .background(i % 2 == 0 ? Color.white.opacity(0.04) : Color.clear)
                     }
                 }
@@ -985,76 +987,76 @@ struct ServerSettings: View {
         NexviewSettingsSection()    // Cleanup's "Requested by" (Glass3DNexviewSettings.swift)
         PrefSection(title: "Trakt", last: true) {
             PrefRow(label: "Ratings") {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     if let u = trakt.user {
-                        HStack(spacing: 6) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(TintShapeStyle())
                             Text("Connected as ") + Text(u).bold()
                         }
-                        HStack(spacing: 10) {
+                        HStack(spacing: Glass3DTokens.Space.m) {
                             Button("Refresh Ratings") { Task { await trakt.refresh(force: true) } }
                             Button("Disconnect", role: .destructive) { trakt.disconnect() }
                         }
                         if !trakt.pending.isEmpty {
                             Text("\(trakt.pending.count) rating\(trakt.pending.count == 1 ? "" : "s") waiting to be sent.")
-                                .coveFont(size: 12).foregroundColor(.secondary)
+                                .coveFont(size: 12).foregroundColor(Glass3DTokens.Grey.secondary)
                         }
                     } else if let s = trakt.signIn {
-                        Text("Enter this code on \(s.url):").foregroundColor(.secondary)
+                        Text("Enter this code on \(s.url):").foregroundColor(Glass3DTokens.Grey.secondary)
                         Text(s.userCode).coveFont(size: 26, weight: .bold, design: .monospaced).textSelection(.enabled)
-                        HStack(spacing: 10) {
+                        HStack(spacing: Glass3DTokens.Space.m) {
                             Spinner().controlSize(.small)
-                            Text("Waiting for Trakt…").foregroundColor(.secondary)
+                            Text("Waiting for Trakt…").foregroundColor(Glass3DTokens.Grey.secondary)
                             Button("Cancel") { trakt.cancelSignIn() }
                         }
                     } else if trakt.isConfigured {
                         Button("Connect Trakt…") { trakt.connect() }
                     } else {
-                        Text("Not set up yet. Follow the steps below.").foregroundColor(.secondary)
+                        Text("Not set up yet. Follow the steps below.").foregroundColor(Glass3DTokens.Grey.secondary)
                     }
                     if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(Glass3DTokens.Status.warning) }
                 }
             }
             if trakt.user != nil {
                 PrefRow(label: "Scrobbling") {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                         Toggle("Scrobble what I watch in Cove", isOn: $scrobble)
                         Text("Trakt shows what you're watching and logs the play when you finish (past 80%).")
-                            .coveFont(size: 12).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .coveFont(size: 12).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 PrefRow(label: "Watched status") {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                         Toggle("Sync watched status", isOn: $syncWatched)
                             .onChange(of: syncWatched) { _, on in if on { Task { await trakt.importWatched(emby) } } }
                         Text("Marking something watched in Cove adds a play on Trakt, and plays Trakt gets from other apps are marked watched here (from now on, every hour). Marking it unwatched only resets your progress in Cove: Trakt keeps every play, so rewatches add up.")
-                            .coveFont(size: 12).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .coveFont(size: 12).foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
                         if syncWatched {
-                            HStack(spacing: 10) {
+                            HStack(spacing: Glass3DTokens.Space.m) {
                                 Button("Sync Now") { Task { await trakt.importWatched(emby) } }
                                 if let t = trakt.lastWatchedSync {
                                     Text("Last synced \(t.formatted(date: .abbreviated, time: .shortened))")
-                                        .coveFont(size: 12).foregroundColor(.secondary)
+                                        .coveFont(size: 12).foregroundColor(Glass3DTokens.Grey.secondary)
                                 }
                             }
                         }
                     }
                 }
                 PrefRow(label: "Emby Trakt plugin") {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                         Text("If your Emby server also has the Trakt plugin, turn these off for your user (Emby → your user's preferences → Trakt), or plays get logged twice and marking a show unwatched removes its plays from Trakt:")
                             .fixedSize(horizontal: false, vertical: true)
                         Label("Sync Manual Playstate Changes to Trakt", systemImage: "xmark.circle").fontWeight(.semibold)
                         Label("Update Trakt watched history during Scheduled Task", systemImage: "xmark.circle").fontWeight(.semibold)
                         Text("The plugin's scrobbling always stays on, so leave Cove's Scrobble switch off when the plugin is installed. Keep \u{201C}Skip unwatched import from Trakt\u{201D} on.")
-                            .foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .foregroundColor(Glass3DTokens.Grey.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     .coveFont(size: 12).frame(maxWidth: 440, alignment: .leading)
                 }
             }
             if trakt.user == nil && trakt.signIn == nil {
                 PrefRow(label: "Client ID") {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         // Shown as dots once saved; typing a new one replaces it
                         SecureField(trakt.isConfigured ? "Saved on this Mac" : "Paste the Client ID", text: $clientIdDraft)
                             .help("Stored in Cove's preferences, scrambled with a key tied to this Mac. Not readable if the file is copied elsewhere.")
@@ -1067,21 +1069,21 @@ struct ServerSettings: View {
                     }
                 }
                 PrefRow(label: "How to set up") {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                         step(1) {
                             Text("Sign in on trakt.tv, then open ") +
                             Text("[trakt.tv/oauth/applications](https://trakt.tv/oauth/applications)") +
                             Text(" and click **New Application**.")
                         }
                         step(2) { Text("Name it **Cove**. As Redirect URI enter:") }
-                        HStack(spacing: 6) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             Text(redirectURI).coveFont(size: 12, design: .monospaced).textSelection(.enabled)
                             Button {
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(redirectURI, forType: .string)
                             } label: { Image(systemName: "doc.on.doc") }
-                                .buttonStyle(.borderless).handCursor().tip("Copy")
-                        }.padding(.leading, 22)
+                                .buttonStyle(.plainHand).tip("Copy")
+                        }.padding(.leading, Glass3DTokens.Space.xl)
                         step(3) { Text("Leave the rest empty and click **Save App**.") }
                         step(4) { Text("Copy the **Client ID** (there's no secret), paste it above and click **Save**.") }
                         step(5) { Text("Click **Connect Trakt…**, enter the code Cove shows on trakt.tv/activate and allow Cove.") }
@@ -1112,24 +1114,24 @@ struct TraktStatsSettings: View {
         if !trakt.isConnected {
             PrefSection(title: "Trakt", last: true) {
                 PrefRow(label: "Stats") {
-                    Text("Connect Trakt in Settings → Connect to see your numbers here.").foregroundColor(.secondary)
+                    Text("Connect Trakt in Settings → Connect to see your numbers here.").foregroundColor(Glass3DTokens.Grey.secondary)
                 }
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Text("Connected as ") + Text(trakt.user ?? "").bold()
                     Spacer()
                     if trakt.loadingStats { Spinner().controlSize(.small) }
                     else if let s = trakt.stats {
-                        Text("Updated \(s.updated.formatted(date: .omitted, time: .shortened))").foregroundColor(.secondary)
+                        Text("Updated \(s.updated.formatted(date: .omitted, time: .shortened))").foregroundColor(Glass3DTokens.Grey.secondary)
                     }
                     Button("Refresh") { Task { await trakt.loadStats() } }.disabled(trakt.loadingStats)
                 }
-                .coveFont(size: 12).padding(.top, 8).padding(.horizontal, 6)
-                if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(Glass3DTokens.Status.warning).padding(.horizontal, 6) }
+                .coveFont(size: 12).padding(.top, Glass3DTokens.Space.s).padding(.horizontal, Glass3DTokens.Space.s)
+                if let e = trakt.lastError { Text(e).coveFont(size: 12).foregroundColor(Glass3DTokens.Status.warning).padding(.horizontal, Glass3DTokens.Space.s) }
                 if let s = trakt.stats { content(s) }
-                else if trakt.loadingStats { Text("Loading your stats…").foregroundColor(.secondary).padding(20) }
+                else if trakt.loadingStats { Text("Loading your stats…").foregroundColor(Glass3DTokens.Grey.secondary).padding(Glass3DTokens.Space.xl) }
             }
             .task { await trakt.loadStats() }
         }
@@ -1137,64 +1139,64 @@ struct TraktStatsSettings: View {
 
     @ViewBuilder func content(_ s: Trakt.Stats) -> some View {
         PrefSection(title: "All time") {
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 tile("Movies", "\(s.movies.watched)", "\(s.movies.plays) plays · \(hours(s.movies.minutes))")
                 tile("Shows", "\(s.shows)", "\(s.episodes.plays) episodes · \(hours(s.episodes.minutes))")
                 tile("Time watched", hours(s.movies.minutes + s.episodes.minutes), days(s.movies.minutes + s.episodes.minutes))
-            }.padding(.horizontal, 12)
+            }.padding(.horizontal, Glass3DTokens.Space.m)
         }
         let cur = s.months.last, prev = s.months.dropLast().last
         PrefSection(title: "This month") {
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 tile("Movies", "\(cur?.movies ?? 0)", change(cur?.movies ?? 0, prev?.movies ?? 0))
                 tile("Episodes", "\(cur?.episodes ?? 0)", change(cur?.episodes ?? 0, prev?.episodes ?? 0))
                 tile("Time", hours(cur?.minutes ?? 0), change(cur?.minutes ?? 0, prev?.minutes ?? 0))
-            }.padding(.horizontal, 12)
+            }.padding(.horizontal, Glass3DTokens.Space.m)
             if let t = s.topShowThisMonth {
-                (Text("Most watched: ").foregroundColor(.secondary) + Text(t).bold()
-                 + Text(" · \(s.topShowEpisodes) episode\(s.topShowEpisodes == 1 ? "" : "s")").foregroundColor(.secondary))
-                    .coveFont(size: 12).padding(.horizontal, 14)
+                (Text("Most watched: ").foregroundColor(Glass3DTokens.Grey.secondary) + Text(t).bold()
+                 + Text(" · \(s.topShowEpisodes) episode\(s.topShowEpisodes == 1 ? "" : "s")").foregroundColor(Glass3DTokens.Grey.secondary))
+                    .coveFont(size: 12).padding(.horizontal, Glass3DTokens.Space.l)
             }
         }
-        PrefSection(title: "Last 12 months · hours watched") { monthsChart(s.months).padding(.horizontal, 14) }
-        PrefSection(title: "Your ratings · \(s.ratingsTotal)") { ratingsChart(s.distribution).padding(.horizontal, 14) }
+        PrefSection(title: "Last 12 months · hours watched") { monthsChart(s.months).padding(.horizontal, Glass3DTokens.Space.l) }
+        PrefSection(title: "Your ratings · \(s.ratingsTotal)") { ratingsChart(s.distribution).padding(.horizontal, Glass3DTokens.Space.l) }
         PrefSection(title: "Recently watched", last: true) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 ForEach(Array(s.recent.enumerated()), id: \.offset) { _, r in
-                    HStack(spacing: 10) {
-                        Image(systemName: r.isMovie ? "film" : "tv").foregroundColor(.secondary).frame(width: 18)
+                    HStack(spacing: Glass3DTokens.Space.m) {
+                        Image(systemName: r.isMovie ? "film" : "tv").foregroundColor(Glass3DTokens.Grey.secondary).frame(width: 18)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(r.title).fontWeight(.semibold).lineLimit(1)
-                            Text(r.subtitle).coveFont(size: 10).foregroundColor(.secondary).lineLimit(1)
+                            Text(r.subtitle).coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
                         }
                         Spacer(minLength: 8)
-                        Text(r.date.formatted(.relative(presentation: .named))).coveFont(size: 10).foregroundColor(.secondary)
+                        Text(r.date.formatted(.relative(presentation: .named))).coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                     }
                 }
-            }.padding(.horizontal, 14)
+            }.padding(.horizontal, Glass3DTokens.Space.l)
         }
     }
 
     func tile(_ title: String, _ value: String, _ detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title.uppercased()).coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+            Text(title.uppercased()).coveFont(size: 10, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
             Text(value).coveFont(size: 26, weight: .bold).foregroundColor(accent).lineLimit(1).minimumScaleFactor(0.6)
-            Text(detail).coveFont(size: 10).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+            Text(detail).coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }
-        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Glass3DTokens.Space.m).frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(Color.white.opacity(0.05)))
     }
 
     func monthsChart(_ months: [Trakt.Stats.Month]) -> some View {
         let maxH = max(1, months.map(\.minutes).max() ?? 1)
-        return HStack(alignment: .bottom, spacing: 6) {
+        return HStack(alignment: .bottom, spacing: Glass3DTokens.Space.s) {
             ForEach(Array(months.enumerated()), id: \.offset) { i, m in
-                VStack(spacing: 4) {
-                    Text(m.minutes > 0 ? "\(m.minutes / 60)" : "").coveFont(size: 9).foregroundColor(.secondary)
+                VStack(spacing: Glass3DTokens.Space.xs) {
+                    Text(m.minutes > 0 ? "\(m.minutes / 60)" : "").coveFont(size: 9).foregroundColor(Glass3DTokens.Grey.secondary)
                     RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag)
                         .fill(i == months.count - 1 ? accent : accent.opacity(0.45))
                         .frame(height: max(2, CGFloat(m.minutes) / CGFloat(maxH) * 90))
-                    Text(monthLetter(m.key)).coveFont(size: 10).foregroundColor(.secondary)
+                    Text(monthLetter(m.key)).coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .help("\(monthName(m.key)): \(m.movies) movie\(m.movies == 1 ? "" : "s"), \(m.episodes) episode\(m.episodes == 1 ? "" : "s"), \(hours(m.minutes))")
@@ -1204,13 +1206,13 @@ struct TraktStatsSettings: View {
 
     func ratingsChart(_ dist: [Int]) -> some View {
         let maxN = max(1, dist.max() ?? 1)
-        return HStack(alignment: .bottom, spacing: 6) {
+        return HStack(alignment: .bottom, spacing: Glass3DTokens.Space.s) {
             ForEach(0..<10, id: \.self) { i in
-                VStack(spacing: 4) {
-                    Text(dist[i] > 0 ? "\(dist[i])" : "").coveFont(size: 9).foregroundColor(.secondary)
+                VStack(spacing: Glass3DTokens.Space.xs) {
+                    Text(dist[i] > 0 ? "\(dist[i])" : "").coveFont(size: 9).foregroundColor(Glass3DTokens.Grey.secondary)
                     RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag).fill(accent.opacity(0.35 + 0.065 * Double(i)))
                         .frame(height: max(2, CGFloat(dist[i]) / CGFloat(maxN) * 70))
-                    Text("\(i + 1)").coveFont(size: 10, weight: .semibold).foregroundColor(.secondary)
+                    Text("\(i + 1)").coveFont(size: 10, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
                 }.frame(maxWidth: .infinity)
             }
         }.frame(height: 105)
