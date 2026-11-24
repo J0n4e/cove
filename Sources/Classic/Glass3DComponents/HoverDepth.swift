@@ -238,3 +238,49 @@ extension View {
     }
     static func reset(_ seed: String) { starts[seed] = nil }
 }
+
+
+/// The Home banner's feeling for a picture that never changes slide (season / collection deck): one slow,
+/// eased zoom-in, then the picture softly cross-fades back to the start and zooms in again, so there is no
+/// visible turnaround or jump (owner). Same speed and depth as the banner.
+enum KenBurnsLoop {
+    /// Seconds of the cross-fade back to the start at the end of each zoom
+    static let fade: Double = 2.5
+    /// Where one loop is: progress 0…1 of the zoom and how far into the closing fade (0 = none, 1 = done).
+    static func state(elapsed: Double, period: Double = Glass3DTokens.KenBurns.period) -> (zoom: Double, fade: Double) {
+        guard period > fade, elapsed.isFinite, elapsed > 0 else { return (0, 0) }
+        let t = elapsed.truncatingRemainder(dividingBy: period)
+        let lin = t / period
+        let zoom = (1 - cos(lin * Double.pi)) / 2            // eased in and out, like the banner's slides
+        let f = max(0, (t - (period - fade)) / fade)          // the last `fade` seconds
+        return (zoom, (1 - cos(min(1, f) * Double.pi)) / 2)
+    }
+}
+
+struct KenBurnsLoopEffect: ViewModifier {
+    let seed: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var playback = PlaybackFlag.shared
+    @ObservedObject private var visibility = WindowOcclusion.shared
+    @MainActor private var start: Date { KenBurnsClock.start(for: seed) }
+
+    func body(content: Content) -> some View {
+        let running = KenBurnsMath.runs(reduceMotion: reduceMotion, playing: playback.active, visible: visibility.visible)
+        let a = KenBurnsMath.anchor(seed: seed)
+        let anchor = UnitPoint(x: a.x, y: a.y)
+        return TimelineView(.animation(minimumInterval: Glass3DTokens.KenBurns.frameInterval, paused: !running)) { ctx in
+            let st = KenBurnsLoop.state(elapsed: ctx.date.timeIntervalSince(start))
+            ZStack {
+                // the fresh copy waiting at rest underneath, revealed as the zoomed one fades away
+                content.scaleEffect(1, anchor: anchor)
+                content.scaleEffect(KenBurnsMath.scale(phase: st.zoom, reduceMotion: reduceMotion), anchor: anchor)
+                    .opacity(reduceMotion ? 1 : 1 - st.fade)
+            }
+        }
+    }
+}
+
+extension View {
+    /// The banner-like loop for a still picture (see KenBurnsLoopEffect).
+    func kenBurnsLoop(seed: String) -> some View { modifier(KenBurnsLoopEffect(seed: seed)) }
+}

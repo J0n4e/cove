@@ -893,6 +893,6 @@ struct DeckKenBurns: ViewModifier {
     let on: Bool
     let seed: String
     @ViewBuilder func body(content: Content) -> some View {
-        if on { content.kenBurns(seed: seed) } else { content }
+        if on { content.kenBurnsLoop(seed: seed) } else { content }   // zoom in, soft fade back, again (owner)
     }
 }

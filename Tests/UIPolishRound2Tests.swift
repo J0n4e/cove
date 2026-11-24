@@ -134,3 +134,13 @@ final class UIPolishRound2Tests: XCTestCase {
         XCTAssertLessThan(GlassButtonStyle.brightness(pressed: true, hover: false), 0)   // pressed = darker
     }
 }
+
+final class KenBurnsLoopTests: XCTestCase {
+    func testLoopStartsAtRestAndFadesAtTheEnd() {
+        let p = Glass3DTokens.KenBurns.period
+        XCTAssertEqual(KenBurnsLoop.state(elapsed: 0, period: p).zoom, 0, accuracy: 0.0001)
+        XCTAssertEqual(KenBurnsLoop.state(elapsed: 1, period: p).fade, 0, accuracy: 0.0001)
+        XCTAssertGreaterThan(KenBurnsLoop.state(elapsed: p - 0.5, period: p).fade, 0.5)
+        XCTAssertLessThan(KenBurnsLoop.state(elapsed: p + 0.1, period: p).zoom, 0.01)   // back at rest, no jump
+    }
+}
