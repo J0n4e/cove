@@ -34,6 +34,11 @@ struct SeasonDeck: View {
     /// changes elsewhere).
     @State private var pos = -1
     @State private var swipe = DeckSwipe()
+    /// Moving forward, as the Home banner's deck: the old front card stays on screen as a copy and fades away
+    /// (growing slightly, drifting left) while the cards behind slide up into place (owner)
+    @State private var leaving: Int?
+    @State private var leavingGone = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var shownPos: Int { pos >= 0 ? pos : (numbers.firstIndex(of: selected) ?? 0) }
 
     var body: some View {
@@ -72,10 +77,17 @@ struct SeasonDeck: View {
             .disabled(!enabled).opacity(enabled ? 1 : 0.35)
     }
 
-    /// Shows season `p`: the whole deck cross-fades to its new stack.
+    /// Shows season `p` with the Home banner's deck movement (0.7 s, eased).
     func go(_ p: Int) {
         guard p >= 0, p < numbers.count, p != shownPos else { return }
-        withAnimation(.easeInOut(duration: 0.35)) { pos = p }
+        let from = shownPos
+        if p > from && !reduceMotion {
+            leaving = from
+            leavingGone = false
+            DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.7)) { leavingGone = true } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if leaving == from { leaving = nil } }
+        }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { pos = p }
         select(numbers[p])
     }
 
@@ -86,8 +98,7 @@ struct SeasonDeck: View {
             .frame(width: w + CGFloat(3) * peek, height: h, alignment: .leading)
     }
 
-    /// One whole stack, keyed by its position: a new position replaces the stack as one piece with a plain
-    /// cross-fade (the same both ways)
+    /// The stack, each card keyed by its season, so a move slides the cards into their new places (as Home)
     func stack(_ pos: Int, _ shown: Int) -> some View {
         ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
@@ -100,10 +111,17 @@ struct SeasonDeck: View {
                     .accessibilityLabel(title(numbers[p]))   // no tooltip: the card shows its name
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * peek)
+                    // the old front card leaves through its fading copy below; a card at the back fades in or out
+                    .transition(.asymmetric(insertion: .opacity, removal: k == 0 ? .identity : .opacity))
+            }
+            if let l = leaving, numbers.indices.contains(l) {
+                card(numbers[l], k: 0)
+                    .scaleEffect(leavingGone ? 1.08 : 1)
+                    .offset(x: leavingGone ? -30 : 0)
+                    .opacity(leavingGone ? 0 : 1)
+                    .allowsHitTesting(false)
             }
         }
-        .id(pos)
-        .transition(.opacity)
     }
 
     /// The front card of a collection opens its movie; every other card brings itself to the front.
@@ -116,17 +134,10 @@ struct SeasonDeck: View {
     }
 
     func card(_ n: Int, k: Int) -> some View {
-        // Built like the Home banner: a fixed frame with the picture as an overlay, the zoom on the overlay and
-        // the clip on the frame, so the front card's cover moves exactly like the banner (owner)
-        Color.clear.frame(width: w, height: h)
-            .overlay {
-                CachedImage(url: image(n)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
-                .frame(width: w, height: h)
-                .modifier(DeckKenBurns(on: k == 0, seed: "deck-\(n)-\(image(n)?.absoluteString ?? "")"))
-            }
-            .clipped()   // no name on the card: season and movie covers show their own
+        CachedImage(url: image(n)) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
+        .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
         .cornerRadius(Glass3DTokens.Radius.row)
         .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
@@ -888,11 +899,3 @@ struct DetailInfoPanel: ViewModifier {
 }
 
 
-/// Ken Burns only on the deck's front card (the cards behind stay still).
-struct DeckKenBurns: ViewModifier {
-    let on: Bool
-    let seed: String
-    @ViewBuilder func body(content: Content) -> some View {
-        if on { content.kenBurns(seed: seed) } else { content }
-    }
-}
