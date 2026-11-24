@@ -258,7 +258,8 @@ enum DeleteEverywhereService {
             let entries = (200..<300).contains(bc) ? NexcrateAPI.matching(NexcrateAPI.decodeRecycleBin(bd), target: t, since: started) : []
             let rec = DeletionRecord(server: emby.server.lowercased(), itemId: item.id, name: item.SeriesName.map { "\($0) · \(item.Name)" } ?? item.Name,
                                      what: plan.text.scopeLine, kind: t.kind, ref: t.ref, scope: t.scope, deletedAt: started,
-                                     entryIds: entries.map(\.entryId), libraryId: plan.libraryId)
+                                     entryIds: entries.map(\.entryId), libraryId: plan.libraryId,
+                                     posterURL: emby.image(item.posterId, width: 120)?.absoluteString, posterItemId: item.posterId)
             DeletedItems.shared.add(rec)
             DeletedItems.shared.announce([item.id])
             Task { await settle(item.id, libraryId: plan.libraryId, emby: emby) }
