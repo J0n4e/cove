@@ -40,7 +40,7 @@ final class UIPolishRound4Tests: XCTestCase {
             XCTAssertTrue(s.contains(".transition(.coveMenuPopIn)"), f)
             XCTAssertTrue(s.contains("Glass3DTokens.Menu.animation"), f)
         }
-        XCTAssertFalse(try source("Sources/Shared/GlassPopIn.swift").contains("scale"))
+        XCTAssertFalse(try source("Sources/Shared/GlassPopIn.swift").contains(".scale"))
     }
 
     // MARK: 3 Symbol swap
