@@ -678,7 +678,7 @@ final class PlayerModel: ObservableObject {
     private func checkIntro(_ t: Double) {
         guard let s = introStart, let e = introEnd, e > s + 2, t.isFinite else { return }
         let inside = t >= s && t < e - 1
-        if inside, !introDone, autoSkipIntro {
+        if IntroDecision.shouldAutoSkip(inside: inside, introDone: introDone, autoSkip: autoSkipIntro) {
             introDone = true
             seek(to: e)
             skippedIntro = true
@@ -692,7 +692,17 @@ final class PlayerModel: ObservableObject {
     }
 
     func skipIntro() { if let e = introEnd { introDone = true; inIntro = false; seek(to: e) } }
-    func watchIntro() { if let s = introStart { skippedIntro = false; seek(to: s) } }
+
+    /// "Watch intro": jump back to the intro start (0 if unknown), keep/start playing, hide the pill and
+    /// never auto-skip that intro again in this playback.
+    func watchIntro() {
+        let a = IntroDecision.watchIntro(introStart: introStart)
+        skippedIntro = a.showSkippedPill
+        introDone = a.introDone
+        inIntro = false
+        seek(to: a.seekTo)
+        if a.play, let p = player, p.rate == 0 { togglePlay() }
+    }
 
     // MARK: Scrub thumbnails (BIF)
 
@@ -981,4 +991,13 @@ final class PlayerModel: ObservableObject {
         obs = nil; caption = ""; resumeTarget = 0
         pendingSeek = 0                           // a start that was interrupted must not leak its position
     }
+}
+
+/// Pure intro-pill decisions (unit tested).
+enum IntroDecision {
+    struct WatchAction: Equatable { let seekTo: Double; let play: Bool; let introDone: Bool; let showSkippedPill: Bool }
+    static func watchIntro(introStart: Double?) -> WatchAction {
+        WatchAction(seekTo: max(0, introStart ?? 0), play: true, introDone: true, showSkippedPill: false)
+    }
+    static func shouldAutoSkip(inside: Bool, introDone: Bool, autoSkip: Bool) -> Bool { inside && !introDone && autoSkip }
 }

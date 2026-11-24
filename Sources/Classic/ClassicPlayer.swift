@@ -978,6 +978,7 @@ extension ClassicPlayerView {
                 }
                 .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: 44)
                 .searchGlass()
+                .introPillConsumesClicks()
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
@@ -985,7 +986,7 @@ extension ClassicPlayerView {
                         .foregroundColor(.white)
                         .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: 44)
                         .searchGlass()
-                }.buttonStyle(HoverButton())
+                }.buttonStyle(HoverButton()).introPillConsumesClicks()
             }
             if classicShowUpNext, let n = nextEp { classicUpNextCard(n).transition(.coveGlassPopIn) }
         }
