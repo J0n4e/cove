@@ -23,7 +23,7 @@ struct LibraryFindField: View {
     }
 
     var field: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             Image(systemName: "magnifyingglass").cvFont(13, weight: .semibold).foregroundColor(.white.opacity(0.8))
             if open {
                 TextField("Find to edit…", text: $term)
@@ -45,9 +45,9 @@ struct LibraryFindField: View {
         .background(Capsule().fill(Color.black.opacity(0.3)))
         .background(ClassicGlassBacking(shape: Capsule()))
         .contentShape(Capsule())
-        .onTapGesture { if !open { withAnimation(.easeOut(duration: 0.18)) { open = true }; focused = true } }
+        .onTapGesture { if !open { withAnimation(Glass3DTokens.Motion.fast) { open = true }; focused = true } }
         .helpLabel("Find an item in this library to edit its metadata")
-        .onChange(of: focused) { _, f in if !f && term.isEmpty && !showResults { withAnimation(.easeOut(duration: 0.18)) { open = false } } }
+        .onChange(of: focused) { _, f in if !f && term.isEmpty && !showResults { withAnimation(Glass3DTokens.Motion.fast) { open = false } } }
         .task(id: term) { await search() }
         .popover(isPresented: $showResults, arrowEdge: .bottom) { results }
     }
@@ -56,11 +56,11 @@ struct LibraryFindField: View {
         VStack(alignment: .leading, spacing: 2) {
             if hits.isEmpty {
                 Text(searching ? "Searching…" : "Nothing found in \(lib.title).").cvFont(12)
-                    .foregroundColor(.white.opacity(0.65)).padding(12)
+                    .foregroundColor(.white.opacity(0.65)).padding(Glass3DTokens.Space.m)
             }
             ForEach(Array(hits.enumerated()), id: \.element.id) { i, h in
                 Button { pick(i) } label: {
-                    HStack(spacing: 10) {
+                    HStack(spacing: Glass3DTokens.Space.m) {
                         ItemAdminThumb(url: emby.image(h.id, width: 80), placeholder: h.type == "Series" ? "tv" : "film")
                             .frame(width: 30, height: 45)
                         VStack(alignment: .leading, spacing: 2) {
@@ -69,7 +69,7 @@ struct LibraryFindField: View {
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, Glass3DTokens.Space.xs)
                     .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field)
                         .fill(selected == i ? Theme.accent(accentName).opacity(0.35) : .clear))
                     .contentShape(Rectangle())
@@ -78,7 +78,7 @@ struct LibraryFindField: View {
                 .onHover { if $0 { selected = i } }
             }
         }
-        .padding(6)
+        .padding(Glass3DTokens.Space.s)
         .frame(width: 320)
         .foregroundColor(.white)
         .background(Color.black.opacity(0.55))
@@ -110,6 +110,6 @@ struct LibraryFindField: View {
 
     func reset() {
         term = ""; hits = []; selected = nil; showResults = false; focused = false
-        withAnimation(.easeOut(duration: 0.18)) { open = false }
+        withAnimation(Glass3DTokens.Motion.fast) { open = false }
     }
 }

@@ -67,7 +67,7 @@ struct HelpView: View {
     var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             searchField
-                .padding(.horizontal, 14).padding(.top, 46).padding(.bottom, 12)
+                .padding(.horizontal, Glass3DTokens.Space.l).padding(.top, 46).padding(.bottom, Glass3DTokens.Space.m)
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(HelpGroup.allCases, id: \.self) { g in
@@ -76,7 +76,7 @@ struct HelpView: View {
                             Text(g.rawValue.uppercased())
                                 .coveFont(size: 10, weight: .semibold).kerning(0.6)
                                 .foregroundColor(Color.white.opacity(0.55))
-                                .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
+                                .padding(.horizontal, Glass3DTokens.Space.m).padding(.top, Glass3DTokens.Space.m).padding(.bottom, Glass3DTokens.Space.xs)
                             ForEach(list) { t in topicRow(t) }
                         }
                     }
@@ -85,14 +85,14 @@ struct HelpView: View {
                                    message: EmptyState.helpNoMatch(query), compact: true)
                     }
                 }
-                .padding(.horizontal, 8).padding(.bottom, 14)
+                .padding(.horizontal, Glass3DTokens.Space.s).padding(.bottom, Glass3DTokens.Space.l)
             }
             .scrollIndicators(.never)
         }
     }
 
     var searchField: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             Image(systemName: "magnifyingglass").foregroundColor(Color.white.opacity(0.6))
             TextField("Search help", text: $query)
                 .textFieldStyle(.plain)
@@ -105,7 +105,7 @@ struct HelpView: View {
                 }.buttonStyle(.plain).help("Clear search")
             }
         }
-        .padding(.horizontal, 10).padding(.vertical, 7)
+        .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
         .background(Capsule().fill(Color.white.opacity(0.08)))
         .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
     }
@@ -113,7 +113,7 @@ struct HelpView: View {
     func topicRow(_ t: HelpTopic) -> some View {
         let on = current?.id == t.id
         return Button { selection = t.id } label: {
-            HStack(spacing: 9) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: t.symbol)
                     .frame(width: 20)
                     .foregroundColor(on ? accent : Color.white.opacity(0.75))
@@ -123,7 +123,7 @@ struct HelpView: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10).padding(.vertical, 6)
+            .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.button, style: .continuous)
                 .fill(on ? Color.white.opacity(0.12) : Color.clear))
             .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.button, style: .continuous)
@@ -138,8 +138,8 @@ struct HelpView: View {
     @ViewBuilder var content: some View {
         if let t = current {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
+                    HStack(spacing: Glass3DTokens.Space.m) {
                         Image(systemName: t.symbol).coveFont(size: 26).foregroundColor(accent)
                         highlighted(t.title).coveFont(size: 26, weight: .bold).foregroundColor(.white)
                     }
@@ -150,7 +150,7 @@ struct HelpView: View {
                 }
                 .glassReadable()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 34).padding(.top, 44).padding(.bottom, 30)
+                .padding(.horizontal, Glass3DTokens.Space.page).padding(.top, 44).padding(.bottom, Glass3DTokens.Space.xxl)
             }
             .id(t.id)   // a new topic starts at the top
             .scrollIndicators(.automatic)
@@ -158,7 +158,7 @@ struct HelpView: View {
     }
 
     func section(_ s: HelpSection) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             highlighted(s.heading).coveFont(size: 16, weight: .semibold).foregroundColor(.white)
             ForEach(Array(s.blocks.enumerated()), id: \.offset) { _, b in block(b) }
         }
@@ -170,9 +170,9 @@ struct HelpView: View {
             highlighted(s).coveFont(size: 13).foregroundColor(Color.white.opacity(0.85))
                 .fixedSize(horizontal: false, vertical: true)
         case .bullets(let items):
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: Glass3DTokens.Space.s) {
                         Text("\u{2022}").coveFont(size: 13).foregroundColor(accent)
                         highlighted(item).coveFont(size: 13).foregroundColor(Color.white.opacity(0.85))
                             .fixedSize(horizontal: false, vertical: true)
@@ -180,10 +180,10 @@ struct HelpView: View {
                 }
             }
         case .keys(let keys):
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 ForEach(Array(keys.enumerated()), id: \.offset) { _, k in
-                    HStack(alignment: .center, spacing: 10) {
-                        HStack(spacing: 4) {
+                    HStack(alignment: .center, spacing: Glass3DTokens.Space.m) {
+                        HStack(spacing: Glass3DTokens.Space.xs) {
                             ForEach(Array(k.keys.enumerated()), id: \.offset) { _, key in HelpKeycap(key: key) }
                         }
                         .frame(width: 130, alignment: .trailing)
@@ -193,13 +193,13 @@ struct HelpView: View {
                 }
             }
         case .place(let path):
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: Glass3DTokens.Space.s) {
                 Image(systemName: "mappin.and.ellipse").foregroundColor(accent)
                 Text("Where to find it:").coveFont(size: 12, weight: .semibold).foregroundColor(Color.white.opacity(0.7))
                 highlighted(path).coveFont(size: 12).foregroundColor(.white)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 10).padding(.vertical, 6)
+            .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous).fill(Color.white.opacity(0.06)))
         }
     }
@@ -224,7 +224,7 @@ struct HelpKeycap: View {
         Text(key)
             .coveFont(size: 12, weight: .semibold, design: .rounded)
             .foregroundColor(.white)
-            .padding(.horizontal, 8).padding(.vertical, 2)
+            .padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, 2)
             .frame(minWidth: 24)
             .background(Capsule().fill(Color.white.opacity(0.12)))
             .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))

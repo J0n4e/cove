@@ -19,9 +19,9 @@ struct ClassicFavoritesView: View {
         let s = FavoritesModel.sections(favs)
         let movies = s.movies, shows = s.shows, episodes = s.episodes, collections = s.collections
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xxl) {
                 // Count as small grey text under the title, as on library pages
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     ClassicPageTitle(text: "Favorites", icon: "heart.fill")
                     if !favs.isEmpty {
                         Text(Glass3DTokens.itemCount(favs.count))
@@ -34,13 +34,13 @@ struct ClassicFavoritesView: View {
                 if !collections.isEmpty { section("Favorite Collections", collections) }
                 let favPeople = people.filter { emby.isFav($0) }
                 if !favPeople.isEmpty { peopleSection(favPeople) }
-                if loading && items.isEmpty { SkeletonShimmer().padding(.vertical, 30) }
+                if loading && items.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     ClassicEmptyState(symbol: "heart", title: "No favorites yet",
                                       message: "Tap the heart on a movie, show, collection, episode or person to add it here.")
                 }
             }
-            .padding(.horizontal, 32).padding(.vertical, 24)
+            .padding(.horizontal, Glass3DTokens.Space.page).padding(.vertical, 24)
         }
         .classicScrollBars()   // thin overlay bars, only while scrolling
         .background(bg)
@@ -55,23 +55,23 @@ struct ClassicFavoritesView: View {
     /// Portrait photos of favorite actors and directors, poster-sized; a click opens their page.
     /// Follows the Favorites layout (Row, Grid or List) like the other sections.
     func peopleSection(_ list: [Item]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             // "Favorite People ›" opens all of them on their own page, like the other sections
             NavigationLink(value: FavoritePeopleRef()) {
-                HStack(spacing: 6) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text("Favorite People").cvFont(Glass3DTokens.Text.section, weight: .bold)
                     Image(systemName: "chevron.right").cvFont(17, weight: .bold).foregroundColor(.secondary)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand)
             if layout == "grid" {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l)], alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                     ForEach(list) { ClassicFavPersonCard(p: $0) }
                 }
             } else if layout == "list" {
-                LazyVStack(spacing: 6) { ForEach(list) { FavPersonListRow(p: $0, link: PersonRef(id: $0.id, name: $0.Name)) } }
+                LazyVStack(spacing: Glass3DTokens.Space.s) { ForEach(list) { FavPersonListRow(p: $0, link: PersonRef(id: $0.id, name: $0.Name)) } }
             } else {
                 let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
-                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
+                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: Glass3DTokens.Space.l, inset: 0) { id in
                     if let p = byId[id] { ClassicFavPersonCard(p: p) }
                 }
             }
@@ -80,22 +80,22 @@ struct ClassicFavoritesView: View {
 
     func section(_ title: String, _ list: [Item]) -> some View {
         let byId = Dictionary(list.map { ($0.Id, $0) }, uniquingKeysWith: { a, _ in a })
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             // Opened through the page path (like every other page), so Back shows and the top bar can leave it
             NavigationLink(value: FavoriteGridRef(title: title, ids: list.map(\.Id))) {
-                HStack(spacing: 6) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text3D(text: title, size: 16)
                     Text3D(image: Image(systemName: "chevron.right"), size: 16)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plainHand).tip("Show all")
             if layout == "grid" {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l)], alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                     ForEach(list) { ClassicPosterCard(item: $0) }
                 }
             } else if layout == "list" {
-                LazyVStack(spacing: 6) { ForEach(list) { Glass3DListRow(item: $0) } }
+                LazyVStack(spacing: Glass3DTokens.Space.s) { ForEach(list) { Glass3DListRow(item: $0) } }
             } else {
-                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: 16, inset: 0) { id in
+                ArrowScrollRow(ids: list.map(\.Id), itemWidth: 150, spacing: Glass3DTokens.Space.l, inset: 0) { id in
                     if let it = byId[id] { ClassicPosterCard(item: it) }
                 }
             }
@@ -117,8 +117,8 @@ struct ClassicFavoriteGridView: View {
             PosterGrid(emby: emby, items: model.items.filter { emby.isFav($0) },
                        insets: NSEdgeInsets(top: 0, left: 32, bottom: 24, right: 32),
                        header: AnyView(ClassicPageTitle(text: title, icon: "heart.fill")
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 32).padding(.top, 24)),
-                       topInset: g.safeAreaInsets.top, spacing: 16, lineSpacing: 22,
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, Glass3DTokens.Space.page).padding(.top, 24)),
+                       topInset: g.safeAreaInsets.top, spacing: Glass3DTokens.Space.l, lineSpacing: 22,
                        open: { ClassicNavState.shared.open($0) })
             .ignoresSafeArea(edges: .top)
             .modifier(ClassicGridTopFade())   // the AppKit grid: soft fade under the bar
@@ -140,7 +140,7 @@ struct ClassicFavPersonCard: View {
     let p: Item
     var body: some View {
         NavigationLink(value: PersonRef(id: p.id, name: p.Name)) {
-            VStack(spacing: 8) {
+            VStack(spacing: Glass3DTokens.Space.s) {
                 CachedImage(url: emby.image(p.id, width: 360)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
@@ -166,12 +166,12 @@ struct ClassicFavoritePeopleView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                 ClassicPageTitle(text: "Favorite People", icon: "person.2.fill")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], alignment: .leading, spacing: 22) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l)], alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                     ForEach(model.people.filter { emby.isFav($0) }) { ClassicFavPersonCard(p: $0) }
                 }
-            }.padding(.horizontal, 32).padding(.vertical, 24)
+            }.padding(.horizontal, Glass3DTokens.Space.page).padding(.vertical, 24)
         }
         .classicScrollBars()   // thin overlay bars, only while scrolling
         .background(bg)

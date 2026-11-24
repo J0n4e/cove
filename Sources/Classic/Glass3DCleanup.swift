@@ -39,13 +39,13 @@ struct CleanupView: View {
 
     var body: some View {
         let shown = Cleanup.sorted(Cleanup.searched(Cleanup.filtered(withMyRatings(store.items), library: library, kind: kind, filter: filter).filter { rated.matches($0) }, query), by: sort)
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
             header(shown)
             if store.items.isEmpty {
                 if store.loading {
                     VStack(spacing: Glass3DTokens.Space.m) {
                         Text(store.progress ?? "").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
-                        SkeletonShimmer(rows: 5, rowHeight: 64, spacing: 8)
+                        SkeletonShimmer(rows: 5, rowHeight: 64, spacing: Glass3DTokens.Space.s)
                     }.frame(maxWidth: .infinity)
                 } else if let e = store.error {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Cleanup couldn't be loaded", message: e)
@@ -56,7 +56,7 @@ struct CleanupView: View {
                 StatsStateCard(symbol: "line.3.horizontal.decrease.circle", title: "Nothing matches",
                                message: "Try another filter or library.")
             } else {
-                LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(spacing: Glass3DTokens.Space.s, pinnedViews: [.sectionHeaders]) {
                     Section {
                         ForEach(shown) { i in
                             CleanupRow(entry: i, libraryName: libraryName(i.libraryId), selecting: selecting, columns: columns,
@@ -77,7 +77,7 @@ struct CleanupView: View {
     private func libraryName(_ id: String?) -> String? { store.libraries.first { $0.id == id }?.name }
 
     @ViewBuilder private func header(_ shown: [CleanupItem]) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             CleanupMenu(symbol: "books.vertical", value: libraryName(library) ?? "All libraries",
                         options: [(nil as String?, "All libraries")] + store.libraries.map { (Optional($0.id), $0.name) },
                         selected: library, help: "Library") { library = $0 }
@@ -111,7 +111,7 @@ struct CleanupView: View {
             .buttonStyle(.plainHand).disabled(store.loading).helpLabel(nexview.configured ? "Refresh (server and Nexview)" : "Refresh")
         }
         if !store.items.isEmpty {
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Text(Cleanup.summary(shown).text).cvFont(Glass3DTokens.Text.meta, weight: .medium) { $0.monospacedDigit() }
                     .foregroundColor(Glass3DTokens.Grey.secondary)
                 if nexview.configured, let e = store.nexviewError {
@@ -168,14 +168,14 @@ struct CleanupHeaderRow: View {
             }
             if !columns.selecting { Color.clear.frame(width: CleanupColumns.trash, height: 1) }
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
+        .padding(.horizontal, Glass3DTokens.Space.s).padding(.vertical, Glass3DTokens.Space.s)
         .background(Rectangle().fill(Color(white: 0.06).opacity(0.92)))
     }
 
     private func header(_ c: CleanupColumn, alignment: Alignment) -> some View {
         let active = sort.column == c
         return Button { pick(c) } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: Glass3DTokens.Space.xs) {
                 Text(c.label.uppercased()).cvFont(10, weight: .semibold).lineLimit(1)
                 if active { Image(systemName: sort.ascending ? "chevron.up" : "chevron.down").cvFont(8, weight: .bold) }
             }
@@ -201,12 +201,12 @@ struct CleanupMenu<V: Hashable>: View {
                 Toggle(o.1, isOn: Binding(get: { selected == o.0 }, set: { if $0 { pick(o.0) } }))
             }
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: symbol).cvFont(12, weight: .semibold)
                 Text(value).cvFont(13, weight: .semibold).lineLimit(1)
                 Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
             }
-            .padding(.horizontal, 12).frame(height: 36)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 36)
             .modifier(ClassicClearGlass(shape: Capsule()))
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
@@ -234,8 +234,8 @@ struct CleanupRow: View {
             CachedImage(url: emby.image(entry.id, width: 120)) { p in p.resizable().aspectRatio(contentMode: .fill) }
                 placeholder: { Color(white: 0.15) }
                 .frame(width: CleanupColumns.thumb, height: 60).clipped().cornerRadius(Glass3DTokens.Radius.thumb)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text(entry.name).cvFont(13, weight: .bold).foregroundColor(.white).lineLimit(1)
                     if let y = entry.year { Text(String(y)).cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary) }
                 }
@@ -271,7 +271,7 @@ struct CleanupRow: View {
                 }
             }
         }
-        .padding(8)
+        .padding(Glass3DTokens.Space.s)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.white.opacity(hover ? 0.08 : 0.03)))
         .contentShape(Rectangle())
         .onHover { hover = $0 }
@@ -288,11 +288,11 @@ struct CleanupRow: View {
     /// The #259 pill look ("👁 0/10"); a click shows the per-user list.
     private var watchedPill: some View {
         Button { showUsers.toggle() } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: "eye").cvFont(11, weight: .semibold)
                 Text(entry.watchedText).cvFont(11, weight: .semibold) { $0.monospacedDigit() }
             }
-            .foregroundColor(.white).padding(.horizontal, 10).frame(height: 26)
+            .foregroundColor(.white).padding(.horizontal, Glass3DTokens.Space.m).frame(height: 26)
             .classicGlassPill(iconOnly: false).contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -332,16 +332,16 @@ struct CleanupBatchView: View {
     private var permanent: [DeleteEverywhereService.Plan] { plans.filter { !$0.inNexcrate } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
             ItemAdminHeader(title: "Delete \(items.count) title" + (items.count == 1 ? "" : "s") + "\u{2026}")
             if checking {
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     ProgressView().controlSize(.small)
                     Text(progress ?? "Checking nexcrate and the server\u{2026}").cvFont(13).foregroundColor(.white.opacity(0.8))
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else { content }
         }
-        .padding(.horizontal, 22).padding(.bottom, 18)
+        .padding(.horizontal, Glass3DTokens.Space.xl).padding(.bottom, Glass3DTokens.Space.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task {
             var out: [DeleteEverywhereService.Plan] = []
@@ -356,13 +356,13 @@ struct CleanupBatchView: View {
 
     @ViewBuilder private var content: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 ForEach(plans, id: \.item.id) { p in
                     HStack {
                         Text(p.text.scopeLine).cvFont(13).foregroundColor(.white).lineLimit(1)
                         Spacer()
                         Text(p.inNexcrate ? "Undo 7 days" : "Permanent").cvFont(11, weight: .semibold)
-                            .foregroundColor(p.inNexcrate ? .green : .orange)
+                            .foregroundColor(p.inNexcrate ? Glass3DTokens.Status.success : Glass3DTokens.Status.warning)
                     }
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
@@ -371,7 +371,7 @@ struct CleanupBatchView: View {
         if !permanent.isEmpty {
             Text("Not in nexcrate, deleted from the server for good (no undo): " + permanent.map(\.item.Name).joined(separator: ", "))
                 .cvFont(13, weight: .semibold).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
-                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Glass3DTokens.Space.m).frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Glass3DTokens.Status.danger.opacity(0.35)))
                 .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).stroke(Glass3DTokens.Status.danger.opacity(0.9), lineWidth: 1))
         }
@@ -386,7 +386,7 @@ struct CleanupBatchView: View {
                 busy = true; error = nil
                 Task { await run() }
             } label: {
-                HStack(spacing: 6) { if busy { ProgressView().controlSize(.mini) }; Text("Delete \(plans.count)") }
+                HStack(spacing: Glass3DTokens.Space.s) { if busy { ProgressView().controlSize(.mini) }; Text("Delete \(plans.count)") }
             }
             .buttonStyle(GlassButtonStyle(.destructive)).disabled(busy || plans.isEmpty)
         }

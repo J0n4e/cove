@@ -57,7 +57,7 @@ struct GlassFrostPreview: View {
         ZStack {
             LinearGradient(colors: [.orange, .pink, Theme.accent(accentName), .blue], startPoint: .leading, endPoint: .trailing)
             Text("Glass").cvFont(12, weight: .semibold).foregroundColor(.white)
-                .padding(.horizontal, 16).frame(height: 28)
+                .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 28)
                 .modifier(ClassicClearGlass(shape: Capsule(), interactive: false))
         }
         .frame(width: 150, height: 44)

@@ -22,7 +22,7 @@ struct ServerDevicesTab: View {
 
     var body: some View {
         ZStack {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 HStack {
                     ServerSearchField(placeholder: "Search devices", text: $query)
                     if let m = message { Text(m).cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(2) }
@@ -38,9 +38,9 @@ struct ServerDevicesTab: View {
                     SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 8) {
+                        LazyVStack(spacing: Glass3DTokens.Space.s) {
                             ForEach(model.devices.filter { AdminDevice.matches($0, query) }) { row($0) }
-                        }.padding(.bottom, 8)
+                        }.padding(.bottom, Glass3DTokens.Space.s)
                     }.scrollIndicators(.never)
                 }
             }
@@ -55,10 +55,10 @@ struct ServerDevicesTab: View {
     func row(_ d: AdminDevice) -> some View {
         let own = d.isOwn(model.myDeviceId)
         return ServerAdminCard {
-            HStack(spacing: 12) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: d.icon).cvFont(18).foregroundStyle(.tint).frame(width: 28)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         Text(d.displayName).cvFont(14, weight: .bold).foregroundColor(.white).lineLimit(1)
                         if own { ServerBadge(text: "This Mac", color: Theme.accent(accentName)) }
                     }
@@ -156,7 +156,7 @@ struct ServerPluginsTab: View {
 
     var body: some View {
         ZStack {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 if model.restartNeeded { restartBanner }
                 HStack {
                     if let m = message { Text(m).cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(2) }
@@ -172,7 +172,7 @@ struct ServerPluginsTab: View {
                     ServerAdminNotice(icon: "puzzlepiece.extension", text: "No plugins installed.")
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 8) { ForEach(model.plugins) { row($0) } }.padding(.bottom, 8)
+                        LazyVStack(spacing: Glass3DTokens.Space.s) { ForEach(model.plugins) { row($0) } }.padding(.bottom, Glass3DTokens.Space.s)
                     }.scrollIndicators(.never)
                 }
             }
@@ -197,7 +197,7 @@ struct ServerPluginsTab: View {
 
     var restartBanner: some View {
         ServerAdminCard {
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: "arrow.clockwise.circle.fill").cvFont(16).foregroundColor(Glass3DTokens.Status.warning)
                 Text(restartText).cvFont(13).foregroundColor(.white)
                 Spacer()
@@ -218,13 +218,13 @@ struct ServerPluginsTab: View {
 
     func row(_ p: AdminPlugin) -> some View {
         ServerAdminCard {
-            HStack(spacing: 12) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: "puzzlepiece.extension").cvFont(18).foregroundStyle(.tint).frame(width: 28)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         Text(p.name).cvFont(14, weight: .bold).foregroundColor(.white).lineLimit(1)
                         if let s = p.statusTitle {
-                            ServerBadge(text: s, color: p.status?.lowercased() == "active" ? .green : (p.needsRestart ? .orange : .gray))
+                            ServerBadge(text: s, color: p.status?.lowercased() == "active" ? Glass3DTokens.Status.success : (p.needsRestart ? Glass3DTokens.Status.warning : .gray))
                         }
                     }
                     Text(p.version.isEmpty ? "" : "Version \(p.version)").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)

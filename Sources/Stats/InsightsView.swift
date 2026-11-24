@@ -9,7 +9,7 @@ struct StatsInsightsView: View {
 
     var body: some View {
         StatsGate(model: model) {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 InsightsRangePills(range: $insights.range)
                 if let h = InsightsRetention.hint(maxAge: insights.maxDataAge, need: insights.range == .month ? 2 : 12) {
                     InsightsHint(text: h)
@@ -19,7 +19,7 @@ struct StatsInsightsView: View {
                         StatsStateCard(symbol: "lightbulb", title: "No playback recorded in this range",
                                        message: "Insights appear once people have watched something. Try a longer range.")
                     } else { InsightsGrid(data: d, range: insights.range) }
-                } else if insights.loading || insights.data == nil { SkeletonShimmer().padding(.vertical, 30) }
+                } else if insights.loading || insights.data == nil { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
                 else {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Insights couldn't be loaded",
                                    message: "The server didn't answer. Open this tab again to retry.")
@@ -45,7 +45,7 @@ struct InsightsHint: View {
     let text: String
     var symbol = "clock.arrow.circlepath"
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Image(systemName: symbol).foregroundColor(Glass3DTokens.Grey.secondary)
             Text(text).cvFont(Glass3DTokens.Text.meta + 1).foregroundColor(Glass3DTokens.Grey.secondary)
             Spacer(minLength: 0)
@@ -61,7 +61,7 @@ struct InsightsGrid: View {
     var perUser = false
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 520), spacing: 16)], alignment: .leading, spacing: 16) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 520), spacing: Glass3DTokens.Space.l)], alignment: .leading, spacing: Glass3DTokens.Space.l) {
             if let d = data.busiestDay {
                 InsightCard(symbol: "calendar", title: "Busiest day", value: Insights.weekdayNames[d.index],
                             sentence: "\(StatsAggregate.hoursText(d.seconds)) watched on \(Insights.weekdayNames[d.index])s in this range.") {
@@ -131,15 +131,15 @@ struct InsightCard<Accessory: View>: View {
     @State private var hover = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: symbol).cvFont(13, weight: .semibold).foregroundColor(Theme.accent(accentName))
                 Text(title).cvFont(Glass3DTokens.Text.meta, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
             }
             Text(value).cvFont(26, weight: .heavy).lineLimit(1).minimumScaleFactor(0.5).modifier(Glass3DReadableText())
             Text(sentence).cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Grey.primary)
                 .fixedSize(horizontal: false, vertical: true)
-            accessory().padding(.top, 4)
+            accessory().padding(.top, Glass3DTokens.Space.xs)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
@@ -169,7 +169,7 @@ struct InsightsMiniBars: View {
         let top = max(1, values.max() ?? 1), accent = Theme.accent(accentName)
         HStack(alignment: .bottom, spacing: values.count > 12 ? 2 : 5) {
             ForEach(values.indices, id: \.self) { i in
-                VStack(spacing: 3) {
+                VStack(spacing: Glass3DTokens.Space.xs) {
                     RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag, style: .continuous)
                         .fill(accent.opacity(i == highlight ? 1 : 0.45))
                         .frame(height: max(values[i] > 0 ? 3 : 1, height * CGFloat(values[i]) / CGFloat(top)))
@@ -190,9 +190,9 @@ private struct InsightsGenreBars: View {
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
         let top = max(1, rows.map(\.seconds).max() ?? 1)
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             ForEach(rows) { r in
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text(r.label).cvFont(Glass3DTokens.Text.meta - 1, weight: .medium).foregroundColor(Glass3DTokens.Grey.primary)
                         .lineLimit(1).frame(width: 96, alignment: .leading)
                     GeometryReader { g in
@@ -212,7 +212,7 @@ private struct InsightsTrendRow: View {
     let trend: InsightsTrend
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: Glass3DTokens.Space.l) {
             StatsLegendChip(color: Theme.accent(accentName), text: "Movies \(Insights.changeText(trend.moviesChange, current: trend.movies))")
             StatsLegendChip(color: StatsUsersStyle.episodes, text: "Episodes \(Insights.changeText(trend.episodesChange, current: trend.episodes))")
             Spacer(minLength: 0)

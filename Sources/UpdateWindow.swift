@@ -67,14 +67,14 @@ struct NotesText: NSViewRepresentable {
 }
 
 /// Release notes in a subtle dark card, like the Settings cards.
-private struct NotesCard: View {
+struct NotesCard: View {
     let markdown: String
+    var minHeight: CGFloat = 160
     var body: some View {
-        NotesText(markdown: markdown).frame(minHeight: 160)
-            .padding(4)
-            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.white.opacity(0.04)))
-            .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).stroke(Color.white.opacity(0.08)))
-            .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row))
+        // The shared GlassCard surface at the inline level (1): the notes area of Update / What's New / leave beta
+        NotesText(markdown: markdown).frame(minHeight: minHeight)
+            .glassCard(padding: Glass3DTokens.Space.xs, radius: Glass3DTokens.Radius.row, level: 1)
+            .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous))
     }
 }
 
@@ -90,7 +90,7 @@ enum CoveWindows {
         let accent = UserDefaults.standard.string(forKey: "accent") ?? "red"
         // The same glass + fixed 75% background fill as Settings and About (owner); fixed size, no auto-sizing
         let host = NSHostingView(rootView: view.tint(Theme.accent(accent)).preferredColorScheme(.dark)
-            .padding(.top, 18))   // room under the transparent title bar's buttons
+            .padding(.top, Glass3DTokens.Space.xl))   // room under the transparent title bar's buttons
         host.sizingOptions = []
         let w = PanelWindow(contentRect: NSRect(origin: .zero, size: size),
                             styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
@@ -112,11 +112,11 @@ private struct WindowHeader: View {
     let title: String
     let subtitle: String?
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: Glass3DTokens.Space.m) {
             AppIconView(size: 56)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 Text(title).coveFont(size: 15, weight: .bold)
-                if let subtitle { Text(subtitle).foregroundColor(.secondary) }
+                if let subtitle { Text(subtitle).foregroundColor(Glass3DTokens.Grey.secondary) }
             }
             Spacer(minLength: 0)
         }
@@ -133,7 +133,7 @@ struct UpdateWindowView: View {
     var installing: Bool { up.status == .installing }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             WindowHeader(title: "Cove \(AppVersion.pretty(rel.tag_name)) is available",
                          subtitle: "You have \(AppVersion.pretty(current)). Here's what's new:")
             NotesCard(markdown: rel.body ?? "")
@@ -144,16 +144,16 @@ struct UpdateWindowView: View {
                 if let p = up.progress, p.total > 0 {
                     ProgressView(value: Double(p.received), total: Double(p.total))
                     Text("Downloading… " + Self.mb(p.received) + " of " + Self.mb(p.total))
-                        .coveFont(size: 10).foregroundColor(.secondary)
+                        .coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                 } else {
                     ProgressView().progressViewStyle(.linear)
-                    Text(up.progressText).coveFont(size: 10).foregroundColor(.secondary)
+                    Text(up.progressText).coveFont(size: 10).foregroundColor(Glass3DTokens.Grey.secondary)
                 }
             }
             if let e = up.windowError {
                 Text(e).foregroundColor(Glass3DTokens.Status.danger).fixedSize(horizontal: false, vertical: true)
             }
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Button("Skip This Version") { up.skip(rel.tag_name) }
                     .buttonStyle(AboutButton(accentName: accentName))
                 Spacer()
@@ -182,13 +182,13 @@ struct WhatsNewView: View {
     let notes: String?
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             WindowHeader(title: "What's New in Cove \(AppVersion.pretty(version))", subtitle: nil)
             if let notes {
                 NotesCard(markdown: notes)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Couldn't load the release notes.").foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+                    EmptyState(symbol: "exclamationmark.triangle", title: "Couldn't load the release notes.", compact: true)
                     Link("See all releases on GitHub", destination: URL(string: "https://github.com/\(Updater.repo)/releases")!)
                         .foregroundColor(Color.white.opacity(0.55))
                 }

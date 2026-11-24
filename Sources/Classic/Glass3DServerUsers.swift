@@ -15,7 +15,7 @@ struct ServerUsersTab: View {
 
     var body: some View {
         ZStack {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 HStack {
                     ServerSearchField(placeholder: "Search users", text: $query)
                     GlassPicker(selection: $sort, options: [(LastActive.Sort.name.rawValue, "Sort: Name"),
@@ -38,7 +38,7 @@ struct ServerUsersTab: View {
                                 if i > 0 { Rectangle().fill(Color.white.opacity(0.10)).frame(height: 0.5) }
                                 Button { selected = u } label: { row(u) }.buttonStyle(.plain)
                             }
-                        }.padding(.bottom, 8)
+                        }.padding(.bottom, Glass3DTokens.Space.s)
                     }.scrollIndicators(.never)
                 }
             }
@@ -50,14 +50,14 @@ struct ServerUsersTab: View {
     }
 
     func row(_ u: AdminUser) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             ServerUserAvatar(user: u)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Text(u.name).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1)
                     if u.id == model.me { ServerBadge(text: "You", color: .gray) }
                     if u.isAdmin { ServerBadge(text: "Admin", color: Theme.accent(accentName)) }
-                    if u.isDisabled { ServerBadge(text: "Disabled", color: .red) }
+                    if u.isDisabled { ServerBadge(text: "Disabled", color: Glass3DTokens.Status.danger) }
                     if u.isHidden { ServerBadge(text: "Hidden", color: .gray) }
                 }
                 Text(LastActive.text(u.lastActivity) + " · " + (u.hasPassword ? "Has password" : "No password"))
@@ -67,7 +67,7 @@ struct ServerUsersTab: View {
             Spacer()
             Image(systemName: "chevron.right").cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Glass3DTokens.Space.xs)
         .contentShape(Rectangle())
     }
 }
@@ -96,7 +96,7 @@ struct ServerBadge: View {
     let color: Color
     var body: some View {
         Text(text).cvFont(10, weight: .bold).foregroundColor(.white)
-            .padding(.horizontal, 6).frame(height: 17)
+            .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 17)
             .background(Capsule().fill(color.opacity(0.55)))
     }
 }
@@ -105,7 +105,7 @@ struct ServerSearchField: View {
     let placeholder: String
     @Binding var text: String
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             Image(systemName: "magnifyingglass").cvFont(12).foregroundColor(Glass3DTokens.Grey.secondary)
             TextField(placeholder, text: $text).textFieldStyle(.plain).cvFont(13).foregroundColor(.white)
             if !text.isEmpty {
@@ -113,7 +113,7 @@ struct ServerSearchField: View {
                     .buttonStyle(.plainHand)
             }
         }
-        .padding(.horizontal, 12).frame(height: 30).frame(maxWidth: 320)
+        .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 30).frame(maxWidth: 320)
         .background(Capsule().fill(Color.white.opacity(0.08)))
         .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
     }
@@ -127,8 +127,8 @@ struct ServerSheet<C: View>: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.45).ignoresSafeArea().onTapGesture { dismiss() }
-            VStack(alignment: .leading, spacing: 12) { content }
-                .padding(20).frame(width: width)
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) { content }
+                .padding(Glass3DTokens.Space.xl).frame(width: width)
                 .modifier(PanelSurface(classic: true))
         }
     }
@@ -139,7 +139,7 @@ struct ServerField: View {
     @Binding var text: String
     var secure = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(title).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
             Group {
                 if secure { SecureField(title, text: $text) } else { TextField(title, text: $text) }
@@ -210,7 +210,7 @@ struct ServerUserSheet: View {
 
     var body: some View {
         ServerSheet(width: 600, dismiss: close) {
-            HStack(spacing: 12) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 ServerUserAvatar(user: user, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(user.name).cvFont(17, weight: .bold).foregroundColor(.white)
@@ -218,13 +218,13 @@ struct ServerUserSheet: View {
                 }
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     ServerField(title: "Name", text: $name)
                     passwordSection
                     permissions
                     libraries
                     dangerZone
-                }.padding(.trailing, 4)
+                }.padding(.trailing, Glass3DTokens.Space.xs)
             }
             .frame(maxHeight: 400).scrollIndicators(.never)
             if !error.isEmpty { Text(error).cvFont(12).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
@@ -247,7 +247,7 @@ struct ServerUserSheet: View {
     }
 
     var passwordSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             sectionTitle("Password · " + (user.hasPassword ? "set" : "none"))
             if isSelf { ServerField(title: "Current password", text: $currentPassword, secure: true) }
             ServerField(title: "New password", text: $newPassword, secure: true).disabled(resetPassword)
@@ -258,7 +258,7 @@ struct ServerUserSheet: View {
     }
 
     var permissions: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             sectionTitle("Permissions")
             ForEach(UserPolicyEdit.boolKeys.filter { $0.key != "EnableAllFolders" }, id: \.key) { k in
                 let locked = isSelf && (k.key == "IsAdministrator" || k.key == "IsDisabled")
@@ -290,7 +290,7 @@ struct ServerUserSheet: View {
     }
 
     var libraries: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             sectionTitle("Library access")
             Toggle("All libraries", isOn: $edit.enableAllFolders).cvFont(13)
             if !edit.enableAllFolders {
@@ -300,7 +300,7 @@ struct ServerUserSheet: View {
                         set: { on in
                             edit.enabledFolders.removeAll { UserAdminAPI.sameId($0, f.id) }
                             if on { edit.enabledFolders.append(f.id) }
-                        })).cvFont(13).padding(.leading, 16)
+                        })).cvFont(13).padding(.leading, Glass3DTokens.Space.l)
                 }
             }
         }
@@ -308,7 +308,7 @@ struct ServerUserSheet: View {
 
     @ViewBuilder var dangerZone: some View {
         if UserAdminRules.canDelete(user, me: model.me) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 sectionTitle("Delete")
                 if deleting {
                     Text("Type \u{201C}\(user.name)\u{201D} to delete this user. Their watch history and settings are removed too.")
@@ -326,7 +326,7 @@ struct ServerUserSheet: View {
     }
 
     func sectionTitle(_ t: String) -> some View {
-        Text(t.uppercased()).cvFont(11, weight: .semibold).kerning(0.6).foregroundColor(Glass3DTokens.Grey.secondary).padding(.top, 4)
+        Text(t.uppercased()).cvFont(11, weight: .semibold).kerning(0.6).foregroundColor(Glass3DTokens.Grey.secondary).padding(.top, Glass3DTokens.Space.xs)
     }
 
     func save() {

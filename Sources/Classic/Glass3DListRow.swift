@@ -9,13 +9,13 @@ struct Glass3DListRow: View {
     var body: some View {
         let played = emby.isPlayed(item)
         NavigationLink(value: item) {
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .top, spacing: Glass3DTokens.Space.l) {
                 CachedImage(url: emby.image(item.posterId, width: 160)) { p in
                     p.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 60, height: 90).clipped().cornerRadius(Glass3DTokens.Radius.tag)
                 .watchedDim(played)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text(item.Name).coveFont(size: 13, weight: .bold).lineLimit(1)
                     if let y = item.ProductionYear { Text(String(y)).coveFont(size: 11).foregroundColor(.secondary) }
                     Text(item.Overview ?? "").coveFont(size: 10).foregroundColor(.secondary).lineLimit(2)
@@ -23,7 +23,7 @@ struct Glass3DListRow: View {
                 Spacer(minLength: 12)
                 PosterBadgesInline(item: item)
             }
-            .padding(8)
+            .padding(Glass3DTokens.Space.s)
             .background(Color.white.opacity(hover ? 0.08 : 0.03)).cornerRadius(Glass3DTokens.Radius.thumb)
             .contentShape(Rectangle())
             .scrollHover($hover)

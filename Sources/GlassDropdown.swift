@@ -62,7 +62,7 @@ private struct DropdownLayer: View {
                 .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.12), value: center.list?.id)
+        .animation(Glass3DTokens.Menu.animation, value: center.list?.id)
         .onExitCommand { center.close() }
     }
 
@@ -73,18 +73,18 @@ private struct DropdownLayer: View {
                 ForEach(l.options.indices, id: \.self) { i in
                     if l.headers.contains(i) {
                         Text(l.options[i].uppercased()).cvFont(10, weight: .semibold).kerning(0.6)
-                            .foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 12).padding(.top, i == 0 ? 4 : 10).padding(.bottom, 2)
+                            .foregroundColor(Glass3DTokens.Grey.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, Glass3DTokens.Space.m).padding(.top, i == 0 ? 4 : 10).padding(.bottom, 2)
                     } else {
                     Button { l.pick(i); center.close() } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             Image(systemName: "checkmark").cvFont(11, weight: .bold)
                                 .opacity((l.checked?.contains(i) ?? (i == l.selected)) ? 1 : 0)
                             Text(l.options[i]).cvFont(13, weight: .medium).lineLimit(1)
                             Spacer(minLength: 0)
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 12).frame(height: rowH)
+                        .padding(.horizontal, Glass3DTokens.Space.m).frame(height: rowH)
                         .background {
                             if hover == i { Capsule().fill(accent.opacity(0.55)) }
                         }
@@ -95,13 +95,11 @@ private struct DropdownLayer: View {
                     }
                 }
             }
-            .padding(6)
+            .padding(Glass3DTokens.Space.s)
         }
         .frame(maxHeight: min(CGFloat(l.options.count) * rowH + 12, 372))
         .scrollIndicators(.never)
-        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous).fill(bg.opacity(0.75)))
-        .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous)))
-        .shadow(color: .black.opacity(0.45), radius: 16, y: 6)
+        .glassMenuSurface()   // the shared pop-up menu look (elevation 3, Radius.window)
         .onHover { inside in if !inside && l.closeOnLeave { center.close() } }
     }
 }
@@ -138,13 +136,13 @@ struct GlassPicker<T: Hashable>: View {
                 selection = options[i].0
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Text(options.first { $0.0 == selection }?.1 ?? "—").lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: maxWidth - 44, alignment: .leading)
                 Image(systemName: "chevron.up.chevron.down").cvFont(9, weight: .bold).opacity(0.7)
             }
             .cvFont(13, weight: .medium)
-            .padding(.horizontal, 14).frame(height: 32)
+            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 32)
             .classicGlassPill()
             .fixedSize()
             .contentShape(Capsule())

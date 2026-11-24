@@ -34,9 +34,9 @@ enum NowPlayingStyle {
     /// The play method pill: label and tint (PlayState.PlayMethod: DirectPlay / DirectStream / Transcode).
     static func playMethod(_ method: String?) -> (label: String, tint: Tint) {
         switch method?.lowercased() {
-        case "transcode": return ("Transcoding", .orange)
+        case "transcode": return ("Transcoding", Glass3DTokens.Status.warning)
         case "directstream": return ("Direct stream", .blue)
-        default: return ("Direct play", .green)
+        default: return ("Direct play", Glass3DTokens.Status.success)
         }
     }
     static func color(_ t: Tint) -> Color {
@@ -110,11 +110,11 @@ struct ClassicNowPlayingView: View {
 
     @ViewBuilder private var activityBody: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 // v1.18.11: Now Playing · Overview · History, the library header's glass tabs (Stats inside Now Playing)
                 ZStack {
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                             ClassicPageTitle(text: ActivitySection.title, icon: ActivitySection.icon)
                             if page == .nowPlaying && !sessions.isEmpty {
                                 Text(NowPlayingStyle.activeText(sessions.count))
@@ -138,7 +138,7 @@ struct ClassicNowPlayingView: View {
                 case .yearInReview: StatsYearReviewView(model: stats, insights: insights)
                 }
             }
-            .padding(.horizontal, 32).padding(.vertical, 24)
+            .padding(.horizontal, Glass3DTokens.Space.page).padding(.vertical, 24)
         }
         .background(bg)
         .modifier(ProfileActivityJump(tab: tab, stats: stats))   // profile menu → My activity
@@ -161,12 +161,12 @@ struct ClassicNowPlayingView: View {
     }
 
     @ViewBuilder private var sessionsContent: some View {
-        if !loaded { SkeletonShimmer().padding(.vertical, 30) }
+        if !loaded { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
         else if sessions.isEmpty {
             ClassicEmptyState(symbol: "play.slash", title: "Nothing playing right now",
                               message: "Playback on any device signed in to this server shows here.")
         } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 600), spacing: 18)], alignment: .leading, spacing: 18) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 520, maximum: 600), spacing: Glass3DTokens.Space.xl)], alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 ForEach(entries) { Glass3DNowPlayingCard(entry: $0, fetchedAt: fetchedAt) }
             }
         }
@@ -231,8 +231,8 @@ struct Glass3DSessionCard: View {
         let it = s.NowPlayingItem!
         let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)
         Button { open(it.Id) } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
+                HStack(alignment: .top, spacing: Glass3DTokens.Space.l) {
                     CachedImage(url: emby.image(it.SeriesId ?? it.Id, width: 200)) { img in
                         img.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: { Color.white.opacity(0.08) }
@@ -246,7 +246,7 @@ struct Glass3DSessionCard: View {
                 }
                 SessionProgress(s: s, it: it, fetchedAt: fetchedAt)
             }
-            .padding(16)
+            .padding(Glass3DTokens.Space.l)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { SessionBackdrop(url: emby.image(it.SeriesId ?? it.Id, "Backdrop", width: 780)) }
             .clipShape(shape)
@@ -255,7 +255,7 @@ struct Glass3DSessionCard: View {
             .contentShape(shape)
         }
         .buttonStyle(.plainHand)
-        .overlay(alignment: .topTrailing) { SessionAdminControls(s: s).padding(10) }   // admins: details, message, stop, sign out
+        .overlay(alignment: .topTrailing) { SessionAdminControls(s: s).padding(Glass3DTokens.Space.m) }   // admins: details, message, stop, sign out
         .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
         .accessibilityLabel("Open \(it.SeriesName ?? it.Name)")
     }
@@ -287,13 +287,13 @@ private struct SessionInfo: View {
     let hover: Bool
     var body: some View {
         let method = NowPlayingStyle.playMethod(s.PlayState?.PlayMethod)
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(it.SeriesName ?? it.Name).cvFont(Glass3DTokens.Text.cardTitle, weight: .bold).lineLimit(1)
             if it.SeriesName != nil {
                 Text("S\(it.ParentIndexNumber ?? 0):E\(it.IndexNumber ?? 0) - \(it.Name)")
                     .cvFont(13, weight: .medium).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(1)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: NowPlayingStyle.clientIcon(client: s.Client, device: s.DeviceName))
                     .cvFont(12, weight: .semibold).frame(width: 18)
                 Text(NowPlayingStyle.whoLine(user: s.UserName, device: s.DeviceName)).lineLimit(1)
@@ -302,7 +302,7 @@ private struct SessionInfo: View {
             .padding(.top, 2)
             Text("\(s.Client ?? "Unknown") \(s.ApplicationVersion ?? "")")
                 .cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 PlayMethodPill(label: method.label, tint: NowPlayingStyle.color(method.tint),
                                reason: s.TranscodingInfo?.TranscodeReasons?.joined(separator: ", "))
                 // Private: the address only while the pointer is on the card
@@ -310,7 +310,7 @@ private struct SessionInfo: View {
                     Text(ip).cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary).transition(.opacity)
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, Glass3DTokens.Space.xs)
         }
     }
 }
@@ -322,7 +322,7 @@ private struct PlayMethodPill: View {
     let reason: String?
     var body: some View {
         Text(label).cvFont(10, weight: .semibold)
-            .padding(.horizontal, 10).padding(.vertical, 3)
+            .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.xs)
             .background(Capsule().fill(tint.opacity(0.25)))
             .background(Capsule().fill(Color.white.opacity(Glass3DTokens.Fill.subtle)))
             .overlay(Capsule().strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.5))
@@ -342,8 +342,8 @@ private struct SessionProgress: View {
             let pos = NowPlayingStyle.livePosition(reported: Double(s.PlayState?.PositionTicks ?? 0) / 10_000_000,
                                                    duration: dur, paused: paused,
                                                    elapsed: ctx.date.timeIntervalSince(fetchedAt))
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     Image(systemName: paused ? "pause.fill" : "play.fill").cvFont(10, weight: .bold)
                         .accessibilityLabel(paused ? "Paused" : "Playing")
                     Text("\(timeString(pos)) / \(timeString(dur))").monospacedDigit()

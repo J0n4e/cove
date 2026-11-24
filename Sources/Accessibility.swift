@@ -37,17 +37,17 @@ private struct TipBubble: View {
         if classic {
             // Glass pill like the buttons, over a dark tint so the text always reads
             Text(text).cvFont(12, weight: .semibold).foregroundColor(.white).lineLimit(1)
-                .padding(.horizontal, 12).frame(height: 28)
+                .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 28)
                 .background(Capsule().fill(bg.opacity(0.6)))
                 .classicClearGlass()
-                .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+                .g3Shadow(Glass3DTokens.shadowCard)
                 .fixedSize()
         } else {
             Text(text).coveFont(size: 12, weight: .medium).foregroundColor(.white).lineLimit(1)
-                .padding(.horizontal, 10).frame(height: 24)
+                .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 24)
                 .background(Capsule().fill(bg.opacity(0.85)))   // a little see-through
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.75))
-                .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+                .g3Shadow(Glass3DTokens.shadowMedium)
                 .fixedSize()
         }
     }
@@ -94,7 +94,7 @@ private struct TipLayer: View {
             }
         }
         .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.15), value: center.tip)
+        .animation(Glass3DTokens.Motion.fast, value: center.tip)
     }
 }
 

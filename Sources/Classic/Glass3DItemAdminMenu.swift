@@ -28,7 +28,7 @@ struct ItemAdminButton: View {
                     .classicGlassPill(size: 44).glass3DRoundOutline()
             }
             .helpLabel("Admin tools")
-            .padding(.leading, 4)
+            .padding(.leading, Glass3DTokens.Space.xs)
             // This page's item was deleted: back to where it was opened from (episode → season / series)
             .onReceive(DeletedItems.shared.deleted) { ids in if ids.contains(item.id) { dismissPage() } }
         }
@@ -126,12 +126,12 @@ struct ItemAdminHeader: View {
     let title: String
     var subtitle: String? = nil
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(title).cvFont(18, weight: .bold).glassReadable()
             if let subtitle { Text(subtitle).cvFont(12).foregroundColor(.white.opacity(0.7)).lineLimit(1) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 34)
+        .padding(.top, Glass3DTokens.Space.page)
     }
 }
 
@@ -158,7 +158,7 @@ struct ItemAdminThumb: View {
 /// A dark glass card used by the admin windows' sections and rows.
 struct ItemAdminCard: ViewModifier {
     func body(content: Content) -> some View {
-        content.glassCard(padding: 12, radius: Glass3DTokens.Radius.card)
+        content.glassCard(padding: Glass3DTokens.Space.m, radius: Glass3DTokens.Radius.card)
     }
 }
 extension View { func itemAdminCard() -> some View { modifier(ItemAdminCard()) } }

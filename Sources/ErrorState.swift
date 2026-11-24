@@ -7,11 +7,11 @@ struct ErrorStateView: View {
     var switchServer: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "wifi.exclamationmark").coveFont(size: 40, weight: .light).foregroundStyle(.secondary)
+        VStack(spacing: Glass3DTokens.Space.l) {
+            Image(systemName: "wifi.exclamationmark").coveFont(size: 40, weight: .light).foregroundStyle(Glass3DTokens.Grey.secondary)
                 .accessibilityHidden(true)
             Text(message).coveFont(size: 13, weight: .bold).multilineTextAlignment(.center).frame(maxWidth: 460)
-            HStack(spacing: 12) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Button(action: retry) { Label("Try Again", systemImage: "arrow.clockwise").classicPrimaryPill(size: 40) }
                     .buttonStyle(HoverButton()).keyboardShortcut(.defaultAction)
                 if let switchServer {
@@ -20,7 +20,7 @@ struct ErrorStateView: View {
                 }
             }
         }
-        .padding(40)
+        .padding(Glass3DTokens.Space.pageWide)
         .frame(maxWidth: .infinity)
     }
 }
@@ -29,13 +29,13 @@ struct ErrorStateView: View {
 struct LoadMoreFailedView: View {
     var retry: () -> Void
     var body: some View {
-        HStack(spacing: 10) {
-            Text("Couldn't load more.").foregroundStyle(.secondary)
+        HStack(spacing: Glass3DTokens.Space.m) {
+            Text("Couldn't load more.").foregroundStyle(Glass3DTokens.Grey.secondary)
             // A glass pill, not a grey system button
             Button(action: retry) { Label("Try Again", systemImage: "arrow.clockwise").classicGlassPill(size: 32, iconOnly: false) }
                 .buttonStyle(HoverButton())
         }
-        .padding(20)
+        .padding(Glass3DTokens.Space.xl)
     }
 }
 

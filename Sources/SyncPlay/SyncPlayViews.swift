@@ -49,9 +49,9 @@ struct SyncPlayPill: ViewModifier {
     var height: CGFloat = 34
     @ViewBuilder func body(content: Content) -> some View {
         if classic {
-            content.padding(.horizontal, 14).frame(minHeight: height).classicGlassPill()
+            content.padding(.horizontal, Glass3DTokens.Space.l).frame(minHeight: height).classicGlassPill()
         } else {
-            content.padding(.horizontal, 16).frame(height: height).background(.ultraThinMaterial, in: Capsule())
+            content.padding(.horizontal, Glass3DTokens.Space.l).frame(height: height).background(.ultraThinMaterial, in: Capsule())
         }
     }
 }
@@ -93,7 +93,7 @@ private struct WatchTogetherInner: View {
             Label("Watch together", systemImage: "person.2.fill").classicGlassPill(size: 44, iconOnly: false)
         } else {
             Label("Watch together", systemImage: "person.2.fill").coveFont(size: 17, weight: .semibold)
-                .padding(.horizontal, 26).frame(height: 46)
+                .padding(.horizontal, Glass3DTokens.Space.xxl).frame(height: 46)
                 .background(.ultraThinMaterial, in: Capsule())
         }
     }
@@ -111,7 +111,7 @@ struct SyncPlayGroupPicker: View {
     var canCreate: Bool { service.syncPlayAccess == "CreateAndJoinGroups" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             Text("Watch together").spFont(classic, 16, weight: .bold)
             if let i = group.info {
                 groupRow(i.name, SyncPlayGroup.watchingText(i.participants.count), current: true) {
@@ -120,7 +120,7 @@ struct SyncPlayGroupPicker: View {
                     }.buttonStyle(HoverButton())
                 }
             } else if group.state == .joining {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Joining…").spFont(classic, 13).foregroundColor(.secondary) }
+                HStack(spacing: Glass3DTokens.Space.s) { ProgressView().controlSize(.small); Text("Joining…").spFont(classic, 13).foregroundColor(.secondary) }
             } else {
                 if group.groups.isEmpty {
                     Text(group.loadingList ? "Looking for groups…" : "No groups on the server yet")
@@ -147,14 +147,14 @@ struct SyncPlayGroupPicker: View {
                 }
             }
         }
-        .padding(16)
+        .padding(Glass3DTokens.Space.l)
         .frame(width: 300, alignment: .leading)
         .environment(\.colorScheme, .dark)
         .task { await group.refreshList() }
     }
 
     func groupRow<B: View>(_ name: String, _ sub: String, current: Bool, @ViewBuilder _ button: () -> B) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Image(systemName: "person.2.fill").spFont(classic, 13).frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name).spFont(classic, 13, weight: .medium).lineLimit(1)
@@ -184,33 +184,27 @@ struct SyncPlayToast: View {
     @ObservedObject var group: SyncPlayGroup
     var classic = true
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Glass3DTokens.Space.s) {
             if let w = Self.waiting(group) {
-                HStack(spacing: 8) {
+                HStack(spacing: Glass3DTokens.Space.s) {
                     ProgressView().controlSize(.small)
                     Text(w).spFont(classic, 14, weight: .semibold)
                 }
-                .foregroundColor(.white)
-                .padding(.horizontal, 18).frame(height: 40)
-                .searchGlass()
-                .environment(\.colorScheme, .dark)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .toastStyle(height: Glass3DTokens.Toast.compactHeight)
+                .transition(.toast(from: .top))
             }
             if let t = group.toast {
                 Label(t, systemImage: "person.2.fill").spFont(classic, 14, weight: .semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 18).frame(height: 40)
-                    .searchGlass()
-                    .environment(\.colorScheme, .dark)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .toastStyle(height: Glass3DTokens.Toast.compactHeight)
+                    .transition(.toast(from: .top))
             }
             Spacer()
         }
         .padding(.top, 70)
         .frame(maxWidth: .infinity)
         .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.25), value: group.toast)
-        .animation(.easeOut(duration: 0.25), value: Self.waiting(group))
+        .animation(Glass3DTokens.Toast.animation, value: group.toast)
+        .animation(Glass3DTokens.Toast.animation, value: Self.waiting(group))
     }
 
     static func waiting(_ g: SyncPlayGroup) -> String? {
@@ -225,7 +219,7 @@ struct SyncPlayIgnoreWaitRow: View {
     @AppStorage("accent") private var accentName = "red"
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Don't wait for others").spFont(classic, 13, weight: .medium)
                 Text("Keep the group playing while this Mac buffers").spFont(classic, 11).foregroundColor(.secondary)
@@ -237,7 +231,7 @@ struct SyncPlayIgnoreWaitRow: View {
                 .labelsHidden().toggleStyle(.switch).controlSize(.small)
                 .tint(Theme.accent(accentName))
         }
-        .padding(.horizontal, 18).padding(.vertical, 6)
+        .padding(.horizontal, Glass3DTokens.Space.xl).padding(.vertical, Glass3DTokens.Space.s)
         .helpLabel("When this Mac's stream stalls, the others keep playing and it catches up afterwards")
     }
 }

@@ -39,11 +39,11 @@ struct PersonHeader: View {
     @ViewBuilder func chip(_ text: String) -> some View {
         if classic {
             // Glass3D: glass like the buttons, but still (it is not a button: no hover glow)
-            Text(text).cvFont(13, weight: .semibold).foregroundColor(.white).padding(.horizontal, 14).frame(minHeight: 30)
+            Text(text).cvFont(13, weight: .semibold).foregroundColor(.white).padding(.horizontal, Glass3DTokens.Space.l).frame(minHeight: 30)
                 .modifier(ClassicClearGlass(shape: Capsule(), interactive: false))
         } else {
             Text(text).coveFont(size: 13, weight: .semibold)
-                .padding(.horizontal, 12).padding(.vertical, 5)
+                .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.xs)
                 .background(Capsule().fill(Color.white.opacity(0.12)))
                 .overlay(Capsule().stroke(Color.white.opacity(0.15)))
         }
@@ -72,17 +72,17 @@ struct PersonHeader: View {
                 // Favorite: heart top left when it is one, heart button bottom right on hover (as on cast photos)
                 .overlay(alignment: .topLeading) {
                     if emby.isPersonFav(id) {
-                        FavHeart(size: 20).padding(12)
+                        FavHeart(size: 20).padding(Glass3DTokens.Space.m)
                     }
                 }
                 .modifier(HoverPersonHeart(id: id, name: name))
                 .task { _ = await emby.favoritePeople() }   // knows whether this person is a favorite
                 .modifier(PersonPhotoFrame(classic: classic))   // Glass3D: the glass card frame
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     Text(name).coveFont { s in let f = TextScale.scaledSize(base: 42, scale: s); return classic ? .cv(f, weight: .bold) : .system(size: f, weight: .bold) }.lineLimit(2)
                     if !facts.isEmpty { Text(facts).coveFont(size: 15).foregroundColor(.secondary) }
-                    HStack(spacing: 8) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         if !loading {
                             if movies > 0 { chip("\(movies) Movie\(movies == 1 ? "" : "s")") }
                             if shows > 0 { chip("\(shows) Show\(shows == 1 ? "" : "s")") }
@@ -95,7 +95,7 @@ struct PersonHeader: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.bottom, 4)
+                .padding(.bottom, Glass3DTokens.Space.xs)
             }
             .padding(.horizontal, 52).padding(.top, 90)
         }

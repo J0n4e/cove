@@ -13,7 +13,7 @@ struct CollectionPlayButtons: View {
 
     var body: some View {
         let resume = CollectionPlay.resumeIndex(films: films, position: { emby.resumeAt($0) }, played: { emby.isPlayed($0) })
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Button { start(at: 0, from: 0) } label: {
                 Label("Play collection", systemImage: "play.fill").classicGlassPill(size: 44, iconOnly: false)
             }.buttonStyle(HoverButton()).disabled(films.isEmpty)
@@ -49,12 +49,12 @@ struct CollectionPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(ui.collection?.name ?? "Collection").cvFont(18, weight: .bold).lineLimit(1)
-                .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
+                .padding(.horizontal, Glass3DTokens.Space.xl).padding(.top, Glass3DTokens.Space.l).padding(.bottom, Glass3DTokens.Space.s)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(ui.episodes) { film in row(film).id(film.Id) }
-                    }.padding(.bottom, 10)
+                    }.padding(.bottom, Glass3DTokens.Space.m)
                 }
                 .classicScrollBars()
                 .onAppear { proxy.scrollTo(current.Id, anchor: .center) }
@@ -70,17 +70,17 @@ struct CollectionPanel: View {
         let isCurrent = film.Id == current.Id
         let played = emby.isPlayed(film)
         return Button { if !isCurrent { ui.panel = nil; play(film) } } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 CachedImage(url: emby.image(film.Id, width: 200)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.08) }
                 .frame(width: 46, height: 68).clipped().cornerRadius(Glass3DTokens.Radius.thumb)
                 .overlay(alignment: .topTrailing) {
                     if played && !isCurrent {
-                        Image(systemName: "checkmark.circle.fill").cvFont(12).foregroundColor(.white).shadow(radius: 2).padding(3)
+                        Image(systemName: "checkmark.circle.fill").cvFont(12).foregroundColor(.white).shadow(radius: 2).padding(Glass3DTokens.Space.xs)
                     }
                 }
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text(film.Name).cvFont(14, weight: .semibold).lineLimit(2)
                     if let y = film.ProductionYear { Text(String(y)).cvFont(12).foregroundColor(.secondary) }
                 }
@@ -88,7 +88,7 @@ struct CollectionPanel: View {
                 if isCurrent { Image(systemName: "speaker.wave.2.fill").cvFont(14) }
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 14).padding(.vertical, 6)
+            .padding(.horizontal, Glass3DTokens.Space.l).padding(.vertical, Glass3DTokens.Space.s)
             .background {
                 if isCurrent {
                     RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))

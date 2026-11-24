@@ -14,7 +14,7 @@ struct SearchDock: View {
         VStack {
             Spacer()
             if open {
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Image(systemName: "magnifyingglass").coveFont(size: 15, weight: .semibold).foregroundColor(.secondary)
                     // Typing counts only while the box is open: after closing, the field could hold on to the
                     // keyboard while sliding away, and typing then opened search results
@@ -28,7 +28,7 @@ struct SearchDock: View {
                             .buttonStyle(.plainHand)
                     }
                 }
-                .padding(.horizontal, 18).frame(height: 44)
+                .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: 44)
                 .searchGlass()
                 .padding(.bottom, 24)
                 .transition(.coveGlassPopIn)

@@ -6,7 +6,7 @@ import SwiftUI
 extension View {
     /// A Glass3D glass card: faint white fill, thin outline, panel radius.
     func statsCard() -> some View {
-        glassCard(padding: 18, radius: Glass3DTokens.Radius.panel)
+        glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.panel)
     }
 }
 
@@ -27,7 +27,7 @@ struct StatsStateCard: View {
     @AppStorage("accent") private var accentName = "red"
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Glass3DTokens.Space.m) {
             Image(systemName: symbol).cvFont(34, weight: .light).foregroundColor(Theme.accent(accentName))
             Text(title).cvFont(Glass3DTokens.Text.cardTitle, weight: .bold).modifier(Glass3DReadableText())
                 .multilineTextAlignment(.center)
@@ -36,11 +36,11 @@ struct StatsStateCard: View {
             if let link {
                 Link(destination: link.url) {
                     Text(link.label).cvFont(Glass3DTokens.Text.meta + 1, weight: .semibold)
-                        .padding(.horizontal, 14).frame(height: 30).classicGlassPill(iconOnly: false)
+                        .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 30).classicGlassPill(iconOnly: false)
                 }.buttonStyle(.plainHand)
             }
         }
-        .frame(maxWidth: 520).statsCard().frame(maxWidth: .infinity).padding(.top, 30)
+        .frame(maxWidth: 520).statsCard().frame(maxWidth: .infinity).padding(.top, Glass3DTokens.Space.xxl)
     }
 }
 
@@ -58,7 +58,7 @@ struct StatsGate<Content: View>: View {
     var body: some View {
         Group {
             switch model.availability {
-            case nil: SkeletonShimmer().padding(.vertical, 30)
+            case nil: SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl)
             case .available: content()
             case .notAdmin: StatsFallbackView(model: model)
             case .pluginMissing:
@@ -80,19 +80,19 @@ struct StatsFallbackView: View {
     @ObservedObject var model: StatsModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: "info.circle").foregroundColor(Glass3DTokens.Grey.secondary)
                 Text("Full stats need an admin account on this server (the Playback Reporting plugin only answers admins). Here is what you played recently.")
                     .cvFont(Glass3DTokens.Text.meta + 1).foregroundColor(Glass3DTokens.Grey.secondary)
             }
             .statsCard()
             StatsHeading(text: "Recently played")
-            if !model.fallbackLoaded { SkeletonShimmer().padding(.vertical, 20) }
+            if !model.fallbackLoaded { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xl) }
             else if model.fallback.isEmpty {
                 StatsStateCard(symbol: "clock", title: "Nothing played yet", message: "Movies and episodes you finish show here.")
             } else {
-                LazyVStack(alignment: .leading, spacing: 6) {
+                LazyVStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     ForEach(model.fallback) { StatsFallbackRow(item: $0) }
                 }
             }
@@ -106,7 +106,7 @@ private struct StatsFallbackRow: View {
     let item: Item
     var body: some View {
         Button { emby.openPage(item) } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 StatsThumb(id: item.isEpisode ? item.Id : item.posterId, wide: item.isEpisode)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.heroTitle).cvFont(Glass3DTokens.Text.cardTitle - 1, weight: .semibold).lineLimit(1)
@@ -118,7 +118,7 @@ private struct StatsFallbackRow: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(8).contentShape(Rectangle())
+            .padding(Glass3DTokens.Space.s).contentShape(Rectangle())
         }.buttonStyle(.plainHand)
     }
 }

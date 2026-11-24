@@ -354,22 +354,19 @@ struct RemoteMessageToast: View {
         VStack {
             Spacer()
             if let m = center.message {
-                VStack(spacing: 3) {
+                VStack(spacing: Glass3DTokens.Space.xs) {
                     if !m.header.isEmpty { Text(m.header).coveFont(size: 15, weight: .bold) }
                     if !m.text.isEmpty { Text(m.text).coveFont(size: 13).multilineTextAlignment(.center) }
                 }
-                .foregroundColor(.white)
                 .frame(maxWidth: 460)
-                .padding(.horizontal, 22).padding(.vertical, 12)
-                .searchGlass()
-                .environment(\.colorScheme, .dark)
-                .transition(.coveGlassPopIn)
+                .toastStyle(height: nil)   // multi-line: sized by its text
+                .transition(.toast())
                 .id(m.id)
             }
         }
         .padding(.bottom, 130)
         .frame(maxWidth: .infinity)
         .allowsHitTesting(false)
-        .animation(.coveGlassPopIn, value: center.message)
+        .animation(Glass3DTokens.Toast.animation, value: center.message)
     }
 }

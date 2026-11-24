@@ -8,19 +8,19 @@ struct StatsLibrariesView: View {
 
     var body: some View {
         StatsGate(model: model) {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 StatsRangePills(range: $model.range)
                 if model.librariesRange == model.range && !model.libraries.isEmpty {
                     if model.librariesTruncated {
                         Text("Only the \(StatsModel.libraryMapLimit.formatted()) most recently played titles are matched to their library in this range.")
                             .cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Grey.secondary)
                     }
-                    LazyVStack(alignment: .center, spacing: 14) {
+                    LazyVStack(alignment: .center, spacing: Glass3DTokens.Space.l) {
                         ForEach(model.libraries) { StatsLibraryCard(usage: $0).frame(maxWidth: 860) }
                     }
                     .frame(maxWidth: .infinity)
                 } else if model.librariesLoading || model.librariesRange == nil {
-                    SkeletonShimmer().padding(.vertical, 30)
+                    SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl)
                 } else {
                     StatsStateCard(symbol: "books.vertical", title: "No libraries found",
                                    message: "Movie, TV and music libraries you can see show here.")
@@ -35,13 +35,13 @@ private struct StatsLibraryCard: View {
     let usage: StatsLibraryUsage
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: icon).cvFont(20, weight: .semibold).foregroundColor(Glass3DTokens.Grey.primary)
                     .frame(width: 42, height: 42)
                     .background(Circle().fill(Color.white.opacity(Glass3DTokens.Fill.strong)))
                     .overlay(Circle().strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.strong), lineWidth: 0.75))
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text(usage.lib.name).cvFont(Glass3DTokens.Text.cardTitle + 1, weight: .bold).lineLimit(1)
                         .modifier(Glass3DReadableText())
                     Text(usage.counts.isEmpty ? "—" : StatsLibrariesAggregate.countsText(usage.counts))
@@ -52,9 +52,9 @@ private struct StatsLibraryCard: View {
                 StatsLibraryStat(value: StatsAggregate.hoursText(usage.seconds), label: "Watch time")
             }
             if !usage.tops.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     Text("Most watched").cvFont(Glass3DTokens.Text.meta, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
-                    HStack(alignment: .top, spacing: 14) {
+                    HStack(alignment: .top, spacing: Glass3DTokens.Space.l) {
                         ForEach(Array(usage.tops.enumerated()), id: \.element.id) { i, t in StatsLibraryTopTile(rank: i + 1, top: t) }
                         Spacer(minLength: 0)
                     }
@@ -95,14 +95,14 @@ private struct StatsLibraryTopTile: View {
 
     var body: some View {
         Button { if let item { emby.openPage(item) } } label: {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 CachedImage(url: poster) { img in img.resizable().aspectRatio(contentMode: .fill) }
                     placeholder: { Color.white.opacity(0.08) }
                     .frame(width: 96, height: 144)
                     .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         Text("\(rank)").cvFont(12, weight: .heavy).foregroundColor(.white)
-                            .frame(width: 22, height: 22).background(Circle().fill(.black.opacity(0.55))).padding(5)
+                            .frame(width: 22, height: 22).background(Circle().fill(.black.opacity(0.55))).padding(Glass3DTokens.Space.xs)
                     }
                     .g3Shadow(Glass3DTokens.shadowMedium)
                 Text(top.top.title).cvFont(Glass3DTokens.Text.meta, weight: .semibold).lineLimit(2).modifier(Glass3DReadableText())
@@ -134,13 +134,13 @@ private struct StatsRecentlyAddedStrip: View {
     var body: some View {
         Group {
             if !items.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     Text("Recently added").cvFont(Glass3DTokens.Text.meta, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(alignment: .top, spacing: 10) {
+                        HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
                             ForEach(items) { it in
                                 Button { emby.openPage(it) } label: {
-                                    VStack(alignment: .leading, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                                         CachedImage(url: emby.image(it.posterId, width: 200)) { img in img.resizable().aspectRatio(contentMode: .fill) }
                                             placeholder: { Color.white.opacity(0.08) }
                                             .frame(width: 72, height: 108)
@@ -156,7 +156,7 @@ private struct StatsRecentlyAddedStrip: View {
                                 .help(it.heroTitle)
                             }
                         }
-                        .padding(.bottom, 4)
+                        .padding(.bottom, Glass3DTokens.Space.xs)
                     }
                 }
             }

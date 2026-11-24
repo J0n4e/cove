@@ -134,10 +134,10 @@ struct ReportIssueView: View {
     let logExists = FileManager.default.fileExists(atPath: ReportIssue.logURL.path)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             Text("Report an issue").coveFont(size: 18, weight: .bold).foregroundColor(.white)
             Text("GitHub opens a bug report with these filled in:").coveFont(size: 13).foregroundColor(.white.opacity(0.9))
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 row("Cove", info.version)
                 row("Server", [info.server, info.serverVersion].compactMap { $0 }.joined(separator: " ").ifEmpty("—"))
                 row("macOS", info.macOS)
@@ -153,7 +153,7 @@ struct ReportIssueView: View {
             HStack { Spacer(); Button("Open GitHub report") { submit() }.buttonStyle(AboutButton(primary: true, accentName: accentName)) }
         }
         .glassReadable()
-        .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 22)
+        .padding(.horizontal, Glass3DTokens.Space.xxl).padding(.top, Glass3DTokens.Space.pageWide).padding(.bottom, Glass3DTokens.Space.xl)
         .frame(width: ReportIssueWindow.size.width, height: ReportIssueWindow.size.height, alignment: .top)
         .ignoresSafeArea(.container, edges: .top)
         .tint(Theme.accent(accentName))
@@ -162,7 +162,7 @@ struct ReportIssueView: View {
     }
 
     private func row(_ k: String, _ v: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: Glass3DTokens.Space.s) {
             Text(k).foregroundColor(.white.opacity(0.7)).frame(width: 60, alignment: .leading)
             Text(v).foregroundColor(.white).lineLimit(1).truncationMode(.middle)
         }.coveFont(size: 12)

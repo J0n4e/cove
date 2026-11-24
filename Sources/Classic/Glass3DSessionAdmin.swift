@@ -20,8 +20,8 @@ struct SessionAdminControls: View {
     private var kind: ServerAdminKind { emby.isJellyfin ? .jellyfin : .emby }
 
     var body: some View {
-        HStack(spacing: 6) {
-            if let note { Text(note).cvFont(11, weight: .semibold).foregroundColor(.white).padding(.horizontal, 8).frame(height: 24).classicGlassPill(iconOnly: false) }
+        HStack(spacing: Glass3DTokens.Space.s) {
+            if let note { Text(note).cvFont(11, weight: .semibold).foregroundColor(.white).padding(.horizontal, Glass3DTokens.Space.s).frame(height: 24).classicGlassPill(iconOnly: false) }
             if profile.admin == true {
             Button { info.toggle() } label: {
                 Image(systemName: "info").cvFont(11, weight: .bold).frame(width: 26, height: 26).classicGlassPill()
@@ -46,22 +46,22 @@ struct SessionAdminControls: View {
     }
 
     private var details: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
             Text("Stream details").cvFont(13, weight: .bold).foregroundColor(.white)
             ForEach(StreamDetails.rows(s), id: \.label) { r in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: Glass3DTokens.Space.s) {
                     Text(r.label).cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary).frame(width: 64, alignment: .leading)
                     Text(r.value).cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
-        .padding(14).frame(width: 320, alignment: .leading)
+        .padding(Glass3DTokens.Space.l).frame(width: 320, alignment: .leading)
         .preferredColorScheme(.dark)
     }
 
     private var messageForm: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             Text("Message to \(s.UserName ?? "this session")").cvFont(13, weight: .bold).foregroundColor(.white)
             TextField("Shown on their screen for 8 seconds", text: $text).textFieldStyle(.roundedBorder).cvFont(13)
                 .onChange(of: text) { _, v in if v.count > SessionAdminAPI.messageLimit { text = String(v.prefix(SessionAdminAPI.messageLimit)) } }
@@ -73,11 +73,11 @@ struct SessionAdminControls: View {
                     .disabled(busy || SessionAdminAPI.clampMessage(text).isEmpty).keyboardShortcut(.defaultAction)
             }
         }
-        .padding(14).frame(width: 340).preferredColorScheme(.dark)
+        .padding(Glass3DTokens.Space.l).frame(width: 340).preferredColorScheme(.dark)
     }
 
     private var confirmForm: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             Text("Sign out \(s.DeviceName ?? "this device")?").cvFont(13, weight: .bold).foregroundColor(.white)
             Text("This signs the device out. Playback stops and it has to sign in again.")
                 .cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).fixedSize(horizontal: false, vertical: true)
@@ -87,7 +87,7 @@ struct SessionAdminControls: View {
                 Button("Sign out") { signOut() }.buttonStyle(GlassButtonStyle(.destructive)).disabled(busy)
             }
         }
-        .padding(14).frame(width: 320).preferredColorScheme(.dark)
+        .padding(Glass3DTokens.Space.l).frame(width: 320).preferredColorScheme(.dark)
     }
 
     private func run(_ r: AdminRequest) async -> Int { await emby.adminCall(r.method, r.path, body: r.body).1 }

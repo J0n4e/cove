@@ -8,7 +8,7 @@ extension AnyTransition {
 }
 
 extension Animation {
-    static var coveGlassPopIn: Animation { .spring(duration: 0.35) }
+    static var coveGlassPopIn: Animation { Glass3DTokens.Motion.spring }
 }
 
 extension View {

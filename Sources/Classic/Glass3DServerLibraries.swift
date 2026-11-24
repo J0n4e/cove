@@ -26,7 +26,7 @@ struct ServerLibrariesTab: View {
 
     var body: some View {
         ZStack {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                 HStack {
                     if let m = message { Text(m).cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(2) }
                     Spacer()
@@ -39,7 +39,7 @@ struct ServerLibrariesTab: View {
                     SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 12) { ForEach(model.libraries) { card($0) } }.padding(.bottom, 8)
+                        LazyVStack(spacing: Glass3DTokens.Space.m) { ForEach(model.libraries) { card($0) } }.padding(.bottom, Glass3DTokens.Space.s)
                     }.scrollIndicators(.never)
                 }
             }
@@ -54,13 +54,13 @@ struct ServerLibrariesTab: View {
 
     func card(_ l: AdminLibrary) -> some View {
         ServerAdminCard {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
                 Image(systemName: l.icon).cvFont(20).foregroundStyle(.tint).frame(width: 28)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text(l.name).cvFont(15, weight: .bold).foregroundColor(.white)
                     Text(meta(l)).cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
                     if l.refreshing {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Glass3DTokens.Space.s) {
                             ServerProgressBar(percent: l.refreshProgress ?? 0).frame(maxWidth: 200)
                             Text("Scanning").cvFont(11).foregroundColor(Glass3DTokens.Grey.secondary)
                         }
@@ -74,9 +74,9 @@ struct ServerLibrariesTab: View {
                     Label("More", systemImage: "ellipsis").labelStyle(.iconOnly).frame(width: 30, height: 30).classicGlassPill()
                 }
             }
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                 ForEach(l.paths, id: \.self) { p in
-                    HStack(spacing: 6) {
+                    HStack(spacing: Glass3DTokens.Space.s) {
                         Image(systemName: "folder").cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary)
                         Text(p).cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
                         Spacer()
@@ -85,8 +85,8 @@ struct ServerLibrariesTab: View {
                     }
                 }
                 if l.paths.isEmpty { Text("No folders").cvFont(12).foregroundColor(Glass3DTokens.Grey.tertiary) }
-            }.padding(.leading, 40)
-            HStack(spacing: 8) {
+            }.padding(.leading, Glass3DTokens.Space.pageWide)
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Spacer()
                 Button { scan(l) } label: { Label("Scan", systemImage: "arrow.triangle.2.circlepath") }
                     .buttonStyle(AboutButton(accentName: accentName)).disabled(l.itemId.isEmpty)

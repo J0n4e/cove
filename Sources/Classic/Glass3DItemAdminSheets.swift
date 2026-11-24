@@ -14,14 +14,14 @@ struct ItemRefreshView: View {
     @State private var error = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
             ItemAdminHeader(title: "Refresh Metadata", subtitle: item.Name)
             ForEach(ItemAdminAPI.RefreshMode.allCases) { m in
                 Button { mode = m; confirming = false } label: {
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
                         Image(systemName: mode == m ? "largecircle.fill.circle" : "circle")
                             .cvFont(14).foregroundColor(mode == m ? Theme.accent(accentName) : .white.opacity(0.6))
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                             Text(m.title).cvFont(13, weight: .semibold)
                                 .foregroundColor(m == .replaceAll ? Color(red: 1, green: 0.55, blue: 0.5) : .white)
                             Text(m.detail).cvFont(11).foregroundColor(.white.opacity(0.65)).fixedSize(horizontal: false, vertical: true)
@@ -48,7 +48,7 @@ struct ItemRefreshView: View {
                     .buttonStyle(AboutButton(primary: true, accentName: accentName)).disabled(busy)
             }
         }
-        .padding(.horizontal, 24).padding(.bottom, 20)
+        .padding(.horizontal, 24).padding(.bottom, Glass3DTokens.Space.xl)
         .foregroundColor(.white)
         .keepsWindowOpen(busy)
     }
@@ -94,13 +94,13 @@ struct ItemIdentifyView: View {
     var fields: [String] { ItemAdminAPI.providerFields(item.`Type`) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             ItemAdminHeader(title: "Identify", subtitle: item.Name)
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 field("Name", $name).frame(maxWidth: .infinity)
                 field("Year", $year).frame(width: 70)
             }
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 ForEach(fields, id: \.self) { k in
                     field(label(k), Binding(get: { ids[k] ?? "" }, set: { ids[k] = $0 }))
                 }
@@ -112,10 +112,11 @@ struct ItemIdentifyView: View {
                 Button("Search") { search() }.buttonStyle(AboutButton(primary: picked == nil, accentName: accentName)).disabled(busy)
             }
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: Glass3DTokens.Space.s) {
                     if searched && results.isEmpty && !busy {
-                        Text("No matches. Try fewer words, without the year, or an IMDb / TMDb id.")
-                            .cvFont(12).foregroundColor(.white.opacity(0.65)).padding(.top, 20)
+                        EmptyState(symbol: "magnifyingglass", title: "No matches",
+                                   message: "Try fewer words, without the year, or an IMDb / TMDb id.", compact: true)
+                            .padding(.top, Glass3DTokens.Space.m)
                     }
                     ForEach(results) { r in row(r) }
                 }
@@ -128,7 +129,7 @@ struct ItemIdentifyView: View {
                     .disabled(picked == nil || busy).opacity(picked == nil ? 0.5 : 1)
             }
         }
-        .padding(.horizontal, 24).padding(.bottom, 20)
+        .padding(.horizontal, 24).padding(.bottom, Glass3DTokens.Space.xl)
         .foregroundColor(.white)
         .onAppear {
             name = item.Name
@@ -141,7 +142,7 @@ struct ItemIdentifyView: View {
     func label(_ k: String) -> String { ["Imdb": "IMDb id", "Tmdb": "TMDb id", "Tvdb": "TVDb id"][k] ?? k }
 
     func field(_ title: String, _ b: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(title).cvFont(10).foregroundColor(.white.opacity(0.6))
             TextField(title, text: b).textFieldStyle(.roundedBorder).cvFont(12).onSubmit { search() }
         }
@@ -149,9 +150,9 @@ struct ItemIdentifyView: View {
 
     func row(_ r: ItemAdminAPI.SearchResult) -> some View {
         Button { picked = r.id } label: {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
                 ItemAdminThumb(url: r.imageURL.flatMap(URL.init(string:)), placeholder: "film").frame(width: 60, height: 90)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text(r.name + (r.year.map { " (\($0))" } ?? "")).cvFont(13, weight: .semibold)
                     if let p = r.provider { Text(p).cvFont(10).foregroundColor(.white.opacity(0.55)) }
                     if let o = r.overview { Text(o).cvFont(11).foregroundColor(.white.opacity(0.75)).lineLimit(3) }

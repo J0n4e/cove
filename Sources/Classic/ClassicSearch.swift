@@ -10,7 +10,7 @@ struct ClassicSearchBar: View {
     var body: some View {
         HStack {
             Spacer()
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Image(systemName: "magnifyingglass").foregroundColor(.secondary)
                 TextField("Search movies, shows, people", text: $query).textFieldStyle(.plain)
                     .focused($focused)
@@ -21,12 +21,12 @@ struct ClassicSearchBar: View {
                     }.buttonStyle(.plainHand)
                 }
             }
-            .padding(.horizontal, 14).frame(height: 34)
+            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 34)
             .background(Capsule().fill(Color.black.opacity(0.35)))
             .background(ClassicGlassBacking(shape: Capsule()))   // glass field, as the search box
             .frame(width: 280)
         }
-        .padding(.horizontal, 32).padding(.vertical, 10)
+        .padding(.horizontal, Glass3DTokens.Space.page).padding(.vertical, Glass3DTokens.Space.m)
         .background(bg)
     }
 }
@@ -41,10 +41,10 @@ struct ClassicSearchView: View {
     private var people: [Item] { model.people }
     private var busy: Bool { model.busy }
     var heading: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
             Text("Results for “\(query)”").cvFont(17, weight: .bold)
             if !people.isEmpty { peopleRow }
-            if !people.isEmpty && !results.isEmpty { Text("Titles").cvFont(Glass3DTokens.Text.section, weight: .bold).padding(.top, 8) }
+            if !people.isEmpty && !results.isEmpty { Text("Titles").cvFont(Glass3DTokens.Text.section, weight: .bold).padding(.top, Glass3DTokens.Space.s) }
         }
     }
 
@@ -56,7 +56,7 @@ struct ClassicSearchView: View {
                     PosterGrid(emby: emby, items: results,
                                insets: NSEdgeInsets(top: 0, left: 40, bottom: 40, right: 40),
                                header: AnyView(heading.frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 40).padding(.top, 40)),
+                                .padding(.horizontal, Glass3DTokens.Space.pageWide).padding(.top, Glass3DTokens.Space.pageWide)),
                                topInset: g.safeAreaInsets.top, push: { ClassicNavState.shared.push($0) },
                                open: { ClassicNavState.shared.open($0) })
                     .ignoresSafeArea(edges: .top)
@@ -64,14 +64,14 @@ struct ClassicSearchView: View {
                 }
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
                         heading
                         if busy { SkeletonShimmer() }
                         else if people.isEmpty {
                             ClassicEmptyState(symbol: "magnifyingglass", title: "No results",
                                               message: "Nothing matches “\(query)”. Try another title, person or spelling.")
                         }
-                    }.padding(40)
+                    }.padding(Glass3DTokens.Space.pageWide)
                 }
                 .classicScrollBars()   // thin overlay bars, only while scrolling
             }
@@ -82,13 +82,13 @@ struct ClassicSearchView: View {
 
     /// Matching people as poster-sized portraits; each opens the person's page.
     var peopleRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             Text("People").cvFont(Glass3DTokens.Text.section, weight: .bold)
             // In rows like the titles below, not one line that scrolls sideways
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14, alignment: .top)], spacing: 18) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l, alignment: .top)], spacing: Glass3DTokens.Space.xl) {
                     ForEach(people) { p in
                         PageLink(value: PersonRef(id: p.Id, name: p.Name)) {
-                            VStack(spacing: 6) {
+                            VStack(spacing: Glass3DTokens.Space.s) {
                                 CachedImage(url: emby.image(p.Id, width: 360)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
@@ -100,7 +100,7 @@ struct ClassicSearchView: View {
                                            tracksHover: true))   // the posters' light glass edge, and their glow
                                 .overlay(alignment: .topLeading) {
                                     if emby.isPersonFav(p.Id) {
-                                        FavHeart(size: 16).padding(8)
+                                        FavHeart(size: 16).padding(Glass3DTokens.Space.s)
                                     }
                                 }
                                 .modifier(HoverPersonHeart(id: p.Id, name: p.Name))
@@ -110,7 +110,7 @@ struct ClassicSearchView: View {
                         }
                         .buttonStyle(.plainHand).accessibilityLabel("Show everything with \(p.Name)")   // no tooltip on actors
                     }
-            }.padding(.vertical, 8)
+            }.padding(.vertical, Glass3DTokens.Space.s)
         }
         .task { _ = await emby.favoritePeople() }   // hearts on favorite people
     }

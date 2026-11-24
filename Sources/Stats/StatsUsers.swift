@@ -15,13 +15,13 @@ struct StatsUsersView: View {
         StatsGate(model: model) {
             if let user = model.selectedUser { StatsUserOverview(model: model, user: user) }
             else {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 HStack {
                     StatsRangePills(range: $model.range)
                     Spacer()
                     Glass3DSegmentTabs(titles: ["Watch time", "Last active"], selection: $sort)
                 }
-                if model.usersLoading && model.usersRange != model.range { SkeletonShimmer().padding(.vertical, 30) }
+                if model.usersLoading && model.usersRange != model.range { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
                 else if model.users.isEmpty {
                     StatsStateCard(symbol: "person.2", title: "No users found",
                                    message: "The server didn't list any users. Open this tab again to retry.")
@@ -33,7 +33,7 @@ struct StatsUsersView: View {
                     StatsUsersSummaryRow(totals: StatsUsersAggregate.totals(model.users))
                         .frame(maxWidth: 860).frame(maxWidth: .infinity)   // as wide as the cards, centred (owner)
                     // One user per line, full width, most active first (owner)
-                    LazyVStack(alignment: .center, spacing: 14) {   // centred in the page (owner)
+                    LazyVStack(alignment: .center, spacing: Glass3DTokens.Space.l) {   // centred in the page (owner)
                         ForEach(cards) { u in
                             StatsUserCard(user: u) { model.userOverview = []; model.selectedUser = u }
                                 .frame(maxWidth: 860)   // fits the contents, not stretched (owner)
@@ -54,11 +54,11 @@ private struct StatsUserOverview: View {
     @ObservedObject var model: StatsModel
     let user: StatsUserSummary
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 Button { model.selectedUser = nil } label: {
                     Label("All users", systemImage: "chevron.left").cvFont(Glass3DTokens.Text.meta + 1, weight: .semibold)
-                        .padding(.horizontal, 14).frame(height: 30).classicGlassPill(iconOnly: false)
+                        .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 30).classicGlassPill(iconOnly: false)
                 }
                 .buttonStyle(.plainHand)
                 StatsUserAvatar(user: user)
@@ -66,7 +66,7 @@ private struct StatsUserOverview: View {
                 Spacer(minLength: 0)
             }
             StatsRangePills(range: $model.range)
-            if model.userOverviewLoading && model.userOverview.isEmpty { SkeletonShimmer().padding(.vertical, 30) }
+            if model.userOverviewLoading && model.userOverview.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
             else {
                 StatsOverviewContent(plays: model.userOverview, range: model.range)
                 if !StatsAggregate.isFewData(model.userOverview) {   // the Insights cards for this user's plays
@@ -85,12 +85,12 @@ private struct StatsUsersSummaryRow: View {
     var body: some View {
         let avgHelp = "Averaged over the \(totals.activeUsers) user\(totals.activeUsers == 1 ? "" : "s") with at least one play in this range"
         // 2 × 2 (owner): Total users · Avg hours, then Most active · Avg plays
-        VStack(spacing: 14) {
-            HStack(spacing: 14) {
+        VStack(spacing: Glass3DTokens.Space.l) {
+            HStack(spacing: Glass3DTokens.Space.l) {
                 StatsUsersSummaryTile(label: "Total users", value: "\(totals.totalUsers)", help: "Every user on this server")
                 StatsUsersSummaryTile(label: "Avg hours / user", value: totals.avgHoursText, help: avgHelp)
             }
-            HStack(spacing: 14) {
+            HStack(spacing: Glass3DTokens.Space.l) {
                 StatsUsersSummaryTile(label: "Most active", value: totals.mostActive ?? "—", help: "Most watch time in this range")
                 StatsUsersSummaryTile(label: "Avg plays / user", value: totals.avgPlaysText, help: avgHelp)
             }
@@ -101,7 +101,7 @@ private struct StatsUsersSummaryRow: View {
 private struct StatsUsersSummaryTile: View {
     let label: String, value: String, help: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
             Text(label).cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
             Text(value).cvFont(26, weight: .heavy).lineLimit(1).minimumScaleFactor(0.6).modifier(Glass3DReadableText())
         }
@@ -134,10 +134,10 @@ private struct StatsUserCard: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.l) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 StatsUserAvatar(user: user)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
                     Text(user.name).cvFont(Glass3DTokens.Text.cardTitle + 1, weight: .bold).lineLimit(1).modifier(Glass3DReadableText())
                     Text(LastActive.text(user.lastActive)).cvFont(Glass3DTokens.Text.meta - 1).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
                         .tip(LastActive.tooltip(activity: user.lastActive, login: user.lastLogin))
@@ -150,7 +150,7 @@ private struct StatsUserCard: View {
                     StatsUserBadge(text: local ? "Local" : "Remote", tint: local ? StatsUsersStyle.directStream : Theme.accent(accentName))
                 }
             }
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 StatsUserTile(value: "\(user.plays)", label: "Plays")
                 StatsUserTile(value: StatsAggregate.hoursText(user.seconds), label: "Watch time")
                 StatsUserTile(value: "\(user.movies)", label: "Movies", tint: Theme.accent(accentName))
@@ -201,7 +201,7 @@ private struct StatsUserBadge: View {
     let text: String, tint: Color
     var body: some View {
         Text(text).cvFont(10, weight: .bold).foregroundColor(.white).lineLimit(1)
-            .padding(.horizontal, 7).frame(height: 18)
+            .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 18)
             .background(Capsule().fill(tint.opacity(0.35)))
             .overlay(Capsule().strokeBorder(tint.opacity(0.6), lineWidth: 0.5))
     }
@@ -218,7 +218,7 @@ private struct StatsUserTile: View {
             Text(label).cvFont(10, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary).lineLimit(1)
         }
         .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
-        .padding(.horizontal, 9).padding(.vertical, 7)
+        .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous)
             .fill(Color.white.opacity(Glass3DTokens.Fill.subtle)))
         .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous)
@@ -231,7 +231,7 @@ private struct StatsUserTile: View {
 private struct StatsPlayTypesBar: View {
     let shares: StatsMethodShares
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Text("Play types:").cvFont(Glass3DTokens.Text.meta - 1, weight: .semibold).foregroundColor(Glass3DTokens.Grey.secondary)
             GeometryReader { g in
                 HStack(spacing: 0) {

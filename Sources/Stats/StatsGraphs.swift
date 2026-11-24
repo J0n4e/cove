@@ -9,10 +9,10 @@ struct StatsGraphsView: View {
 
     var body: some View {
         StatsGate(model: model) {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 StatsRangePills(range: $model.range)
                 if let g = model.graphs, model.graphsRange == model.range { StatsGraphsContent(data: g) }
-                else if model.graphsLoading || model.graphs == nil { SkeletonShimmer().padding(.vertical, 30) }
+                else if model.graphsLoading || model.graphs == nil { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
                 else {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Graphs couldn't be loaded",
                                    message: "The server didn't answer. Open this tab again to retry.")
@@ -26,7 +26,7 @@ struct StatsGraphsView: View {
 private struct StatsGraphsContent: View {
     let data: StatsGraphsData
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
             if data.count < 3 {
                 StatsStateCard(symbol: "chart.xyaxis.line", title: data.count == 0 ? "No playback recorded in this range" : "Only a few plays so far",
                                message: "Data is collected from now on: the Playback Reporting plugin records every play from when it was installed. Check back after some watching.")
@@ -35,7 +35,7 @@ private struct StatsGraphsContent: View {
                 StatsPlaysChartCard(buckets: data.plays, unit: data.playsUnit)
                 StatsHeatmapCard(cells: data.heat)
                 StatsTypesChartCard(buckets: data.types, unit: data.typesUnit)
-                HStack(alignment: .top, spacing: 20) {
+                HStack(alignment: .top, spacing: Glass3DTokens.Space.xl) {
                     StatsDevicesCard(rows: data.devices)
                     StatsKindsCard(split: data.kinds).frame(width: 300)
                 }
@@ -123,7 +123,7 @@ private struct StatsPlaysChartCard: View {
 
     var body: some View {
         let accent = Theme.accent(accentName)
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             StatsChartHeader(title: title, readout: hovered.map {
                 "\(StatsGraphsAggregate.periodText($0.start, unit)) · \($0.plays) \($0.plays == 1 ? "play" : "plays") · \(StatsAggregate.hoursText($0.seconds))"
             })
@@ -169,7 +169,7 @@ private struct StatsTypesChartCard: View {
     @State private var hovered: StatsTypeBucket?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             StatsChartHeader(title: "Play types over time", readout: hovered.map { b in
                 StatsGraphsAggregate.periodText(b.start, unit) + " · "
                     + "\(b.directPlay) DP · \(b.directStream) DS · \(b.transcode) TC"
@@ -188,7 +188,7 @@ private struct StatsTypesChartCard: View {
             .statsTimeAxes(unit: unit, count: buckets.count)
             .statsDateHover { d in hovered = d.flatMap { StatsGraphsAggregate.bucket(at: $0, in: buckets, start: \.start) } }
             .frame(height: 180)
-            HStack(spacing: 16) {
+            HStack(spacing: Glass3DTokens.Space.l) {
                 ForEach(StatsTypeKind.allCases) { k in StatsLegendChip(color: k.color, text: k.rawValue) }
                 Spacer(minLength: 0)
                 let t = buckets.reduce(into: StatsTypeBucket(start: .distantPast)) {
@@ -208,7 +208,7 @@ private struct StatsTypesChartCard: View {
 struct StatsLegendChip: View {
     let color: Color, text: String
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             Circle().fill(color.opacity(0.85)).frame(width: 8, height: 8)
             Text(text).cvFont(Glass3DTokens.Text.meta - 1, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
         }

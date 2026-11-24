@@ -17,7 +17,7 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 10) {
+            VStack(spacing: Glass3DTokens.Space.m) {
                 // Like the update alert: the app icon on top, the bold white name under it
                 AppIconView(size: 72)
                 (Text("Cove for Mac").foregroundColor(.white) + Text(".").foregroundColor(accent))
@@ -28,7 +28,7 @@ struct AboutView: View {
                 Text("A native macOS client for Emby and Jellyfin. Found a bug or have an idea? Let us know on GitHub.")
                     .multilineTextAlignment(.center).coveFont(size: 14).foregroundColor(Color.white.opacity(0.95))
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 10) {
+                HStack(spacing: Glass3DTokens.Space.m) {
                     Button { open(Self.repo) } label: {
                         Label("Cove on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                     }.buttonStyle(AboutButton(primary: true, accentName: accentName))
@@ -36,16 +36,16 @@ struct AboutView: View {
                         Label("Report an issue", systemImage: "exclamationmark.bubble")
                     }.buttonStyle(AboutButton(accentName: accentName))
                 }
-                .padding(.top, 6)
+                .padding(.top, Glass3DTokens.Space.s)
             }
             .glassReadable()
-            .padding(.horizontal, 32).padding(.top, 36)
+            .padding(.horizontal, Glass3DTokens.Space.page).padding(.top, 36)
 
             Button { open(Self.repo.appendingPathComponent("blob/main/LICENSE")) } label: {
                 Text("© 2026 J0n4e · GNU GPL-3.0")
                     .coveFont(size: 11).foregroundColor(Color.white.opacity(0.85)).glassReadable()
             }
-            .buttonStyle(.plainHand).padding(.top, 16).padding(.bottom, 20)
+            .buttonStyle(.plainHand).padding(.top, Glass3DTokens.Space.l).padding(.bottom, Glass3DTokens.Space.xl)
         }
         .frame(width: AboutWindow.size.width)
         .frame(height: AboutWindow.size.height, alignment: .top)

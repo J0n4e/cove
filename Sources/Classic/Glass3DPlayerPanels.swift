@@ -154,7 +154,7 @@ struct Glass3DPanelHeading<Trailing: View>: View {
     var back: (() -> Void)? = nil
     @ViewBuilder var trailing: () -> Trailing
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             if let back {
                 Button(action: back) { Image(systemName: "chevron.left").cvFont(14, weight: .bold).frame(width: 24, height: 24) }
                     .buttonStyle(.plainHand).helpLabel("Back")
@@ -178,7 +178,7 @@ struct Glass3DPanelSection: View {
     let title: String
     let icon: String
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             Image(systemName: icon).cvFont(11, weight: .semibold)
             Text(title.uppercased()).cvFont(11, weight: .semibold).kerning(0.6)
         }
@@ -196,7 +196,7 @@ struct Glass3DPanelRow: View {
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: Glass3DTokens.Space.m) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).cvFont(14, weight: .medium).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                     if let detail { Text(detail).cvFont(12).foregroundColor(.secondary).lineLimit(1) }
@@ -219,7 +219,7 @@ struct Glass3DPanelControlRow<Controls: View>: View {
     let title: String
     @ViewBuilder var controls: () -> Controls
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Glass3DTokens.Space.m) {
             Text(title).cvFont(14, weight: .medium).lineLimit(1)
             Spacer(minLength: 6)
             controls()
@@ -293,7 +293,7 @@ struct Glass3DFieldPicker<T: Hashable>: View {
             let sel = options.firstIndex { $0.0 == selection } ?? 0
             center.list = .init(anchor: frame, options: options.map(\.1), selected: sel) { i in selection = options[i].0 }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Text(options.first { $0.0 == selection }?.1 ?? "—").lineLimit(1)
                 Spacer(minLength: 6)
                 Image(systemName: "chevron.up.chevron.down").cvFont(9, weight: .bold).opacity(0.7)

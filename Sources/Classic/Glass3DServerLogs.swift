@@ -12,7 +12,7 @@ struct ServerLogsTab: View {
     init(admin: ServerAdmin) { _model = StateObject(wrappedValue: ServerLogsModel(kind: admin.kind, api: admin.api)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             if model.open != nil {
                 ServerLogViewer(model: model)
             } else {
@@ -42,9 +42,9 @@ struct ServerLogsTab: View {
             ServerAdminNotice(icon: "list.bullet.rectangle", text: "Nothing here.")
         } else {
             ScrollView {
-                LazyVStack(spacing: 6) {
+                LazyVStack(spacing: Glass3DTokens.Space.s) {
                     ForEach(items) { a in
-                        HStack(alignment: .top, spacing: 10) {
+                        HStack(alignment: .top, spacing: Glass3DTokens.Space.m) {
                             Image(systemName: a.icon).cvFont(14).foregroundColor(color(a.severity)).frame(width: 22)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(a.name).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(2)
@@ -53,10 +53,10 @@ struct ServerLogsTab: View {
                             Spacer()
                             if let d = a.date { Text(ServerAdminDate.relative(d)).cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary).help(d.formatted()) }
                         }
-                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.s)
                         .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous).fill(Color.white.opacity(0.06)))
                     }
-                }.padding(.bottom, 8)
+                }.padding(.bottom, Glass3DTokens.Space.s)
             }.scrollIndicators(.never)
         }
     }
@@ -70,10 +70,10 @@ struct ServerLogsTab: View {
             ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
         } else {
             ScrollView {
-                LazyVStack(spacing: 6) {
+                LazyVStack(spacing: Glass3DTokens.Space.s) {
                     ForEach(model.files) { f in
                         Button { Task { await model.openFile(f) } } label: {
-                            HStack(spacing: 10) {
+                            HStack(spacing: Glass3DTokens.Space.m) {
                                 Image(systemName: "doc.text").cvFont(14).foregroundStyle(.tint).frame(width: 22)
                                 Text(f.name).cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1).truncationMode(.middle)
                                 Spacer()
@@ -81,12 +81,12 @@ struct ServerLogsTab: View {
                                 if let d = f.modified { Text(ServerAdminDate.relative(d)).cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary) }
                                 Image(systemName: "chevron.right").cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary)
                             }
-                            .padding(.horizontal, 12).padding(.vertical, 9)
+                            .padding(.horizontal, Glass3DTokens.Space.m).padding(.vertical, Glass3DTokens.Space.m)
                             .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous).fill(Color.white.opacity(0.06)))
                             .contentShape(Rectangle())
                         }.buttonStyle(.plainHand)
                     }
-                }.padding(.bottom, 8)
+                }.padding(.bottom, Glass3DTokens.Space.s)
             }.scrollIndicators(.never)
         }
     }
@@ -102,8 +102,8 @@ struct ServerLogViewer: View {
 
     var body: some View {
         let shown = LogAdminAPI.filter(model.lines, levels: levels, query: query)
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 Button { model.open = nil } label: { Label("Logs", systemImage: "chevron.left") }
                     .buttonStyle(AboutButton(accentName: accentName))
                 Text(model.open?.name ?? "").cvFont(13, weight: .semibold).foregroundColor(.white).lineLimit(1).truncationMode(.middle)
@@ -115,13 +115,13 @@ struct ServerLogViewer: View {
                     .buttonStyle(AboutButton(accentName: accentName)).disabled(shown.isEmpty)
                     .help("Copies the lines shown (select text in the viewer to copy part of it)")
             }
-            HStack(spacing: 8) {
+            HStack(spacing: Glass3DTokens.Space.s) {
                 ServerSearchField(placeholder: "Search the log", text: $query)
                 if LogAdminAPI.hasLevels(model.lines) {
                     ForEach([LogLevel.error, .warn, .info], id: \.self) { l in
                         Button { if levels.contains(l) { levels.remove(l) } else { levels.insert(l) } } label: {
                             Text(l.rawValue).cvFont(11, weight: .semibold).foregroundColor(.white)
-                                .padding(.horizontal, 10).frame(height: 24)
+                                .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 24)
                                 .background(Capsule().fill(levels.contains(l) ? levelColor(l).opacity(0.5) : Color.white.opacity(0.08)))
                                 .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
                         }.buttonStyle(.plainHand)
@@ -138,7 +138,7 @@ struct ServerLogViewer: View {
                         .coveFont(size: 11, design: .monospaced)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .padding(10)
+                        .padding(Glass3DTokens.Space.m)
                 }
                 .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous).fill(Color.black.opacity(0.35)))
             }

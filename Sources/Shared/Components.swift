@@ -69,7 +69,7 @@ struct PillStyle: ViewModifier {
     func body(content: Content) -> some View {
         content.coveFont(size: 12, weight: .medium)
             .foregroundStyle(active ? Theme.onAccent(accentName) : Color.white)
-            .padding(.horizontal, 16).frame(height: 36)
+            .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 36)
             .background(Capsule().fill(active ? AnyShapeStyle(TintShapeStyle().opacity(0.8)) : AnyShapeStyle(Color.clear)))
             .glassCapsule()
             .contentShape(Capsule())
@@ -154,7 +154,7 @@ struct GlassBackground<S: InsettableShape>: ViewModifier {
             .background(shape.fill(Color.black.opacity(0.55)))
             .background(.ultraThinMaterial, in: shape)
             .overlay(shape.strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-            .shadow(color: .black.opacity(0.45), radius: 14, y: 5)
+            .g3Shadow(Glass3DTokens.shadowLarge)
     }
 }
 
@@ -179,7 +179,7 @@ struct HoverPersonHeart: ViewModifier {
                     ItemActionsButton.circle(fav ? "heart.fill" : "heart", on: fav,
                                              help: fav ? "Remove from Favorites" : "Add to Favorites") {
                         Task { await emby.setFav(id, !fav, name: name) }
-                    }.padding(8)
+                    }.padding(Glass3DTokens.Space.s)
                 }
             }
             .scrollHover($hover)
@@ -232,7 +232,7 @@ struct ItemActionsButton: View {
     var body: some View {
         let played = children.isEmpty ? emby.isPlayed(item) : children.allSatisfy { emby.isPlayed($0) }
         let fav = children.isEmpty ? emby.isFav(item) : emby.isFav(item) && children.allSatisfy { emby.isFav($0) }
-        HStack(spacing: 6) {
+        HStack(spacing: Glass3DTokens.Space.s) {
             Self.circle("checkmark", on: played, help: played ? "Mark as Unwatched" : "Mark as Watched") {
                 Task { await emby.setItemPlayed(item, !played, children: children, name: item.Name, rollback: false) }
             }
@@ -379,7 +379,7 @@ struct TubeBadge: View {
             }
         }
         .foregroundColor(.white)
-        .padding(.horizontal, 8).frame(minWidth: 26, minHeight: 22)
+        .padding(.horizontal, Glass3DTokens.Space.s).frame(minWidth: 26, minHeight: 22)
         .glassTube()
     }
     func glyph<V: View>(_ v: V) -> some View {
@@ -428,7 +428,7 @@ struct WatchBadge: View {
                 .helpLabel("Watched")
         } else if item.isSeries, let n = item.UserData?.UnplayedItemCount, n > 0 {
             Text(n > 99 ? "99+" : "\(n)").coveFont(size: 12, weight: .bold).foregroundColor(.white)
-                .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 24)
+                .padding(.horizontal, Glass3DTokens.Space.s).frame(minWidth: 24, minHeight: 24)
                 .background(Capsule().fill(Self.green)).overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.5), radius: 3)
                 .helpLabel("\(n) unwatched episode\(n == 1 ? "" : "s")")
@@ -466,7 +466,7 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
             }
             // Room for a hovered card's glow and zoom (the scroll view clips at its edges); the row is pulled back by
             // the extra 12 pt below, so the layout stays as it was and doesn't reach the section title above
-            .padding(.vertical, 20)
+            .padding(.vertical, Glass3DTokens.Space.xl)
             .background(ScrollFinderView(finder: finder))
             // Click-and-drag to scroll with the mouse; a plain click still opens the item.
             .highPriorityGesture(
@@ -488,17 +488,17 @@ struct ArrowScrollRow<ID: Hashable, Content: View>: View {
         .padding(.vertical, -12)
         .overlay(alignment: .leading) {
             if finder.canBack && arrowsShown {
-                arrow("chevron.left", help: "Previous") { finder.page(-1, step: itemWidth + spacing) }.padding(.leading, 6)
+                arrow("chevron.left", help: "Previous") { finder.page(-1, step: itemWidth + spacing) }.padding(.leading, Glass3DTokens.Space.s)
             }
         }
         .overlay(alignment: .trailing) {
             if finder.canFwd && arrowsShown {
-                arrow("chevron.right", help: "Next") { finder.page(1, step: itemWidth + spacing) }.padding(.trailing, 6)
+                arrow("chevron.right", help: "Next") { finder.page(1, step: itemWidth + spacing) }.padding(.trailing, Glass3DTokens.Space.s)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: finder.canBack)
-        .animation(.easeOut(duration: 0.15), value: finder.canFwd)
-        .animation(.easeOut(duration: 0.15), value: rowHover)
+        .animation(Glass3DTokens.Motion.fast, value: finder.canBack)
+        .animation(Glass3DTokens.Motion.fast, value: finder.canFwd)
+        .animation(Glass3DTokens.Motion.fast, value: rowHover)
         .onHover { rowHover = $0 }
     }
 
@@ -647,7 +647,7 @@ struct HoverLift: ViewModifier {
     func body(content: Content) -> some View {
         content
             .scaleEffect(hover ? 1.06 : 1)   // no shadow: one on every card made scrolling drag
-            .animation(.easeOut(duration: 0.15), value: hover)
+            .animation(Glass3DTokens.Motion.fast, value: hover)
             .zIndex(hover ? 1 : 0)
     }
 }

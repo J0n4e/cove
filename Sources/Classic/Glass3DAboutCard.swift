@@ -76,8 +76,8 @@ struct AboutTileView<Content: View>: View {
     let label: String
     @ViewBuilder var content: Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+            HStack(spacing: Glass3DTokens.Space.xs) {
                 Image(systemName: icon).cvFont(10, weight: .semibold)
                 Text(label.uppercased()).cvFont(10, weight: .semibold).tracking(0.6)
             }
@@ -95,7 +95,7 @@ struct AboutChip: View {
         Text(text).cvFont(Glass3DTokens.Text.meta, weight: .semibold)
             .foregroundColor(Glass3DTokens.Grey.primary)
             .lineLimit(1)
-            .padding(.horizontal, 10).frame(height: 24)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 24)
             .modifier(ClassicClearGlass(shape: Capsule(), interactive: false))
     }
 }
@@ -107,12 +107,12 @@ struct AboutLinkPill: View {
     @Environment(\.openURL) private var openURL
     var body: some View {
         Button { openURL(url) } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: Glass3DTokens.Space.xs) {
                 Image(systemName: AboutCard.linkIcon(name)).cvFont(10, weight: .semibold)
                 Text(AboutCard.linkLabel(name)).cvFont(Glass3DTokens.Text.meta, weight: .semibold)
             }
             .foregroundColor(Glass3DTokens.Grey.primary)
-            .padding(.horizontal, 11).frame(height: 26)
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 26)
             .modifier(SectionHoverGlow(on: true))
             .clipShape(Capsule())
             .modifier(ClassicClearGlass(shape: Capsule()))
@@ -134,7 +134,7 @@ struct AboutPathLine: View {
             withAnimation(Glass3DTokens.Motion.fast) { copied = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { withAnimation(Glass3DTokens.Motion.fast) { copied = false } }
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: Glass3DTokens.Space.xs) {
                 Text(path).cvFont(11) { $0.monospaced() }
                     .lineLimit(1).truncationMode(.middle)
                 Image(systemName: copied ? "checkmark" : "doc.on.doc").cvFont(9, weight: .semibold)

@@ -23,7 +23,7 @@ struct CastTile: View {
     @Environment(\.classicGlass) private var classic   // Glass3D: outlined photo, Glass3D type
     var body: some View {
         let big = castSize == "large"
-        VStack(spacing: 6) {
+        VStack(spacing: Glass3DTokens.Space.s) {
             CachedImage(url: emby.image(p.Id, width: big ? 360 : 240)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {

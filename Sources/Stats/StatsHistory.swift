@@ -8,20 +8,20 @@ struct StatsHistoryView: View {
 
     var body: some View {
         StatsGate(model: model) {
-            VStack(alignment: .leading, spacing: 18) {
-                if model.historyLoading && model.history.isEmpty { SkeletonShimmer().padding(.vertical, 30) }
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
+                if model.historyLoading && model.history.isEmpty { SkeletonShimmer().padding(.vertical, Glass3DTokens.Space.xxl) }
                 else if model.history.isEmpty {
                     StatsStateCard(symbol: "clock.arrow.circlepath", title: "No plays in the last \(StatsModel.historyRange) days",
                                    message: "Data is collected from now on: plays longer than a minute show here once the Playback Reporting plugin has recorded them.")
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 18) {
+                    LazyVStack(alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                         ForEach(StatsAggregate.groupByDay(model.history)) { StatsDayCard(group: $0) }
                     }
                     if model.hasMoreHistory {
                         Button { Task { await model.loadMoreHistory() } } label: {
                             Text(model.historyLoading ? "Loading…" : "Show more")
                                 .cvFont(Glass3DTokens.Text.meta + 1, weight: .semibold)
-                                .padding(.horizontal, 18).frame(height: 32).classicGlassPill(iconOnly: false)
+                                .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: 32).classicGlassPill(iconOnly: false)
                         }
                         .buttonStyle(.plainHand).disabled(model.historyLoading)
                         .frame(maxWidth: .infinity)
@@ -39,7 +39,7 @@ private struct StatsDayCard: View {
     @AppStorage("textSize") private var textSize = "default"
     var body: some View {
         let w = 150 * TextScale.inApp(textSize)
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
             HStack(alignment: .firstTextBaseline) {
                 Text(StatsHistoryText.dayTitle(group.date)).cvFont(Glass3DTokens.Text.cardTitle + 2, weight: .bold)
                     .modifier(Glass3DReadableText())
@@ -47,12 +47,12 @@ private struct StatsDayCard: View {
                 Text(StatsHistoryText.daySummary(group.plays)).cvFont(Glass3DTokens.Text.meta, weight: .medium)
                     .foregroundColor(Glass3DTokens.Grey.secondary)
             }
-            .padding(.horizontal, 8)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: w, maximum: w + 30), spacing: 16, alignment: .top)],
-                      alignment: .leading, spacing: 18) {
+            .padding(.horizontal, Glass3DTokens.Space.s)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: w, maximum: w + 30), spacing: Glass3DTokens.Space.l, alignment: .top)],
+                      alignment: .leading, spacing: Glass3DTokens.Space.xl) {
                 ForEach(StatsHistoryText.cards(group.plays)) { StatsHistoryTile(card: $0) }
             }
-            .padding(.horizontal, 8).padding(.bottom, 4)
+            .padding(.horizontal, Glass3DTokens.Space.s).padding(.bottom, Glass3DTokens.Space.xs)
         }
         .statsCard()
     }
@@ -69,7 +69,7 @@ private struct StatsHistoryTile: View {
     var body: some View {
         let play = card.play
         Button { StatsOpen.item(play.itemId, emby) } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                 Color.white.opacity(0.08)
                     .aspectRatio(2.0 / 3.0, contentMode: .fit)
                     .overlay {
@@ -82,10 +82,10 @@ private struct StatsHistoryTile: View {
                     .overlay(alignment: .topTrailing) {
                         if card.count > 1 {
                             Text("×\(card.count)").cvFont(Glass3DTokens.Text.meta - 1, weight: .heavy).foregroundColor(.white)
-                                .padding(.horizontal, 7).frame(height: 20).background(Capsule().fill(.black.opacity(0.6))).padding(6)
+                                .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 20).background(Capsule().fill(.black.opacity(0.6))).padding(Glass3DTokens.Space.s)
                         }
                     }
-                    .overlay(alignment: .bottomTrailing) { StatsTileBadge(play: play).padding(6) }
+                    .overlay(alignment: .bottomTrailing) { StatsTileBadge(play: play).padding(Glass3DTokens.Space.s) }
                     .g3Shadow(Glass3DTokens.shadowMedium)
                     .modifier(HoverLift(hover: hover))
                 Text(play.displayTitle).cvFont(Glass3DTokens.Text.meta + 1).lineLimit(2)
@@ -117,11 +117,11 @@ private struct StatsHistoryTile: View {
 private struct StatsTileBadge: View {
     let play: StatsPlay
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: Glass3DTokens.Space.xs) {
             Image(systemName: StatsHistoryText.deviceIcon(play)).cvFont(Glass3DTokens.Text.meta - 2).foregroundColor(.white)
             Circle().fill(NowPlayingStyle.color(StatsHistoryText.methodTint(play.method))).frame(width: 7, height: 7)
         }
-        .padding(.horizontal, 7).frame(height: 20)
+        .padding(.horizontal, Glass3DTokens.Space.s).frame(height: 20)
         .background(Capsule().fill(.black.opacity(0.6)))
         .tip(StatsHistoryText.badgeTip(play))
     }

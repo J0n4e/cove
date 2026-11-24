@@ -22,13 +22,13 @@ struct Glass3DSegmentTabs: View {
                                     .offset(x: 9, y: -2).help("\(b) unread")
                             }
                         }
-                        .padding(.horizontal, 14).frame(height: 32)
+                        .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 32)
                         .classicSelectedGlass(selection == i)   // a step quieter than the top bar's pill
                         .modifier(Glass3DTabHover(on: selection == i))   // as the top bar's tabs
                         .modifier(SectionHoverGlow(on: !(selection == i)))   // accent glow on hover (Settings → Hover effect), as the top bar
                 }.buttonStyle(.plainHand)
             }
-        }.padding(3).frame(height: 38).classicClearGlass().opacity(0.92)   // interactive clear glass, as the top bar
+        }.padding(Glass3DTokens.Space.xs).frame(height: 38).classicClearGlass().opacity(0.92)   // interactive clear glass, as the top bar
     }
 }
 
