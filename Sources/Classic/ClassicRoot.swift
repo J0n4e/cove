@@ -65,7 +65,9 @@ struct ClassicHomeView: View {
     @AppStorage("navStyle") private var navStyle = "sidebar"   // Settings → General → Appearance: "sidebar" or "topbar"
     @AppStorage(NavOrder.key) private var navOrder = ""
 
-    func icon(_ lib: LibPref) -> String { LibraryIcon.symbol(kind: lib.kind, name: lib.name) }
+    @AppStorage(ToolbarStyle.key) private var toolbarStyleRaw = ToolbarStyle.defaultValue.rawValue
+    var toolbarStyle: ToolbarStyle { ToolbarStyle(raw: toolbarStyleRaw) }
+    func icon(_ lib: LibPref) -> String { LibraryIcon.symbol(kind: lib.kind, name: lib.name, style: toolbarStyle) }
 
     /// Clicking the sidebar item you are already on (e.g. Movies while browsing actors and titles) goes back
     /// to that page's start. Picking a different item does the same through the onChange below.
@@ -85,7 +87,11 @@ struct ClassicHomeView: View {
     /// Favorites or Activity in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
         if id == NavOrder.favorites { sideRow("Favorites", "heart.fill", "favorites") }
-        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount, activity: true) }
+        else if id == NavOrder.nowPlaying {
+            // Clean: markers on the icon. Classic: the count at the row end and the unread dot in the row.
+            if toolbarStyle.markersOnIcon { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount, activity: true) }
+            else { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount).modifier(ActivityUnreadDot(inset: 7)) }
+        }
     }
 
     /// One sidebar line: the chosen one on an accent glass band, the one under the pointer lit softly (as the glass
@@ -99,6 +105,7 @@ struct ClassicHomeView: View {
                     .modifier(ToolbarActivityMarkers(streams: badge, enabled: activity))
                 Text(title).cvFont(13, weight: on ? .semibold : .regular).lineLimit(1)
                 Spacer(minLength: 0)
+                if badge > 0 && !activity { CountBadge(count: badge, size: 18) }   // Classic style: count at the row end
             }
             .foregroundColor(.white)
             .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 32)
@@ -365,6 +372,8 @@ struct ClassicTitleBarItems: ToolbarContent {
 struct ClassicTopNavBar: View {
     @Environment(\.appBG) var bg
     let back: (() -> Void)?
+    @AppStorage(ToolbarStyle.key) private var toolbarStyleRaw = ToolbarStyle.defaultValue.rawValue
+    var clean: Bool { ToolbarStyle(raw: toolbarStyleRaw) == .clean }
     @State private var barWidth: CGFloat = 0
     /// Width the sections may use: the bar minus the two fixed side slots (Back, profile circle) and the gaps, so
     /// the sections stay centred and never push Back or the profile circle out.
@@ -378,11 +387,13 @@ struct ClassicTopNavBar: View {
         HStack(spacing: Glass3DTokens.Space.l) {
             HStack { if let back { ClassicTopBackButton(action: back) } }
                 .fixedSize()   // never squeezed below Back's own width
-                .frame(minWidth: Glass3DTokens.Toolbar.sideSlot, maxWidth: .infinity, alignment: .leading)
-            // On a narrow window the sections that don't fit move into the More (⋯) menu at the end of the bar
-            ClassicTopNavButtons(available: available).layoutPriority(1)
+                .frame(minWidth: clean ? Glass3DTokens.Toolbar.sideSlot : nil, maxWidth: .infinity, alignment: .leading)
+            // Clean: sections that don't fit move into the More (⋯) menu. Classic: icons only, then sideways scroll.
+            Group {
+                if clean { ClassicTopNavButtons(available: available) } else { ClassicTopNavCenterClassic() }
+            }.layoutPriority(1)
             ClassicTopNavTools().fixedSize()
-                .frame(minWidth: Glass3DTokens.Toolbar.sideSlot, maxWidth: .infinity, alignment: .trailing)
+                .frame(minWidth: clean ? Glass3DTokens.Toolbar.sideSlot : nil, maxWidth: .infinity, alignment: .trailing)
         }
         .frame(height: Glass3DTokens.Toolbar.barHeight)
         .background(GeometryReader { g in

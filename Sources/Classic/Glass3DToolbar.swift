@@ -41,6 +41,23 @@ extension Glass3DTokens {
 
 // MARK: - Pure decisions (tested)
 
+/// Settings → Appearance → Toolbar style. Classic (default) = the toolbar as it always was; Clean = crisp labels,
+/// steady glass, unified icons, soft selected capsule, Activity markers on the icon and the More (⋯) menu.
+enum ToolbarStyle: String, CaseIterable {
+    case classic, clean
+    static let key = "toolbarStyle"
+    static let defaultValue: ToolbarStyle = .classic
+    static let options: [(String, String)] = [("classic", "Classic"), ("clean", "Clean")]
+    init(raw: String) { self = ToolbarStyle(rawValue: raw) ?? Self.defaultValue }
+    static var current: ToolbarStyle { ToolbarStyle(raw: UserDefaults.standard.string(forKey: key) ?? "") }
+    /// Narrow window: Clean moves sections into More (⋯); Classic goes icons-only, then scrolls sideways.
+    var usesOverflowMenu: Bool { self == .clean }
+    /// Activity markers: Clean puts them on the icon; Classic shows the count after the name (sidebar: row end)
+    /// and the unread dot inside the pill.
+    var markersOnIcon: Bool { self == .clean }
+}
+
+
 /// Which sections stay in the bar and which go into More (⋯) when the window is too narrow.
 /// Rules: everything shows when it fits (no More button, no layout change). Otherwise sections leave from the END
 /// of the bar order, skipping Home, Activity (the owner's last pill stays last visible) and the selected section,
@@ -77,6 +94,22 @@ enum ToolbarOverflow {
 
 /// The SF Symbol of a library in the top bar, sidebar and page title.
 enum LibraryIcon {
+    /// The icon for the chosen toolbar style (Classic keeps its old map, e.g. a folder for Documentary).
+    static func symbol(kind: String?, name: String = "", style: ToolbarStyle) -> String {
+        style == .clean ? symbol(kind: kind, name: name) : classic(kind: kind)
+    }
+    /// Classic style: the original map.
+    static func classic(kind: String?) -> String {
+        switch kind {
+        case "movies": return "film"
+        case "tvshows": return "tv"
+        case "boxsets": return "square.stack"
+        case "music": return "music.note"
+        case "homevideos": return "video"
+        default: return "folder"
+        }
+    }
+    /// Clean style map.
     static func symbol(kind: String?, name: String = "") -> String {
         // Documentary libraries (owner's choice): a video camera, not a folder. Servers have no documentary type,
         // so they are recognised by name (Documentaries, Dokumentationen, Documentaires, Documentari…).

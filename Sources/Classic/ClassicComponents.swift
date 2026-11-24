@@ -176,7 +176,9 @@ extension View {
 struct ClassicPageTitle: View {
     let text: String
     var icon: String? = nil
-    static func icon(_ kind: String?, name: String = "") -> String { LibraryIcon.symbol(kind: kind, name: name) }
+    static func icon(_ kind: String?, name: String = "", style: ToolbarStyle = .classic) -> String {
+        LibraryIcon.symbol(kind: kind, name: name, style: style)
+    }
     var body: some View {
         HStack(spacing: 8) {
             if let icon { Text3D(image: Image(systemName: icon), size: 18) }

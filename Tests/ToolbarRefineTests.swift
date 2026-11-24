@@ -46,7 +46,7 @@ final class ToolbarRefineTests: XCTestCase {
         XCTAssertEqual(LibraryIcon.symbol(kind: nil, name: "Documentaries"), "video")
         XCTAssertEqual(LibraryIcon.symbol(kind: "movies", name: "Documentaries"), "video")
         XCTAssertEqual(LibraryIcon.symbol(kind: nil, name: "Dokumentationen"), "video")
-        XCTAssertEqual(ClassicPageTitle.icon(nil, name: "Documentary"), "video")
+        XCTAssertEqual(ClassicPageTitle.icon(nil, name: "Documentary", style: .clean), "video")
     }
 
     func testTypedLibrariesNeverGetAFolder() {
@@ -94,5 +94,58 @@ final class ToolbarRefineTests: XCTestCase {
         XCTAssertTrue(comp.contains(".environment(\\.colorScheme, .dark)"))   // readable in light appearance
         XCTAssertFalse(comp.contains(".shadow("))
         XCTAssertFalse(comp.contains("scaleEffect"))
+    }
+
+    // MARK: Toolbar style (Classic default / Clean optional)
+    func testDefaultIsClassic() {
+        XCTAssertEqual(ToolbarStyle.defaultValue, .classic)
+        XCTAssertEqual(ToolbarStyle(raw: ""), .classic)
+        XCTAssertEqual(ToolbarStyle(raw: "bogus"), .classic)
+        XCTAssertEqual(ToolbarStyle(raw: "clean"), .clean)
+        XCTAssertEqual(ToolbarStyle.key, "toolbarStyle")
+        XCTAssertEqual(ToolbarStyle.options.map(\.0), ["classic", "clean"])
+    }
+
+    func testClassicIconMapIsTheOldOne() {
+        let old: [String?: String] = ["movies": "film", "tvshows": "tv", "boxsets": "square.stack", "music": "music.note",
+                                      "homevideos": "video", "musicvideos": "folder", "books": "folder",
+                                      "playlists": "folder", "livetv": "folder", nil: "folder"]
+        for (k, v) in old { XCTAssertEqual(LibraryIcon.symbol(kind: k, name: "x", style: .classic), v, k ?? "nil") }
+        XCTAssertEqual(LibraryIcon.symbol(kind: nil, name: "Documentary", style: .classic), "folder")
+        XCTAssertEqual(ClassicPageTitle.icon(nil, name: "Documentary"), "folder")   // page title default = classic
+    }
+
+    func testCleanIconMap() {
+        XCTAssertEqual(LibraryIcon.symbol(kind: nil, name: "Documentary", style: .clean), "video")
+        XCTAssertEqual(LibraryIcon.symbol(kind: "musicvideos", style: .clean), "music.note.tv")
+        XCTAssertEqual(LibraryIcon.symbol(kind: "books", style: .clean), "book")
+        XCTAssertEqual(LibraryIcon.symbol(kind: "playlists", style: .clean), "music.note.list")
+        XCTAssertEqual(LibraryIcon.symbol(kind: "livetv", style: .clean), "antenna.radiowaves.left.and.right")
+    }
+
+    func testOverflowAndMarkersPerStyle() {
+        XCTAssertTrue(ToolbarStyle.clean.usesOverflowMenu)
+        XCTAssertFalse(ToolbarStyle.classic.usesOverflowMenu)
+        XCTAssertTrue(ToolbarStyle.clean.markersOnIcon)
+        XCTAssertFalse(ToolbarStyle.classic.markersOnIcon)
+    }
+
+    func testClassicPathRestoredAndWired() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        func src(_ p: String) throws -> String { try String(contentsOf: root.appendingPathComponent(p), encoding: .utf8) }
+        let classic = try src("Sources/Classic/ClassicToolbarClassic.swift")
+        XCTAssertTrue(classic.contains("ViewThatFits(in: .horizontal)"))       // icons-only, then sideways scroll
+        XCTAssertTrue(classic.contains("Glass3DTabHover(on: on)"))
+        XCTAssertTrue(classic.contains("Text3D(text: title"))
+        XCTAssertTrue(classic.contains("ActivityUnreadDot(inset: 7)"))           // dot inside the pill
+        XCTAssertTrue(classic.contains("if badge > 0 { CountBadge(count: badge) }"))  // count after the name
+        XCTAssertTrue(classic.contains(".classicClearGlass()"))
+        XCTAssertFalse(classic.contains("ToolbarMoreButton"))
+        let bar = try src("Sources/Classic/ClassicRoot.swift")
+        XCTAssertTrue(bar.contains("ClassicTopNavCenterClassic()"))
+        XCTAssertTrue(bar.contains("ActivityUnreadDot(inset: 7)"))               // classic sidebar row
+        let settings = try src("Sources/Settings.swift")
+        XCTAssertTrue(settings.contains("PrefRow(label: \"Toolbar style\")"))
+        XCTAssertTrue(settings.contains("ToolbarStyle.options"))
     }
 }
