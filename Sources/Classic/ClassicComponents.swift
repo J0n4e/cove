@@ -176,16 +176,7 @@ extension View {
 struct ClassicPageTitle: View {
     let text: String
     var icon: String? = nil
-    static func icon(_ kind: String?) -> String {
-        switch kind {
-        case "movies": return "film"
-        case "tvshows": return "tv"
-        case "boxsets": return "square.stack"
-        case "music": return "music.note"
-        case "homevideos": return "video"
-        default: return "folder"
-        }
-    }
+    static func icon(_ kind: String?, name: String = "") -> String { LibraryIcon.symbol(kind: kind, name: name) }
     var body: some View {
         HStack(spacing: 8) {
             if let icon { Text3D(image: Image(systemName: icon), size: 18) }

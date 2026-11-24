@@ -146,6 +146,12 @@ enum HelpTopics {
         HelpTopic(id: "libraries", group: .watching, title: "Libraries & search", symbol: "square.grid.2x2",
                   intro: "Each library has its own page in the top bar. Search looks through everything on the server.",
                   sections: [
+                    HelpSection(heading: "Top bar and the More menu", blocks: [
+                        .text("The top bar shows Home, Favorites, your libraries and Activity in one row. The selected section has a soft glass capsule around it."),
+                        .text("When the window is too narrow for every section, the ones near the end of the bar move into the More menu (⋯) at the end of the bar. Home, Activity and the section you are on always stay visible. If the section you are on is inside More, the ⋯ button shows the selected capsule."),
+                        .text("Each library has its own icon: Movies a film strip, TV Shows a TV, Collections stacked squares, Music a note, Home videos and Documentary libraries a video camera."),
+                        .place("Top bar → ⋯ (More), on a narrow window"),
+                    ]),
                     HelpSection(heading: "Search", blocks: [
                         .text("Press ⌘F to open the search bar at the bottom of the window. Results show as you type. Esc closes it."),
                         .keys([HelpKey(keys: ["⌘", "F"], what: "Search")]),
@@ -273,6 +279,12 @@ enum HelpTopics {
         HelpTopic(id: "activity", group: .watching, title: "Activity", symbol: "chart.bar",
                   intro: "Activity is the last item in the top bar. It shows what is playing and your watching history.",
                   sections: [
+                    HelpSection(heading: "Markers on the Activity icon", blocks: [
+                        .bullets(["A red circle with a number on the icon's top-right corner: how many streams are playing on the server right now.",
+                                  "A small red dot on the icon's top-left corner: you have unread notifications."]),
+                        .text("Both show in the top bar and in the sidebar, and each appears only when there is something to show."),
+                        .place("Top bar → Activity, or the sidebar"),
+                    ]),
                     HelpSection(heading: "Pages", blocks: [
                         .bullets(["Now Playing: who is watching what on the server right now.",
                                   "Notifications: new movies and episodes.",

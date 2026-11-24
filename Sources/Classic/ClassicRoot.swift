@@ -65,16 +65,7 @@ struct ClassicHomeView: View {
     @AppStorage("navStyle") private var navStyle = "sidebar"   // Settings → General → Appearance: "sidebar" or "topbar"
     @AppStorage(NavOrder.key) private var navOrder = ""
 
-    func icon(_ lib: LibPref) -> String {
-        switch lib.kind {
-        case "movies": return "film"
-        case "tvshows": return "tv"
-        case "boxsets": return "square.stack"
-        case "music": return "music.note"
-        case "homevideos": return "video"
-        default: return "folder"
-        }
-    }
+    func icon(_ lib: LibPref) -> String { LibraryIcon.symbol(kind: lib.kind, name: lib.name) }
 
     /// Clicking the sidebar item you are already on (e.g. Movies while browsing actors and titles) goes back
     /// to that page's start. Picking a different item does the same through the onChange below.
@@ -94,19 +85,20 @@ struct ClassicHomeView: View {
     /// Favorites or Activity in the sidebar, wherever Settings → Libraries placed it.
     @ViewBuilder func sideSection(_ id: String) -> some View {
         if id == NavOrder.favorites { sideRow("Favorites", "heart.fill", "favorites") }
-        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount).modifier(ActivityUnreadDot(inset: 7)) }
+        else if id == NavOrder.nowPlaying { sideRow(ActivitySection.title, ActivitySection.icon, "nowplaying", badge: activeCount, activity: true) }
     }
 
     /// One sidebar line: the chosen one on an accent glass band, the one under the pointer lit softly (as the glass
     /// lists). Clicking the chosen one again goes back to that page's start.
-    func sideRow(_ title: String, _ icon: String, _ id: String, badge: Int = 0) -> some View {
+    /// Activity: the streams circle and the unread dot sit on its icon (as in the top bar).
+    func sideRow(_ title: String, _ icon: String, _ id: String, badge: Int = 0, activity: Bool = false) -> some View {
         let on = sel == id
         return Button { if on { popToRoot() } else { selB.wrappedValue = id } } label: {
             HStack(spacing: Glass3DTokens.Space.m) {
                 Image(systemName: icon).cvFont(13).frame(width: 18).foregroundStyle(.tint)
+                    .modifier(ToolbarActivityMarkers(streams: badge, enabled: activity))
                 Text(title).cvFont(13, weight: on ? .semibold : .regular).lineLimit(1)
                 Spacer(minLength: 0)
-                if badge > 0 { CountBadge(count: badge, size: 18) }
             }
             .foregroundColor(.white)
             .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 32)
@@ -373,95 +365,107 @@ struct ClassicTitleBarItems: ToolbarContent {
 struct ClassicTopNavBar: View {
     @Environment(\.appBG) var bg
     let back: (() -> Void)?
+    @State private var barWidth: CGFloat = 0
+    /// Width the sections may use: the bar minus the two fixed side slots (Back, profile circle) and the gaps, so
+    /// the sections stay centred and never push Back or the profile circle out.
+    var available: CGFloat {
+        guard barWidth > 0 else { return 0 }
+        return max(0, barWidth - 2 * (Glass3DTokens.Toolbar.sideSlot + Glass3DTokens.Space.l))
+    }
     var body: some View {
-        // The two sides share the leftover width equally, so the classicPill stays in the middle of the window, and the
+        // The two sides share the leftover width equally, so the sections stay in the middle of the window, and the
         // fixed height keeps the bar from growing: nothing moves when Back appears or disappears.
         HStack(spacing: Glass3DTokens.Space.l) {
             HStack { if let back { ClassicTopBackButton(action: back) } }
                 .fixedSize()   // never squeezed below Back's own width
-                .frame(maxWidth: .infinity, alignment: .leading)
-            // On a narrow window the sections don't all fit: the pill then scrolls sideways instead of
-            // spilling past the window edge, where its buttons can't be clicked and Back gets squeezed out
-            // Too narrow for the names: icons only (names on hover); scrolling only if even those don't fit
-            ViewThatFits(in: .horizontal) {
-                ClassicTopNavButtons()
-                ClassicTopNavButtons(compact: true)
-                ScrollView(.horizontal, showsIndicators: false) { ClassicTopNavButtons(compact: true) }
-            }.layoutPriority(1)
+                .frame(minWidth: Glass3DTokens.Toolbar.sideSlot, maxWidth: .infinity, alignment: .leading)
+            // On a narrow window the sections that don't fit move into the More (⋯) menu at the end of the bar
+            ClassicTopNavButtons(available: available).layoutPriority(1)
             ClassicTopNavTools().fixedSize()
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(minWidth: Glass3DTokens.Toolbar.sideSlot, maxWidth: .infinity, alignment: .trailing)
         }
-        .frame(height: 44)
+        .frame(height: Glass3DTokens.Toolbar.barHeight)
+        .background(GeometryReader { g in
+            Color.clear
+                .onAppear { barWidth = g.size.width }
+                .onChange(of: g.size.width) { _, w in barWidth = w }
+        })
         .padding(.horizontal, Glass3DTokens.Space.xxl).padding(.vertical, Glass3DTokens.Space.m)
     }
 }
 
 struct ClassicTopNavButtons: View {
-    @AppStorage("accent") private var accentName = "red"
     @EnvironmentObject var emby: Emby
     @AppStorage(NavOrder.key) private var navOrder = ""
     @ObservedObject private var nav = ClassicNavState.shared
-    @AppStorage("topBarLabels") private var labelSetting = "both"   // Settings → General: "both", "names" or "icons"
-    /// The window is too narrow for the names: icons only, whatever Settings says.
-    var compact = false
-    var labels: String { compact ? "icons" : labelSetting }
-    func item(_ title: String, _ id: String, _ icon: String, badge: Int = 0) -> some View {
-        let on = nav.sel == id
-        return Button {
-            nav.query = ""; nav.searchOpen = false
-            if nav.sel == id { nav.reselect += 1 }
-            nav.sel = id; nav.popToRoot()
-        } label: {
-            // Small icon before each name, as in the sidebar
-            HStack(spacing: Glass3DTokens.Space.s) {
-                // Glossy lettering (the 3D face, no thickness)
-                if labels != "names" { Text3D(image: Image(systemName: icon), size: labels == "icons" ? 16 : 14, thick: false) }
-                if labels != "icons" {
-                    Text3D(text: title, size: 15, thick: false, weight: .bold)   // every tab as readable as the selected one (owner)
-                }
-                // the count in a red circle (owner's mock-up), names or icons alike
-                if badge > 0 { CountBadge(count: badge) }
-            }
-                .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
-                .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
-                .modifier(Glass3DTabHover(on: on))   // the others: a lighter dark pill; hover sheen, lift and white label
-                .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
-                .contentShape(Capsule())
+    @AppStorage("topBarLabels") private var labels = "both"   // Settings → General: "both", "names" or "icons"
+    /// Width the sections may use (0 = not measured yet: show all)
+    var available: CGFloat = 0
+    @State private var widths: [String: CGFloat] = [:]
+
+    struct Entry: Identifiable { let id: String; let title: String; let icon: String }
+
+    /// Every section in bar order: Home, Favorites / Activity where Settings → Libraries placed them, libraries.
+    var entries: [Entry] {
+        var out = [Entry(id: "home", title: "Home", icon: "house.fill")]
+        let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
+        func section(_ id: String) {
+            if id == NavOrder.favorites { out.append(Entry(id: "favorites", title: "Favorites", icon: "heart.fill")) }
+            else if id == NavOrder.nowPlaying { out.append(Entry(id: "nowplaying", title: ActivitySection.title, icon: ActivitySection.icon)) }
         }
-        .buttonStyle(.plainHand)
-        .tip(labels == "icons" ? title : "")   // names show on hover when only icons are shown
-        .focusEffectDisabled()   // no blue keyboard-focus ring around a section
-    }
-    /// Favorites or Activity, wherever Settings → Libraries placed it.
-    @ViewBuilder func section(_ id: String) -> some View {
-        if id == NavOrder.favorites { item("Favorites", "favorites", "heart.fill") }
-        else if id == NavOrder.nowPlaying { item(ActivitySection.title, "nowplaying", ActivitySection.icon, badge: nav.activeCount).modifier(ActivityUnreadDot(inset: 7)) }
-    }
-    func icon(_ lib: LibPref) -> String {
-        switch lib.kind {
-        case "movies": return "film"
-        case "tvshows": return "tv"
-        case "boxsets": return "square.stack"
-        case "music": return "music.note"
-        case "homevideos": return "video"
-        default: return "folder"
+        NavOrder.top(rows).forEach(section)
+        for lib in emby.libs {
+            if lib.visible { out.append(Entry(id: lib.id, title: lib.title, icon: LibraryIcon.symbol(kind: lib.kind, name: lib.name))) }
+            NavOrder.after(lib.id, rows).forEach(section)
         }
+        return out
     }
+
+    func select(_ id: String) {
+        nav.query = ""; nav.searchOpen = false
+        if nav.sel == id { nav.reselect += 1 }
+        nav.sel = id; nav.popToRoot()
+    }
+
+    func label(_ e: Entry) -> some View {
+        ToolbarItemLabel(title: e.title, icon: e.icon, labels: labels, on: nav.sel == e.id,
+                         activity: e.id == "nowplaying", streams: nav.activeCount)
+    }
+
+    func item(_ e: Entry) -> some View {
+        Button { select(e.id) } label: { label(e) }
+            .buttonStyle(.plainHand)
+            .tip(labels == "icons" ? e.title : "")   // names show on hover when only icons are shown
+            .focusEffectDisabled()   // no blue keyboard-focus ring around a section
+    }
+
     var body: some View {
+        let all = entries
+        let inner = available > 0 ? available - 2 * Glass3DTokens.Space.xs : 0
+        let split = ToolbarOverflow.split(all.map(\.id), widths: widths, available: inner, spacing: Glass3DTokens.Space.s,
+                                          moreWidth: widths[Self.moreId] ?? Glass3DTokens.Toolbar.sideSlot, selected: nav.sel)
+        let byId = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         HStack(spacing: Glass3DTokens.Space.s) {
-            item("Home", "home", "house.fill")
-            let rows = NavOrder.rows(navOrder, libIds: emby.libs.map(\.id))
-            ForEach(NavOrder.top(rows), id: \.self) { section($0) }
-            ForEach(emby.libs) { lib in
-                if lib.visible { item(lib.title, lib.id, icon(lib)) }
-                ForEach(NavOrder.after(lib.id, rows), id: \.self) { section($0) }
+            ForEach(split.visible, id: \.self) { id in if let e = byId[id] { item(e) } }
+            if !split.overflow.isEmpty {
+                ToolbarMoreButton(items: split.overflow.compactMap { byId[$0] }.map { ($0.id, $0.title) },
+                                  selected: nav.sel, pick: select)
             }
         }
         .padding(Glass3DTokens.Space.xs)
-        .frame(height: 44)
-        .classicClearGlass()
-
+        .frame(height: Glass3DTokens.Toolbar.barHeight)
+        .modifier(ToolbarBarSurface())   // steady tinted glass + hairline (macOS 26 and 14/15)
+        // Off-screen copies of every section (and More) at their natural width, for the split above
+        .background {
+            HStack(spacing: 0) {
+                ForEach(all) { e in label(e).toolbarMeasure(e.id) }
+                ToolbarMoreButton(items: [], selected: "", pick: { _ in }).toolbarMeasure(Self.moreId)
+            }
+            .fixedSize().hidden().allowsHitTesting(false)
+        }
+        .onPreferenceChange(ToolbarWidthsKey.self) { w in if w != widths { widths = w } }
     }
+    static let moreId = "__more"
 }
 
 struct ClassicTopNavTools: View {

@@ -94,7 +94,7 @@ struct ClassicLibraryView: View {
                 // Title on the grid's leading edge, the count as small grey text under it
                 HStack {
                     VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
-                        ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind))
+                        ClassicPageTitle(text: lib.title, icon: ClassicPageTitle.icon(lib.kind, name: lib.name))
                         Text(Glass3DTokens.itemCount(model.visibleCount))
                             .cvFont(Glass3DTokens.Text.meta, weight: .medium).foregroundColor(Glass3DTokens.Grey.secondary)
                     }
