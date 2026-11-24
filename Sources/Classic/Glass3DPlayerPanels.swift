@@ -391,28 +391,12 @@ enum Glass3DBarMenus {
     }
 }
 
-// MARK: - Episodes panel progress line
+// MARK: - Episodes panel progress
 
-/// A thin accent line along the bottom of a partly watched episode's thumbnail (Episodes panel).
+/// The Resume ring on a partly watched episode's thumbnail (Episodes panel); the row itself is the button.
 struct Glass3DEpisodeProgress: View {
     let fraction: Double
-    @AppStorage("accent") private var accentName = "red"
-    var body: some View {
-        GeometryReader { g in
-            let w = Glass3DTokens.progressWidth(fraction: fraction, width: g.size.width - 8)
-            if w > 0 {
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.black.opacity(0.55))
-                    Capsule().fill(Theme.accent(accentName)).frame(width: w)
-                }
-                .frame(height: 3)
-                .padding(.horizontal, 4)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 4)
-            }
-        }
-        .allowsHitTesting(false)
-    }
+    var body: some View { ResumeRingMark(fraction: fraction, size: 24, inset: 4) }
 }
 
 // MARK: - Right-hand control bar

@@ -13,6 +13,16 @@ enum Glass3DTokens {
         static let field: CGFloat = 8
         static let thumb: CGFloat = 6
         static let tag: CGFloat = 4
+        /// Text buttons (GlassButtonStyle primary / secondary / destructive)
+        static let button: CGFloat = 9
+        /// Pop-up glass menus, floating panels
+        static let window: CGFloat = 16
+        /// Hero / banner art and the big feature panels
+        static let hero: CGFloat = 18
+        /// The Home banner's info panel
+        static let banner: CGFloat = 22
+        /// Year in review share image cards (rendered at a fixed large pixel size)
+        static let shareCard: CGFloat = 32
     }
 
     // MARK: Glass fill / outline
@@ -26,7 +36,7 @@ enum Glass3DTokens {
     }
 
     // MARK: Shadows (radius, y, opacity)
-    struct Shadow { let radius: CGFloat; let y: CGFloat; let opacity: Double }
+    struct Shadow: Equatable { let radius: CGFloat; let y: CGFloat; let opacity: Double }
     static let shadowSmall = Shadow(radius: 2, y: 1, opacity: 0.35)
     static let shadowMedium = Shadow(radius: 8, y: 3, opacity: 0.4)
     static let shadowLarge = Shadow(radius: 16, y: 6, opacity: 0.45)
@@ -46,20 +56,86 @@ enum Glass3DTokens {
         static let tertiary = Color.white.opacity(0.42)
     }
 
+    // MARK: Spacing (padding / stack spacing scale)
+    enum Space {
+        static let xs: CGFloat = 4
+        static let s: CGFloat = 6
+        static let m: CGFloat = 10
+        static let l: CGFloat = 14
+        static let xl: CGFloat = 20
+    }
+
     // MARK: Animation
+    /// Three speeds and one spring. Views that animate on their own should go through `resolved(_:reduceMotion:)`
+    /// (or `.g3Animation`), so Reduce Motion turns movement into an instant change.
     enum Motion {
-        static let fast = Animation.easeOut(duration: 0.15)
-        static let slow = Animation.easeInOut(duration: 0.3)
+        enum Speed: CaseIterable { case fast, standard, slow }
+        static func duration(_ s: Speed) -> Double {
+            switch s { case .fast: return 0.15; case .standard: return 0.22; case .slow: return 0.3 }
+        }
+        /// The duration actually used: 0 with Reduce Motion on.
+        static func duration(_ s: Speed, reduceMotion: Bool) -> Double { reduceMotion ? 0 : duration(s) }
+
+        static let fast = Animation.easeOut(duration: duration(.fast))
+        static let standard = Animation.easeInOut(duration: duration(.standard))
+        static let slow = Animation.easeInOut(duration: duration(.slow))
+        /// Panels, pop-ups: a soft spring without bounce.
+        static let springResponse: Double = 0.32
+        static let springDamping: Double = 0.86
+        static let spring = Animation.spring(response: springResponse, dampingFraction: springDamping)
+        /// Shimmer sweep of skeleton placeholders (one pass).
+        static let shimmerPeriod: Double = 1.4
+
+        static func animation(_ s: Speed) -> Animation {
+            switch s { case .fast: return fast; case .standard: return standard; case .slow: return slow }
+        }
+        /// nil (no animation) with Reduce Motion on.
+        static func resolved(_ a: Animation, reduceMotion: Bool) -> Animation? { reduceMotion ? nil : a }
+        /// Whether a looping effect (shimmer, Ken Burns) may run.
+        static func allowsLoop(reduceMotion: Bool) -> Bool { !reduceMotion }
+    }
+
+    // MARK: Status colours (accent-independent)
+    /// ONE fixed red for every destructive / error / unread use, whatever the accent; success, warning, info likewise.
+    enum Status {
+        static let danger = Color(red: 1, green: 0.27, blue: 0.27)
+        static let success = Color(red: 0.30, green: 0.82, blue: 0.42)
+        static let warning = Color(red: 1, green: 0.62, blue: 0.04)
+        static let info = Color(red: 0.35, green: 0.65, blue: 1)
+    }
+
+    // MARK: Icons
+    enum Icon {
+        /// Default SF Symbol weight next to text.
+        static let weight: Font.Weight = .semibold
+    }
+
+    // MARK: Elevation 0–4 (fill + stroke + top highlight + shadow)
+    /// 0 flat rows · 1 inline rows, chips, fields · 2 cards · 3 popovers, menus, toasts · 4 windows, hero panels.
+    struct ElevationRecipe: Equatable {
+        /// White fill opacity over what's behind
+        let fill: Double
+        /// Background colour (Settings → Background) fill opacity underneath, for floating surfaces (0 = none)
+        let backgroundFill: Double
+        let stroke: Double
+        /// Top-edge specular highlight opacity (fades out towards the middle)
+        let highlight: Double
+        let shadow: Shadow?
+    }
+    static func elevation(_ level: Int) -> ElevationRecipe {
+        switch min(4, max(0, level)) {
+        case 0: return ElevationRecipe(fill: 0, backgroundFill: 0, stroke: 0, highlight: 0, shadow: nil)
+        case 1: return ElevationRecipe(fill: 0.05, backgroundFill: 0, stroke: 0.10, highlight: 0.10, shadow: nil)
+        case 2: return ElevationRecipe(fill: 0.07, backgroundFill: 0, stroke: 0.14, highlight: 0.22,
+                                       shadow: Shadow(radius: 8, y: 3, opacity: 0.35))
+        case 3: return ElevationRecipe(fill: 0.04, backgroundFill: 0.75, stroke: 0.18, highlight: 0.28,
+                                       shadow: Shadow(radius: 16, y: 6, opacity: 0.45))
+        default: return ElevationRecipe(fill: 0.04, backgroundFill: 0.75, stroke: 0.22, highlight: 0.30,
+                                        shadow: Shadow(radius: 28, y: 12, opacity: 0.5))
+        }
     }
 
     // MARK: Pure helpers (tested)
-
-    /// Width of the progress line along a thumbnail's bottom edge: the watched fraction (clamped to 0…1) of the
-    /// width; nothing for an unstarted or finished item.
-    static func progressWidth(fraction: Double, width: CGFloat) -> CGFloat {
-        guard fraction > 0, fraction < 1, width > 0 else { return 0 }
-        return (CGFloat(fraction) * width).rounded(.toNearestOrEven)
-    }
 
     /// The library sort button's text: "Sort: Name ↑".
     static func sortLabel(field: String, ascending: Bool) -> String {

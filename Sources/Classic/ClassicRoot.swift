@@ -112,8 +112,8 @@ struct ClassicHomeView: View {
             .padding(.horizontal, 12).frame(height: 32)
             .background {
                 if on {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+                    RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
+                        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
                 }
             }
             .contentShape(Rectangle())
@@ -151,8 +151,8 @@ struct ClassicHomeView: View {
                             Image(systemName: "chevron.up.chevron.down").cvFont(10, weight: .regular).foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
-                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plainHand)
@@ -499,15 +499,3 @@ struct ClassicTopBackButton: View {
 }
 
 
-/// A count in a red circle with a white number (owner: Activity's streams number), '99+' above 99.
-struct CountBadge: View {
-    let count: Int
-    var size: CGFloat = 20
-    var body: some View {
-        let t = count > 99 ? "99+" : "\(count)"
-        Text(t).font(.system(size: size * 0.6, weight: .bold, design: .rounded)).monospacedDigit().foregroundColor(.white)
-            .padding(.horizontal, t.count > 1 ? size * 0.25 : 0).frame(minWidth: size, minHeight: size)
-            .background(Capsule().fill(Color(red: 0.93, green: 0.27, blue: 0.27)))
-            .fixedSize()
-    }
-}

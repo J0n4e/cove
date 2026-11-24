@@ -72,9 +72,9 @@ private struct NotesCard: View {
     var body: some View {
         NotesText(markdown: markdown).frame(minHeight: 160)
             .padding(4)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.white.opacity(0.04)))
+            .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).stroke(Color.white.opacity(0.08)))
+            .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row))
     }
 }
 
@@ -151,7 +151,7 @@ struct UpdateWindowView: View {
                 }
             }
             if let e = up.windowError {
-                Text(e).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
+                Text(e).foregroundColor(Glass3DTokens.Status.danger).fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 10) {
                 Button("Skip This Version") { up.skip(rel.tag_name) }

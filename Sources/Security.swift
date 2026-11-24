@@ -198,7 +198,7 @@ struct ConnectionBadge: View {
         case .localPlain:
             Image(systemName: "lock.open").foregroundColor(.secondary).tip("Not encrypted (http), on your home network")
         case .remotePlain:
-            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(Glass3DTokens.Status.warning)
                 .tip("Not encrypted (http) over the internet: the sign-in can be read on the network. Use an https address if the server has one.")
         }
     }

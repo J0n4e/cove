@@ -175,12 +175,12 @@ struct ClassicLibraryView: View {
                     }
                 }
             }   // grid: PosterGrid, see body
-            if model.loading { Spinner() }
+            if model.loading { SkeletonShimmer().padding(.horizontal, 40).padding(.vertical, 20) }
             else if model.loadFailed {
                 if model.items.isEmpty { ErrorStateView(message: emby.lastFailure ?? "Couldn't load this library.") { model.reload() } }
                 else { LoadMoreFailedView { model.retry() } }
             }
-            else if model.visibleItems.isEmpty { Text("Nothing here.").foregroundColor(.secondary).padding(40) }
+            else if model.visibleItems.isEmpty { EmptyState(symbol: "tray", title: "Nothing here.").padding(.vertical, 10) }
         }
     }
 
@@ -207,9 +207,9 @@ struct ClassicLibraryView: View {
                 Button { model.genre = g; model.tab = 0 } label: {
                     // Glass tiles, as the buttons
                     Text(g).cvFont(13, weight: .bold).foregroundColor(.white).frame(maxWidth: .infinity, minHeight: 70)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.3)))
-                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
-                        .contentShape(RoundedRectangle(cornerRadius: 14))
+                        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)))
+                        .contentShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel))
                 }.buttonStyle(HoverButton())
             }
         }

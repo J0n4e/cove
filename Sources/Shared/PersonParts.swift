@@ -68,7 +68,7 @@ struct PersonHeader: View {
                 } placeholder: {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").coveFont(size: 70).foregroundColor(.secondary) }
                 }
-                .frame(width: 280, height: 420).clipShape(RoundedRectangle(cornerRadius: 14))
+                .frame(width: 280, height: 420).clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel))
                 // Favorite: heart top left when it is one, heart button bottom right on hover (as on cast photos)
                 .overlay(alignment: .topLeading) {
                     if emby.isPersonFav(id) {

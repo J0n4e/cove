@@ -19,7 +19,7 @@ struct StatsInsightsView: View {
                         StatsStateCard(symbol: "lightbulb", title: "No playback recorded in this range",
                                        message: "Insights appear once people have watched something. Try a longer range.")
                     } else { InsightsGrid(data: d, range: insights.range) }
-                } else if insights.loading || insights.data == nil { Spinner().frame(maxWidth: .infinity).padding(60) }
+                } else if insights.loading || insights.data == nil { SkeletonShimmer().padding(.vertical, 30) }
                 else {
                     StatsStateCard(symbol: "exclamationmark.triangle", title: "Insights couldn't be loaded",
                                    message: "The server didn't answer. Open this tab again to retry.")
@@ -170,7 +170,7 @@ struct InsightsMiniBars: View {
         HStack(alignment: .bottom, spacing: values.count > 12 ? 2 : 5) {
             ForEach(values.indices, id: \.self) { i in
                 VStack(spacing: 3) {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag, style: .continuous)
                         .fill(accent.opacity(i == highlight ? 1 : 0.45))
                         .frame(height: max(values[i] > 0 ? 3 : 1, height * CGFloat(values[i]) / CGFloat(top)))
                         .opacity(values[i] > 0 ? 1 : 0.3)

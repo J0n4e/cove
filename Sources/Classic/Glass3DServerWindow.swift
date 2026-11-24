@@ -113,33 +113,12 @@ struct ServerAdminRoot: View {
 
 // MARK: - Building blocks
 
-/// A glass card on the window's glass (the Settings card look).
+/// A glass card on the window's glass (the Settings card look): the shared GlassCard.
 struct ServerAdminCard<C: View>: View {
     var title: String? = nil
     @ViewBuilder var content: C
     var body: some View {
-        let r = Glass3DTokens.Radius.panel
-        VStack(alignment: .leading, spacing: 8) {
-            if let title {
-                Text(title.uppercased()).cvFont(11, weight: .semibold).kerning(0.6).foregroundColor(Glass3DTokens.Grey.secondary)
-            }
-            content
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: r, style: .continuous).fill(Color.white.opacity(0.08)))
-        .overlay(RoundedRectangle(cornerRadius: r, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 0.5))
-    }
-}
-
-/// The red pill for restart / shut down.
-struct ServerDangerButton: ButtonStyle {
-    func makeBody(configuration c: Configuration) -> some View {
-        c.label.cvFont(13, weight: .semibold).lineLimit(1).fixedSize()
-            .padding(.horizontal, 14).padding(.vertical, 7)
-            .foregroundColor(.white)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.red.opacity(c.isPressed ? 0.6 : 0.8)))
-            .contentShape(Rectangle())
+        GlassCard(title: title, padding: Glass3DTokens.Space.l, spacing: 8, radius: Glass3DTokens.Radius.panel) { content }
     }
 }
 

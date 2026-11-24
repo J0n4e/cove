@@ -70,7 +70,7 @@ struct LibraryFindField: View {
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 8)
+                    .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field)
                         .fill(selected == i ? Theme.accent(accentName).opacity(0.35) : .clear))
                     .contentShape(Rectangle())
                 }

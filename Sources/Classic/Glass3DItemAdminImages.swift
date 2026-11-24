@@ -22,13 +22,13 @@ struct ItemImagesView: View {
         VStack(alignment: .leading, spacing: 12) {
             ItemAdminHeader(title: browsing.map { "Online \(ItemAdminAPI.typeTitle($0).lowercased())" } ?? "Edit Images",
                             subtitle: item.Name)
-            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
             if let b = browsing {
                 ItemRemoteImagesView(item: item, type: b, back: { browsing = nil }, picked: { img in download(b, img) })
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        if !loaded { Spinner().frame(maxWidth: .infinity).padding(.top, 40) }
+                        if !loaded { SkeletonShimmer(rows: 2, rowHeight: 90).padding(.top, 20) }
                         else { ForEach(types, id: \.self) { section($0) } }
                     }.padding(.bottom, 16)
                 }.classicScrollBars()
@@ -172,7 +172,7 @@ struct ItemRemoteImagesView: View {
                 if loading { Spinner().controlSize(.small) }
                 Text("\(images.count) pictures").cvFont(11).foregroundColor(.white.opacity(0.6))
             }
-            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(.orange) }
+            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning) }
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: type == "Primary" ? 130 : 210), spacing: 12)], spacing: 12) {
                     ForEach(images) { img in

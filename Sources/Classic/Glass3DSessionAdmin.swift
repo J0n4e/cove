@@ -84,7 +84,7 @@ struct SessionAdminControls: View {
             HStack {
                 Spacer()
                 Button("Cancel") { confirmOpen = false }.buttonStyle(AboutButton(accentName: accentName)).keyboardShortcut(.cancelAction)
-                Button("Sign out") { signOut() }.buttonStyle(ServerDangerButton()).disabled(busy)
+                Button("Sign out") { signOut() }.buttonStyle(GlassButtonStyle(.destructive)).disabled(busy)
             }
         }
         .padding(14).frame(width: 320).preferredColorScheme(.dark)

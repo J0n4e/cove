@@ -77,7 +77,7 @@ struct CastDeviceList: View {
         }
         .frame(width: CastMenu.width)
         .background(CastMenuMaterial())
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row, style: .continuous))
         .environment(\.colorScheme, .dark)
         .onAppear { store.begin() }
         .onDisappear { store.end() }
@@ -92,7 +92,7 @@ struct CastDeviceList: View {
                     case .device(let d): pick(d)
                     }
                 } label: { CastMenuRowLabel(row: r) }
-                .buttonStyle(CastRowStyle())
+                .buttonStyle(GlassButtonStyle(.row))
                 .help(r.tip)
             }
             switch status {
@@ -169,21 +169,6 @@ extension CastSession {
         stop()
         emby.playing = PlayRequest(item: it, sourceId: r?.sourceId, audio: r?.audio, sub: r?.sub,
                                    start: t > 0 ? t : nil, collection: q)
-    }
-}
-
-private struct CastRowStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View { Row(c: configuration) }
-
-    struct Row: View {
-        let c: ButtonStyleConfiguration
-        @State private var hover = false
-        var body: some View {
-            c.label
-                .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Color.white.opacity(c.isPressed ? 0.16 : hover ? 0.1 : 0)))
-                .onHover { hover = $0 }
-        }
     }
 }
 

@@ -106,6 +106,25 @@ struct ThumbnailResumeRing: View {
     }
 }
 
+/// The same Resume ring as a static mark (no button), for thumbnails that are already one big button (library
+/// posters, the player's Episodes panel). Replaces the old bottom progress lines (owner: ring only).
+struct ResumeRingMark: View {
+    let fraction: Double
+    var size: CGFloat = ProgressStyle.ringSize
+    var inset: CGFloat = ProgressStyle.ringInset
+    @AppStorage("accent") private var accentName = "red"
+    var body: some View {
+        if let f = ProgressStyle.trimFraction(fraction) {
+            Label("Resume", systemImage: "play.fill").classicGlassPill(size: size)
+                .overlay { RingArc(fraction: f, accent: Theme.accent(accentName)) }
+                .padding(.trailing, inset).padding(.bottom, inset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
 /// The ring itself: a faint full track and the accent arc from the top, clockwise.
 private struct RingArc: View {
     let fraction: CGFloat

@@ -28,13 +28,13 @@ struct FavPersonListRow<Link: Hashable>: View {
                 } placeholder: {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").foregroundColor(.secondary) }
                 }
-                .frame(width: 44, height: 66).clipShape(RoundedRectangle(cornerRadius: 6))
+                .frame(width: 44, height: 66).clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb))
                 Text(p.Name).coveFont(size: 13, weight: .semibold).lineLimit(1)
                 Spacer(minLength: 0)
                 if emby.isFav(p) { FavHeart(size: 15) }
             }
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hover ? 0.1 : 0.04)))
+            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.white.opacity(hover ? 0.1 : 0.04)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plainHand)

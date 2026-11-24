@@ -147,7 +147,7 @@ struct WatchActivityList: View {
     @ViewBuilder private func stateView(_ st: WatchActivityState) -> some View {
         switch st {
         case .watched:
-            Label("Watched", systemImage: "checkmark").cvFont(11, weight: .semibold).foregroundColor(.green)
+            Label("Watched", systemImage: "checkmark").cvFont(11, weight: .semibold).foregroundColor(Glass3DTokens.Status.success)
         case .notStarted:
             Text("Not started").cvFont(11).foregroundColor(Glass3DTokens.Grey.tertiary)
         case .progress(let f, _):

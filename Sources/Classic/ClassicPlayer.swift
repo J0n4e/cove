@@ -16,7 +16,7 @@ struct PreviewFrame: ViewModifier {
     let classic: Bool
     @ViewBuilder func body(content: Content) -> some View {
         if classic { content.classicThinBorder(10).shadow(color: .black.opacity(0.5), radius: 8, y: 3) }
-        else { content.overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.6), lineWidth: 1)) }
+        else { content.overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb).stroke(Color.white.opacity(0.6), lineWidth: 1)) }
     }
 }
 
@@ -80,7 +80,7 @@ struct InfoSurface: ViewModifier {
     let classic: Bool
     @ViewBuilder func body(content: Content) -> some View {
         if classic { content.modifier(PanelSurface(classic: true)) }
-        else { content.background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.75))) }
+        else { content.background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.black.opacity(0.75))) }
     }
 }
 
@@ -404,7 +404,7 @@ struct ClassicPlayerView: View {
                     .modifier(SubShadow(style: subShadow, color: shade))
                     .padding(.horizontal, 10).padding(.vertical, 3)
                     .background(Color.black.opacity(Self.bgs.first { $0.0 == subBg }?.2 ?? 0))
-                    .cornerRadius(4)
+                    .cornerRadius(Glass3DTokens.Radius.tag)
                     .padding(.horizontal, size.width * 0.08)
                     .padding(.bottom, subLift(size))
             }
@@ -698,7 +698,7 @@ struct ClassicPlayerView: View {
                                         Capsule().fill(on ? accent.opacity(0.55) : Color.white.opacity(0.06))
                                             .overlay(Capsule().strokeBorder(Color.white.opacity(on ? 0.4 : 0.15), lineWidth: 0.75))
                                     } else {
-                                        RoundedRectangle(cornerRadius: 8).fill(on ? accent : Color.white.opacity(0.1))
+                                        RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).fill(on ? accent : Color.white.opacity(0.1))
                                     }
                                 }
                                 .contentShape(Rectangle())
@@ -740,7 +740,7 @@ struct ClassicPlayerView: View {
                     Image(systemName: "chevron.down").cvFont(13, weight: .bold)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 11)
-                .background(Color.white.opacity(0.1)).cornerRadius(6)
+                .background(Color.white.opacity(0.1)).cornerRadius(Glass3DTokens.Radius.thumb)
                 .contentShape(Rectangle())
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).handCursor()
@@ -995,7 +995,7 @@ extension ClassicPlayerView {
             CachedImage(url: ui.upNextImage(emby, n)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { Color.white.opacity(0.1) }
-            .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .frame(width: 160, height: 90).clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous))
             VStack(alignment: .leading, spacing: 6) {
                 Text(ui.upNextHeading(n)).cvFont(12, weight: .semibold).foregroundColor(.white.opacity(0.88))
                 Text(ui.upNextTitle(n))
@@ -1092,7 +1092,7 @@ extension ClassicPlayerView {
                 CachedImage(url: emby.image(ep.Id, width: 320, plain: true)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.08) }
-                .frame(width: 120, height: 68).clipped().cornerRadius(5)
+                .frame(width: 120, height: 68).clipped().cornerRadius(Glass3DTokens.Radius.thumb)
                 .overlay {
                     if current {
                         Image(systemName: "speaker.wave.2.fill").cvFont(18).foregroundColor(.white)
@@ -1123,7 +1123,7 @@ extension ClassicPlayerView {
             .padding(.horizontal, 14).padding(.vertical, 6)
             .background {
                 // Classic: the playing one on an accent glass band, as the chosen line in the glass lists
-                if classic && current { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(accent.opacity(0.4)) }
+                if classic && current { RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(accent.opacity(0.4)) }
                 else if current { Color.white.opacity(0.08) }
             }
             .contentShape(Rectangle())
@@ -1163,7 +1163,7 @@ extension ClassicPlayerView {
                         } placeholder: { Color.white.opacity(0.08) }
                     } else { Color.white.opacity(0.08) }
                 }
-                .frame(width: 112, height: 63).clipped().cornerRadius(5)
+                .frame(width: 112, height: 63).clipped().cornerRadius(Glass3DTokens.Radius.thumb)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(c.Name ?? "Chapter \(i + 1)").cvFont(15).lineLimit(2)
                     Text(fmt(c.start)).cvFont(13) { $0.monospacedDigit() }.foregroundColor(.secondary)
@@ -1173,7 +1173,7 @@ extension ClassicPlayerView {
             .foregroundColor(classic || !current ? .white : accent)
             .padding(.horizontal, classic ? 12 : 18).padding(.vertical, 7)
             .background {
-                if classic && current { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(accent.opacity(0.4)) }
+                if classic && current { RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(accent.opacity(0.4)) }
             }
             .contentShape(Rectangle())
         }.buttonStyle(PanelRowStyle(glass: classic)).padding(.horizontal, classic ? 6 : 0)

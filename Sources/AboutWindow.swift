@@ -60,29 +60,12 @@ struct AboutView: View {
     func open(_ u: URL) { NSWorkspace.shared.open(u) }
 }
 
-/// Nexview's button style in Cove's accent: a gradient-filled primary, a dark outlined secondary.
-/// Labels never wrap, so both buttons stay on one line and the same height.
+/// Thin alias for the shared GlassButtonStyle (primary / secondary), kept for its many call sites.
 struct AboutButton: ButtonStyle {   // shared by About, Software Update and What's New
     var primary = false
     var accentName = "red"
     func makeBody(configuration c: Configuration) -> some View {
-        let a = Theme.accent(accentName)
-        return c.label
-            .coveFont(size: 13, weight: .semibold)
-            .lineLimit(1).fixedSize()
-            .padding(.horizontal, 14).padding(.vertical, 7)
-            .foregroundColor(primary ? Theme.onAccent(accentName) : .white)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(primary
-                          ? AnyShapeStyle(LinearGradient(colors: [a.opacity(0.85), a, a.opacity(0.7)],
-                                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                          : AnyShapeStyle(Color.white.opacity(0.08)))
-            )
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(primary ? Color.clear : Color.white.opacity(0.12), lineWidth: 1))
-            .opacity(c.isPressed ? 0.75 : 1)
-            .contentShape(Rectangle())
+        GlassButtonStyle(primary ? .primary : .secondary, accentName: accentName).makeBody(configuration: c)
     }
 }
 

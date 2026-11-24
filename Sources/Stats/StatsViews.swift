@@ -6,11 +6,7 @@ import SwiftUI
 extension View {
     /// A Glass3D glass card: faint white fill, thin outline, panel radius.
     func statsCard() -> some View {
-        let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)
-        return padding(18)
-            .background(shape.fill(Color.white.opacity(Glass3DTokens.Fill.subtle)))
-            .background(shape.fill(.ultraThinMaterial).opacity(0.5))
-            .overlay(shape.strokeBorder(Color.white.opacity(Glass3DTokens.Stroke.subtle), lineWidth: 0.75))
+        glassCard(padding: 18, radius: Glass3DTokens.Radius.panel)
     }
 }
 
@@ -62,7 +58,7 @@ struct StatsGate<Content: View>: View {
     var body: some View {
         Group {
             switch model.availability {
-            case nil: Spinner().frame(maxWidth: .infinity).padding(60)
+            case nil: SkeletonShimmer().padding(.vertical, 30)
             case .available: content()
             case .notAdmin: StatsFallbackView(model: model)
             case .pluginMissing:
@@ -92,7 +88,7 @@ struct StatsFallbackView: View {
             }
             .statsCard()
             StatsHeading(text: "Recently played")
-            if !model.fallbackLoaded { Spinner().frame(maxWidth: .infinity).padding(40) }
+            if !model.fallbackLoaded { SkeletonShimmer().padding(.vertical, 20) }
             else if model.fallback.isEmpty {
                 StatsStateCard(symbol: "clock", title: "Nothing played yet", message: "Movies and episodes you finish show here.")
             } else {

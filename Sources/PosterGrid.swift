@@ -738,9 +738,8 @@ struct PosterDecor: View {
         // v1.18.4: the dark glass badges (the same views as the live buttons, drawn at rest)
         Color.clear.frame(width: s.width, height: s.height)
             .overlay { if badges { PosterBadgesOverlay(item: item, hover: false) } }
-            .overlay(alignment: .bottom) {
-                if progress > 0 { ProgressView(value: Double(progress) / 100).padding(.horizontal, 8).padding(.bottom, 8) }
-            }
+            // the Resume ring (owner: no bottom progress lines)
+            .overlay { if progress > 0 { ResumeRingMark(fraction: Double(progress) / 100) } }
             .tint(accent)
     }
 

@@ -99,8 +99,8 @@ private struct DropdownLayer: View {
         }
         .frame(maxHeight: min(CGFloat(l.options.count) * rowH + 12, 372))
         .scrollIndicators(.never)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(bg.opacity(0.75)))
-        .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: 16, style: .continuous)))
+        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous).fill(bg.opacity(0.75)))
+        .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous)))
         .shadow(color: .black.opacity(0.45), radius: 16, y: 6)
         .onHover { inside in if !inside && l.closeOnLeave { center.close() } }
     }

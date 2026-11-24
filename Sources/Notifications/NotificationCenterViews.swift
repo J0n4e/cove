@@ -206,8 +206,8 @@ struct ActivityUnreadDot: ViewModifier {
     func body(content: Content) -> some View {
         content.overlay(alignment: .topTrailing) {
             if store.unread > 0 {
-                Circle().fill(Color(red: 1, green: 0.27, blue: 0.27)).frame(width: 7, height: 7)   // fitted inside the pill (owner)
-                    .padding(inset).allowsHitTesting(false)
+                UnreadDot()   // fitted inside the pill (owner)
+                    .padding(inset)
                     .help(NotificationTabLabel.unreadHelp(store.unread))
             }
         }

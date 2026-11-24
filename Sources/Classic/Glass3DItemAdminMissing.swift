@@ -28,7 +28,7 @@ struct ItemMissingView: View {
                     .buttonStyle(AboutButton(primary: true, accentName: accentName))
                     .disabled(rows.isEmpty || scanning || refreshing).opacity(rows.isEmpty || scanning ? 0.5 : 1)
             }
-            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(.orange) }
+            if !error.isEmpty { Text(error).cvFont(11).foregroundColor(Glass3DTokens.Status.warning) }
             ScrollView {
                 LazyVStack(spacing: 8) { ForEach(rows) { row($0) } }.padding(.bottom, 12)
             }.classicScrollBars()
@@ -74,7 +74,7 @@ struct ItemMissingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(r.name + (r.year.map { " (\($0))" } ?? "")).cvFont(13, weight: .semibold).lineLimit(1)
-                    if fixed.contains(r.id) { Image(systemName: "checkmark.circle.fill").cvFont(12).foregroundColor(.green) }
+                    if fixed.contains(r.id) { Image(systemName: "checkmark.circle.fill").cvFont(12).foregroundColor(Glass3DTokens.Status.success) }
                 }
                 if let p = r.path { Text(p).cvFont(10).foregroundColor(.white.opacity(0.5)).lineLimit(1).truncationMode(.middle) }
             }

@@ -61,8 +61,8 @@ struct GlassFrostPreview: View {
                 .modifier(ClassicClearGlass(shape: Capsule(), interactive: false))
         }
         .frame(width: 150, height: 44)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous).stroke(Color.white.opacity(0.15), lineWidth: 1))
     }
 }
 
@@ -192,20 +192,12 @@ struct ClassicScrollBars: ViewModifier {
 // MARK: - Empty state
 
 /// One empty state for Glass3D pages: a symbol, a headline and an optional line of help.
-struct ClassicEmptyState: View {
+struct ClassicEmptyState: View {   // thin alias for the shared EmptyState, with its page offset
     let symbol: String
     let title: String
     var message: String? = nil
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol).cvFont(40, weight: .light).foregroundColor(.secondary)
-                .accessibilityHidden(true)
-            Text(title).cvFont(15, weight: .bold).multilineTextAlignment(.center)
-            if let message {
-                Text(message).cvFont(12).foregroundColor(.secondary).multilineTextAlignment(.center).frame(maxWidth: 420)
-            }
-        }
-        .frame(maxWidth: .infinity).padding(.top, 80)
+        EmptyState(symbol: symbol, title: title, message: message).frame(maxWidth: 480).frame(maxWidth: .infinity).padding(.top, 50)
     }
 }
 

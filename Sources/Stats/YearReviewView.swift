@@ -12,7 +12,7 @@ struct StatsYearReviewView: View {
 
     var body: some View {
         Group {
-            if model.availability == nil { Spinner().frame(maxWidth: .infinity).padding(60) }
+            if model.availability == nil { SkeletonShimmer().padding(.vertical, 30) }
             else { content }
         }
         .task(id: "\(model.availability.map { "\($0)" } ?? "")|\(emby.server)|\(emby.userId)") {
@@ -54,7 +54,7 @@ struct StatsYearReviewView: View {
                     StatsStateCard(symbol: "sparkles", title: "Nothing watched in \(String(r.year))",
                                    message: "Plays from this year show here as soon as there are some.")
                 } else { YearStory(review: r, limited: insights.limited) }
-            } else { Spinner().frame(maxWidth: .infinity).padding(60) }
+            } else { SkeletonShimmer().padding(.vertical, 30) }
         }
     }
 
@@ -298,6 +298,7 @@ struct YearShareCard: View {
             RadialGradient(colors: [accent.opacity(0.25), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 800)
             VStack(alignment: .leading, spacing: 44) {
                 VStack(alignment: .leading, spacing: 8) {
+                    // Share image (ImageRenderer at a fixed pixel size): fixed fonts on purpose, not cvFont
                     Text("YEAR IN REVIEW").font(.system(size: 30, weight: .bold)).tracking(6).foregroundColor(accent)
                     Text(String(r.year)).font(.system(size: 150, weight: .heavy)).foregroundColor(.white)
                     if !userName.isEmpty { Text(userName).font(.system(size: 40, weight: .semibold)).foregroundColor(.white.opacity(0.75)) }
@@ -324,7 +325,7 @@ struct YearShareCard: View {
     }
 
     private func tile(_ value: String, _ label: String) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 32, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.shareCard, style: .continuous)
         return VStack(alignment: .leading, spacing: 6) {
             Text(value).font(.system(size: 76, weight: .heavy)).foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.5)
             Text(label).font(.system(size: 28, weight: .medium)).foregroundColor(.white.opacity(0.7))
@@ -346,7 +347,7 @@ struct YearShareCard: View {
                         else { Text(name).font(.system(size: 20, weight: .semibold)).foregroundColor(.white.opacity(0.7)).padding(10) }
                     }
                     .frame(width: 166, height: 249)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous))
                 }
             }
         }

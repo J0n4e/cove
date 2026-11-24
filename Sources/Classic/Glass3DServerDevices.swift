@@ -35,7 +35,7 @@ struct ServerDevicesTab: View {
                 if let e = model.error, model.devices.isEmpty {
                     ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
                 } else if !model.loaded {
-                    ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 8) {
@@ -103,14 +103,14 @@ struct ServerDeviceSheet: View {
                 Text("This signs the device out. It has to sign in again to use the server.")
                     .cvFont(13).foregroundColor(Glass3DTokens.Grey.primary).fixedSize(horizontal: false, vertical: true)
             }
-            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true) }
+            if !error.isEmpty { Text(error).cvFont(12).foregroundColor(Glass3DTokens.Status.warning).fixedSize(horizontal: false, vertical: true) }
             HStack {
                 if busy { ProgressView().controlSize(.small) }
                 Spacer()
                 Button("Cancel") { done(nil) }.buttonStyle(AboutButton(accentName: accentName)).keyboardShortcut(.cancelAction)
                 switch sheet {
                 case .rename: Button("Rename") { go() }.buttonStyle(AboutButton(primary: true, accentName: accentName)).disabled(busy)
-                case .remove: Button("Remove") { go() }.buttonStyle(ServerDangerButton()).disabled(busy)
+                case .remove: Button("Remove") { go() }.buttonStyle(GlassButtonStyle(.destructive)).disabled(busy)
                 }
             }
         }
@@ -162,12 +162,12 @@ struct ServerPluginsTab: View {
                     if let m = message { Text(m).cvFont(12).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(2) }
                     Spacer()
                     let n = model.plugins.filter { $0.update != nil }.count
-                    if n > 0 { Text(n == 1 ? "1 update available" : "\(n) updates available").cvFont(Glass3DTokens.Text.meta).foregroundColor(.green) }
+                    if n > 0 { Text(n == 1 ? "1 update available" : "\(n) updates available").cvFont(Glass3DTokens.Text.meta).foregroundColor(Glass3DTokens.Status.success) }
                 }
                 if let e = model.error, model.plugins.isEmpty {
                     ServerAdminNotice(icon: "exclamationmark.triangle", text: e)
                 } else if !model.loaded {
-                    ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    SkeletonShimmer(rows: 4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else if model.plugins.isEmpty {
                     ServerAdminNotice(icon: "puzzlepiece.extension", text: "No plugins installed.")
                 } else {
@@ -185,7 +185,7 @@ struct ServerPluginsTab: View {
                         Spacer()
                         Button("Cancel") { confirm = nil }.buttonStyle(AboutButton(accentName: accentName)).keyboardShortcut(.cancelAction)
                         Button("Uninstall") { confirm = nil; act(p, PluginAdminAPI.uninstall(p, kind: model.kind), "uninstall the plugin", "Uninstalled \u{201C}\(p.name)\u{201D}.") }
-                            .buttonStyle(ServerDangerButton())
+                            .buttonStyle(GlassButtonStyle(.destructive))
                     }
                 }
             }
@@ -198,11 +198,11 @@ struct ServerPluginsTab: View {
     var restartBanner: some View {
         ServerAdminCard {
             HStack(spacing: 10) {
-                Image(systemName: "arrow.clockwise.circle.fill").cvFont(16).foregroundColor(.orange)
+                Image(systemName: "arrow.clockwise.circle.fill").cvFont(16).foregroundColor(Glass3DTokens.Status.warning)
                 Text(restartText).cvFont(13).foregroundColor(.white)
                 Spacer()
                 Button("Restart server") { Task { await admin.restart() } }
-                    .buttonStyle(ServerDangerButton()).disabled(admin.power == .restarting)
+                    .buttonStyle(GlassButtonStyle(.destructive)).disabled(admin.power == .restarting)
             }
         }
     }

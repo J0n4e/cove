@@ -1,3 +1,5 @@
+// Badge glyphs here are drawn at sizes derived from their circles (and rasterised), so they use fixed
+// `.font(.system(size:))` on purpose (allow-listed in FontLintTests).
 import SwiftUI
 
 /// Your rating next to Play / Resume: ☆ until you rate, then "★ 9". Click it for 1–10 stars; ratings go to Trakt.
@@ -76,7 +78,7 @@ struct RatingButton: View {
     @ViewBuilder var badge: some View {
         if trakt.isConnected && trakt.isPending(kind: kind, ids: ids) {
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                .coveFont(size: 13).foregroundColor(.orange)
+                .coveFont(size: 13).foregroundColor(Glass3DTokens.Status.warning)
                 .background(Circle().fill(.black))
                 .offset(x: 3, y: -3)
                 .help(trakt.lastError ?? "Waiting to be sent to Trakt")

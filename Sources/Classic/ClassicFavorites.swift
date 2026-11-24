@@ -34,7 +34,7 @@ struct ClassicFavoritesView: View {
                 if !collections.isEmpty { section("Favorite Collections", collections) }
                 let favPeople = people.filter { emby.isFav($0) }
                 if !favPeople.isEmpty { peopleSection(favPeople) }
-                if loading && items.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
+                if loading && items.isEmpty { SkeletonShimmer().padding(.vertical, 30) }
                 else if favs.isEmpty && !people.contains(where: { emby.isFav($0) }) {
                     ClassicEmptyState(symbol: "heart", title: "No favorites yet",
                                       message: "Tap the heart on a movie, show, collection, episode or person to add it here.")
@@ -146,7 +146,7 @@ struct ClassicFavPersonCard: View {
                 } placeholder: {
                     ZStack { Color(white: 0.18); Image(systemName: "person.fill").cvFont(50).foregroundColor(.secondary) }
                 }
-                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(width: 150, height: 225).clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card))
                 .modifier(ClassicLightCard(radius: 12, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225),
                                            tracksHover: true))   // the posters' light glass edge, and their glow
                 .modifier(HoverPersonHeart(id: p.id, name: p.Name))

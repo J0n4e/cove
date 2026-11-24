@@ -40,7 +40,7 @@ enum NowPlayingStyle {
         }
     }
     static func color(_ t: Tint) -> Color {
-        switch t { case .green: return .green; case .blue: return .blue; case .orange: return .orange }
+        switch t { case .green: return Glass3DTokens.Status.success; case .blue: return .blue; case .orange: return Glass3DTokens.Status.warning }
     }
 
     /// "catalin · Samsung Browser Android".
@@ -152,7 +152,7 @@ struct ClassicNowPlayingView: View {
     }
 
     @ViewBuilder private var sessionsContent: some View {
-        if !loaded { Spinner().frame(maxWidth: .infinity).padding(60) }
+        if !loaded { SkeletonShimmer().padding(.vertical, 30) }
         else if sessions.isEmpty {
             ClassicEmptyState(symbol: "play.slash", title: "Nothing playing right now",
                               message: "Playback on any device signed in to this server shows here.")

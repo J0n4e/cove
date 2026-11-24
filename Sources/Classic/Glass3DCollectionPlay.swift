@@ -74,7 +74,7 @@ struct CollectionPanel: View {
                 CachedImage(url: emby.image(film.Id, width: 200)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.08) }
-                .frame(width: 46, height: 68).clipped().cornerRadius(5)
+                .frame(width: 46, height: 68).clipped().cornerRadius(Glass3DTokens.Radius.thumb)
                 .overlay(alignment: .topTrailing) {
                     if played && !isCurrent {
                         Image(systemName: "checkmark.circle.fill").cvFont(12).foregroundColor(.white).shadow(radius: 2).padding(3)
@@ -91,7 +91,7 @@ struct CollectionPanel: View {
             .padding(.horizontal, 14).padding(.vertical, 6)
             .background {
                 if isCurrent {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
+                    RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous).fill(Theme.accent(accentName).opacity(0.4))
                 }
             }
             .contentShape(Rectangle())

@@ -61,14 +61,14 @@ struct PanelSurface: ViewModifier {
     let classic: Bool
     @Environment(\.appBG) private var bg
     @ViewBuilder func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous)
         if classic {
             content.background(shape.fill(bg.opacity(0.75))).clipShape(shape)
                 .modifier(ClassicClearGlass(shape: shape))
                 .shadow(color: .black.opacity(0.45), radius: 16, y: 6)
         } else {
             content.background(.ultraThinMaterial.opacity(0.95)).background(Color(white: 0.15).opacity(0.85))
-                .cornerRadius(14)
+                .cornerRadius(Glass3DTokens.Radius.panel)
         }
     }
 }
@@ -136,13 +136,11 @@ struct ClassicPosterCard: View {
                     .frame(width: 150, height: 225).clipped()
                     .watchedDim(played)
                 }
-                .overlay(alignment: .bottom) {
-                    let f = emby.progressFraction(item)
-                    if f > 0, f < 1, !played {
-                        ProgressView(value: f).padding(.horizontal, 8).padding(.bottom, 8)
-                    }
+                .overlay {
+                    // the Resume ring (owner: no bottom progress lines)
+                    if !played { ResumeRingMark(fraction: emby.progressFraction(item)) }
                 }
-                .cornerRadius(8)
+                .cornerRadius(Glass3DTokens.Radius.field)
                 .modifier(ClassicLightCard(radius: 8, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))
                 // ♡ ★ ✓ as on the library grid: after the clip and the glass edge, so their soft shadow isn't cut off
                 // and the lit hover edge / sheen never wash over their dark glass (the grid masks them out too)

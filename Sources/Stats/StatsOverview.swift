@@ -8,7 +8,7 @@ struct StatsOverviewView: View {
         StatsGate(model: model) {
             VStack(alignment: .leading, spacing: 20) {
                 StatsRangePills(range: $model.range)
-                if model.overviewLoading && model.overview.isEmpty { Spinner().frame(maxWidth: .infinity).padding(60) }
+                if model.overviewLoading && model.overview.isEmpty { SkeletonShimmer().padding(.vertical, 30) }
                 else { StatsOverviewContent(plays: model.overview, range: model.range) }
             }
             .task(id: model.range) { await model.loadOverview() }
@@ -82,7 +82,7 @@ private struct StatsBarsCard: View {
             HStack(alignment: .bottom, spacing: bars.count > 20 ? 3 : 8) {
                 ForEach(bars) { b in
                     VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag, style: .continuous)
                             .fill(LinearGradient(colors: [Theme.accent(accentName), Theme.accent(accentName).opacity(0.55)],
                                                  startPoint: .top, endPoint: .bottom))
                             .frame(height: max(b.seconds > 0 ? 3 : 1, 120 * CGFloat(b.seconds) / CGFloat(top)))

@@ -158,9 +158,7 @@ struct ItemAdminThumb: View {
 /// A dark glass card used by the admin windows' sections and rows.
 struct ItemAdminCard: ViewModifier {
     func body(content: Content) -> some View {
-        content.padding(12)
-            .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).fill(Color.white.opacity(Glass3DTokens.Fill.subtle)))
-            .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card).stroke(Color.white.opacity(Glass3DTokens.Stroke.subtle)))
+        content.glassCard(padding: 12, radius: Glass3DTokens.Radius.card)
     }
 }
 extension View { func itemAdminCard() -> some View { modifier(ItemAdminCard()) } }

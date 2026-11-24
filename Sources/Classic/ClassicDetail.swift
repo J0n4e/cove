@@ -120,10 +120,10 @@ struct SeasonDeck: View {
             img.resizable().aspectRatio(contentMode: .fill)
         } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
         .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
-        .cornerRadius(10)
+        .cornerRadius(Glass3DTokens.Radius.row)
         .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
-        .overlay(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(Double(k) * 0.22)))
+        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
 }
@@ -374,7 +374,7 @@ struct ClassicDetailView: View {
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: { ZStack { Color(white: 0.15); Text(item.Name).padding() } }
             .frame(width: item.isEpisode ? 320 : 220, height: item.isEpisode ? 180 : 330)
-            .clipped().cornerRadius(10)
+            .clipped().cornerRadius(Glass3DTokens.Radius.row)
             .modifier(ClassicLightCard(radius: 10,
                                        size: item.isEpisode ? CGSize(width: 320, height: 180) : CGSize(width: 220, height: 330)))   // the posters' light glass edge and sheen, as the cards
             .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
@@ -404,7 +404,7 @@ struct ClassicDetailView: View {
             if let t = model.full?.RunTimeTicks { Text(runtimeText(t)) }
             if let o = model.full?.OfficialRating {
                 Text(o).cvFont(10, weight: .regular).padding(.horizontal, 5).padding(.vertical, 1)
-                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary))
+                    .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.tag).stroke(Color.secondary))
             }
             if let g = model.full?.Genres?.first { Text(g) }
             if let t = model.full?.RunTimeTicks, !model.simple { Text("Ends at " + endsAtText(t)) }
@@ -514,11 +514,11 @@ struct ClassicDetailView: View {
                 } placeholder: {
                     ZStack { Color(white: 0.15); Text(title) }
                 }
-                .frame(width: 170, height: 255).clipped().cornerRadius(8)
+                .frame(width: 170, height: 255).clipped().cornerRadius(Glass3DTokens.Radius.field)
                 .modifier(ClassicLightCard(radius: 8, accent: Theme.accent(accentName), size: CGSize(width: 170, height: 255),
                                            tracksHover: true))   // the posters' light glass edge   // glass card, as the posters
                 // Selected season: an accent ring (it used to come out white)
-                .overlay { if selected { RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent(accentName), lineWidth: 2.5) } }
+                .overlay { if selected { RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field).strokeBorder(Theme.accent(accentName), lineWidth: 2.5) } }
                 .classicHoverLift()
                 // v1.19.0: ♡ / ✓ badge buttons as on posters (✓ marks the whole season; shows the unwatched count)
                 .itemBadges(sItem, .season, children: model.episodes(inSeason: n), unwatched: model.unwatched(n) ?? 0)
@@ -755,10 +755,10 @@ struct ClassicDetailView: View {
                         }
                     }
                     .padding(18)
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.03)))
-                    .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: 16, style: .continuous),
+                    .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous).fill(Color.white.opacity(0.03)))
+                    .modifier(ClassicClearGlass(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous),
                                                 interactive: false, frost: false))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.10), lineWidth: 1).allowsHitTesting(false))
                 }
                 .padding(.horizontal, 40).frame(maxWidth: .infinity, alignment: .leading)

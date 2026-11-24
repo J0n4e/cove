@@ -315,30 +315,13 @@ extension View {
     }
 }
 
-/// Page, player and banner buttons: grow a little and brighten under the mouse, and dip
-/// when clicked.
+/// Page, player and banner buttons: thin alias for GlassButtonStyle(.lift) (brighten under the mouse, no growth;
+/// dip when clicked).
 struct HoverButton: ButtonStyle {
     /// For bare icons: a soft see-through backing appears under the mouse
     var backing = false
-    func makeBody(configuration: Configuration) -> some View { LiftBody(c: configuration, backing: backing) }
-
-    struct LiftBody: View {
-        let c: ButtonStyleConfiguration
-        let backing: Bool
-        @State private var hover = false
-        var body: some View {
-            c.label
-                .padding(backing ? 4 : 0)
-                .background(Capsule().fill(Color.white.opacity(backing && hover ? 0.16 : 0)))
-                .padding(backing ? -4 : 0)
-                .brightness(hover ? 0.12 : 0)
-                .scaleEffect(c.isPressed ? 0.95 : hover ? 1.07 : 1)
-                .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
-                .scrollHover($hover)
-                .handCursor()
-                .animation(.easeOut(duration: 0.15), value: hover)
-                .animation(.easeOut(duration: 0.1), value: c.isPressed)
-        }
+    func makeBody(configuration: Configuration) -> some View {
+        GlassButtonStyle(.lift(backing: backing)).makeBody(configuration: configuration)
     }
 }
 

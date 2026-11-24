@@ -13,7 +13,7 @@ struct CastUpNextCard: View {
                 CachedImage(url: image(n)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.1) }
-                .frame(width: 128, height: 72).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .frame(width: 128, height: 72).clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.field, style: .continuous))
                 VStack(alignment: .leading, spacing: 5) {
                     Text(CastContinue.heading(n, collection: cast.collection)).cvFont(12, weight: .semibold)
                         .foregroundColor(Glass3DTokens.Grey.secondary)
