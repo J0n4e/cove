@@ -879,6 +879,9 @@ struct RefreshAfterPlayback: ViewModifier {
     func body(content: Content) -> some View {
         content.onChange(of: playback.active) { _, on in
             if !on { Task { await action() } }
+        }
+    }
+}
 
 /// Dark level-2 glass back panel (glassCard look) around a series-page grid episode card; a no-op elsewhere.
 struct EpisodeGridPanel: ViewModifier {
