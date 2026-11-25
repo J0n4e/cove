@@ -1052,9 +1052,13 @@ final class Emby: ObservableObject {
             guard position > 0, let rt = runtimeTicks, rt > 0 else { return 0 }
             return min(1, max(0, position * 10_000_000 / Double(rt)))
         }
-        if let p = playedPercentage, p > 0 { return min(1, max(0, p / 100)) }
-        if let t = serverPositionTicks, t > 0, let rt = runtimeTicks, rt > 0 { return min(1, max(0, Double(t) / Double(rt))) }
-        return 0
+        // Always our own maths from the saved position and the length (as Resume and Continue Watching);
+        // the server's percentage only when the length is unknown (owner)
+        if let rt = runtimeTicks, rt > 0 {
+            if let t = serverPositionTicks { return min(1, max(0, Double(max(0, t)) / Double(rt))) }
+            return min(1, max(0, (playedPercentage ?? 0) / 100))
+        }
+        return min(1, max(0, (playedPercentage ?? 0) / 100))
     }
 
     /// Next episode to watch for a series (in progress or first unwatched), as the server sees it.

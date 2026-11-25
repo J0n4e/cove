@@ -31,6 +31,12 @@ final class LiveRefreshTests: XCTestCase {
                                              serverPositionTicks: 1_200_000_000), 1_200_000_000.0 / 27_000_000_000.0, accuracy: 0.0001)
         XCTAssertEqual(Emby.progressFraction(position: nil, runtimeTicks: 27_000_000_000, playedPercentage: 0,
                                              serverPositionTicks: 0), 0)
+        // Our maths wins over a different server percentage when the length is known
+        XCTAssertEqual(Emby.progressFraction(position: nil, runtimeTicks: 36_000_000_000, playedPercentage: 10,
+                                             serverPositionTicks: 18_000_000_000), 0.5, accuracy: 0.0001)
+        // No length: the server's percentage is the only clue
+        XCTAssertEqual(Emby.progressFraction(position: nil, runtimeTicks: nil, playedPercentage: 30,
+                                             serverPositionTicks: 18_000_000_000), 0.3, accuracy: 0.0001)
     }
 
     func testPositionDrivesResumeAndProgress() {
