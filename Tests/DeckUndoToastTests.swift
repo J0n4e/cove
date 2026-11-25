@@ -9,21 +9,12 @@ final class DeckUndoToastTests: XCTestCase {
         return try String(contentsOf: root.appendingPathComponent(f), encoding: .utf8)
     }
 
-    func testOnlyTheFrontCardLinks() {
-        XCTAssertEqual(DeckFrontLink.target(k: 0, item: "movie"), "movie")
-        XCTAssertNil(DeckFrontLink.target(k: 1, item: "movie"))
-        XCTAssertNil(DeckFrontLink.target(k: 3, item: "movie"))
-        XCTAssertNil(DeckFrontLink.target(k: 0, item: nil as String?))   // series: no link
-    }
-
-    func testDeckCardsKeepOneViewType() throws {
+    func testDeckCrossFadesAsOnePiece() throws {
+        // Owner: back to the pre-redesign deck move — the whole stack cross-fades, the same both ways
         let s = try source("Sources/Classic/ClassicDetail.swift")
-        let start = try XCTUnwrap(s.range(of: "func deckButton"))
-        let end = try XCTUnwrap(s.range(of: "func frontLink", range: start.upperBound..<s.endIndex))
-        let body = String(s[start.lowerBound..<end.lowerBound])
-        XCTAssertFalse(body.contains("NavigationLink"), "deck cards are always a Button")
-        XCTAssertFalse(body.contains(".transition(.identity)"))
-        XCTAssertTrue(s.contains(".overlay { frontLink(p, k: k) }"))
+        XCTAssertTrue(s.contains(".id(pos)"))
+        XCTAssertFalse(s.contains("leavingGone"))
+        XCTAssertFalse(s.contains("arrivingSolid"))
     }
 
     func testUndoToastPlacement() {
