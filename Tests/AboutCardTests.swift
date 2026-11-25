@@ -92,4 +92,12 @@ final class AboutCardTests: XCTestCase {
         XCTAssertEqual(AboutCard.linkLabel("IMDb"), "IMDb")
         XCTAssertEqual(AboutCard.linkIcon("Unknown"), "link")
     }
+
+    func testSubtitlesCollapseAfterThree() {
+        let l = (1...7).map { "Lang \($0)" }
+        XCTAssertEqual(AboutCard.visibleLines(l, collapsible: true, expanded: false), Array(l.prefix(3)))
+        XCTAssertEqual(AboutCard.visibleLines(l, collapsible: true, expanded: true), l)
+        XCTAssertEqual(AboutCard.visibleLines(l, collapsible: false, expanded: false), l)
+        XCTAssertEqual(AboutCard.visibleLines(Array(l.prefix(3)), collapsible: true, expanded: false).count, 3)
+    }
 }
