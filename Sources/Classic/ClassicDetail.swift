@@ -898,6 +898,8 @@ struct SeasonPickerMenu: View {
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel("Choose a season")
+    }
+}
 
 /// Reloads the episodes' watch state when a playback ends, so rings and Resume match Continue Watching (owner).
 struct RefreshAfterPlayback: ViewModifier {
