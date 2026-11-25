@@ -1096,7 +1096,7 @@ extension ClassicPlayerView {
         let played = emby.isPlayed(ep)
         return Button { if !current { ui.panel = nil; play(ep) } } label: {
             HStack(spacing: 12) {
-                CachedImage(url: emby.image(ep.Id, width: 320, plain: true)) { img in
+                CachedImage(url: emby.episodeImage(ep, width: 320)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.white.opacity(0.08) }
                 .frame(width: 120, height: 68).clipped().cornerRadius(Glass3DTokens.Radius.thumb)

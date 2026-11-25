@@ -361,7 +361,7 @@ struct ClassicResumeCard: View {
 
     /// Episodes have a landscape primary image; movies use their backdrop.
     var imageURL: URL? {
-        item.isEpisode ? emby.image(item.Id, width: 520, plain: true) : emby.image(item.backdropId ?? item.Id, "Backdrop", width: 520)
+        item.isEpisode ? emby.episodeImage(item, width: 520) : emby.image(item.backdropId ?? item.Id, "Backdrop", width: 520)
     }
 
     var body: some View {
