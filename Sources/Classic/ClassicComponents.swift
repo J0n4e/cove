@@ -138,7 +138,7 @@ struct ClassicPosterCard: View {
                 }
                 .overlay {
                     // the Resume ring (owner: no bottom progress lines)
-                    if !played { ResumeRingMark(fraction: emby.progressFraction(item)) }
+                    if emby.showsResume(item) { ResumeRingMark(fraction: emby.progressFraction(item)) }
                 }
                 .cornerRadius(Glass3DTokens.Radius.field)
                 .modifier(ClassicLightCard(radius: Glass3DTokens.Radius.field, hover: hover, accent: Theme.accent(accentName), size: CGSize(width: 150, height: 225)))

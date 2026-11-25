@@ -588,7 +588,7 @@ final class PosterGridCell: NSCollectionViewItem {
         let fav = emby.isFav(item)
         let rating = Trakt.shared.rating(item)
         let pct = Int(emby.progressFraction(item) * 100)
-        let progress = (pct > 0 && pct < 100 && !played) ? pct : 0
+        let progress = emby.showsResume(item) ? max(1, min(99, pct)) : 0   // the Resume button's rule (owner)
         let accent = UserDefaults.standard.string(forKey: "accent") ?? "red"
         let unwatched = item.isSeries && !played ? (item.UserData?.UnplayedItemCount ?? 0) : 0
         CATransaction.begin(); CATransaction.setDisableActions(true)
