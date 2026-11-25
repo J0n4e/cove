@@ -38,7 +38,37 @@ enum AboutCard {
         }
     }
 
-    /// '4K · HDR10 · Dolby Atmos 7.1 · 2h 14m · 58 GB' — only the facts that exist, in this order.
+    /// One row's values, one per line. Subtitles: the first three, then '+N more' to show the rest (owner).
+struct AboutRowLines: View {
+    let lines: [String]
+    var collapsible = false
+    @State private var expanded = false
+
+    var body: some View {
+        let shown = AboutCard.visibleLines(lines, collapsible: collapsible, expanded: expanded)
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(shown.enumerated()), id: \.offset) { l in
+                Text(l.element).cvFont(13)
+                    .foregroundColor(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+            if collapsible && lines.count > AboutCard.collapsedCount {
+                Button {
+                    withAnimation(Glass3DTokens.Motion.standard) { expanded.toggle() }
+                } label: {
+                    Text(expanded ? "Show less" : "+\(lines.count - AboutCard.collapsedCount) more")
+                        .cvFont(Glass3DTokens.Text.meta, weight: .semibold)
+                        .foregroundColor(Glass3DTokens.Grey.secondary)
+                }
+                .buttonStyle(.plainHand)
+                .padding(.top, 2)
+            }
+        }
+    }
+}
+
+/// '4K · HDR10 · Dolby Atmos 7.1 · 2h 14m · 58 GB' — only the facts that exist, in this order.
     static func keyFacts(video: MStream?, audio: [MStream], runTimeTicks: Int64?, size: Int64?) -> [KeyFact] {
         var out: [String] = []
         if let r = resolution(width: video?.Width, height: video?.Height) { out.append(r) }
@@ -202,6 +232,13 @@ enum AboutCard {
         return p.isEmpty ? nil : p.joined(separator: " · ")
     }
 
+    /// How many subtitle lines show before '+N more'
+    static let collapsedCount = 3
+    static func visibleLines(_ lines: [String], collapsible: Bool, expanded: Bool) -> [String] {
+        guard collapsible, !expanded, lines.count > collapsedCount else { return lines }
+        return Array(lines.prefix(collapsedCount))
+    }
+
     /// The list rows in order: Video, Audio (every track), Subtitles (every track), File, then Genres / Studios.
     static func rows(streams: [MStream], container: String?, size: Int64?, added: Date?, hasFile: Bool,
                      genres: [String] = [], studios: [String] = []) -> [Row] {
@@ -277,14 +314,7 @@ struct AboutRowsList: View {
                     Text(r.label).cvFont(Glass3DTokens.Text.meta, weight: .semibold)
                         .foregroundColor(Glass3DTokens.Grey.secondary)
                         .gridColumnAlignment(.leading)
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(Array(r.lines.enumerated()), id: \.offset) { l in
-                            Text(l.element).cvFont(13)
-                                .foregroundColor(.white)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .textSelection(.enabled)
-                        }
-                    }
+                    AboutRowLines(lines: r.lines, collapsible: r.label == "Subtitles")
                 }
             }
         }
@@ -295,7 +325,7 @@ struct AboutRowsList: View {
 struct AboutKeyFactsLine: View {
     let facts: [AboutCard.KeyFact]
     var body: some View {
-        FlowLayout(hSpacing: Glass3DTokens.Space.s, vSpacing: Glass3DTokens.Space.xs) {
+        FlowLayout(hSpacing: Glass3DTokens.Space.s, vSpacing: Glass3DTokens.Space.xs, hug: true) {   // hugs too, or it stretched the card
             ForEach(Array(facts.enumerated()), id: \.offset) { e in
                 AboutKeyFactView(fact: e.element, leadingDot: e.offset > 0)
             }
