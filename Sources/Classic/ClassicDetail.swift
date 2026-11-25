@@ -629,9 +629,9 @@ struct ClassicDetailView: View {
                         if let ep = eps.first(where: { $0.id == id }) { episodeTile(ep).frame(width: 300) }
                     }
                 } else if epLayout == "grid" {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14)], spacing: 18) {
                         ForEach(eps) { ep in episodeTile(ep, grid: true) }
-                    }.padding(.horizontal, Glass3DTokens.Space.pageWide)
+                    }.padding(.horizontal, Glass3DTokens.Space.pageWide - 2)   // the cards' 2 pt room keeps the old alignment
                 } else {
                     VStack(alignment: .leading, spacing: 12) { ForEach(eps) { ep in episodeRow(ep) } }
                 }
@@ -923,10 +923,17 @@ struct EpisodeGridPanel: ViewModifier {
         if active {
             // Same card as before, only with the bigger rounded corners of the owner's example; on hover the card
             // itself lights up (accent edge) and keeps its size — the picture zooms inside its frame (owner)
+            // The lit edge: 2 pt, drawn 1 pt inside the card and above the glass (its own layer), with a little room
+            // around the card, so no edge of it can be clipped (it was cut on the left on macOS 27; owner)
             content.glassCard(padding: Glass3DTokens.Space.s, radius: Glass3DTokens.Radius.hero, level: 2)
-                .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous)
-                            .strokeBorder(Theme.accent(accentName).opacity(hover ? 0.85 : 0), lineWidth: 1.5)
-                            .allowsHitTesting(false))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero - 1, style: .continuous)
+                        .inset(by: 1)
+                        .stroke(Theme.accent(accentName).opacity(hover ? 0.85 : 0), lineWidth: 2)
+                        .compositingGroup()
+                        .allowsHitTesting(false)
+                }
+                .padding(2)
                 .onHover { hover = $0 }
                 .animation(Glass3DTokens.Motion.fast, value: hover)
         } else {
