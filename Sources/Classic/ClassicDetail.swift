@@ -38,6 +38,11 @@ struct SeasonDeck: View {
     /// (growing slightly, drifting left) while the cards behind slide up into place (owner)
     @State private var leaving: Int?
     @State private var leavingGone = false
+    /// Moving back, the mirror: the returning card comes in over the deck from slightly bigger and left, opaque
+    /// within the first moment (so the cards behind never show through), settling into the front place (owner)
+    @State private var arriving: Int?
+    @State private var arrivingIn = false
+    @State private var arrivingSolid = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var shownPos: Int { pos >= 0 ? pos : (numbers.firstIndex(of: selected) ?? 0) }
 
@@ -87,6 +92,16 @@ struct SeasonDeck: View {
             DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.7)) { leavingGone = true } }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if leaving == from { leaving = nil } }
         }
+        if p < from && !reduceMotion {
+            arriving = p
+            arrivingIn = false
+            arrivingSolid = false
+            DispatchQueue.main.async {
+                withAnimation(.easeOut(duration: 0.2)) { arrivingSolid = true }
+                withAnimation(.easeInOut(duration: 0.7)) { arrivingIn = true }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if arriving == p { arriving = nil } }
+        }
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { pos = p }
         select(numbers[p])
     }
@@ -111,6 +126,8 @@ struct SeasonDeck: View {
                     .accessibilityLabel(title(numbers[p]))   // no tooltip: the card shows its name
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * peek)
+                    // hidden while its arriving copy (below) settles over it
+                    .opacity(arriving == p ? 0 : 1)
                     // the old front card leaves through its fading copy below; a card at the back fades in or out
                     .transition(.asymmetric(insertion: .opacity, removal: k == 0 ? .identity : .opacity))
             }
@@ -119,6 +136,13 @@ struct SeasonDeck: View {
                     .scaleEffect(leavingGone ? 1.08 : 1)
                     .offset(x: leavingGone ? -30 : 0)
                     .opacity(leavingGone ? 0 : 1)
+                    .allowsHitTesting(false)
+            }
+            if let a = arriving, numbers.indices.contains(a) {
+                card(numbers[a], k: 0)
+                    .scaleEffect(arrivingIn ? 1 : 1.08)
+                    .offset(x: arrivingIn ? 0 : -30)
+                    .opacity(arrivingSolid ? 1 : 0)
                     .allowsHitTesting(false)
             }
         }
