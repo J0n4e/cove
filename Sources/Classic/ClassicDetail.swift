@@ -282,6 +282,7 @@ struct ClassicDetailView: View {
         }
         .background(bg)
         .task { model.bind(emby); await model.load() }
+        .modifier(RefreshAfterPlayback { await model.refreshEpisodes() })
         .onChange(of: model.srcIdx) { model.sourceChanged() }
         .onChange(of: model.season) { model.seasonChanged() }
         .navigationBarBackButtonHidden(true)
@@ -897,6 +898,14 @@ struct SeasonPickerMenu: View {
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel("Choose a season")
+
+/// Reloads the episodes' watch state when a playback ends, so rings and Resume match Continue Watching (owner).
+struct RefreshAfterPlayback: ViewModifier {
+    let action: () async -> Void
+    @ObservedObject private var playback = PlaybackFlag.shared
+    func body(content: Content) -> some View {
+        content.onChange(of: playback.active) { _, on in
+            if !on { Task { await action() } }
 
 /// Dark level-2 glass back panel (glassCard look) around a series-page grid episode card; a no-op elsewhere.
 struct EpisodeGridPanel: ViewModifier {
