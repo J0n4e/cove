@@ -150,10 +150,12 @@ struct SeasonDeck: View {
 
     /// The front card of a collection opens its movie; every other card brings itself to the front.
     @ViewBuilder func deckButton<L: View>(_ p: Int, k: Int, @ViewBuilder label: () -> L) -> some View {
+        // The swap between link (front) and button (behind) happens instantly: SwiftUI otherwise cross-fades the two
+        // versions, and the card turning see-through for a moment let the card behind it show (owner, collections)
         if k == 0, let link, let it = link(numbers[p]) {
-            NavigationLink(value: it) { label() }
+            NavigationLink(value: it) { label() }.transition(.identity)
         } else {
-            Button { go(p) } label: { label() }
+            Button { go(p) } label: { label() }.transition(.identity)
         }
     }
 
