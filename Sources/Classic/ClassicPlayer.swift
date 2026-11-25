@@ -980,6 +980,7 @@ extension ClassicPlayerView {
                 .padding(.horizontal, Glass3DTokens.Space.xl).frame(height: 44)
                 .searchGlass()
                 .introPillConsumesClicks()
+                .spaceWatchesIntro { model.watchIntro() }   // Space = Watch intro while this pill shows (owner)
                 .transition(.opacity)
             } else if model.inIntro {
                 Button { model.skipIntro() } label: {
