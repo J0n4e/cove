@@ -31,9 +31,10 @@ struct ClassicHomeContent: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Glass3DRowHeading(title: row.title, seeAll: row.libId.map { id in { ClassicNavState.shared.sel = id } })
                             .padding(.horizontal, Glass3DTokens.Space.page)
-                        let wide = row.title == "Continue Watching"
+                        let wide = HomeCardText.isWideRow(row.feed)   // Continue Watching and Up Next: wide 16:9 cards
+                        let resumeRow = row.feed == .resume
                         // Continue Watching has its own Row / Grid choice; every other section follows Home's
-                        if (wide ? resumeLayout : homeLayout) == "grid" {
+                        if (resumeRow ? resumeLayout : homeLayout) == "grid" {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: wide ? 260 : 150), spacing: Glass3DTokens.Space.l)],
                                       alignment: .leading, spacing: 18) {
                                 ForEach(row.items) { it in
@@ -332,7 +333,8 @@ struct ClassicHero: View {
 
 }
 
-/// Landscape card for the Continue Watching row: still image, accent progress bar, time left.
+/// Wide card for the Continue Watching and Up Next rows: the series-page grid episode card (glass panel, picture
+/// with only Play + Resume ring on it, title and one grey line under it).
 struct ClassicResumeCard: View {
     @EnvironmentObject var emby: Emby
     let item: Item
@@ -347,14 +349,17 @@ struct ClassicResumeCard: View {
     func resume() { Task { await emby.playFromHome(item, from: ProgressStyle.ringStart(resumeAt: emby.resumeAt(item))) } }
     /// The centre play button: from the beginning when partly watched
     func playCentre() { Task { await emby.playFromHome(item, from: ProgressStyle.centreStart(hasProgress: hasProgress)) } }
+    /// Time left, only once started (Up Next: an episode you haven't begun shows no "left")
     var timeLeft: String? {
         guard let total = item.RunTimeTicks, total > 0 else { return nil }
-        let left = max(0, total - emby.positionTicks(item))
-        return runtimeText(left) + " left"
+        let pos = emby.positionTicks(item)
+        guard pos > 0 else { return nil }
+        return runtimeText(max(0, total - pos)) + " left"
     }
-    var subtitle: String? {
-        if item.isEpisode { return "S\(item.ParentIndexNumber ?? 0)·E\(item.IndexNumber ?? 0)" + (timeLeft.map { " · " + $0 } ?? "") }
-        return timeLeft
+    /// Grey line under the title: "S2·E3 · Episode name · 23m left" / "1h 12m left" / year
+    var subtitle: String {
+        HomeCardText.subtitle(isEpisode: item.isEpisode, season: item.ParentIndexNumber, episode: item.IndexNumber,
+                              name: item.Name, timeLeft: timeLeft, year: item.ProductionYear)
     }
     /// Card click: an episode opens its series page on that episode's season; a movie opens its own page.
     func openPage() { emby.openPage(item) }
@@ -364,52 +369,48 @@ struct ClassicResumeCard: View {
         item.isEpisode ? emby.episodeImage(item, width: 520) : emby.image(item.backdropId ?? item.Id, "Backdrop", width: 520)
     }
 
+    /// The card keeps its old outer width (260); the picture sits inside the glass panel (padding s + 2 pt room)
+    static let cardWidth: CGFloat = 260
+
     var body: some View {
         Group {
+            // Same card as the series page's episode grid (owner): glass panel with big corners, the picture with its
+            // own rounded corners, and ALL text under the picture. On the picture: only Play (hover) and the Resume ring.
             VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
-                CachedImage(url: imageURL) { p in
-                    p.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    ZStack { Color(white: 0.15); Text(item.heroTitle).cvFont(10, weight: .regular).padding(Glass3DTokens.Space.s) }
-                }
-                .frame(width: 260, height: 146).clipped()
-                .overlay { ThumbnailScrim() }   // soft dark gradient behind the code, time left and title
-                // Title, bottom-left
-                .overlay(alignment: .bottomLeading) {
-                    // No background: a black outline keeps it readable
-                    Text(item.heroTitle)
-                        .cvFont(12, weight: .semibold).foregroundColor(.white).lineLimit(1)
-                        .classicBlackOutline()
-                        .padding(.leading, Glass3DTokens.Space.m).padding(.trailing, Glass3DTokens.Space.m).padding(.bottom, Glass3DTokens.Space.m)
-                        .modifier(ProgressRingClearance(active: hasProgress))   // clear of the ring
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                // Series info (S3·E3 · 42m left), top-left
-                .overlay(alignment: .topLeading) {
-                    if let subtitle {
-                        Text(subtitle).cvFont(10, weight: .semibold).foregroundColor(.white)
-                            .classicBlackOutline().padding(Glass3DTokens.Space.m)
+                Color.clear.frame(minWidth: 0, maxWidth: .infinity).aspectRatio(16 / 9, contentMode: .fit)
+                    .overlay {
+                        CachedImage(url: imageURL) { p in
+                            p.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: { Color(white: 0.15) }
+                        .modifier(ZoomInsideOnHover())   // zooms inside its frame on hover, the card keeps its size
                     }
-                }
-                // How far you got: glow line along the bottom, Resume ring bottom-right
-                .overlay { ThumbnailProgress(fraction: progress, resumeAt: emby.resumeAt(item), onResume: resume) }
-                // Play button: from the beginning when partly watched; clicking anywhere else on the card opens the page
-                .overlay {
-                    if hover {
-                        Button(action: playCentre) {
-                            Label("Play", systemImage: "play.fill").classicGlassPill(size: 46)
-                        }.buttonStyle(.plainHand)
-                        .tip(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "")
-                        .accessibilityLabel(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "Play")
-                        .reportsThumbnailInnerHover()
+                    .clipped()
+                    // How far you got: glow line along the bottom, Resume ring bottom-right
+                    .overlay { ThumbnailProgress(fraction: progress, resumeAt: emby.resumeAt(item), onResume: resume) }
+                    // Play button: from the beginning when partly watched; clicking anywhere else on the card opens the page
+                    .overlay {
+                        if hover {
+                            Button(action: playCentre) {
+                                Label("Play", systemImage: "play.fill").classicGlassPill(size: 46)
+                            }.buttonStyle(.plainHand)
+                            .tip(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "")
+                            .accessibilityLabel(ProgressStyle.centreTip(hasProgress: hasProgress) ?? "Play")
+                            .reportsThumbnailInnerHover()
+                        }
                     }
-                }
-                .cornerRadius(Glass3DTokens.Radius.field)
-                .modifier(ClassicLightCard(radius: Glass3DTokens.Radius.field, hover: hover, accent: Theme.accent(accentName),
-                                           size: CGSize(width: 260, height: 146)))   // the posters' light glass edge
-                .classicHoverLift()
+                    .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.card, style: .continuous))
+                    .modifier(ClassicLightCard(radius: Glass3DTokens.Radius.card, accent: Theme.accent(accentName)))   // the card's edge lights instead
+                    .classicHoverLift(lift: false)   // no lift out of the card; passes the hover down for the zoom
+                // Under the picture: bold title, then one grey line
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+                    Text(item.heroTitle).cvFont(14, weight: .semibold).foregroundColor(Glass3DTokens.Grey.primary)
+                        .lineLimit(1).truncationMode(.tail)
+                    Text(subtitle.isEmpty ? " " : subtitle).cvFont(12, weight: .regular).foregroundColor(Glass3DTokens.Grey.secondary)
+                        .lineLimit(1).truncationMode(.tail)
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(width: 260, alignment: .leading)
+            .modifier(EpisodeGridPanel(active: true))
+            .frame(width: Self.cardWidth, alignment: .leading)
             .contentShape(Rectangle())
             .scrollHover($hover)
             .onChange(of: hover) { _, h in onPlay = ThumbnailHover.innerAfterCardHover(h, inner: onPlay) }   // the controls go with the hover
@@ -423,7 +424,7 @@ struct ClassicResumeCard: View {
             .onKeyPress(.return) { openPage(); return .handled }
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
-            .accessibilityValue(timeLeft ?? "")
+            .accessibilityValue(subtitle)
             .accessibilityAction { openPage() }
             .accessibilityAction(named: "Resume") { resume() }
             .accessibilityAction(named: "Play from the beginning") { playCentre() }
