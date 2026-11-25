@@ -765,8 +765,8 @@ struct ClassicDetailView: View {
                 VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     Glass3DRowHeading(title: "About")
                     AboutCardContent(facts: facts, rows: rows, links: links, path: s?.Path)
-                        // The shared GlassCard surface (level 2) — the only box in the card
-                        .glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.window)
+                        // Frosted glass over the film's own blurred backdrop (owner), on the level-2 card
+                        .frostedAboutCard(backdropId: item.backdropId ?? item.Id)
                         .frame(maxWidth: AboutCard.cardWidth(castCardWidth: CastTile.width(castSize)), alignment: .leading)
                 }
                 .padding(.horizontal, Glass3DTokens.Space.pageWide).frame(maxWidth: .infinity, alignment: .leading)
