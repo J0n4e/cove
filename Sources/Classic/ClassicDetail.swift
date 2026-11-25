@@ -556,6 +556,9 @@ struct ClassicDetailView: View {
         let heading: String = multi ? model.seasonTitle(model.currentSeason) : "Episodes"
         return HStack(spacing: 16) {
             SectionHeader(title: heading, style: .page)
+            // Many seasons: jump straight to one (owner: swiping 30 cards is too much)
+            if multi { SeasonPickerMenu(seasons: model.seasonNumbers, title: { model.seasonTitle($0) },
+                                        selected: model.currentSeason) { model.season = $0 } }
             if model.canFilterWatched {
                 // A secondary glass pill (no bare accent text as a button)
                 Button { model.showAllEps.toggle() } label: {
@@ -844,3 +847,30 @@ struct DetailInfoPanel: ViewModifier {
 }
 
 
+
+
+/// '▤ Season 30 ⌄': every season of the show in a menu (✓ on the shown one), the glass pill of the other dropdowns.
+struct SeasonPickerMenu: View {
+    let seasons: [Int]
+    let title: (Int) -> String
+    let selected: Int
+    let select: (Int) -> Void
+    var body: some View {
+        Menu {
+            ForEach(seasons, id: \.self) { n in
+                Toggle(title(n), isOn: Binding(get: { selected == n }, set: { if $0 { select(n) } }))
+            }
+        } label: {
+            HStack(spacing: Glass3DTokens.Space.s) {
+                Image(systemName: "rectangle.stack").cvFont(12, weight: .semibold)
+                Text(title(selected)).cvFont(13, weight: .semibold)
+                Image(systemName: "chevron.down").cvFont(10, weight: .bold).opacity(0.8)
+            }
+            .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 32)
+            .modifier(ClassicClearGlass(shape: Capsule()))
+            .contentShape(Capsule())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .helpLabel("Choose a season")
+    }
+}
