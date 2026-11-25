@@ -208,6 +208,7 @@ struct CleanupMenu<V: Hashable>: View {
             }
             .padding(.horizontal, Glass3DTokens.Space.m).frame(height: 36)
             .modifier(ClassicClearGlass(shape: Capsule()))
+            .contentShape(Capsule())   // the whole pill opens the menu
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel(help)
