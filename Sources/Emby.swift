@@ -1034,8 +1034,10 @@ final class Emby: ObservableObject {
     /// How far into an item you got (0...1) for the progress line and Resume ring: a position saved in this
     /// session (a playback just stopped) wins over the item's own UserData, which is only as new as its last load.
     func progressFraction(_ it: Item) -> Double {
+        // The server's own position counts too when it sent no percentage, as Continue Watching does (owner)
         Self.progressFraction(position: positions[it.id], runtimeTicks: it.RunTimeTicks,
-                              playedPercentage: it.UserData?.PlayedPercentage)
+                              playedPercentage: it.UserData?.PlayedPercentage,
+                              serverPositionTicks: it.UserData?.PlaybackPositionTicks)
     }
 
     /// Where you stopped, in ticks (for “42m left”), with the same session-first rule.
@@ -1044,10 +1046,17 @@ final class Emby: ObservableObject {
         return it.UserData?.PlaybackPositionTicks ?? 0
     }
 
-    nonisolated static func progressFraction(position: Double?, runtimeTicks: Int64?, playedPercentage: Double?) -> Double {
+    nonisolated static func progressFraction(position: Double?, runtimeTicks: Int64?, playedPercentage: Double?,
+                                             serverPositionTicks: Int64? = nil) -> Double {
         if let position {
             guard position > 0, let rt = runtimeTicks, rt > 0 else { return 0 }
             return min(1, max(0, position * 10_000_000 / Double(rt)))
+        }
+        // Always our own maths from the saved position and the length (as Resume and Continue Watching);
+        // the server's percentage only when the length is unknown (owner)
+        if let rt = runtimeTicks, rt > 0 {
+            if let t = serverPositionTicks { return min(1, max(0, Double(max(0, t)) / Double(rt))) }
+            return min(1, max(0, (playedPercentage ?? 0) / 100))
         }
         return min(1, max(0, (playedPercentage ?? 0) / 100))
     }
