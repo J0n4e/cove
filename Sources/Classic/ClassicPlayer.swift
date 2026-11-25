@@ -295,6 +295,7 @@ struct ClassicPlayerView: View {
         .focusable().focused($focused).focusEffectDisabled()
         .onKeyPress(.space) {
             if classicShowUpNext, let n = nextEp { play(n); return .handled }   // next episode: no controls
+            if model.skippedIntro { model.watchIntro(); poke(); return .handled }   // 'Watch intro' pill showing: Space plays the intro (owner)
             model.togglePlay()
             poke(); return .handled
         }
