@@ -93,6 +93,8 @@ struct PosterShine: ViewModifier {
     let radius: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var location = CGPoint(x: -1, y: -1)
+    /// The shine takes the accent colour (owner)
+    @AppStorage("accent") private var accentName = "red"
 
     func body(content: Content) -> some View {
         content
@@ -103,7 +105,7 @@ struct PosterShine: ViewModifier {
                                                                                          y: Glass3DTokens.Shine.rest.y * g.size.height)
                                                                               : location,
                                                      size: g.size, reduceMotion: reduceMotion)
-                        RadialGradient(colors: [Color.white.opacity(Glass3DTokens.Shine.opacity), .clear],
+                        RadialGradient(colors: [Theme.accent(accentName).opacity(Glass3DTokens.Shine.accentOpacity), .clear],
                                        center: UnitPoint(x: u.x, y: u.y), startRadius: 0,
                                        endRadius: PosterShineMath.radius(g.size))
                             .blendMode(.plusLighter)
@@ -132,7 +134,7 @@ final class PosterShineLayer: CAGradientLayer {
     override init() {
         super.init()
         type = .radial
-        colors = [NSColor(white: 1, alpha: Glass3DTokens.Shine.opacity).cgColor, NSColor(white: 1, alpha: 0).cgColor]
+        tint()
         masksToBounds = true
         cornerCurve = .circular
         actions = ["startPoint": NSNull(), "endPoint": NSNull(), "bounds": NSNull(), "position": NSNull(),
@@ -140,6 +142,14 @@ final class PosterShineLayer: CAGradientLayer {
     }
     override init(layer: Any) { super.init(layer: layer) }
     required init?(coder: NSCoder) { nil }
+
+    /// Colours the highlight with the current accent (read each time the shine moves onto a poster, so a new
+    /// accent applies at once).
+    func tint() {
+        let name = UserDefaults.standard.string(forKey: "accent") ?? "red"
+        let c = NSColor(Theme.accent(name)).usingColorSpace(.sRGB) ?? .white
+        colors = [c.withAlphaComponent(CGFloat(Glass3DTokens.Shine.accentOpacity)).cgColor, c.withAlphaComponent(0).cgColor]
+    }
 
     /// Centres the highlight on unit point `u` (y from the top).
     func place(_ u: CGPoint) {

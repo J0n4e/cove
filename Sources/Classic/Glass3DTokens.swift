@@ -32,6 +32,8 @@ enum Glass3DTokens {
     enum Shine {
         /// Centre opacity of the highlight
         static let opacity = 0.16
+        /// Centre opacity when tinted with the accent colour (a colour needs a little more than white to read)
+        static let accentOpacity = 0.22
         /// Radius as a fraction of the poster's longer side
         static let radius: CGFloat = 0.7
         /// Where it rests with Reduce Motion on (top-left third; y measured from the top)

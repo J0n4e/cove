@@ -584,7 +584,7 @@ struct ClassicDetailView: View {
             HStack(alignment: .center, spacing: 18) {
                 Text("\(ep.IndexNumber ?? 0)").cvFont(26, weight: .semibold)
                     .foregroundColor(.secondary).frame(width: 40)
-                CachedImage(url: emby.image(ep.id, width: 480, plain: true)) { img in
+                CachedImage(url: emby.episodeImage(ep, width: 480)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color(white: 0.15) }
                 .frame(width: 220, height: 124).clipped()
@@ -679,11 +679,15 @@ struct ClassicDetailView: View {
         return NavigationLink(value: ep) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .topTrailing) {
-                    CachedImage(url: emby.image(ep.id, width: 520, plain: true)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: { Color(white: 0.15) }
-                    .frame(minWidth: 0, maxWidth: .infinity).aspectRatio(16 / 9, contentMode: .fit)
-                    .clipped()
+                    // A fixed 16:9 frame; the picture fills it and is cut to it, so a portrait poster can't make
+                    // its card (and the whole grid row) taller
+                    Color.clear.frame(minWidth: 0, maxWidth: .infinity).aspectRatio(16 / 9, contentMode: .fit)
+                        .overlay {
+                            CachedImage(url: emby.episodeImage(ep, width: 520)) { img in
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: { Color(white: 0.15) }
+                        }
+                        .clipped()
                     .watchedDim(played)
                     ThumbnailScrim()   // soft dark gradient behind the code and the title
                 }

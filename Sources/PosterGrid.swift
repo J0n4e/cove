@@ -654,6 +654,7 @@ final class PosterGridCell: NSCollectionViewItem {
         card.insertSublayer(s, above: poster)
         s.frame = card.bounds
         s.cornerRadius = look.radius
+        s.tint()
         s.place(Glass3DTokens.Shine.rest)
         CATransaction.commit()
         let f = CABasicAnimation(keyPath: "opacity")
