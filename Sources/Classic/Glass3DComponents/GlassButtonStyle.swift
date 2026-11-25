@@ -48,6 +48,11 @@ private struct GlassButtonBody: View {
     @Environment(\.isFocused) private var focused
 
     var body: some View {
+        // The whole lit face clicks, not only the label's glyphs (hover area == click area)
+        Group { face }.contentShape(Rectangle())
+    }
+
+    @ViewBuilder private var face: some View {
         switch kind {
         case .primary, .secondary, .destructive: textButton.onHover { hover = $0 }.animation(Glass3DTokens.Motion.fast, value: hover)
         case .icon: iconButton.onHover { hover = $0 }.animation(Glass3DTokens.Motion.fast, value: hover)

@@ -354,7 +354,8 @@ extension View {
 /// `.plain` with the pointing-hand cursor: the style of Cove's own buttons and links.
 struct PlainHand: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.75 : 1)
+        configuration.label.contentShape(Rectangle())   // whole label frame clicks, not just glyphs
+            .opacity(configuration.isPressed ? 0.75 : 1)
             .pressFeedback(configuration.isPressed, in: Rectangle(), shade: false).handCursor()
     }
 }
