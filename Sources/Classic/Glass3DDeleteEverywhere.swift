@@ -143,6 +143,23 @@ struct DeleteConfirmView: View {
 
 // MARK: - Toast with Undo (15 s)
 
+/// Where the Undo toast shows: in the search box's place (top bar layout, which has the floating search box) with
+/// the search box's glass and slide; otherwise (sidebar layout, no search slot on screen) as before, a floating
+/// pill at the bottom of the window.
+enum UndoToastPlacement: Equatable {
+    case searchSlot, floating
+    static func decide(searchSlotOnScreen: Bool) -> UndoToastPlacement { searchSlotOnScreen ? .searchSlot : .floating }
+}
+
+/// The Undo toast shown in the search box's place (see SearchDock). `hosts` counts the search slots on screen.
+@MainActor
+final class DeleteUndoSlot: ObservableObject {
+    static let shared = DeleteUndoSlot()
+    struct Entry: Identifiable { let id = UUID(); let recs: [DeletionRecord]; let title: String }
+    @Published var current: Entry?
+    var hosts = 0
+}
+
 @MainActor
 enum DeleteUndoToast {
     private static var panel: NSPanel?
@@ -152,7 +169,17 @@ enum DeleteUndoToast {
 
     /// One toast for several deletes (Activity → Cleanup): Undo restores every record.
     static func show(_ recs: [DeletionRecord], title: String, emby: Emby) {
-        panel?.close()
+        dismiss()
+        if UndoToastPlacement.decide(searchSlotOnScreen: DeleteUndoSlot.shared.hosts > 0) == .searchSlot {
+            DeleteUndoSlot.shared.current = .init(recs: recs, title: title)
+        } else {
+            showPanel(recs, title: title, emby: emby)
+        }
+        hide?.cancel()
+        hide = Task { try? await Task.sleep(for: .seconds(15)); if !Task.isCancelled { dismiss() } }
+    }
+
+    private static func showPanel(_ recs: [DeletionRecord], title: String, emby: Emby) {
         let size = NSSize(width: 380, height: 54)
         let host = NSHostingView(rootView: DeleteUndoToastView(recs: recs, title: title, dismiss: { dismiss() }).environmentObject(emby)
             .preferredColorScheme(.dark).frame(width: size.width, height: size.height))
@@ -167,17 +194,27 @@ enum DeleteUndoToast {
         } else { p.center() }
         p.orderFront(nil)
         panel = p
-        hide?.cancel()
-        hide = Task { try? await Task.sleep(for: .seconds(15)); if !Task.isCancelled { dismiss() } }
     }
 
-    static func dismiss() { panel?.close(); panel = nil }
+    /// The search slot went away (layout switched) while the toast showed: keep it, as the floating pill.
+    static func moveToFloating(emby: Emby) {
+        guard DeleteUndoSlot.shared.hosts <= 0, let t = DeleteUndoSlot.shared.current else { return }
+        DeleteUndoSlot.shared.current = nil
+        showPanel(t.recs, title: t.title, emby: emby)
+    }
+
+    static func dismiss() {
+        panel?.close(); panel = nil
+        if DeleteUndoSlot.shared.current != nil { DeleteUndoSlot.shared.current = nil }
+    }
 }
 
 struct DeleteUndoToastView: View {
     let recs: [DeletionRecord]
     let title: String
     let dismiss: () -> Void
+    /// Shown in the search box's place: the search box's height and glass capsule
+    var searchSlot = false
     @EnvironmentObject var emby: Emby
     @State private var busy = false
     @State private var note: String?
@@ -198,10 +235,23 @@ struct DeleteUndoToastView: View {
                 }
             }.buttonStyle(AboutButton(primary: true)).disabled(busy || recs.isEmpty)
         }
-        .padding(.horizontal, Glass3DTokens.Space.l)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(.ultraThinMaterial))
-        .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+        .padding(.horizontal, searchSlot ? Glass3DTokens.Space.xl : Glass3DTokens.Space.l)
+        .modifier(UndoToastLook(searchSlot: searchSlot))
+    }
+}
+
+/// The floating pill's look, or (in the search box's place) the search box's own: same height and glass capsule.
+private struct UndoToastLook: ViewModifier {
+    let searchSlot: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if searchSlot {
+            content.frame(width: SearchDock.boxWidth, height: SearchDock.boxHeight).searchGlass()
+        } else {
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(.ultraThinMaterial))
+                .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+        }
     }
 }
 

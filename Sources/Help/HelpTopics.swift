@@ -457,7 +457,7 @@ enum HelpTopics {
                                   "Without nexcrate: the server deletes the files for good. There is no Undo."]),
                     ]),
                     HelpSection(heading: "Undo", blocks: [
-                        .text("Right after deleting, a toast offers Undo. Later, open the Trash tab in Manage server: it lists each delete for 7 days, with Undo."),
+                        .text("Right after deleting, an Undo pill shows for 15 seconds where the search box sits (top bar layout; at the bottom of the window otherwise). Later, open the Trash tab in Manage server: it lists each delete for 7 days, with Undo."),
                         .place("Manage server → Trash"),
                     ]),
                     HelpSection(heading: "If the server says no", blocks: [
