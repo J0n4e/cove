@@ -89,7 +89,7 @@ struct SeasonDeck: View {
         if p > from && !reduceMotion {
             leaving = from
             leavingGone = false
-            DispatchQueue.main.async { withAnimation(.easeInOut(duration: 0.7)) { leavingGone = true } }
+            DispatchQueue.main.async { withAnimation(Glass3DTokens.Motion.deck) { leavingGone = true } }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if leaving == from { leaving = nil } }
         }
         if p < from && !reduceMotion {
@@ -97,12 +97,12 @@ struct SeasonDeck: View {
             arrivingIn = false
             arrivingSolid = false
             DispatchQueue.main.async {
-                withAnimation(.easeOut(duration: 0.2)) { arrivingSolid = true }
-                withAnimation(.easeInOut(duration: 0.7)) { arrivingIn = true }
+                withAnimation(Glass3DTokens.Motion.deckCover) { arrivingSolid = true }
+                withAnimation(Glass3DTokens.Motion.deck) { arrivingIn = true }
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if arriving == p { arriving = nil } }
         }
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.7)) { pos = p }
+        withAnimation(reduceMotion ? nil : Glass3DTokens.Motion.deck) { pos = p }
         select(numbers[p])
     }
 

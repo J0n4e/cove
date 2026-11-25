@@ -125,6 +125,12 @@ enum Glass3DTokens {
         static let springResponse: Double = 0.32
         static let springDamping: Double = 0.86
         static let spring = Animation.spring(response: springResponse, dampingFraction: springDamping)
+        /// The card-deck move (Home banner deck, season / collection deck): one slow eased step.
+        static let deckSeconds: Double = 0.7
+        static let deck = Animation.easeInOut(duration: deckSeconds)
+        /// How fast a card coming back to the front of a deck turns opaque (so nothing shows through).
+        static let deckCoverSeconds: Double = 0.2
+        static let deckCover = Animation.easeOut(duration: deckCoverSeconds)
         /// Shimmer sweep of skeleton placeholders (one pass).
         static let shimmerPeriod: Double = 1.4
 
