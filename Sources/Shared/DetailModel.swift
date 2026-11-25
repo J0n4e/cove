@@ -128,6 +128,14 @@ final class DetailModel: ObservableObject {
         }
     }
 
+    /// Fresh watch state for the episodes (after a playback ends), without reloading the whole page.
+    func refreshEpisodes() async {
+        guard item.isSeries, let source else { return }
+        let e = await source.episodes(item.id)
+        guard !Task.isCancelled, !e.isEmpty else { return }
+        kids = e
+    }
+
     /// Another version was picked: its default audio, no subtitle (or the preferred language).
     func sourceChanged() { audioIdx = defaultAudio; subIdx = -1; applyPreferredSub() }
 

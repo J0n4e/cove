@@ -26,6 +26,11 @@ final class LiveRefreshTests: XCTestCase {
         XCTAssertEqual(Emby.progressFraction(position: 0, runtimeTicks: 36_000_000_000, playedPercentage: 40), 0)
         // Nothing this session: the server's value
         XCTAssertEqual(Emby.progressFraction(position: nil, runtimeTicks: nil, playedPercentage: 25), 0.25, accuracy: 0.001)
+        // No percentage from the server but a saved position (2 min of 45): progress from the position (owner)
+        XCTAssertEqual(Emby.progressFraction(position: nil, runtimeTicks: 27_000_000_000, playedPercentage: nil,
+                                             serverPositionTicks: 1_200_000_000), 1_200_000_000.0 / 27_000_000_000.0, accuracy: 0.0001)
+        XCTAssertEqual(Emby.progressFraction(position: nil, runtimeTicks: 27_000_000_000, playedPercentage: 0,
+                                             serverPositionTicks: 0), 0)
     }
 
     func testPositionDrivesResumeAndProgress() {
