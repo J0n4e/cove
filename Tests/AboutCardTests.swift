@@ -71,8 +71,8 @@ final class AboutCardTests: XCTestCase {
 
     // MARK: Width, path
     func testWidthIsFourCastCards() {
-        XCTAssertEqual(AboutCard.cardWidth(castCardWidth: CastTile.width("normal")), 4 * 104 + 3 * 18)
-        XCTAssertEqual(AboutCard.cardWidth(castCardWidth: CastTile.width("large")), 4 * 152 + 3 * 18)
+        XCTAssertEqual(AboutCard.cardWidth(castCardWidth: CastTile.width("normal")), 3 * 104 + 2 * 18)
+        XCTAssertEqual(AboutCard.cardWidth(castCardWidth: CastTile.width("large")), 3 * 152 + 2 * 18)
     }
 
     func testPathHiddenByDefault() {

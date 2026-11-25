@@ -10,7 +10,8 @@ enum AboutCard {
     /// The cast row's spacing between actor cards (ArrowScrollRow's default).
     static let castSpacing: CGFloat = 18
     /// About as wide as 4 cast cards in the cast row (cards + the 3 gaps between them).
-    static func cardWidth(castCardWidth: CGFloat, spacing: CGFloat = castSpacing, cards: Int = 4) -> CGFloat {
+    /// The card follows its text but never grows wider than three cast cards (owner)
+    static func cardWidth(castCardWidth: CGFloat, spacing: CGFloat = castSpacing, cards: Int = 3) -> CGFloat {
         CGFloat(cards) * castCardWidth + CGFloat(max(cards - 1, 0)) * spacing
     }
 
@@ -256,13 +257,13 @@ struct AboutCardContent: View {
             if !facts.isEmpty { AboutKeyFactsLine(facts: facts) }
             if !rows.isEmpty { AboutRowsList(rows: rows) }
             if !links.isEmpty {
-                FlowLayout(hSpacing: Glass3DTokens.Space.s, vSpacing: Glass3DTokens.Space.s) {
+                FlowLayout(hSpacing: Glass3DTokens.Space.s, vSpacing: Glass3DTokens.Space.s, hug: true) {
                     ForEach(Array(links.enumerated()), id: \.offset) { AboutLinkPill(name: $0.element.0, url: $0.element.1) }
                 }
             }
             if let p = path, !p.isEmpty { AboutPathReveal(path: p) }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)   // hugs its text (owner); the card caps the width
     }
 }
 
