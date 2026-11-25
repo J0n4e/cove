@@ -716,8 +716,8 @@ struct ClassicDetailView: View {
                 }
                 // How far you got: glow line along the bottom, Resume ring bottom-right
                 .overlay { if hasProgress { epProgress(ep, pct) } }
-                .clipShape(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.thumb))
-                .modifier(ClassicLightCard(radius: 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
+                .clipShape(RoundedRectangle(cornerRadius: grid ? Glass3DTokens.Radius.card : Glass3DTokens.Radius.thumb, style: .continuous))
+                .modifier(ClassicLightCard(radius: grid ? Glass3DTokens.Radius.card : 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
                 .classicHoverLift(play: 40, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
                     model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
                 }
@@ -739,19 +739,22 @@ struct ClassicDetailView: View {
     /// Grid card text: bold "N. Title" (1 line) + Overview (lineLimit(3)) in a fixed-height area, so all cards match.
     func episodeGridText(_ ep: Item) -> some View {
         let num: String = ep.IndexNumber.map { "\($0). " } ?? ""
-        let overview: String = showEpDesc ? (ep.Overview ?? "").trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
-            Text(num + ep.Name).cvFont(14, weight: .semibold).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(1)
+        // The grid card always shows the short description (owner: it is the point of this card)
+        let overview: String = (ep.Overview ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+            Text(num + ep.Name).cvFont(15, weight: .bold).foregroundColor(.white).lineLimit(1)
             ZStack(alignment: .topLeading) {
                 // Invisible 3 lines reserve the description's height whether or not there is an Overview
-                Text("A\nA\nA").cvFont(11, weight: .regular).lineLimit(3).hidden().accessibilityHidden(true)
+                Text("A\nA\nA").cvFont(12, weight: .regular).lineLimit(3).hidden().accessibilityHidden(true)
                 if !overview.isEmpty {
-                    Text(overview).cvFont(11, weight: .regular).foregroundColor(Glass3DTokens.Grey.secondary)
+                    Text(overview).cvFont(12, weight: .regular).foregroundColor(Glass3DTokens.Grey.secondary)
                         .lineLimit(3).truncationMode(.tail).multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-        }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, Glass3DTokens.Space.xs).padding(.top, Glass3DTokens.Space.xs).padding(.bottom, Glass3DTokens.Space.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var boxGrid: some View {
@@ -917,7 +920,13 @@ struct EpisodeGridPanel: ViewModifier {
     let active: Bool
     func body(content: Content) -> some View {
         if active {
-            content.glassCard(padding: Glass3DTokens.Space.s, radius: Glass3DTokens.Radius.panel, level: 2)
+            // A solid dark grey card with big rounded corners, as the owner's example
+            content
+                .padding(Glass3DTokens.Space.m)
+                .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous)
+                                .fill(Glass3DTokens.EpisodeCard.fill))
+                .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous)
+                            .strokeBorder(Glass3DTokens.EpisodeCard.edge, lineWidth: 1))
         } else {
             content
         }
