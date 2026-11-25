@@ -46,7 +46,7 @@ struct ClassicGlassPillStyle: ViewModifier {
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     func body(content: Content) -> some View {
-        styled(content)
+        styled(content).contentShape(Capsule())   // the whole pill clicks
             .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
     }
     /// Under the mouse: Settings → General → Hover effect (fogged mirror or soft accent glow).
@@ -91,10 +91,12 @@ struct ClassicClearGlass<S: Shape>: ViewModifier {
             content.background(ClassicGlassBacking(shape: shape))
                 .background { if frost { ClassicGlassFrost(shape: shape) } }
                 .glassEffect(interactive ? .clear.interactive() : .clear, in: shape)
+                .contentShape(shape)   // the whole glass shape clicks
         }
         else {
             content.background(shape.fill(Color.white.opacity(0.1)))
                 .background { if frost { ClassicGlassFrost(shape: shape) } }
+                .contentShape(shape)
         }
     }
 }
