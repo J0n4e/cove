@@ -663,6 +663,8 @@ struct SelfHoverLift: ViewModifier {
     var onPlay: (() -> Void)? = nil
     /// Tooltip of the play button (nil: the default)
     var playTip: String? = nil
+    /// false: the card doesn't grow on hover; its hover is passed down (cardHover) for a zoom inside the picture
+    var lift = true
     @State private var hover = false
     @Environment(\.classicGlass) private var classic   // Classic theme: the glass play button
     @ViewBuilder var icon: some View {
@@ -685,7 +687,7 @@ struct SelfHoverLift: ViewModifier {
                     } else { icon }
                 }
             }
-            .modifier(HoverLift(hover: hover)).scrollHover($hover)
+            .modifier(HoverLift(hover: lift && hover)).environment(\.cardHover, hover).scrollHover($hover)
             .onChange(of: hover) { _, h in inner = ThumbnailHover.innerAfterCardHover(h, inner: inner) }
         // Only cards with a play button own the flag (a plain lift inside another card keeps that card's flag)
         if play > 0 { lifted.modifier(ThumbnailInnerHoverScope(flag: $inner, value: inner)) } else { lifted }
@@ -695,4 +697,27 @@ struct SelfHoverLift: ViewModifier {
 extension View {
     /// `play`: size of the play button shown on hover (0 = none).
     func hoverLift(play: CGFloat = 0, onPlay: (() -> Void)? = nil) -> some View { modifier(SelfHoverLift(play: play, onPlay: onPlay)) }
+}
+
+
+private struct CardHoverKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    /// The pointer is on the surrounding card (SelfHoverLift with lift: false)
+    var cardHover: Bool {
+        get { self[CardHoverKey.self] }
+        set { self[CardHoverKey.self] = newValue }
+    }
+}
+
+/// The picture slowly zooms INSIDE its frame while the card is hovered (no growing out of the card; owner).
+struct ZoomInsideOnHover: ViewModifier {
+    var active = true
+    @Environment(\.cardHover) private var hover
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    static let scale: CGFloat = 1.06
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(active && hover && !reduceMotion ? Self.scale : 1)
+            .animation(Glass3DTokens.Motion.resolved(Glass3DTokens.Motion.slow, reduceMotion: reduceMotion), value: hover)
+    }
 }

@@ -693,6 +693,7 @@ struct ClassicDetailView: View {
                             CachedImage(url: emby.episodeImage(ep, width: 520)) { img in
                                 img.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: { Color(white: 0.15) }
+                            .modifier(ZoomInsideOnHover(active: grid))   // grid: zooms inside its frame on hover (owner)
                         }
                         .clipped()
                     .watchedDim(played)
@@ -717,8 +718,8 @@ struct ClassicDetailView: View {
                 // How far you got: glow line along the bottom, Resume ring bottom-right
                 .overlay { if hasProgress { epProgress(ep, pct) } }
                 .clipShape(RoundedRectangle(cornerRadius: grid ? Glass3DTokens.Radius.card : Glass3DTokens.Radius.thumb, style: .continuous))
-                .modifier(ClassicLightCard(radius: grid ? Glass3DTokens.Radius.card : 6, accent: Theme.accent(accentName), tracksHover: true))   // the posters' light glass edge
-                .classicHoverLift(play: 40, playTip: ProgressStyle.centreTip(hasProgress: hasProgress)) {
+                .modifier(ClassicLightCard(radius: grid ? Glass3DTokens.Radius.card : 6, accent: Theme.accent(accentName), tracksHover: !grid))   // the posters' light glass edge (grid: the card's edge lights instead)
+                .classicHoverLift(play: 40, playTip: ProgressStyle.centreTip(hasProgress: hasProgress), lift: !grid) {
                     model.playEpisode(ep, from: ProgressStyle.centreStart(hasProgress: hasProgress))
                 }
                 // ♡ / ✓ badge buttons in the top-right corner, as on posters (the watched tick lives in ✓ now)
@@ -916,10 +917,18 @@ struct RefreshAfterPlayback: ViewModifier {
 /// Dark level-2 glass back panel (glassCard look) around a series-page grid episode card; a no-op elsewhere.
 struct EpisodeGridPanel: ViewModifier {
     let active: Bool
+    @State private var hover = false
+    @AppStorage("accent") private var accentName = "red"
     func body(content: Content) -> some View {
         if active {
-            // Same card as before, only with the bigger rounded corners of the owner's example
+            // Same card as before, only with the bigger rounded corners of the owner's example; on hover the card
+            // itself lights up (accent edge) and keeps its size — the picture zooms inside its frame (owner)
             content.glassCard(padding: Glass3DTokens.Space.s, radius: Glass3DTokens.Radius.hero, level: 2)
+                .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous)
+                            .strokeBorder(Theme.accent(accentName).opacity(hover ? 0.85 : 0), lineWidth: 1.5)
+                            .allowsHitTesting(false))
+                .onHover { hover = $0 }
+                .animation(Glass3DTokens.Motion.fast, value: hover)
         } else {
             content
         }

@@ -167,8 +167,8 @@ struct ClassicPosterCard: View {
 
 extension View {
     /// `play`: size of the play button shown on hover (0 = none).
-    func classicHoverLift(play: CGFloat = 0, playTip: String? = nil, onPlay: (() -> Void)? = nil) -> some View {
-        modifier(SelfHoverLift(play: play, onPlay: onPlay, playTip: playTip))
+    func classicHoverLift(play: CGFloat = 0, playTip: String? = nil, lift: Bool = true, onPlay: (() -> Void)? = nil) -> some View {
+        modifier(SelfHoverLift(play: play, onPlay: onPlay, playTip: playTip, lift: lift))
     }
 }
 

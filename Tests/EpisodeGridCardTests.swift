@@ -22,3 +22,13 @@ final class EpisodeGridCardTests: XCTestCase {
         XCTAssertTrue(s.contains("EpisodeImagePick") || s.contains("aspectRatio(16 / 9"))
     }
 }
+
+final class EpisodeGridHoverTests: XCTestCase {
+    func testGridCardKeepsSizeAndZoomsInside() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let s = try String(contentsOf: root.appendingPathComponent("Sources/Classic/ClassicDetail.swift"), encoding: .utf8)
+        XCTAssertTrue(s.contains("lift: !grid"))
+        XCTAssertTrue(s.contains("ZoomInsideOnHover(active: grid)"))
+        XCTAssertTrue(s.contains("tracksHover: !grid"))
+    }
+}
