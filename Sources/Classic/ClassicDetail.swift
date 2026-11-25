@@ -763,7 +763,7 @@ struct ClassicDetailView: View {
                     AboutCardContent(facts: facts, rows: rows, links: links, path: s?.Path)
                         // The shared GlassCard surface (level 2) — the only box in the card
                         .glassCard(padding: Glass3DTokens.Space.xl, radius: Glass3DTokens.Radius.window)
-                        .frame(width: AboutCard.cardWidth(castCardWidth: CastTile.width(castSize)))
+                        .frame(maxWidth: AboutCard.cardWidth(castCardWidth: CastTile.width(castSize)), alignment: .leading)
                 }
                 .padding(.horizontal, Glass3DTokens.Space.pageWide).frame(maxWidth: .infinity, alignment: .leading)
             }

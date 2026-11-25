@@ -74,6 +74,8 @@ struct CastTile: View {
 struct FlowLayout: Layout {
     var hSpacing: CGFloat = 12
     var vSpacing: CGFloat = 8
+    /// Report the width the items really use instead of the whole offered width (the About card hugs its text)
+    var hug = false
 
     private func rows(_ width: CGFloat, _ subviews: Subviews) -> [[(Int, CGSize)]] {
         var rows: [[(Int, CGSize)]] = [[]]
@@ -100,7 +102,7 @@ struct FlowLayout: Layout {
             h += rowH
         }
         h += vSpacing * CGFloat(max(0, r.count - 1))
-        return CGSize(width: proposal.width ?? w, height: h)
+        return CGSize(width: hug ? w : (proposal.width ?? w), height: h)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
