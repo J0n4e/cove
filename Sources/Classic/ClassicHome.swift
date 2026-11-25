@@ -344,7 +344,7 @@ struct ClassicResumeCard: View {
     @AppStorage("accent") private var accentName = "red"
 
     var progress: Double { emby.progressFraction(item) }
-    var hasProgress: Bool { progress > 0 && progress < 1 }
+    var hasProgress: Bool { emby.showsResume(item) }   // the Resume button's rule (owner)
     /// The ring: resume from the saved position
     func resume() { Task { await emby.playFromHome(item, from: ProgressStyle.ringStart(resumeAt: emby.resumeAt(item))) } }
     /// The centre play button: from the beginning when partly watched

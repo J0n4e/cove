@@ -1031,6 +1031,13 @@ final class Emby: ObservableObject {
         return t > 30 ? t : 0
     }
 
+    /// Whether the card shows the Resume ring: exactly the Resume button's rule — a saved position (past the first
+    /// 30 s), even when the item is also marked watched (re-watching), and not finished (owner).
+    func showsResume(_ it: Item) -> Bool {
+        let f = progressFraction(it)
+        return resumeAt(it) > 0 && f > 0 && f < 1
+    }
+
     /// How far into an item you got (0...1) for the progress line and Resume ring: a position saved in this
     /// session (a playback just stopped) wins over the item's own UserData, which is only as new as its last load.
     func progressFraction(_ it: Item) -> Double {

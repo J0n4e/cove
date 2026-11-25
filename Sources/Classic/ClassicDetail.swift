@@ -583,7 +583,7 @@ struct ClassicDetailView: View {
     func episodeRow(_ ep: Item) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = emby.progressFraction(ep) * 100
-        let hasProgress: Bool = pct > 0 && pct < 100 && !played
+        let hasProgress: Bool = emby.showsResume(ep)   // same rule as the Resume button (owner)
         return NavigationLink(value: ep) {
             HStack(alignment: .center, spacing: 18) {
                 Text("\(ep.IndexNumber ?? 0)").cvFont(26, weight: .semibold)
@@ -682,7 +682,7 @@ struct ClassicDetailView: View {
     func episodeTile(_ ep: Item, grid: Bool = false) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = emby.progressFraction(ep) * 100
-        let hasProgress: Bool = pct > 0 && pct < 100 && !played
+        let hasProgress: Bool = emby.showsResume(ep)   // same rule as the Resume button (owner)
         return NavigationLink(value: ep) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .topTrailing) {
