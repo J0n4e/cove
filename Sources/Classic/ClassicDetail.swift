@@ -766,7 +766,7 @@ struct ClassicDetailView: View {
                     Glass3DRowHeading(title: "About")
                     AboutCardContent(facts: facts, rows: rows, links: links, path: s?.Path)
                         // Frosted glass over the film's own blurred backdrop (owner), on the level-2 card
-                        .frostedAboutCard(backdropId: f.backdropId ?? f.Id)
+                        .frostedAboutCard(backdropId: item.backdropId ?? item.Id)
                         .frame(maxWidth: AboutCard.cardWidth(castCardWidth: CastTile.width(castSize)), alignment: .leading)
                 }
                 .padding(.horizontal, Glass3DTokens.Space.pageWide).frame(maxWidth: .infinity, alignment: .leading)
