@@ -31,6 +31,13 @@ struct Item: Identifiable, Decodable, Hashable {
     /// Banner "Newest" only (asked for in Fields there): when a film was added / a show last got new content.
     var DateCreated: String? = nil
     var DateLastContentAdded: String? = nil
+    /// Width ÷ height of the Primary image (asked for in every list's Fields). Below 1 = a portrait poster,
+    /// e.g. a show poster set as an episode's picture; episode cards then pick a wide image instead (EpisodeImagePick).
+    var PrimaryImageAspectRatio: Double? = nil
+    /// Wide artwork of the episode's season or show (the server fills these in on episodes).
+    var ParentThumbItemId: String? = nil
+    var ParentThumbImageTag: String? = nil
+    var SeriesThumbImageTag: String? = nil
     let UserData: UD?
     let RunTimeTicks: Int64?
     let CommunityRating: Double?
@@ -737,7 +744,7 @@ final class Emby: ObservableObject {
         // The server leaves the year out unless asked; posters show it under the title
         // ProviderIds: posters show your Trakt rating, matched by IMDb / TMDB / TVDB id
         var fields = q["Fields"].map { $0.split(separator: ",").map(String.init) } ?? []
-        for extra in ["ProductionYear", "ProviderIds", "ChildCount"] where !fields.contains(extra) { fields.append(extra) }
+        for extra in ["ProductionYear", "ProviderIds", "ChildCount", "PrimaryImageAspectRatio"] where !fields.contains(extra) { fields.append(extra) }
         q["Fields"] = fields.joined(separator: ",")
         guard var c = URLComponents(string: server + path) else { throw URLError(.badURL) }
         c.queryItems = q.map { URLQueryItem(name: $0.key, value: $0.value) }
@@ -836,6 +843,8 @@ final class Emby: ObservableObject {
                 if let p = it.ParentBackdropItemId, let b = it.ParentBackdropImageTags?.first { imageTags[p + "|Backdrop"] = b }
                 if let p = it.ParentLogoItemId, let t = it.ParentLogoImageTag { imageTags[p + "|Logo"] = t }
                 if let p = it.SeriesId, let t = it.SeriesPrimaryImageTag { imageTags[p + "|Primary"] = t }
+                if let p = it.ParentThumbItemId, let t = it.ParentThumbImageTag { imageTags[p + "|Thumb"] = t }
+                if let p = it.SeriesId, let t = it.SeriesThumbImageTag { imageTags[p + "|Thumb"] = t }
                 // Blurred previews: match each hash to the item that owns that image (by its tag)
                 for (kind, byTag) in it.ImageBlurHashes ?? [:] {
                     for (tag, hash) in byTag {
@@ -862,6 +871,12 @@ final class Emby: ObservableObject {
         return URL(string: "\(server)/Items/\(id)/Images/\(kind)?maxWidth=\(width)&quality=80"
             + (tag.map { "&tag=\($0)" } ?? "")
             + (plain ? "&EnableImageEnhancers=false" : ""))
+    }
+
+    /// An episode card's picture: always a wide one when the server has any (EpisodeImagePick).
+    func episodeImage(_ ep: Item, width: Int) -> URL? {
+        let p = EpisodeImagePick.pick(ep)
+        return image(p.itemId, p.imageType, width: width, plain: true)
     }
 
     // MARK: Libraries
