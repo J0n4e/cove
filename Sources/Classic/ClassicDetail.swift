@@ -34,24 +34,12 @@ struct SeasonDeck: View {
     /// changes elsewhere).
     @State private var pos = -1
     @State private var swipe = DeckSwipe()
-    /// Moving forward, as the Home banner's deck: the old front card stays on screen as a copy and fades away
-    /// (growing slightly, drifting left) while the cards behind slide up into place (owner)
-    @State private var leaving: Int?
-    @State private var leavingGone = false
-    /// Moving back, the mirror: the returning card comes in over the deck from slightly bigger and left, opaque
-    /// within the first moment (so the cards behind never show through), settling into the front place (owner)
-    @State private var arriving: Int?
-    @State private var arrivingIn = false
-    @State private var arrivingSolid = false
-    /// Collections: the pointer is on the front card's link layer (it sits over the card, so it passes the hover on)
-    @State private var frontHover = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var shownPos: Int { pos >= 0 ? pos : (numbers.firstIndex(of: selected) ?? 0) }
 
     var body: some View {
         HStack(spacing: 12) {
             arrow("chevron.left", "Previous \(noun)", enabled: shownPos > 0) { go(shownPos - 1) }
-            VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
+            VStack(alignment: .leading, spacing: 10) {
                 cards
                 if let caption, numbers.indices.contains(shownPos), let c = caption(numbers[shownPos]) {
                     Text(c).cvFont(15, weight: .semibold).foregroundColor(.white).classicBlackOutline()
@@ -84,32 +72,10 @@ struct SeasonDeck: View {
             .disabled(!enabled).opacity(enabled ? 1 : 0.35)
     }
 
-    /// Shows season `p` with the Home banner's deck movement (0.7 s, eased).
+    /// Shows season `p`: the whole deck cross-fades to its new stack.
     func go(_ p: Int) {
         guard p >= 0, p < numbers.count, p != shownPos else { return }
-        let from = shownPos
-        if p > from && !reduceMotion {
-            leaving = from
-            leavingGone = false
-            DispatchQueue.main.async { withAnimation(Glass3DTokens.Motion.deck) { leavingGone = true } }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if leaving == from { leaving = nil } }
-        }
-        if p < from && !reduceMotion {
-            arriving = p
-            arrivingIn = false
-            arrivingSolid = false
-            // One start, one duration, one curve: the old front card slides back and shrinks WHILE the returning
-            // card's copy fades in slowly and settles (owner). Every card is the same Button whatever its place,
-            // so the slide back is a real move, not a swap.
-            pos = shownPos   // unchanged until the shared animation below
-            DispatchQueue.main.async {
-                withAnimation(Glass3DTokens.Motion.deck) { arrivingSolid = true; arrivingIn = true; pos = p }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if arriving == p { arriving = nil } }
-            select(numbers[p])
-            return
-        }
-        withAnimation(reduceMotion ? nil : Glass3DTokens.Motion.deck) { pos = p }
+        withAnimation(.easeInOut(duration: 0.35)) { pos = p }
         select(numbers[p])
     }
 
@@ -120,15 +86,13 @@ struct SeasonDeck: View {
             .frame(width: w + CGFloat(3) * peek, height: h, alignment: .leading)
     }
 
-    /// The stack, each card keyed by its season, so a move slides the cards into their new places (as Home)
+    /// One whole stack, keyed by its position: a new position replaces the stack as one piece with a plain
+    /// cross-fade (the same both ways)
     func stack(_ pos: Int, _ shown: Int) -> some View {
         ZStack(alignment: .leading) {
             ForEach(Array((pos..<(pos + shown)).reversed()), id: \.self) { p in
                 let k = p - pos
                 deckButton(p, k: k) { card(numbers[p], k: k) }
-                // Collections: the front card's movie opens through a see-through link laid over it (below the
-                // badges), so the card itself never changes type when it moves
-                .overlay { frontLink(p, k: k) }
                 // v1.18.6: the poster badges (♡ / ✓ with the unwatched count) on the front card, no hover buttons
                 .modifier(DeckCardBadges(front: k == 0, item: seasonItem(numbers[p]), episodes: episodes(numbers[p]),
                                          unwatched: badge(numbers[p]), watched: watched?(numbers[p])))
@@ -136,45 +100,18 @@ struct SeasonDeck: View {
                     .accessibilityLabel(title(numbers[p]))   // no tooltip: the card shows its name
                     .scaleEffect(1 - CGFloat(k) * 0.08, anchor: .trailing)
                     .offset(x: CGFloat(k) * peek)
-                    // hidden while its arriving copy (below) settles over it
-                    .opacity(arriving == p ? 0 : 1)
-                    // the old front card leaves through its fading copy below; a card at the back fades in or out
-                    .transition(.asymmetric(insertion: .opacity, removal: k == 0 ? .identity : .opacity))
-            }
-            if let l = leaving, numbers.indices.contains(l) {
-                card(numbers[l], k: 0)
-                    .scaleEffect(leavingGone ? 1.08 : 1)
-                    .offset(x: leavingGone ? -30 : 0)
-                    .opacity(leavingGone ? 0 : 1)
-                    .allowsHitTesting(false)
-            }
-            if let a = arriving, numbers.indices.contains(a) {
-                card(numbers[a], k: 0)
-                    .scaleEffect(arrivingIn ? 1 : 1.08)
-                    .offset(x: arrivingIn ? 0 : -30)
-                    .opacity(arrivingSolid ? 1 : 0)
-                    .allowsHitTesting(false)
             }
         }
+        .id(pos)
+        .transition(.opacity)
     }
 
-    /// Every card is the same Button wherever it sits (so moving keeps it the same view and it slides): a card
-    /// behind brings itself to the front; a collection's front card opens its movie (for keyboard / accessibility;
-    /// a click lands on the link layer over it, see frontLink).
-    func deckButton<L: View>(_ p: Int, k: Int, @ViewBuilder label: () -> L) -> some View {
-        Button {
-            if let it = DeckFrontLink.target(k: k, item: link?(numbers[p])) { ClassicNavState.shared.open(it) } else { go(p) }
-        } label: { label() }
-    }
-
-    /// The see-through link over a collection's front card: opens its movie and passes the hover on to the card.
-    @ViewBuilder func frontLink(_ p: Int, k: Int) -> some View {
-        if let it = DeckFrontLink.target(k: k, item: link?(numbers[p])) {
-            NavigationLink(value: it) { Color.clear.contentShape(Rectangle()) }
-                .buttonStyle(.plainHand)
-                .onHover { frontHover = $0 }
-                .accessibilityHidden(true)   // the card's own Button carries the label and the same action
-                .id(numbers[p])
+    /// The front card of a collection opens its movie; every other card brings itself to the front.
+    @ViewBuilder func deckButton<L: View>(_ p: Int, k: Int, @ViewBuilder label: () -> L) -> some View {
+        if k == 0, let link, let it = link(numbers[p]) {
+            NavigationLink(value: it) { label() }
+        } else {
+            Button { go(p) } label: { label() }
         }
     }
 
@@ -184,8 +121,7 @@ struct SeasonDeck: View {
         } placeholder: { ZStack { Color(white: 0.15); Text(title(n)).cvFont(10, weight: .regular) } }
         .frame(width: w, height: h).clipped()   // no name on the card: season and movie covers show their own
         .cornerRadius(Glass3DTokens.Radius.row)
-        .modifier(ClassicLightCard(radius: 10, hover: k == 0 && frontHover && link != nil,
-                                   accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
+        .modifier(ClassicLightCard(radius: 10, accent: Theme.accent(accentName), size: CGSize(width: w, height: h),
                                    tracksHover: k == 0))   // the posters' light glass edge; glow on the front card
         .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.row).fill(Color.black.opacity(Double(k) * 0.22)))
         .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
