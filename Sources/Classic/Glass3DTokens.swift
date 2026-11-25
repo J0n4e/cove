@@ -98,6 +98,8 @@ enum Glass3DTokens {
     // MARK: Spacing (padding / stack spacing scale)
     enum Space {
         static let xs: CGFloat = 4
+        /// Room around a card so its lit edge is never clipped
+        static let edgeRoom: CGFloat = 2
         static let s: CGFloat = 6
         static let m: CGFloat = 10
         static let l: CGFloat = 14

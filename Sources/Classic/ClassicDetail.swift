@@ -631,7 +631,7 @@ struct ClassicDetailView: View {
                 } else if epLayout == "grid" {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14)], spacing: 18) {
                         ForEach(eps) { ep in episodeTile(ep, grid: true) }
-                    }.padding(.horizontal, Glass3DTokens.Space.pageWide - 2)   // the cards' 2 pt room keeps the old alignment
+                    }.padding(.horizontal, Glass3DTokens.Space.pageWide - Glass3DTokens.Space.edgeRoom)   // the cards' 2 pt room keeps the old alignment
                 } else {
                     VStack(alignment: .leading, spacing: 12) { ForEach(eps) { ep in episodeRow(ep) } }
                 }
@@ -933,7 +933,7 @@ struct EpisodeGridPanel: ViewModifier {
                         .compositingGroup()
                         .allowsHitTesting(false)
                 }
-                .padding(2)
+                .padding(Glass3DTokens.Space.edgeRoom)
                 .onHover { hover = $0 }
                 .animation(Glass3DTokens.Motion.fast, value: hover)
         } else {
