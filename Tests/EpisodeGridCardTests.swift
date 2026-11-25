@@ -11,7 +11,7 @@ final class EpisodeGridCardTests: XCTestCase {
         let s = try source()
         XCTAssertTrue(s.contains("episodeTile(ep, grid: true)"))
         XCTAssertTrue(s.contains(".modifier(EpisodeGridPanel(active: grid))"))
-        XCTAssertTrue(s.contains(".fill(Glass3DTokens.EpisodeCard.fill)"))
+        XCTAssertTrue(s.contains("glassCard(padding: Glass3DTokens.Space.s, radius: Glass3DTokens.Radius.hero, level: 2)"))
     }
 
     func testGridTextTitleAndThreeLineOverview() throws {

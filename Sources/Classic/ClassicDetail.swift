@@ -741,8 +741,8 @@ struct ClassicDetailView: View {
         let num: String = ep.IndexNumber.map { "\($0). " } ?? ""
         // The grid card always shows the short description (owner: it is the point of this card)
         let overview: String = (ep.Overview ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
-            Text(num + ep.Name).cvFont(15, weight: .bold).foregroundColor(.white).lineLimit(1)
+        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+            Text(num + ep.Name).cvFont(14, weight: .semibold).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(1)
             ZStack(alignment: .topLeading) {
                 // Invisible 3 lines reserve the description's height whether or not there is an Overview
                 Text("A\nA\nA").cvFont(12, weight: .regular).lineLimit(3).hidden().accessibilityHidden(true)
@@ -752,9 +752,7 @@ struct ClassicDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-        }
-        .padding(.horizontal, Glass3DTokens.Space.xs).padding(.top, Glass3DTokens.Space.xs).padding(.bottom, Glass3DTokens.Space.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var boxGrid: some View {
@@ -920,13 +918,8 @@ struct EpisodeGridPanel: ViewModifier {
     let active: Bool
     func body(content: Content) -> some View {
         if active {
-            // A solid dark grey card with big rounded corners, as the owner's example
-            content
-                .padding(Glass3DTokens.Space.m)
-                .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous)
-                                .fill(Glass3DTokens.EpisodeCard.fill))
-                .overlay(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.hero, style: .continuous)
-                            .strokeBorder(Glass3DTokens.EpisodeCard.edge, lineWidth: 1))
+            // Same card as before, only with the bigger rounded corners of the owner's example
+            content.glassCard(padding: Glass3DTokens.Space.s, radius: Glass3DTokens.Radius.hero, level: 2)
         } else {
             content
         }

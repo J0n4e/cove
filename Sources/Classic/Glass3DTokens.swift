@@ -27,14 +27,6 @@ enum Glass3DTokens {
         static let pill: CGFloat = 999
     }
 
-    // MARK: Episode grid card (series pages)
-    enum EpisodeCard {
-        /// Solid dark grey card behind picture + title + description
-        static let fill = Color(white: 0.14)
-        /// Faint light edge
-        static let edge = Color.white.opacity(0.08)
-    }
-
     // MARK: Hover shine (posters)
     /// The soft light that follows the pointer over the hovered poster: a radial highlight under the badges.
     enum Shine {
