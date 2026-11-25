@@ -396,7 +396,7 @@ struct AboutPathLine: View {
 /// (so text stays readable over bright films), with the level-2 edge, highlight and shadow around it (owner).
 struct FrostedAboutCard: ViewModifier {
     let backdropId: String
-    static let blur: CGFloat = 30
+    static let blur: CGFloat = 27   // owner (#329): ~10 % less blurry
     static let imageOpacity = 0.55
     static let tint = 0.5
     func body(content: Content) -> some View {
@@ -404,14 +404,17 @@ struct FrostedAboutCard: ViewModifier {
         content
             .padding(Glass3DTokens.Space.xl)
             .background {
-                ZStack {
-                    Backdrop(id: backdropId, width: 800)
-                        .blur(radius: Self.blur, opaque: true)
-                        .opacity(Self.imageOpacity)
-                    Color.black.opacity(Self.tint)
-                }
-                .clipShape(shape)
-                .allowsHitTesting(false)
+                // A frame of exactly the card's size; the picture fills it as an overlay and is cut to it, so a wide
+                // backdrop can't spill past the card (#329, as the Home banner)
+                Color.black
+                    .overlay {
+                        Backdrop(id: backdropId, width: 800)
+                            .blur(radius: Self.blur, opaque: true)
+                            .opacity(Self.imageOpacity)
+                    }
+                    .overlay { Color.black.opacity(Self.tint) }
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
             }
             .elevation(2, radius: Glass3DTokens.Radius.window)
     }
