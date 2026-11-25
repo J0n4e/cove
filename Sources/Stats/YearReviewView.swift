@@ -382,6 +382,7 @@ struct YearUserMenu: View {
             }
             .padding(.leading, Glass3DTokens.Space.s).padding(.trailing, 12).frame(height: 36)
             .modifier(ClassicClearGlass(shape: Capsule()))
+            .contentShape(Capsule())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel("Whose year")
@@ -406,6 +407,7 @@ struct YearPickerMenu: View {
             }
             .padding(.horizontal, 12).frame(height: 36)
             .modifier(ClassicClearGlass(shape: Capsule()))
+            .contentShape(Capsule())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel("Year")
