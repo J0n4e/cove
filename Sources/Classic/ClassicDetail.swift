@@ -626,7 +626,7 @@ struct ClassicDetailView: View {
                     }
                 } else if epLayout == "grid" {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], spacing: 22) {
-                        ForEach(eps) { ep in episodeTile(ep) }
+                        ForEach(eps) { ep in episodeTile(ep, grid: true) }
                     }.padding(.horizontal, Glass3DTokens.Space.pageWide)
                 } else {
                     VStack(alignment: .leading, spacing: 12) { ForEach(eps) { ep in episodeRow(ep) } }
@@ -672,7 +672,10 @@ struct ClassicDetailView: View {
         }
     }
 
-    func episodeTile(_ ep: Item) -> some View {
+    /// `grid`: the series page grid's Netflix-style card — a dark level-2 glass panel holding the rounded 16:9 still,
+    /// a bold "N. Title" line and up to 3 lines of Overview. The text area has a fixed height (1 + 3 lines) so every
+    /// card in a grid row is equally tall. The row layout (grid: false) is unchanged.
+    func episodeTile(_ ep: Item, grid: Bool = false) -> some View {
         let played: Bool = emby.isPlayed(ep)
         let pct: Double = emby.progressFraction(ep) * 100
         let hasProgress: Bool = pct > 0 && pct < 100 && !played
@@ -692,7 +695,7 @@ struct ClassicDetailView: View {
                     ThumbnailScrim()   // soft dark gradient behind the code and the title
                 }
                 // Episode name in the bottom-left corner of the thumbnail
-                .overlay(alignment: .bottomLeading) {
+                .overlay(alignment: .bottomLeading) { if !grid {
                     // No background: a black outline keeps it readable (as on Continue Watching)
                     Text(ep.Name).cvFont(14, weight: .semibold).foregroundColor(.white).lineLimit(2)
                         .classicBlackOutline()
@@ -700,7 +703,7 @@ struct ClassicDetailView: View {
                         .padding(.bottom, Glass3DTokens.Space.m)
                         .modifier(ProgressRingClearance(active: hasProgress))   // clear of the ring
                         .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                } }
                 // Episode number in the top-left corner
                 .overlay(alignment: .topLeading) {
                     Text(episodeInfo(ep, hasProgress: hasProgress)).cvFont(10, weight: .semibold).foregroundColor(.white)
@@ -716,14 +719,36 @@ struct ClassicDetailView: View {
                 }
                 // ♡ / ✓ badge buttons in the top-right corner, as on posters (the watched tick lives in ✓ now)
                 .itemBadges(ep, .episode, inset: 6)
-                if showEpDesc {
+                if grid {
+                    episodeGridText(ep)
+                } else if showEpDesc {
                     Text(ep.Overview ?? "").cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(2)
                 }
-            }.contentShape(Rectangle())
+            }
+            .modifier(EpisodeGridPanel(active: grid))
+            .contentShape(Rectangle())
         }.handCursor()
         .buttonStyle(.plainHand)
     }
 
+
+    /// Grid card text: bold "N. Title" (1 line) + Overview (lineLimit(3)) in a fixed-height area, so all cards match.
+    func episodeGridText(_ ep: Item) -> some View {
+        let num: String = ep.IndexNumber.map { "\($0). " } ?? ""
+        let overview: String = showEpDesc ? (ep.Overview ?? "").trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        return VStack(alignment: .leading, spacing: Glass3DTokens.Space.xs) {
+            Text(num + ep.Name).cvFont(14, weight: .semibold).foregroundColor(Glass3DTokens.Grey.primary).lineLimit(1)
+            ZStack(alignment: .topLeading) {
+                // Invisible 3 lines reserve the description's height whether or not there is an Overview
+                Text("A\nA\nA").cvFont(11, weight: .regular).lineLimit(3).hidden().accessibilityHidden(true)
+                if !overview.isEmpty {
+                    Text(overview).cvFont(11, weight: .regular).foregroundColor(Glass3DTokens.Grey.secondary)
+                        .lineLimit(3).truncationMode(.tail).multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
 
     var boxGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Glass3DTokens.Space.l)], spacing: 18) {
@@ -844,3 +869,16 @@ struct DetailInfoPanel: ViewModifier {
 }
 
 
+
+
+/// Dark level-2 glass back panel (glassCard look) around a series-page grid episode card; a no-op elsewhere.
+struct EpisodeGridPanel: ViewModifier {
+    let active: Bool
+    func body(content: Content) -> some View {
+        if active {
+            content.glassCard(padding: Glass3DTokens.Space.s, radius: Glass3DTokens.Radius.panel, level: 2)
+        } else {
+            content
+        }
+    }
+}
