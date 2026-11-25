@@ -209,7 +209,7 @@ final class HomeModel: ObservableObject {
         for row in rows {
             for it in row.items.prefix(10) {
                 if row.feed == .resume || row.feed == .nextUp {
-                    urls.append(it.isEpisode ? emby.image(it.Id, width: 520, plain: true)
+                    urls.append(it.isEpisode ? emby.episodeImage(it, width: 520)
                                              : emby.image(it.backdropId ?? it.Id, "Backdrop", width: 520))
                 } else {
                     urls.append(emby.image(it.posterId, width: 360))
