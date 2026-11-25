@@ -97,7 +97,7 @@ struct SeasonDeck: View {
             arrivingIn = false
             arrivingSolid = false
             DispatchQueue.main.async {
-                withAnimation(Glass3DTokens.Motion.deckCover) { arrivingSolid = true }
+                withAnimation(Glass3DTokens.Motion.deck) { arrivingSolid = true }   // slow fade-in over the whole move (owner)
                 withAnimation(Glass3DTokens.Motion.deck) { arrivingIn = true }
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { if arriving == p { arriving = nil } }
