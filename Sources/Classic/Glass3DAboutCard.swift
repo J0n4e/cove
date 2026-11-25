@@ -391,6 +391,36 @@ struct AboutPathLine: View {
     }
 }
 
+
+/// The About card as a frosted glass panel: the film's backdrop, heavily blurred, shows faintly through a dark tint
+/// (so text stays readable over bright films), with the level-2 edge, highlight and shadow around it (owner).
+struct FrostedAboutCard: ViewModifier {
+    let backdropId: String
+    static let blur: CGFloat = 30
+    static let imageOpacity = 0.55
+    static let tint = 0.5
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Glass3DTokens.Radius.window, style: .continuous)
+        content
+            .padding(Glass3DTokens.Space.xl)
+            .background {
+                ZStack {
+                    Backdrop(id: backdropId, width: 800)
+                        .blur(radius: Self.blur, opaque: true)
+                        .opacity(Self.imageOpacity)
+                    Color.black.opacity(Self.tint)
+                }
+                .clipShape(shape)
+                .allowsHitTesting(false)
+            }
+            .elevation(2, radius: Glass3DTokens.Radius.window)
+    }
+}
+
+extension View {
+    func frostedAboutCard(backdropId: String) -> some View { modifier(FrostedAboutCard(backdropId: backdropId)) }
+}
+
 /// One row's values, one per line. Subtitles: the first three, then '+N more' to show the rest (owner).
 struct AboutRowLines: View {
     let lines: [String]

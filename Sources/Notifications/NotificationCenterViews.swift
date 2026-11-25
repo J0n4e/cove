@@ -308,6 +308,7 @@ struct ActivityStatsMenu: View {
             .padding(.horizontal, Glass3DTokens.Space.l).frame(height: 32)
             .classicSelectedGlass(on)
             .padding(Glass3DTokens.Space.xs).frame(height: 38).classicClearGlass().opacity(0.92)
+            .contentShape(Capsule())   // the whole pill opens the menu
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .helpLabel("Statistics")
