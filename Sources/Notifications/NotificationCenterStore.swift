@@ -37,7 +37,7 @@ final class NotificationCenterStore: ObservableObject {
         self.file = file
         self.now = now
         if let file, let d = try? Data(contentsOf: file) {
-            all = NotificationInbox.pruned(NotificationInbox.decode(d), now: now())
+            all = NotificationInbox.deduped(NotificationInbox.pruned(NotificationInbox.decode(d), now: now()))
             items = all   // didSet doesn't run inside init; no active server yet → everything
         }
     }
@@ -45,9 +45,11 @@ final class NotificationCenterStore: ObservableObject {
     var unread: Int { NotificationInbox.unreadCount(items) }
 
     /// Keeps a notification Cove just made; with `.toast` it is also shown as the in-app toast.
+    /// Returns nil when it is the same news a second time (nothing kept, no toast; the caller skips the banner).
     @discardableResult
-    func add(_ n: NewMediaNotification, presentation: NotificationPresentation) -> StoredNotification {
+    func add(_ n: NewMediaNotification, presentation: NotificationPresentation) -> StoredNotification? {
         let s = StoredNotification(n, date: now(), target: NewMediaService.userInfo(n))
+        if NotificationInbox.isDuplicate(s, in: all) { return nil }
         all = NotificationInbox.adding(s, to: all, now: now())
         if presentation == .toast, NotificationInbox.isServer(s.server, activeServer) { toast = s }
         save()

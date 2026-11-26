@@ -74,6 +74,29 @@ enum NotificationInbox {
         return Array(fresh.prefix(maxItems))
     }
 
+    /// The same news a second time: same server and user, same card (title, detail line) and the same item (Play
+    /// target or Open target), within 2 days. Happens when one movie sits in two libraries (each library is checked
+    /// on its own) or is found by the poll and the socket at once (owner: two cards for one movie).
+    static func isDuplicate(_ n: StoredNotification, in list: [StoredNotification]) -> Bool {
+        list.contains { o in
+            o.id != n.id && norm(o.server) == norm(n.server) && o.userId == n.userId
+                && o.cardTitle == n.cardTitle && o.cardDetail == n.cardDetail
+                && (sameItem(o, n) || o.added != nil && o.added == n.added)
+                && abs(o.date.timeIntervalSince(n.date)) < 2 * 24 * 3600
+        }
+    }
+    private static func sameItem(_ a: StoredNotification, _ b: StoredNotification) -> Bool {
+        if let x = a.playId, let y = b.playId { return x == y }
+        return a.target["id"] != nil && a.target["id"] == b.target["id"]
+    }
+
+    /// The list without the repeats already in it (keeps the newest of each); for lists saved before the check.
+    static func deduped(_ list: [StoredNotification]) -> [StoredNotification] {
+        var kept: [StoredNotification] = []
+        for n in list.sorted(by: { $0.date > $1.date }) where !isDuplicate(n, in: kept) { kept.append(n) }
+        return kept
+    }
+
     /// Adds one at the top (an older copy with the same id is replaced), then prunes.
     static func adding(_ n: StoredNotification, to list: [StoredNotification], now: Date) -> [StoredNotification] {
         pruned([n] + list.filter { $0.id != n.id }, now: now)

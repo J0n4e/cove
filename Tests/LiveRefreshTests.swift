@@ -146,7 +146,7 @@ final class LiveRefreshTests: XCTestCase {
     func testBannerClickMarksCardRead() async {
         let store = NotificationCenterStore(file: nil)
         let svc = NewMediaService(enabled: false, inbox: store)
-        let s = store.add(note("a"), presentation: .banner)
+        let s = store.add(note("a"), presentation: .banner)!
         store.add(note("b"), presentation: .banner)
         XCTAssertEqual(store.unread, 2)
         await svc.bannerClicked(NewMediaService.userInfo(note("a")), title: "New movie")
