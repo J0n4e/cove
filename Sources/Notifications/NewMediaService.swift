@@ -218,7 +218,7 @@ final class NewMediaService: ObservableObject {
             // Kept in the list in every case; Cove in front → its own toast instead of the macOS banner (no
             // double), a video playing → only the list
             let how = presentation()
-            inbox.add(n, presentation: how)
+            guard inbox.add(n, presentation: how) != nil else { log("Notifications: already announced, skipped"); continue }
             guard how == .banner else { log("Notifications: shown in Cove (\(how == .toast ? "toast" : "list only"))"); continue }
             var file: URL?
             if !n.images.isEmpty { file = await src.imageFile(n.images) }

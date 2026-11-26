@@ -91,7 +91,7 @@ final class NotificationCenterTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         let file = dir.appendingPathComponent("notifications.json")
         let a = NotificationCenterStore(file: file, now: { self.t0 })
-        let s = a.add(note("x"), presentation: .banner)
+        let s = a.add(note("x"), presentation: .banner)!
         XCTAssertEqual(a.unread, 1)
         XCTAssertNil(a.toast)
         a.markRead(s.id)
@@ -104,11 +104,31 @@ final class NotificationCenterTests: XCTestCase {
         XCTAssertTrue(b.items[0].read)
     }
 
+    func testSameMovieTwiceIsKeptOnce() {
+        let st = NotificationCenterStore(file: nil, now: { self.t0 })
+        // the same movie from a second library: another notification id, same item and card
+        let other = NewMediaNotification(id: "https://a|u|L2|x", title: "New movie", body: "Dune (2021)", thread: "cove-movies",
+                                         target: .item("x"), images: NewMediaImage.movie("x"), server: "https://a", userId: "u",
+                                         libraryId: "L2", cardTitle: "Dune", cardDetail: "New movie · 2021", playId: "x")
+        XCTAssertNotNil(st.add(note("x"), presentation: .listOnly))
+        XCTAssertNil(st.add(other, presentation: .toast))
+        XCTAssertEqual(st.items.count, 1)
+        XCTAssertNil(st.toast)
+        // another movie is still news
+        XCTAssertNotNil(st.add(note("y"), presentation: .listOnly))
+        XCTAssertEqual(st.items.count, 2)
+    }
+
+    func testSavedRepeatsAreRemoved() {
+        let list = [stored("x", at: t0), stored("x", at: t0.addingTimeInterval(60)), stored("y", at: t0)]
+        XCTAssertEqual(NotificationInbox.deduped(list).count, 2)
+    }
+
     func testToastSetOnlyForToastPresentation() {
         let st = NotificationCenterStore(file: nil, now: { self.t0 })
         st.add(note("a"), presentation: .listOnly)
         XCTAssertNil(st.toast)
-        let s = st.add(note("b"), presentation: .toast)
+        let s = st.add(note("b"), presentation: .toast)!
         XCTAssertEqual(st.toast?.id, s.id)
         st.remove(s.id)
         XCTAssertNil(st.toast)
