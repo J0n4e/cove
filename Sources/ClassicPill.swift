@@ -46,9 +46,8 @@ struct ClassicGlassPillStyle: ViewModifier {
     @AppStorage("accent") private var accentName = "red"
     @State private var hover = false
     func body(content: Content) -> some View {
-        styled(content)
+        styled(content).contentShape(Capsule())   // the whole pill clicks
             .pillHoverEffect(hover: hover, in: Capsule())   // Settings → Appearance → Pill hover (press: the button style)
-            .contentShape(Capsule())   // the whole pill clicks
             .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
     }
     /// Under the mouse: Settings → General → Hover effect (fogged mirror or soft accent glow).
