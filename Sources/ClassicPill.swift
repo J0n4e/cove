@@ -72,7 +72,9 @@ struct ClassicGlassPillStyle: ViewModifier {
             content.labelStyle(.iconOnly).cvFont(size * 0.36, weight: .medium)
                 .frame(width: size, height: size)
         } else if let size {
-            content.cvFont(size * 0.36, weight: .medium)
+            // One line, as wide as its text (owner: "59:15" wrapped to two lines when the row was tight)
+            content.cvFont(size * 0.36, weight: .medium).monospacedDigit()
+                .lineLimit(1).fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, size * 0.38)
                 .frame(minWidth: size, minHeight: size, maxHeight: size)
         } else { content }
