@@ -4,7 +4,9 @@ import AppKit
 /// Settings → General → Hover effect (key "classicHover"). The stored value "glass" (once "Glass pill") now means
 /// the Liquid lens, so a saved choice carries over.
 enum HoverStyle {
-    static let options: [(String, String)] = [("fog", "Fogged mirror"), ("glow", "Soft glow"), ("glass", "Liquid lens")]
+    static let options: [(String, String)] = [("fog", "Fogged mirror"), ("glow", "Soft glow"), ("glass", "Liquid lens"),
+                                              ("slide", "Sliding light"), ("spot", "Spotlight"), ("underline", "Underline glow"),
+                                              ("frost", "Frosted rise"), ("pulse", "Colour pulse")]
     /// A known value as it is; anything else (missing, old or mistyped) is the default, "fog".
     static func normalized(_ raw: String?) -> String {
         guard let raw, options.contains(where: { $0.0 == raw }) else { return "fog" }

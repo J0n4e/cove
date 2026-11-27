@@ -5,8 +5,8 @@ import SwiftUI
 /// Glass3D polish round 3: the Liquid lens hover option.
 final class Glass3DRound3Tests: XCTestCase {
     func testHoverOptionsAndNames() {
-        XCTAssertEqual(HoverStyle.options.map(\.0), ["fog", "glow", "glass"])
-        XCTAssertEqual(HoverStyle.options.map(\.1), ["Fogged mirror", "Soft glow", "Liquid lens"])
+        XCTAssertEqual(Array(HoverStyle.options.map(\.0).prefix(3)), ["fog", "glow", "glass"])
+        XCTAssertEqual(Array(HoverStyle.options.map(\.1).prefix(3)), ["Fogged mirror", "Soft glow", "Liquid lens"])
     }
 
     func testSavedGlassPillMigratesToLiquidLens() {

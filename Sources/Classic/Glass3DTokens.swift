@@ -167,6 +167,36 @@ enum Glass3DTokens {
         static let pressScale: CGFloat = 0.96
     }
 
+    // MARK: Top bar hover (Settings → Appearance → Hover effect)
+    /// Values for the Sliding light, Spotlight, Underline glow, Frosted rise and Colour pulse hover looks.
+    enum TopBarHover {
+        /// Sliding light: the shared highlight glides with the spring; it fades out this long after the bar is left
+        static let slide = Motion.spring
+        static let slideLeaveDelay: Double = 0.08
+        static let slideFill = 0.30
+        /// Spotlight: radial accent light around the pointer
+        static let spotOpacity = 0.45
+        static let spotRadius: CGFloat = 46
+        static let spotBase = 0.06
+        /// Underline glow: a short accent line under the label
+        static let underlineHeight: CGFloat = 2
+        static let underlineWidth: CGFloat = 0.6
+        static let underlineInset: CGFloat = 5
+        static let underlineGlow: CGFloat = 4
+        static let underlineGlowOpacity = 0.8
+        /// Frosted rise: bright frosted glass that lifts a little
+        static let frostTint = 0.18
+        static let frostStroke = 0.45
+        static let riseScale: CGFloat = 1.03
+        static let riseShadow = Shadow(radius: 6, y: 3, opacity: 0.35)
+        /// Colour pulse: accent fill that brightens once and settles
+        static let pulseFill = 0.38
+        static let pulsePeak = 0.15
+        static let pulsePeakSeconds: Double = 0.25
+        static let pulseUp = Motion.fast
+        static let pulseSettle = Motion.standard
+    }
+
     // MARK: Status colours (accent-independent)
     /// ONE fixed red for every destructive / error / unread use, whatever the accent; success, warning, info likewise.
     enum Status {

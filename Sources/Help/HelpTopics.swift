@@ -317,6 +317,10 @@ enum HelpTopics {
                                   "About: version, updates (including Get beta versions), storage (image and subtitle cache), backup of your settings, and Reset."]),
                         .place("Cove → Settings… (⌘,)"),
                     ]),
+                    HelpSection(heading: "Hover effect", blocks: [
+                        .text("Settings → Appearance → Hover effect picks how the top bar's sections and the view switches light up under the mouse: Fogged mirror (the default), Soft glow, Liquid lens, Sliding light (one accent light glides from section to section as you move along the top bar and fades when you leave it), Spotlight (a soft accent light follows the pointer inside the pill), Underline glow (a short glowing accent line under the name), Frosted rise (bright frosted glass that lifts a little) or Colour pulse (the accent fill brightens once and settles). With Reduce Motion on, they only fade in and the spotlight stays centred."),
+                        .place("Settings → Appearance → Hover effect"),
+                    ]),
                     HelpSection(heading: "Pill hover", blocks: [
                         .text("Settings → Appearance → Pill hover picks how every pill and button reacts under the mouse: Accent edge (the default, the border lights in your accent color), Light sweep (a soft shine slides across once), Glow (a soft accent glow), Lift (the pill rises a little) or None. Soft press (on by default) makes a pill dip when you click it. With Reduce Motion on, the sweep, the lift and the press stay still."),
                         .place("Settings → Appearance → Pill hover"),

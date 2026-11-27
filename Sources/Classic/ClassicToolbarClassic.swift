@@ -24,6 +24,8 @@ struct ClassicTopNavButtonsClassic: View {
     @EnvironmentObject var emby: Emby
     @AppStorage(NavOrder.key) private var navOrder = ""
     @ObservedObject private var nav = ClassicNavState.shared
+    @Namespace private var hoverNS   // Settings → Hover effect → Sliding light glides in it
+    @StateObject private var slide = TopBarSlideState()
     @AppStorage("topBarLabels") private var labelSetting = "both"   // Settings → General: "both", "names" or "icons"
     /// The window is too narrow for the names: icons only, whatever Settings says.
     var compact = false
@@ -48,7 +50,7 @@ struct ClassicTopNavButtonsClassic: View {
                 .padding(.horizontal, labels == "names" ? 18 : 16).frame(height: 36)
                 .classicSelectedPill(on)   // only the selected section gets the banner Play button's glass pill
                 .modifier(Glass3DTabHover(on: on))   // the others: a lighter dark pill; hover sheen, lift and white label
-                .modifier(SectionHoverGlow(on: !on))   // the others: an accent glow in the pill's shape on hover
+                .modifier(SectionHoverGlow(on: !on, slideId: id))   // the others: the chosen hover look (Sliding light: shared)
                 .contentShape(Capsule())
         }
         .buttonStyle(.plainHand)
@@ -71,6 +73,7 @@ struct ClassicTopNavButtonsClassic: View {
                 ForEach(NavOrder.after(lib.id, rows), id: \.self) { section($0) }
             }
         }
+        .environment(\.topBarSlide, TopBarSlide(ns: hoverNS, state: slide))
         .padding(Glass3DTokens.Space.xs)
         .frame(height: 44)
         .classicClearGlass()

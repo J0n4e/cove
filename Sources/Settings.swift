@@ -276,6 +276,7 @@ struct GeneralSettings: View {
             PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
             PrefRow { ClassicFontPreview(choice: classicFont) }
             PrefRow(label: "Hover effect") { menuPicker($classicHover, HoverStyle.options) }
+            PrefNote("How the top bar and switches light up under the mouse: Fogged mirror, Soft glow, Liquid lens, Sliding light (one light glides along the bar), Spotlight (follows the pointer), Underline glow, Frosted rise or Colour pulse.")
             PrefRow(label: "Pill hover") {
                 VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     menuPicker($pillHover, PillHoverStyle.options).tip("Hover effect")
