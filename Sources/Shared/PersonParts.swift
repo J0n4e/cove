@@ -81,6 +81,7 @@ struct PersonHeader: View {
                 .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
                 VStack(alignment: .leading, spacing: Glass3DTokens.Space.m) {
                     Text(name).coveFont { s in let f = TextScale.scaledSize(base: 42, scale: s); return classic ? .cv(f, weight: .bold) : .system(size: f, weight: .bold) }.lineLimit(2)
+                        .textSelection(.enabled)   // owner: select & copy the name
                     if !facts.isEmpty { Text(facts).coveFont(size: 15).foregroundColor(.secondary) }
                     HStack(spacing: Glass3DTokens.Space.s) {
                         if !loading {
