@@ -263,6 +263,8 @@ struct GeneralSettings: View {
         }
     }
 
+    @AppStorage(PillHoverStyle.key) private var pillHover = PillHoverStyle.defaultValue.rawValue
+    @AppStorage(PillHoverStyle.softPressKey) private var pillSoftPress = PillHoverStyle.defaultSoftPress
     @AppStorage("showRecent") private var showRecent = true
     @AppStorage("posterShowTitle") private var showTitle = true
     @AppStorage("posterShowYear") private var showYear = true
@@ -274,6 +276,14 @@ struct GeneralSettings: View {
             PrefRow(label: "Font") { menuPicker($classicFont, ClassicFont.choices) }
             PrefRow { ClassicFontPreview(choice: classicFont) }
             PrefRow(label: "Hover effect") { menuPicker($classicHover, HoverStyle.options) }
+            PrefRow(label: "Pill hover") {
+                VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
+                    menuPicker($pillHover, PillHoverStyle.options).tip("Hover effect")
+                    Toggle("Soft press", isOn: $pillSoftPress)
+                    PillHoverPreview()
+                }
+            }
+            PrefNote("Hover effect on every pill and button: a lit accent edge, a light sweep, a glow, a lift, or none. Soft press makes a pill dip when clicked.")
             PrefRow(label: "Glass") {
                 VStack(alignment: .leading, spacing: Glass3DTokens.Space.s) {
                     if GlassFrost.hasLiquidGlass { Toggle("Follow macOS", isOn: $glassFollow) }

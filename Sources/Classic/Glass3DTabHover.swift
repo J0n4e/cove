@@ -18,6 +18,7 @@ struct Glass3DTabHover: ViewModifier {
             .shadow(color: .black.opacity(on ? 0 : 0.9), radius: 1.5, x: 0, y: 0.5)
             .shadow(color: .black.opacity(on ? 0 : 0.6), radius: 5, x: 0, y: 0)
             .scaleEffect(reduce ? 1 : Glass3DTabHover.scale(on: on, hover: hover, pressed: pressed))
+            .pillHoverEffect(hover: hover, pressed: pressed, in: Capsule())   // Settings → Appearance → Pill hover
             .contentShape(Rectangle())   // the whole tab (padding included) clicks, as wide as its hover
             .onHover { h in withAnimation(Glass3DTabHover.spring) { hover = h } }
             // No press gesture here: a DragGesture on the label competed with the tab's own click and

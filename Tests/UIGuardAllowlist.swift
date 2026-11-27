@@ -49,6 +49,8 @@ enum UIGuardAllowlist {
                             reason: "check glyph legibility shadow on artwork"),
         "Classic/Glass3DComponents/Elevation.swift": UIGuardEntry(max: [.shadow: 1],
                             reason: "the elevation recipe itself draws the token shadow"),
+        "Classic/Glass3DComponents/PillHoverEffect.swift": UIGuardEntry(max: [.shadow: 1],
+                            reason: "the Glow pill hover option: a soft accent glow (glow, not elevation)"),
         "Classic/Glass3DComponents/GlassButtonStyle.swift": UIGuardEntry(max: [.shadow: 3],
                             reason: "the button family itself (inner/press shadows of the 3D face)"),
         "Classic/Glass3DDeleteEverywhere.swift": UIGuardEntry(max: [.padding: 1],
