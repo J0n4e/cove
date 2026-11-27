@@ -120,6 +120,13 @@ enum HelpTopics {
                         .text("You can save as many servers as you like. Each keeps its own sign-in. Saved servers are also listed in Settings → Connect."),
                         .place("Settings → Connect → Saved servers"),
                     ]),
+                    HelpSection(heading: "Remove a server", blocks: [
+                        .bullets(["On the sign-in screen, point at a server card and click the ✕ at its top left.",
+                                  "Or right-click the card and choose Remove Server.",
+                                  "Cove asks first. It forgets the server and your sign-in for it; nothing on the server itself is changed.",
+                                  "You can also remove a saved server with the − button in Settings → Connect."]),
+                        .place("Sign-in screen → ✕ on a server card"),
+                    ]),
                   ]),
         HelpTopic(id: "home", group: .watching, title: "Home", symbol: "house",
                   intro: "Home is the first page. It shows a big banner on top and rows of things to watch below it.",
