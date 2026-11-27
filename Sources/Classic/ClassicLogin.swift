@@ -51,29 +51,8 @@ struct ClassicLoginView: View {
     }
 
     func serverCard(_ s: SavedServer) -> some View {
-        Button { open(s) } label: {
-            VStack(spacing: Glass3DTokens.Space.m) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "server.rack").cvFont(38)
-                        .frame(width: 150, height: 100)
-                        .background(RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous).fill(Color.black.opacity(0.3)))
-                        .background(ClassicGlassBacking(shape: RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous)))
-                    if s.token != nil {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(Glass3DTokens.Space.s)
-                            .helpLabel("Signed in")
-                    }
-                }
-                HStack(spacing: Glass3DTokens.Space.xs) { ConnectionBadge(address: s.url).cvFont(10, weight: .regular); Text(s.name).cvFont(13, weight: .bold).lineLimit(1) }
-                Text((s.user.isEmpty ? s.url : "\(s.user) · \(s.url)") + " · " + emby.kindLabel(s))
-                    .cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
-            }
-            .frame(width: 150).contentShape(Rectangle())
-        }
-        .buttonStyle(HoverButton()).disabled(busy)
-        .contextMenu {
-            Button("Edit / Sign In Again") { edit(s) }
-            Button("Remove Server", role: .destructive) { emby.removeServer(s) }
-        }
+        LoginServerCard(s: s, busy: busy, kind: emby.kindLabel(s),
+                        open: { open(s) }, edit: { edit(s) }, remove: { emby.removeServer(s) })
     }
 
     var form: some View {
@@ -146,5 +125,67 @@ struct GlassField: ViewModifier {
             .background(Capsule().fill(Color.black.opacity(0.35)))
             .background(ClassicGlassBacking(shape: Capsule()))
             .focusGlowField(in: Capsule())   // accent ring while typing in it
+    }
+}
+
+
+/// One saved server on the sign-in screen. The hover look follows the card's own rounded square (owner: the round
+/// pill hover looked off on a square card), and a ✕ on hover removes the server after a confirmation (owner: make
+/// removing a server easy; right-click → Remove Server still works).
+struct LoginServerCard: View {
+    let s: SavedServer
+    let busy: Bool
+    let kind: String
+    let open: () -> Void
+    let edit: () -> Void
+    let remove: () -> Void
+    @State private var hover = false
+    @State private var confirm = false
+    private var tileShape: RoundedRectangle { RoundedRectangle(cornerRadius: Glass3DTokens.Radius.panel, style: .continuous) }
+
+    var body: some View {
+        Button(action: open) {
+            VStack(spacing: Glass3DTokens.Space.m) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "server.rack").cvFont(38)
+                        .frame(width: 150, height: 100)
+                        .background(tileShape.fill(Color.black.opacity(0.3)))
+                        .background(ClassicGlassBacking(shape: tileShape))
+                        .modifier(PillHoverEffect(hover: hover, pressed: false, shape: tileShape))
+                    if s.token != nil {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).padding(Glass3DTokens.Space.s)
+                            .helpLabel("Signed in")
+                    }
+                }
+                HStack(spacing: Glass3DTokens.Space.xs) { ConnectionBadge(address: s.url).cvFont(10, weight: .regular); Text(s.name).cvFont(13, weight: .bold).lineLimit(1) }
+                Text((s.user.isEmpty ? s.url : "\(s.user) · \(s.url)") + " · " + kind)
+                    .cvFont(10, weight: .regular).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+            }
+            .frame(width: 150).contentShape(Rectangle())
+        }
+        .buttonStyle(.plainHand).disabled(busy)
+        .overlay(alignment: .topLeading) {
+            if hover && !busy {
+                Button { confirm = true } label: {
+                    Image(systemName: "xmark.circle.fill").cvFont(20)
+                        .symbolRenderingMode(.palette).foregroundStyle(.white, Color.black.opacity(0.6))
+                        .padding(Glass3DTokens.Space.xs)
+                }
+                .buttonStyle(.plainHand).helpLabel("Remove server")
+                .transition(.opacity)
+            }
+        }
+        .onHover { hover = $0 }
+        .animation(Glass3DTokens.Motion.fast, value: hover)
+        .contextMenu {
+            Button("Edit / Sign In Again", action: edit)
+            Button("Remove Server", role: .destructive) { confirm = true }
+        }
+        .confirmationDialog("Remove \(s.name)?", isPresented: $confirm) {
+            Button("Remove Server", role: .destructive, action: remove)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Cove forgets this server and its sign-in. Nothing on the server is changed.")
+        }
     }
 }
