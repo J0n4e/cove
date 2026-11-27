@@ -776,6 +776,15 @@ final class PlayerModel: ObservableObject {
         var info: [String: Any]?
         if isTranscoding { info = await emby?.sessionInfo()?["TranscodingInfo"] as? [String: Any] }
         let method = session.map { PlayMethod.classify(url: $0.url.absoluteString, transcodingInfo: info) } ?? PlayMethod.directPlay
+        // What is playing, first (owner): the movie, or "Show · S1:E3 · Episode"
+        if let it = req?.item {
+            var t = it.Name
+            if let show = it.SeriesName {
+                let code = it.ParentIndexNumber.map { s in it.IndexNumber.map { "S\(s):E\($0)" } ?? "S\(s)" }
+                t = ([show, code ?? nil, it.Name] as [String?]).compactMap { $0 }.joined(separator: " · ")
+            } else if let y = it.ProductionYear { t += " (\(y))" }
+            out.append(("Title", t))
+        }
         out.append(("Play method", PlayMethod.describe(method, container: streamContainer,
                                                        sourceVideo: streams.first { $0.`Type` == "Video" }?.Codec,
                                                        sourceAudio: streams.first { $0.Index == audio }?.Codec,
