@@ -262,11 +262,23 @@ private struct MeasureSize: ViewModifier {
 struct ClassicHoverEffect: View {
     /// Whether the pointer is on it (callers fade it with opacity; the Liquid lens also scales in)
     var shown = true
-    @AppStorage("classicHover") private var style = "fog"   // "fog", "glow" or "glass" (Liquid lens)
+    /// Spotlight: the pointer inside the pill (nil: centred)
+    var location: CGPoint? = nil
+    @AppStorage("classicHover") private var style = "fog"   // HoverStyle.options keys; unknown → "fog"
     @AppStorage("accent") private var accentName = "red"
     var body: some View {
         let style = HoverStyle.normalized(style)
-        if style == "glass" {
+        if style == "slide" {
+            SlidingLight()   // outside the top bar (or before the bar's shared light): a plain fade
+        } else if style == "spot" {
+            HoverSpotlight(location: location)
+        } else if style == "underline" {
+            HoverUnderline(shown: shown)
+        } else if style == "frost" {
+            HoverFrostedRise(shown: shown)
+        } else if style == "pulse" {
+            HoverColourPulse(shown: shown)
+        } else if style == "glass" {
             Glass3DLiquidLens(shown: shown)   // Liquid lens (replaces the old flat "Glass pill")
         } else if style == "glow" {
             SoftAccentGlow(shape: Capsule())

@@ -43,16 +43,31 @@ extension View {
 /// Top bar and switch hover: the chosen hover look (Settings) shaped like the selected section's pill, no pill itself.
 struct SectionHoverGlow: ViewModifier {
     let on: Bool
+    /// The section's id in the top bar: with Sliding light, the bar's sections share one gliding highlight
+    var slideId: String? = nil
     @State private var hover = false
+    @State private var location: CGPoint?
+    @AppStorage("classicHover") private var style = "fog"
+    @Environment(\.topBarSlide) private var slide
     func body(content: Content) -> some View {
         content
             .background {
-                // The chosen hover look, as the buttons
-                ClassicHoverEffect(shown: on && hover)
-                    .opacity(on && hover ? 1 : 0)
-                    .allowsHitTesting(false)
+                if HoverStyle.slides(style), let slide, let slideId {
+                    TopBarSlideHighlight(id: on ? slideId : "", slide: slide, state: slide.state)
+                } else {
+                    // The chosen hover look, as the buttons
+                    ClassicHoverEffect(shown: on && hover, location: location)
+                        .opacity(on && hover ? 1 : 0)
+                        .allowsHitTesting(false)
+                }
             }
-            .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
+            .onHover { h in
+                withAnimation(Glass3DTokens.Motion.fast) { hover = h }
+                if let slide, let slideId, on { slide.state.hover(slideId, h) }
+            }
+            .onContinuousHover { phase in   // Spotlight follows the pointer
+                if case .active(let p) = phase { location = p } else { location = nil }
+            }
     }
 }
 

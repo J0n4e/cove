@@ -75,6 +75,8 @@ enum UIGuardAllowlist {
                             reason: "Home row heading pill internals (approved See all pill)"),
         "ClassicFont.swift": UIGuardEntry(max: [.font: 5],
                             reason: "the font helpers themselves"),
+        "Classic/Glass3DTopBarHover.swift": UIGuardEntry(max: [.shadow: 1],
+                            reason: "Underline glow's accent-coloured glow (a light, not an elevation; g3Shadow is black only)"),
         "ClassicPill.swift": UIGuardEntry(max: [.shadow: 4],
                             reason: "the glass pill / glass card recipes themselves (contact shadow, accent halo)"),
         "GlassWindow.swift": UIGuardEntry(max: [.shadow: 2],
