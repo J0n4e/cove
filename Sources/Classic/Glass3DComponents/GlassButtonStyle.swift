@@ -87,6 +87,7 @@ private struct GlassButtonBody: View {
             .brightness(GlassButtonStyle.hoverBrightness(hover))
             .pressFeedback(c.isPressed, in: shape)
             .focusGlow(focused, in: shape)
+            .pillHoverEffect(hover: hover, pressed: c.isPressed, in: shape)   // Settings → Appearance → Pill hover
             .contentShape(Rectangle())
     }
 
@@ -99,6 +100,7 @@ private struct GlassButtonBody: View {
             .glass3DRoundOutline()
             .pressFeedback(c.isPressed, in: Circle())
             .focusGlow(focused, in: Circle())
+            .pillHoverEffect(hover: hover, pressed: c.isPressed, in: Circle())
             .contentShape(Circle())
     }
 
@@ -118,6 +120,7 @@ private struct GlassButtonBody: View {
             .brightness(hover ? 0.12 : 0)
             .pressFeedback(c.isPressed, in: Capsule(), shade: backing && hover)
             .shadow(color: .black.opacity(hover ? 0.35 : 0), radius: 8, y: 3)
+            .pillHoverEffect(hover: hover, pressed: c.isPressed, in: Capsule())
             .scrollHover($hover)
             .handCursor()
             .animation(Glass3DTokens.Motion.fast, value: hover)

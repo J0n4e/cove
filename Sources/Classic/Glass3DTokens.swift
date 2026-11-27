@@ -144,6 +144,29 @@ enum Glass3DTokens {
         static func allowsLoop(reduceMotion: Bool) -> Bool { !reduceMotion }
     }
 
+    // MARK: Pill hover (Settings → Appearance → Pill hover)
+    /// The shared pill hover / press effect's values (PillHoverEffect).
+    enum PillFX {
+        /// Accent edge: border opacity, width and inset (so the stroke is never clipped)
+        static let edgeOpacity = 0.85
+        static let edgeWidth: CGFloat = 1.5
+        static let edgeInset: CGFloat = 0.5
+        /// Light sweep: one pass on mouse enter
+        static let sweepSeconds: Double = 0.6
+        static let sweepOpacity = 0.3
+        /// Width of the shine band as a share of the pill's width
+        static let sweepBand: CGFloat = 0.6
+        static let sweepAnimation = Animation.easeInOut(duration: sweepSeconds)
+        /// Glow: soft accent shadow around the pill
+        static let glowRadius: CGFloat = 10
+        static let glowOpacity = 0.5
+        /// Lift: a slight scale and a deeper shadow
+        static let liftScale: CGFloat = 1.02
+        static let liftShadow = Shadow(radius: 10, y: 4, opacity: 0.45)
+        /// Soft press: the pill dips while clicked and springs back
+        static let pressScale: CGFloat = 0.96
+    }
+
     // MARK: Status colours (accent-independent)
     /// ONE fixed red for every destructive / error / unread use, whatever the accent; success, warning, info likewise.
     enum Status {

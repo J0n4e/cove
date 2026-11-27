@@ -306,7 +306,7 @@ enum HelpTopics {
                   intro: "Open Settings with ⌘, or from the profile menu. Changes apply right away. Esc closes the window. Side windows such as Settings, Help and Manage server close by themselves when you click elsewhere, unless they hold unsaved changes or something is still running (a save, a download, an open dialog).",
                   sections: [
                     HelpSection(heading: "Tabs", blocks: [
-                        .bullets(["General: font, hover effect, Glass, text size, accent color, background, navigation style and the top bar, poster labels and Dim watched posters.",
+                        .bullets(["General: font, hover effect, pill hover, Glass, text size, accent color, background, navigation style and the top bar, poster labels and Dim watched posters.",
                                   "Home: the banner, the layout of rows, which rows show, and notifications.",
                                   "Libraries: order and visibility of your libraries, each library's view and sort, Favorites, and the movie and show pages.",
                                   "Subtitles: your subtitle language and how subtitles look.",
@@ -316,6 +316,10 @@ enum HelpTopics {
                                   "The full list of keyboard shortcuts is here in Help, under Keyboard shortcuts.",
                                   "About: version, updates (including Get beta versions), storage (image and subtitle cache), backup of your settings, and Reset."]),
                         .place("Cove → Settings… (⌘,)"),
+                    ]),
+                    HelpSection(heading: "Pill hover", blocks: [
+                        .text("Settings → Appearance → Pill hover picks how every pill and button reacts under the mouse: Accent edge (the default, the border lights in your accent color), Light sweep (a soft shine slides across once), Glow (a soft accent glow), Lift (the pill rises a little) or None. Soft press (on by default) makes a pill dip when you click it. With Reduce Motion on, the sweep, the lift and the press stay still."),
+                        .place("Settings → Appearance → Pill hover"),
                     ]),
                   ]),
         HelpTopic(id: "shortcuts", group: .watching, title: "Keyboard shortcuts", symbol: "keyboard",

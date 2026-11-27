@@ -227,6 +227,7 @@ struct ToolbarItemLabel: View {
         .fixedSize()
         .padding(.horizontal, Glass3DTokens.Space.l).frame(height: t.itemHeight)
         .background { ToolbarSelectedCapsule(on: on, hover: hover) }
+        .pillHoverEffect(hover: hover, in: Capsule())   // on top of the hover fill (Settings → Appearance → Pill hover)
         .contentShape(Capsule())
         .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
     }
@@ -286,6 +287,7 @@ struct ToolbarMoreButton: View {
                 .g3Shadow(Glass3DTokens.Toolbar.labelShadow)
                 .padding(.horizontal, Glass3DTokens.Space.m).frame(height: Glass3DTokens.Toolbar.itemHeight)
                 .background { ToolbarSelectedCapsule(on: on, hover: hover) }
+                .pillHoverEffect(hover: hover, in: Capsule())
                 .contentShape(Capsule())
                 .onHover { h in withAnimation(Glass3DTokens.Motion.fast) { hover = h } }
         }
