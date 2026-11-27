@@ -212,7 +212,7 @@ struct Text3D: View {
     var thick = false
     var weight: Font.Weight = .heavy
     @ViewBuilder var glyph: some View {
-        if let image { image.cvFont(size * 0.85, weight: .bold) } else { Text(text).cvFont(size, weight: weight) }
+        if let image { image.cvFont(size * 0.85, weight: .bold) } else { Text(text).cvFont(size, weight: weight).lineLimit(1).fixedSize() }   // never wraps (owner: "Pla/y")
     }
     var body: some View {
         let depth = max(2, Int(size / 6))
